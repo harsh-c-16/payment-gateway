@@ -1,4 +1,4 @@
-name: P1 offline checks
+name: P1 and P2 offline checks
 on: [push, pull_request]
 permissions:
   contents: read
@@ -15,13 +15,10 @@ jobs:
           version: "0.10.8"
           python-version: "3.11"
       - run: uv sync --locked
-      - run: uv run --locked ruff check projectctl tests/projectctl benchmarks/manual/verify_p1.py
-      - run: uv run --locked ruff format --check projectctl tests/projectctl benchmarks/manual/verify_p1.py
-      - run: uv run --locked python -m projectctl.schemas --check
-      - run: uv run --locked python -m pytest tests/projectctl -q --junitxml=artifacts/p1-tests.xml
+      - run: uv run --locked python benchmarks/manual/verify_p2.py
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: p1-offline-${{ matrix.os }}
+          name: p2-offline-${{ matrix.os }}
           path: artifacts/
           if-no-files-found: warn

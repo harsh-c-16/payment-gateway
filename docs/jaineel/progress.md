@@ -17,7 +17,7 @@
 |---|---|---|---|---|---|
 | **P0** | Team repository scaffold and governance | Setup / Prompt 0 | real verified (local scaffold) | `jaineel/j01-foundation` | local files/Git |
 | **P1** | Python tooling, CLI/config/artifact foundation | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-foundation` | Python 3.11; explicit adapter doubles |
-| **P2** | Conversation contract, clients, explicit stubs | J01 | not started | — | — |
+| **P2** | Conversation contract, clients, explicit stubs | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-contracts` | 89 contract tests + 110 P1 regressions; explicit HTTP/SSE doubles |
 | **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | not started | — | — |
 | **P4** | Open-loop workload generation & experiment lifecycle | J02 | not started | — | — |
 | **P5** | Telemetry, raw collectors, dashboard | J03 | not started | — | — |
@@ -134,15 +134,70 @@ The default uv cache required access outside the sandbox. Installation/lock comm
 ---
 
 ### Milestone P2: Conversation Contracts, Clients, and Stubs
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J01
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** Awaiting provider contracts from Harsh (M2 catalog), Aditya (M3 orders), Vichitr (M4 events).
-- **Next Action:** Implement contracts/http/conversation.yaml, client adapters, and test doubles.
+
+- **State:** stub verified; the P2 offline checkpoint is complete. Real provider integration is `NOT_RUN`; G0 remains incomplete. The stopped-provider check uses real TCP transport and proves failure without fallback, not a successful integration.
+- **Branch/base:** `jaineel/j01-contracts` / `bca313f426de37982d986209f1763eaf399a893d` (P1 commit on local `jaineel/j01-foundation`). Working tree was clean at entry. This is a dependent local branch; no PR merge is assumed. No commit or push performed.
+- **Brief scope:** J01/P2 only: contracts, consumer clients, explicit doubles and contract inventory. No P3 independent dataset/quality oracle, scheduler, persistence, workflow, business service or benchmark was implemented.
+- **Authority read:** `AGENTS.md`, ownership, this progress file, personal brief J01, playbook P2; context technology/ownership/G0; common §§2–6/11.4/15 and Appendix A; evaluation §§2–4/7/9; dataset §§4–7; runbook §§1–4/7.
+
+**Changed paths and purpose**
+
+- `contracts/http/conversation.yaml`, `shared/contracts/conversation.py`, `projectctl/conversation_contract.py`: generated OpenAPI 3.1 for all six conversation/cart operations plus health/metrics declarations; strict M1 DTOs, version/quantity bounds, unique SKU lines, nullable display prices, explicit checkout confirmation. External catalogue and transaction schema references remain unresolved pending the owners' files.
+- `shared/contracts/common.py`: coordinated initial neutral `RequestContext`, errors, UUID/UTC/strict money primitives and context-to-header mapping. No catalogue, quote, transaction or event DTO was defined. Header bindings not specified in common §2 are explicitly proposed for review.
+- `services/conversation/{clients,provider_contracts}.py`: bounded real HTTP/SSE adapters and endpoint registry; catalogue search/product/facets/quote, Orders create/status/SSE and analytics manifest/Gold/receipt/quarantine/replay interfaces. Stable context/key/body on retries, overall monotonic deadlines, unknown mutation outcome on transport failure, bounded JSON/SSE buffers and explicit reconnect cursor. Provider schemas are consumed directly from merged local OpenAPI; real mode cannot inject a mock transport or provisional schema binding.
+- `projectctl/contract_checks.py`, `projectctl/providers.py`: register the real offline `contracts check --all` inventory. Report absent HTTP/DTO/schema/library/health handoffs by owner and endpoint, check local conversation generation, and validate examples against provider schemas when present. Missing handoffs exit 4; incompatible examples exit 3. Presence is not runtime readiness or G0 proof.
+- `contracts/fixtures/p2/{pairs.json,README.md}`, `tests/contracts/{__init__,conftest,doubles,provisional,probe,test_clients,test_contracts}.py`: 23 explicitly provisional synthetic wire examples; schemas/doubles only in tests; contract, transport, negative-corruption, owner-schema binding/drift, stopped-provider, deadline, conflict/lost-response and SSE checks. Windows temp/cache isolation is preserved for standalone contract tests.
+- `benchmarks/manual/verify_p2.py`, `.github/workflows/offline.yml`: reproducible nine-command offline checkpoint, incremental raw command evidence and combined P1/P2 CI entry point. Hosted CI was not run here.
+- `docs/jaineel/p2_contracts.md`, `services/conversation/README.md`, `projectctl/README.md`, this progress file: exact interfaces, provisional bindings, owner review and manual verification. No canonical spec, provider-owned path, dependency lock or evaluation configuration changed.
+
+**Actual commands and outcomes**
+
+All commands ran from repository root using `.\.venv\Scripts\python.exe` (CPython **3.11.15**). Bare host Python was not used for acceptance.
+
+| Command/check | Actual result |
+|---|---|
+| `uv sync --locked` | Resolved 38 packages / audited 37 installed packages; exit **0**; lock unchanged |
+| `python -m ruff check projectctl services/conversation shared/contracts tests/contracts tests/projectctl benchmarks/manual/verify_p1.py benchmarks/manual/verify_p2.py` | All checks passed; exit **0** |
+| Same paths with `python -m ruff format --check` | **31 files already formatted**; exit **0** |
+| `python -m projectctl.schemas --check` | Four P1 evaluation schemas current; exit **0** |
+| `python -m projectctl.conversation_contract --check` | Owned OpenAPI current, external provider references pending review; exit **0** |
+| `python -m pytest tests/contracts -q --tb=short` | Earlier P2-only run: **81 passed in 9.64 s**, exit **0**; later boundary/dialect regressions were added and are included in the final combined result below |
+| `python -m pytest tests/contracts tests/projectctl -q --tb=short -W error::pytest.PytestCacheWarning --junitxml=artifacts/p2/5bfb3022-9ce7-4bb1-a1f5-c638e174fafb/pytest.xml` | Final: **199 passed in 19.41 s** (**89 P2 + 110 P1**), exit **0**, no skips/warnings |
+| `python -m tests.contracts.probe --out artifacts/p2/5bfb3022-9ce7-4bb1-a1f5-c638e174fafb` | **23** stub wire pairs saved; **2** intentional corruptions rejected; real stopped-provider dependency failure observed; exit **0** |
+| `python -m projectctl contracts check --all` | Expected exit **4**; explicit missing Harsh/Aditya/Vichitr handoffs; all metrics null/`NOT_RUN` |
+| `python benchmarks/manual/verify_p2.py` | Exit **0**, **9/9 expected outcomes matched**; checkpoint `stub verified`, G0 `INCOMPLETE`, real integration `NOT_RUN` |
+| `git diff --check`; `git diff --exit-code -- docs/specs uv.lock pyproject.toml` | Both exit **0**; no whitespace errors and those shared authorities/locks unchanged |
+
+Implementation failures were fixed within P2. Initial SSE validation exposed a local-reference resolver pointing at an extracted schema instead of the OpenAPI components root. A later review found that an explicit `$schema` could make the validator accept `1.0` as an integer; validation now checks the supported dialect and preserves strict wire integer rules through inline/nullable/local-reference schemas. Targeted regression tests pass. Optional transport headers/query fields can no longer override operation identity or authorization. Assertions were retained, and no test was skipped to obtain a pass.
+
+**Saved evidence (ignored local artifacts; preserve for review)**
+
+- [Final exact commands, exits, stdout/stderr](../../artifacts/p2/5bfb3022-9ce7-4bb1-a1f5-c638e174fafb/checks.json).
+- [Final 199-test JUnit report](../../artifacts/p2/5bfb3022-9ce7-4bb1-a1f5-c638e174fafb/pytest.xml).
+- [23 inspected request/response pairs](../../artifacts/p2/5bfb3022-9ce7-4bb1-a1f5-c638e174fafb/request-response.jsonl): explicit stub mode, context/namespace/idempotency headers, exact JSON and SSE snapshots. Internal tokens are omitted.
+- [Negative corruption evidence](../../artifacts/p2/5bfb3022-9ce7-4bb1-a1f5-c638e174fafb/negative-checks.json): `returned_cout` and string `total_amount_minor` both rejected.
+- [Stopped real-provider result](../../artifacts/p2/5bfb3022-9ce7-4bb1-a1f5-c638e174fafb/real-stopped-provider.json): dependency failure, `fixture_fallback=false`, `real_integration_passed=false`.
+- [Final scope and wire review](../../artifacts/p2/5bfb3022-9ce7-4bb1-a1f5-c638e174fafb/scope-review.json): **23** changed paths, no ownership violations, no trailing whitespace, no broken links in the new/updated component handoff documentation; saved inspections of catalogue, quote, Orders, analytics and SSE pairs.
+- [Missing-contract manifest](../../artifacts/projectctl/f14bf1d1-7f3a-4ecc-8204-a4da7df71cf1/manifest.json) and [summary](../../artifacts/projectctl/f14bf1d1-7f3a-4ecc-8204-a4da7df71cf1/summary.json): full owner/endpoint reasons, exit 4, unknown correctness and null performance values.
+- Earlier green [191-test checkpoint](../../artifacts/p2/83d6db3b-09d1-4ee3-85f4-383ee837f09e/checks.json) remains preserved; the final result supersedes it after the additional boundary/dialect fixes.
+
+**Remaining dependencies and review**
+
+- **Harsh:** canonical catalogue OpenAPI/DTOs, ProductHit/ShoppingIntent/Quote schema bindings, facet dictionary/manifests and all consumed examples. Nullable facets are preserved; no fictional complete catalogue or source attribute coverage is claimed.
+- **Aditya:** transactions OpenAPI/DTOs, Orders acceptance/state/SSE contract, review of version/event framing and internal token headers, plus shared outbox handoff for later M1 persistence.
+- **Vichitr:** analytics OpenAPI/DTOs, exact receipt/quarantine pagination item/envelope schemas, event/schema/transport/local-diagnostic interfaces, infrastructure/image locks and real environment smoke evidence.
+- **Affected owners/consumers:** review the explicitly proposed namespace/request/session/trace header names, OpenAPI 3.1/local schema binding, missing model-latency representation and other underspecified details in [the P2 binding table](p2_contracts.md#review-required-before-g0-or-real-compatibility-claims). No approval or owner review is assumed, and no message was sent on the user's behalf.
+- **G0 and later gates:** full dataset/profile/dictionaries, environment locks/smoke and provider compatibility remain incomplete. All real business integration, actual performance and live-model results remain `NOT_RUN`. Stop before P3.
+
+**Concrete manual verification**
+
+1. From repository root, run `uv sync --locked`, activate `.venv`, and verify `python --version` is 3.11. Run `python -m pytest tests/contracts -q`; expect **89 passed**. Run `python -m projectctl.conversation_contract --check`; expect exit 0.
+2. Run `python benchmarks/manual/verify_p2.py`. Inspect the printed new evidence directory's `checks.json`/`pytest.xml`; expect **9/9** expected outcomes and **199 tests passed**. This is an offline/stub checkpoint.
+3. Inspect one catalogue, Orders, analytics and SSE pair in `request-response.jsonl`. Quote total is integer **39900** although display price is **37900**; missing source facets/unknown stock remain explicit null; context, namespace and stable keys are visible.
+4. Inspect `negative-checks.json` and `real-stopped-provider.json`. Both corruptions must be rejected; real mode must report dependency failure without a fixture. Repeat only the TCP check with `python -m pytest tests/contracts/test_clients.py::test_real_mode_stopped_provider_never_returns_fixture -q`.
+5. Run `python -m projectctl contracts check --all`, then inspect `$LASTEXITCODE` immediately. Expect **4** while providers are absent; inspect the saved owner/path reasons. Obtain the owners' review from the binding table, rerun after canonical files merge, and keep G0 incomplete until its real data/environment evidence exists.
+
+**Next action:** stop at P2. P3 is still not started. Changes remain uncommitted and unpushed.
 
 ---
 

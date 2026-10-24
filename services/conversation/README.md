@@ -1,9 +1,17 @@
-# Conversation Service (M1)
+# Conversation service (M1)
 
-**Owner:** Jaineel Vora (B24CM1080)  
-**Specification Brief:** [04_JAINEEL_VORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/04_JAINEEL_VORA.md)  
-**Contract Authority:** [contracts/http/conversation.yaml](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/contracts/http/conversation.yaml) & [02_COMMON_SPEC.md §4](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/02_COMMON_SPEC.md#L127-L160)  
-**Database:** `conversation_db` (Isolated schema and write credentials)
+Owner: Jaineel Vora (B24CM1080). Authority:
+[personal brief](../../docs/specs/04_JAINEEL_VORA.md),
+[common specification](../../docs/specs/02_COMMON_SPEC.md), and
+[conversation OpenAPI](../../contracts/http/conversation.yaml).
 
-## Scope
-Maintains shopping sessions, shopping carts, idempotent cart operations, and the agentic shopping assistant workflow. Communicates via HTTP clients with Catalogue (M2) and Orders (M3) services. Emits session events via the shared outbox library.
+P2 supplies the contract, owned DTOs and consumer HTTP/SSE adapters.
+Provider schemas remain external, with provisional examples/doubles restricted to
+fixtures/tests. Real mode uses real HTTP and cannot fall back to those examples.
+No running session/cart service, database migration, outbox or workflow is supplied
+at this checkpoint; those belong to P6/P7.
+
+Run `python -m pytest tests/contracts -q` and
+`python benchmarks/manual/verify_p2.py` from repository root.
+See [P2 handoffs and manual checks](../../docs/jaineel/p2_contracts.md) for usage,
+deadline/retry policy, unresolved bindings and evidence interpretation.

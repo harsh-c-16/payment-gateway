@@ -1,0 +1,964 @@
+openapi: 3.1.0
+info:
+  title: Conversation API
+  version: 1.0.0
+  description: P2 contract only. External provider schemas and proposed identity header
+    bindings require G0 review. No running service is implied.
+servers:
+- url: http://conversation:8001
+paths:
+  /v1/sessions:
+    post:
+      operationId: create_session
+      parameters:
+      - name: X-Namespace
+        in: header
+        required: true
+        schema: &id001
+          type: string
+          minLength: 1
+      - name: X-Run-ID
+        in: header
+        required: true
+        schema: &id002
+          type: string
+          minLength: 1
+      - name: X-User-ID
+        in: header
+        required: true
+        schema: &id003
+          type: string
+          minLength: 1
+      - name: X-Correlation-ID
+        in: header
+        required: true
+        schema: &id004
+          type: string
+          minLength: 1
+      - name: X-Request-ID
+        in: header
+        required: true
+        schema: &id005
+          type: string
+          minLength: 1
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '201':
+          description: Accepted contract response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionCreated'
+        '400':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              maxProperties: 0
+  /v1/sessions/{session_id}/turns:
+    post:
+      operationId: submit_turn
+      parameters:
+      - name: X-Namespace
+        in: header
+        required: true
+        schema: *id001
+      - name: X-Run-ID
+        in: header
+        required: true
+        schema: *id002
+      - name: X-User-ID
+        in: header
+        required: true
+        schema: *id003
+      - name: X-Correlation-ID
+        in: header
+        required: true
+        schema: *id004
+      - name: X-Request-ID
+        in: header
+        required: true
+        schema: *id005
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '200':
+          description: Accepted contract response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnResponse'
+        '400':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnRequest'
+  /v1/carts/{cart_id}:
+    get:
+      operationId: get_cart
+      parameters:
+      - name: X-Namespace
+        in: header
+        required: true
+        schema: *id001
+      - name: X-Run-ID
+        in: header
+        required: true
+        schema: *id002
+      - name: X-User-ID
+        in: header
+        required: true
+        schema: *id003
+      - name: X-Correlation-ID
+        in: header
+        required: true
+        schema: *id004
+      - name: X-Request-ID
+        in: header
+        required: true
+        schema: *id005
+      - name: cart_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Accepted contract response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartSnapshot'
+        '400':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/carts/{cart_id}/items/{sku}:
+    put:
+      operationId: update_cart
+      parameters:
+      - name: X-Namespace
+        in: header
+        required: true
+        schema: *id001
+      - name: X-Run-ID
+        in: header
+        required: true
+        schema: *id002
+      - name: X-User-ID
+        in: header
+        required: true
+        schema: *id003
+      - name: X-Correlation-ID
+        in: header
+        required: true
+        schema: *id004
+      - name: X-Request-ID
+        in: header
+        required: true
+        schema: *id005
+      - name: cart_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: sku
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[!-~]{1,64}$
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '200':
+          description: Accepted contract response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CartSnapshot'
+        '400':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartUpdateRequest'
+  /v1/carts/{cart_id}/quote:
+    post:
+      operationId: quote_cart
+      parameters:
+      - name: X-Namespace
+        in: header
+        required: true
+        schema: *id001
+      - name: X-Run-ID
+        in: header
+        required: true
+        schema: *id002
+      - name: X-User-ID
+        in: header
+        required: true
+        schema: *id003
+      - name: X-Correlation-ID
+        in: header
+        required: true
+        schema: *id004
+      - name: X-Request-ID
+        in: header
+        required: true
+        schema: *id005
+      - name: cart_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '201':
+          description: Accepted contract response
+          content:
+            application/json:
+              schema:
+                $ref: catalog.yaml#/components/schemas/Quote
+        '400':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CartQuoteRequest'
+  /v1/carts/{cart_id}/checkout:
+    post:
+      operationId: checkout_cart
+      parameters:
+      - name: X-Namespace
+        in: header
+        required: true
+        schema: *id001
+      - name: X-Run-ID
+        in: header
+        required: true
+        schema: *id002
+      - name: X-User-ID
+        in: header
+        required: true
+        schema: *id003
+      - name: X-Correlation-ID
+        in: header
+        required: true
+        schema: *id004
+      - name: X-Request-ID
+        in: header
+        required: true
+        schema: *id005
+      - name: cart_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '202':
+          description: Accepted contract response
+          content:
+            application/json:
+              schema:
+                $ref: transactions.yaml#/components/schemas/OrderAccepted
+        '400':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error; never a success-shaped fallback
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CheckoutRequest'
+  /health/live:
+    get:
+      responses:
+        '200':
+          description: Healthy
+        '503':
+          description: Unavailable
+  /health/ready:
+    get:
+      responses:
+        '200':
+          description: Healthy
+        '503':
+          description: Unavailable
+  /metrics:
+    get:
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    ErrorBody:
+      additionalProperties: false
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          title: Message
+          type: string
+        retryable:
+          title: Retryable
+          type: boolean
+        details:
+          additionalProperties:
+            anyOf:
+            - type: string
+            - items:
+                type: string
+              type: array
+          title: Details
+          type: object
+      required:
+      - code
+      - message
+      - retryable
+      - details
+      title: ErrorBody
+      type: object
+    ErrorCode:
+      enum:
+      - BAD_REQUEST
+      - UNAUTHORIZED
+      - FORBIDDEN
+      - NOT_FOUND
+      - IDEMPOTENCY_CONFLICT
+      - CART_VERSION_CONFLICT
+      - QUOTE_EXPIRED
+      - PRODUCT_NOT_SELLABLE
+      - OUT_OF_STOCK
+      - RESERVATION_EXPIRED
+      - ALREADY_COMMITTED
+      - ILLEGAL_STATE
+      - VALIDATION_ERROR
+      - UNSUPPORTED_CURRENCY
+      - UNSUPPORTED_FILTER
+      - RATE_LIMITED
+      - DEPENDENCY_UNAVAILABLE
+      - STORAGE_UNAVAILABLE
+      title: ErrorCode
+      type: string
+    ErrorResponse:
+      additionalProperties: false
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+        correlation_id:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Correlation Id
+          type: string
+      required:
+      - error
+      - correlation_id
+      title: ErrorResponse
+      type: object
+    SessionCreated:
+      additionalProperties: false
+      properties:
+        session_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Session Id
+          type: string
+        cart_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Cart Id
+          type: string
+        cart_version:
+          maximum: 0
+          minimum: 0
+          title: Cart Version
+          type: integer
+      required:
+      - session_id
+      - cart_id
+      - cart_version
+      title: SessionCreated
+      type: object
+    TurnRequest:
+      additionalProperties: false
+      properties:
+        request_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Request Id
+          type: string
+        text:
+          maxLength: 2000
+          title: Text
+          type: string
+        mode:
+          default: fixed
+          enum:
+          - fixed
+          - assist
+          title: Mode
+          type: string
+      required:
+      - request_id
+      - text
+      title: TurnRequest
+      type: object
+    JsonValue: {}
+    TurnTimings:
+      additionalProperties: false
+      properties:
+        parse:
+          minimum: 0
+          title: Parse
+          type: number
+        llm:
+          anyOf:
+          - minimum: 0
+            type: number
+          - type: 'null'
+          title: Llm
+        search:
+          minimum: 0
+          title: Search
+          type: number
+        compose:
+          minimum: 0
+          title: Compose
+          type: number
+        total:
+          minimum: 0
+          title: Total
+          type: number
+      required:
+      - parse
+      - llm
+      - search
+      - compose
+      - total
+      title: TurnTimings
+      type: object
+    TurnResponse:
+      additionalProperties: false
+      properties:
+        turn_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Turn Id
+          type: string
+        response_text:
+          title: Response Text
+          type: string
+        intent:
+          anyOf:
+          - $ref: catalog.yaml#/components/schemas/ShoppingIntent
+          - type: 'null'
+        search_id:
+          anyOf:
+          - format: uuid
+            pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+            type: string
+          - type: 'null'
+          title: Search Id
+        products:
+          items:
+            $ref: catalog.yaml#/components/schemas/ProductHit
+          maxItems: 20
+          title: Products
+          type: array
+        proposed_action:
+          anyOf:
+          - additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          - type: 'null'
+          title: Proposed Action
+        outcome:
+          enum:
+          - success
+          - clarification
+          - dependency_error
+          title: Outcome
+          type: string
+        extractor_source:
+          enum:
+          - rules
+          - llm
+          - clarification
+          title: Extractor Source
+          type: string
+        llm_call_count:
+          maximum: 1
+          minimum: 0
+          title: Llm Call Count
+          type: integer
+        timings_ms:
+          $ref: '#/components/schemas/TurnTimings'
+      required:
+      - turn_id
+      - response_text
+      - intent
+      - search_id
+      - products
+      - proposed_action
+      - outcome
+      - extractor_source
+      - llm_call_count
+      - timings_ms
+      title: TurnResponse
+      type: object
+    CartLine:
+      additionalProperties: false
+      properties:
+        sku:
+          pattern: ^[!-~]{1,64}$
+          title: Sku
+          type: string
+        quantity:
+          maximum: 10
+          minimum: 1
+          title: Quantity
+          type: integer
+        display_price_minor:
+          anyOf:
+          - maximum: 9223372036854775807
+            minimum: 0
+            type: integer
+          - type: 'null'
+          title: Display Price Minor
+      required:
+      - sku
+      - quantity
+      - display_price_minor
+      title: CartLine
+      type: object
+    CartSnapshot:
+      additionalProperties: false
+      properties:
+        cart_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Cart Id
+          type: string
+        session_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Session Id
+          type: string
+        user_id:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: User Id
+          type: string
+        version:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Version
+          type: integer
+        lines:
+          items:
+            $ref: '#/components/schemas/CartLine'
+          maxItems: 20
+          title: Lines
+          type: array
+        updated_at:
+          format: date-time
+          pattern: (Z|\+00:00)$
+          title: Updated At
+          type: string
+      required:
+      - cart_id
+      - session_id
+      - user_id
+      - version
+      - lines
+      - updated_at
+      title: CartSnapshot
+      type: object
+    CartUpdateRequest:
+      additionalProperties: false
+      properties:
+        quantity:
+          maximum: 10
+          minimum: 0
+          title: Quantity
+          type: integer
+        expected_cart_version:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Expected Cart Version
+          type: integer
+      required:
+      - quantity
+      - expected_cart_version
+      title: CartUpdateRequest
+      type: object
+    CartQuoteRequest:
+      additionalProperties: false
+      properties:
+        expected_cart_version:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Expected Cart Version
+          type: integer
+      required:
+      - expected_cart_version
+      title: CartQuoteRequest
+      type: object
+    CheckoutRequest:
+      additionalProperties: false
+      properties:
+        quote_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Quote Id
+          type: string
+        expected_cart_version:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Expected Cart Version
+          type: integer
+        confirmed:
+          type: boolean
+          const: true
+        confirmation_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Confirmation Id
+          type: string
+      required:
+      - quote_id
+      - expected_cart_version
+      - confirmed
+      - confirmation_id
+      title: CheckoutRequest
+      type: object

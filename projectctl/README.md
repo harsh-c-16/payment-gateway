@@ -91,7 +91,15 @@ resource totals and path confinement. JSON canonicalization sorts keys, preserve
 arrays, encodes UTF-8 and rejects nonfinite numbers. Manifest content hashes exclude
 their own `content_sha256`; raw file/lock hashes cover exact bytes.
 
-P2 implements conversation/provider contracts. P3 supplies fixtures/oracles. P4
+P2 now registers the offline `contracts check --all` inventory. It checks the
+conversation OpenAPI and exposes missing provider paths/endpoints, shared libraries
+and schema handoffs. Expected exit remains 4 until those dependencies arrive.
+Merged provider schemas automatically validate the provisional consumer examples;
+compatibility corruption exits 3. This check does not assert service readiness or G0.
+See [P2 bindings and evidence](../docs/jaineel/p2_contracts.md) and run
+`python benchmarks/manual/verify_p2.py` for the combined P1/P2 checkpoint.
+
+P3 supplies independent dataset/quality fixtures and oracles. P4
 supplies scheduling, matrix expansion/resume and random paired execution.
 No real environment, exact-file data, live-model or performance gate has run at P1.
 

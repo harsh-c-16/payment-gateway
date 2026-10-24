@@ -75,6 +75,9 @@ class ProviderRegistry:
 
 
 def default_registry() -> ProviderRegistry:
-    # Owners add explicit production registrations here when their adapters are reviewed.
-    # Until then, every production action remains visibly unavailable.
-    return ProviderRegistry()
+    from projectctl.contract_checks import check
+
+    registry = ProviderRegistry()
+    registry.register("contracts check", check)
+    # Other actions still require their owners' explicit production registrations.
+    return registry
