@@ -18,7 +18,7 @@
 | **P0** | Team repository scaffold and governance | Setup / Prompt 0 | real verified (local scaffold) | `jaineel/j01-foundation` | local files/Git |
 | **P1** | Python tooling, CLI/config/artifact foundation | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-foundation` | Python 3.11; explicit adapter doubles |
 | **P2** | Conversation contract, clients, explicit stubs | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-contracts` | 89 contract tests + 110 P1 regressions; explicit HTTP/SSE doubles |
-| **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | not started | — | — |
+| **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | stub verified (offline checkpoint; real source assertions verified) | `jaineel/j01-oracles` | 76 P3 + 199 P1/P2 tests; explicit evidence doubles |
 | **P4** | Open-loop workload generation & experiment lifecycle | J02 | not started | — | — |
 | **P5** | Telemetry, raw collectors, dashboard | J03 | not started | — | — |
 | **P6** | Durable sessions, cart, and idempotency | J04 | not started | — | — |
@@ -202,15 +202,83 @@ Implementation failures were fixed within P2. Initial SSE validation exposed a l
 ---
 
 ### Milestone P3: Independent Fixtures, Oracle, and Metric Math
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J01 + early J06
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** None (uses independent fixtures and raw CSV).
-- **Next Action:** Build reconciliation math, quantiles, and offline oracle validation.
+
+- **State:** stub verified for the offline P3 checkpoint; real independent CSV identity/count assertions verified locally. This is not a real provider, D-01/D-02 full gate, D-05 workflow or G0 pass. Draft label review is pending; integration, wire materialization and performance remain `NOT_RUN`.
+- **Branch/base:** `jaineel/j01-oracles` / `a48ef864f148c4f5724844f1b77d957035fcad8c` (`convo contracts`, the user's P2 commit). The working tree was clean at entry. This is a dependent local feature branch; no upstream PR merge is assumed. No P3 commit or push was performed.
+- **Scope:** J01 + early J06/P3 only. Read AGENTS, ownership, progress, personal brief, playbook P3, context technology/ownership, common event/money/inventory/ledger/Gold rules, dataset §§2–7, evaluation §§2/5/7/9 and runbook §§3/4/6/7. P4 scheduling, services, reducers, provider normalization, real evaluation cases and comparison/report execution remain outside this change.
+
+**Changed paths and purpose**
+
+- `benchmarks/{dataset_checks,quality,fixtures,metrics,reconciliation}.py`: read-only exact-source assertions, deterministic W-QUALITY logical expectations, immutable fixture bundles, nearest-rank/cohort/F1 helpers and independent reconciliation. No catalogue normalizer, operational producer or reducer is imported or implemented.
+- `contracts/fixtures/catalog/dirty_catalogue.json`, `contracts/fixtures/assistant/scenarios.json`, `contracts/fixtures/quality/adversarial.json`, `contracts/fixtures/P3_README.md`: 33 authored synthetic dirty cases covering the 13 required families, 60 draft assistant scenarios and separate identity-collision cases. Expected projections are literal and independent of provider outputs. Catalogue bindings/relevance labels remain null; human review is explicitly pending.
+- `projectctl/fixture_adapter.py`, `projectctl/providers.py`: register only the offline `fixtures build` action. It writes logical expectations and source-check evidence into a fresh bundle, leaves metrics null/`NOT_RUN` and never runs a provider or model. Config template/dictionary hashes are not silently frozen from unreviewed fixtures.
+- `tests/oracles/{__init__,conftest,doubles,draft_fixtures,probe,test_dataset,test_reconciliation}.py`, `tests/benchmarks/{conftest,test_fixtures,test_metrics,test_pytest_cache}.py`: explicit evidence doubles, 23 deliberate corruption cases, immutable-input checks, draft-fixture structure/hash checks, checksum ordering, price arithmetic and hand-computed metric tests. Standalone tests retain Windows temp/cache isolation.
+- `tests/projectctl/conftest.py`, `tests/contracts/conftest.py` and the new oracle/benchmark conftests: precreate the configured cache destination, avoiding a reproduced Windows/OneDrive cache-directory rename failure while preserving explicit cache/temp overrides and treating cache warnings as errors. No ACLs or existing evidence were changed.
+- `benchmarks/manual/verify_p3.py`, `.github/workflows/offline.yml`: ten-command evidence collector, incremental preservation of command failures/timeouts, P1–P3 CI entry point. Hosted CI was not executed here.
+- `docs/jaineel/p3_oracles.md`, `benchmarks/README.md`, `projectctl/README.md`, this progress file: detailed projection/binding limits, manual review and checkpoint commands. Canonical specifications, provider DTO/modules, `uv.lock`, `pyproject.toml` and evaluation config remain unchanged.
+
+**Actual commands and outcomes**
+
+All Python acceptance commands used `.\.venv\Scripts\python.exe`, CPython **3.11.15**, from repository root.
+
+| Command/check | Actual result |
+|---|---|
+| `Get-FileHash data/raw/flipkart_com-ecommerce_sample.csv -Algorithm SHA256` | Exact file08 SHA **56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1** |
+| `uv sync --locked` | Resolved **38**, audited **37** packages; exit **0**, lock unchanged |
+| `python -m tests.oracles.draft_fixtures` | Created the small authored JSON fixtures; exit **0**. Regeneration is not human/provider approval |
+| `python -m pytest tests/oracles tests/benchmarks -q --tb=short` | Initial **65 passed in 10.24 s**, exit **0**; additional review regressions are included below |
+| `python -m pytest tests/oracles tests/benchmarks tests/projectctl tests/contracts -q --tb=short -W error::pytest.PytestCacheWarning` | Intermediate **267 passed in 27.69 s**, exit **0** |
+| `python -m ruff check` on all P1–P3 owned source/test/collector paths listed in the checkpoint | All checks passed; exit **0** |
+| Same paths with `python -m ruff format --check` | **49 files already formatted**; exit **0** |
+| `python -m projectctl.schemas --check`; `python -m projectctl.conversation_contract --check` | All evaluation and conversation schemas current; both exit **0** |
+| `python -m pytest tests/projectctl tests/contracts tests/oracles tests/benchmarks -q --tb=short -W error::pytest.PytestCacheWarning --junitxml=artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/pytest.xml` | Final **275 passed in 35.05 s** (**76 P3 + 199 P1/P2**); exit **0**, no skips/warnings |
+| `python -m tests.oracles.probe --out artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b` | **23/23** corruptions detected for the intended reason; tiny math/source checks pass; exit **0** |
+| `python -m projectctl fixtures build --config configs/evaluation.yaml --seed 42` | Exit **0**; **100,000** logical W-QUALITY expectations, **60** unfrozen assistant drafts, source assertions `PASS`; no wire/API/Kafka/model execution |
+| `python -m projectctl contracts check --all` | Expected exit **4**; missing provider contracts remain visible; G0 incomplete |
+| `python benchmarks/manual/verify_p3.py` | Final exit **0**, **10/10 expected outcomes matched**; real integration `NOT_RUN`, human label review `PENDING` |
+| `git diff --check`; `git diff --exit-code -- docs/specs uv.lock pyproject.toml configs` | Both exit **0**; authorities/locks/config unchanged |
+
+Initial lint failures were corrected without ignoring rules. Review regressions additionally ensure duplicate reservation lines cannot hide behind dictionary comparison, simultaneous pending/success payment attempts fail, invented replenishment cannot mask stock loss, malformed IDs fail visibly and a quiesced payment cannot remain successful/unreversed. No assertion was removed or test skipped to obtain a pass.
+
+A later checkpoint completed its assertions but failed session finalization with `WinError 5` while pytest renamed a temporary cache directory under OneDrive. The configured cache leaf is now created directly before the plugin initializes. `python -m pytest tests/benchmarks/test_pytest_cache.py tests/projectctl/test_pytest_workspace.py -q --tb=short -W error::pytest.PytestCacheWarning` passed **6 tests in 6.00 s**, including forced denied-rename doubles for all four standalone suites and the existing unusable-temp/explicit-override cases. The final full checkpoint then passed all **275** tests. Cache warnings remain errors; failed raw evidence was preserved.
+
+**Verified facts and limits**
+
+- The exact CSV is now present locally. Checksum acceptance precedes every exact-count assertion. Observed **20,000 × 15**, **20,000 unique observations**, **19,998 canonical listings**, **19,920 priced candidates + 78 inactive + 2 superseded + 0 mandatory rejections**, **323 unknown categories**. Retained observations are rows **3189/7770** with their file08 uniq_ids; superseded rows **9420/7723**. No stock is inferred. Provider normalization, normalized business digest and conservative facet coverage—including the four usable apparel sizes—remain `NOT_RUN`.
+- W-QUALITY independently determines valid logical IDs, preceding duplicate targets and ten named 50-record invalid subcases. It conserves **98,500 + 1,000 + 500 = 100,000** without reading provider output. Logical IDs/content hashes are not runtime UUIDs/wire hashes. Fresh run identity, real SKU mapping, source coordinates and byte-identical SDK materialization are later handoffs.
+- Nearest-rank p50/p95/p99 for **10,20,30,40,100 ms** is **30/100/100 ms**. Next-offset lag **25−20=5**; **100→80 ms** is **20% reduction**; **100→125/s** is **25% gain**. No timing sample yields null/incomplete. These are fixture arithmetic results, not SUT performance measurements.
+- Rates distinguish physical offers/acknowledgements from unique valid active-Gold goodput, exclude warm-up/drain-only completions, retain unresolved/unknown/missing admission counts and reject incompatible clocks. Missing receipts cannot become a measured zero-admission claim. Wrong non-null slot values count as FP+FN; true-null labels do not inflate F1; all six original slots are fixed and unlabelled slots are explicitly excluded.
+- All 60 assistant scenarios and all seven groups are drafted for review. Every original slot has at least ten positive draft labels, including **16 occasion labels**. Manual representative inspection corrected clear paraphrases that had initially been marked for clarification; clear requests now expect search/honest no-results with zero fallback calls, while ambiguous requests retain clarification. Labels remain unfrozen; no reviewed F1, NDCG, real extraction, provider-token usage or model latency is claimed. No relevance ground truth was generated.
+- Oracle tests use explicit evidence doubles only. Reconciliation checks source/Silver/active-Gold membership, generations, content and business totals; quote/identity consistency; signed ledger and duplicate-debit effects even after reversal; payment/guard states; reservations and inventory conservation. It never repairs state. Real-mode evidence remains incomplete until approved audit/active-file export bindings exist.
+
+**Evidence (ignored local artifacts; preserve for review)**
+
+- [Final exact commands/stdout/stderr/exits](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/checks.json), [275-test JUnit report](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/pytest.xml).
+- [Real independent source assertions](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/dataset_checks.json), [hand-computed math](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/tiny_math.json).
+- [Clean explicit evidence double](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/oracle_clean.json), [23 corruptions and actual failure reasons](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/oracle_corruptions.json).
+- [Raw dirty input/expected review examples](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/fixture_review.json), [representative draft groups](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/assistant_review_samples.json).
+- [Fixture bundle index](../../benchmarks/results/fixtures/122d0031-99c8-4542-a4bc-1fbeaaec6ace/fixture_index.json), [W-QUALITY manifest](../../benchmarks/results/fixtures/122d0031-99c8-4542-a4bc-1fbeaaec6ace/w_quality_manifest.json), [invalid subcase recipe](../../benchmarks/results/fixtures/122d0031-99c8-4542-a4bc-1fbeaaec6ace/quality_recipe.json). The large expectation JSONL remains beside them, ignored by Git.
+- [Fixture CLI run manifest](../../benchmarks/results/122d0031-99c8-4542-a4bc-1fbeaaec6ace/manifest.json), [missing-provider summary](../../artifacts/projectctl/06df556b-da90-45c1-850b-530caf4e3c14/summary.json). Performance values remain null/`NOT_RUN`.
+- Earlier [268-test checkpoint](../../artifacts/p3/cf8996f3-4a5a-429f-b744-c90118277302/checks.json) is retained; final evidence supersedes it after boundary regressions.
+- The [failed lint checkpoint](../../artifacts/p3/add86698-4b2e-4ba5-a79c-f447400036c1/checks.json) and [Windows cache-rename failure](../../artifacts/p3/8638cbf0-0a58-4050-8142-78be817ae764/checks.json) remain preserved. Both failures were fixed before the final accepted run.
+- [Final scope and representative review](../../artifacts/p3/fedd90fe-be74-45fe-b1da-e65552c7f33b/scope_review.json): **30** changed paths, no ownership violations, trailing whitespace, broken new documentation links or forbidden producer/reducer imports. Four dirty examples and all seven draft scenario groups were inspected; human label review remains pending.
+
+**Remaining handoffs**
+
+- **Harsh:** reviewed dirty-field/issue projections, canonical normalized business digest, dictionary/SKU/facet manifests, real size-SKU bindings, human review of draft intent labels and manually judged retrieval pools. Independent source assertions do not prove his importer passes D-01/D-02/D-03.
+- **Aditya:** approved read-only order/quote/reservation/stock/payment/guard/signed-ledger exports and audit provenance. No real inventory race, response-loss recovery or cancellation gate was executed.
+- **Vichitr:** canonical event SDK/schema/registry and exact invalid-wire examples; source-coordinate disposition exports, active-file/receipt membership proofs, generation/hash/query row bindings and infrastructure locks. W-QUALITY has not been emitted to Kafka or reconciled against real Silver/Gold.
+- **Jaineel later milestones:** bind reviewed real exports before lifting the real-mode incomplete gate; freeze labels only after actual human review; implement scheduling/lifecycle in P4. `benchmark reconcile`, comparison/report execution and the real D/T suites remain later work. G0 remains incomplete.
+
+**Concrete manual verification and suggested commit**
+
+1. From `payment-gateway/`, run `uv sync --locked` and `uv run --locked python -m pytest tests/oracles tests/benchmarks -q`; expect **76 passed** with the present P3 tree.
+2. Run `uv run --locked python benchmarks/manual/verify_p3.py`; inspect the printed evidence directory's `checks.json`/`pytest.xml`. Expect **10/10** matched outcomes and **275 tests passed**. Missing provider contracts exit 4 as an expected dependency condition.
+3. Inspect `tiny_math.json`, `fixture_review.json`, `oracle_corruptions.json` and `dataset_checks.json`. Check the exact examples/counts above and that corruptions fail for their named reason. Review all 60 source scenarios before freezing; representative samples alone do not constitute label approval.
+4. Run `uv run --locked python -m projectctl fixtures build --config configs/evaluation.yaml --seed 42`. Inspect its bundle's manifest hashes/recipe and `wire_materialization=NOT_RUN`. Do not commit the generated bundle, raw CSV or evidence directories.
+5. Review `git status --short`, `git diff --check` and the complete intended source diff. Suggested message: **`feat: implement P3 fixtures, oracle and metric helpers`**. Stage only the owned/coordinated P3 paths listed above; run `git diff --cached --check` and `git diff --cached --stat` before committing. No Git commit/push command was executed by this task.
+
+**Next action:** stop at P3. P4 is not started. Changes remain uncommitted and unpushed.
 
 ---
 

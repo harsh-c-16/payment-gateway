@@ -99,7 +99,14 @@ compatibility corruption exits 3. This check does not assert service readiness o
 See [P2 bindings and evidence](../docs/jaineel/p2_contracts.md) and run
 `python benchmarks/manual/verify_p2.py` for the combined P1/P2 checkpoint.
 
-P3 supplies independent dataset/quality fixtures and oracles. P4
+P3 now registers `fixtures build` as an offline action. It writes immutable logical
+W-QUALITY expectations, dirty catalogue cases, 60 draft assistant scenarios and
+checksum-gated source assertions into a fresh fixture bundle. It runs no providers,
+broker, model or benchmark. Human review and wire/audit bindings remain pending;
+see [P3 checks and limitations](../docs/jaineel/p3_oracles.md). Reproduce with
+`python benchmarks/manual/verify_p3.py`.
+
+P4
 supplies scheduling, matrix expansion/resume and random paired execution.
 No real environment, exact-file data, live-model or performance gate has run at P1.
 

@@ -1,6 +1,7 @@
 """Only CLI tests use this isolated filesystem; no fake services enter application code."""
 
 import shutil
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -16,6 +17,11 @@ def pytest_configure(config):
     run_directory.mkdir(parents=True)
     # Configure before pytest's cache/tmp plugins initialize. Preserve explicit overrides.
     config.inicfg.setdefault("cache_dir", str(run_directory / "cache"))
+    cache = Path(config.getini("cache_dir"))
+    if not cache.is_absolute():
+        cache = config.rootpath / cache
+    # Avoid pytest's temporary-directory rename, which OneDrive can deny on Windows.
+    cache.mkdir(parents=True, exist_ok=True)
     if config.option.basetemp is None:
         config.option.basetemp = str(run_directory / "tmp")
 

@@ -1,6 +1,7 @@
 """Contract tests are offline and use only explicitly labelled doubles."""
 
 import json
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -15,6 +16,10 @@ def pytest_configure(config):
     run_directory = config.rootpath / "artifacts" / "pytest" / str(uuid4())
     run_directory.mkdir(parents=True)
     config.inicfg.setdefault("cache_dir", str(run_directory / "cache"))
+    cache = Path(config.getini("cache_dir"))
+    if not cache.is_absolute():
+        cache = config.rootpath / cache
+    cache.mkdir(parents=True, exist_ok=True)
     if config.option.basetemp is None:
         config.option.basetemp = str(run_directory / "tmp")
 

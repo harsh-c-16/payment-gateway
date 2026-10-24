@@ -1,0 +1,1234 @@
+{
+  "schema_version": 1,
+  "synthetic": true,
+  "rules_version": "flipkart-v1",
+  "purpose": "independent partial-field expectations; not normalized catalogue data",
+  "provider_comparison": "NOT_RUN",
+  "cases": [
+    {
+      "case_id": "ordinary-price",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "price_minor": 37900,
+          "retail_price_minor": 99900,
+          "active": true,
+          "currency": "INR",
+          "currency_source": "project_assumption"
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "missing-both-prices",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "",
+          "discounted_price": "",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_inactive_missing_price"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "price_minor": null,
+          "active": false,
+          "inactive_reason": "MISSING_PRICE"
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "retail-is-not-sale-fallback",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_inactive_missing_price"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "price_minor": null,
+          "active": false,
+          "inactive_reason": "MISSING_PRICE"
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "missing-pid",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "rejected_mandatory"
+        ],
+        "selected_source_ids": [],
+        "normalized_fields": {},
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "missing-title",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": " ",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "rejected_mandatory"
+        ],
+        "selected_source_ids": [],
+        "normalized_fields": {},
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "invalid-crawl-time",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "not-a-date",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "rejected_mandatory"
+        ],
+        "selected_source_ids": [],
+        "normalized_fields": {},
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "duplicate-pid-latest",
+      "input_rows": [
+        {
+          "uniq_id": "later",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        },
+        {
+          "uniq_id": "older",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2015-12-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "100",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active",
+          "superseded"
+        ],
+        "selected_source_ids": [
+          "later"
+        ],
+        "normalized_fields": {
+          "price_minor": 37900
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "latest-missing-price-no-old-fallback",
+      "input_rows": [
+        {
+          "uniq_id": "later",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        },
+        {
+          "uniq_id": "older",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2015-12-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "100",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_inactive_missing_price",
+          "superseded"
+        ],
+        "selected_source_ids": [
+          "later"
+        ],
+        "normalized_fields": {
+          "price_minor": null,
+          "active": false
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "equal-time-conflict",
+      "input_rows": [
+        {
+          "uniq_id": "a",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        },
+        {
+          "uniq_id": "b",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "380",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "rejected_mandatory",
+          "rejected_mandatory"
+        ],
+        "selected_source_ids": [],
+        "normalized_fields": {
+          "issue_codes": [
+            "SOURCE_ID_CONFLICT"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "equal-time-identical-business",
+      "input_rows": [
+        {
+          "uniq_id": "a",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        },
+        {
+          "uniq_id": "b",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "superseded",
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "b"
+        ],
+        "normalized_fields": {
+          "price_minor": 37900
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "exact-reimport",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "catalog_version_after_first": 1,
+          "catalog_version_after_repeat": 1,
+          "second_import_business_change_count": 0
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "ruby-list",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"key\"=>\"Color\", \"value\"=>\"Gray\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "colour": "grey"
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "ruby-singleton",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>{\"key\"=>\"Size\", \"value\"=>\"Medium\"}}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "size": "M",
+          "size_kind": "apparel_alpha"
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "ruby-nil",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>nil}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "size": null,
+          "colour": null,
+          "issue_codes": [
+            "SPEC_NIL"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "ruby-blank",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "size": null,
+          "colour": null,
+          "issue_codes": [
+            "SPEC_EMPTY"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "quoted-nil-arrow",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"key\"=>\"Note\", \"value\"=>\"literal nil => unchanged\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "attributes": {
+            "note": [
+              "literal nil => unchanged"
+            ]
+          }
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "executable-looking-attribute",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "__import__(\"os\").system(\"do-not-execute\")"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "price_minor": 37900,
+          "active": true,
+          "size": null,
+          "issue_codes": [
+            "SPEC_PARSE_ERROR"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "unsupported-nested-attribute",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>{\"unexpected\"=>{\"object\"=>1}}}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "price_minor": 37900,
+          "active": true,
+          "size": null,
+          "issue_codes": [
+            "SPEC_PARSE_ERROR"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "identical-repeated-key",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"key\"=>\"Color\", \"value\"=>\"Blue\"},{\"key\"=>\"Color\", \"value\"=>\"Blue\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "colour": "blue",
+          "attributes": {
+            "color": [
+              "Blue",
+              "Blue"
+            ]
+          }
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "conflicting-repeated-key",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"key\"=>\"Color\", \"value\"=>\"Blue\"},{\"key\"=>\"Color\", \"value\"=>\"Red\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "colour": null,
+          "issue_codes": [
+            "ATTRIBUTE_CONFLICT"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "unkeyed-and-missing-value",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"value\"=>\"keep me\"},{\"key\"=>\"Color\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "unkeyed_specifications": [
+            "keep me"
+          ],
+          "colour": null,
+          "issue_codes": [
+            "SPEC_UNKEYED",
+            "SPEC_VALUE_MISSING"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "compound-facets",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"key\"=>\"Fabric\", \"value\"=>\"Cotton Lycra\"},{\"key\"=>\"Color\", \"value\"=>\"Multicolor\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "material": "cotton lycra",
+          "colour": "multicolor",
+          "hard_filter_matches": {
+            "material=cotton": false,
+            "colour=blue": false
+          }
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "clothing-medium",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"key\"=>\"Size\", \"value\"=>\"Medium\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "size": "M",
+          "size_kind": "apparel_alpha"
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "unknown-one-segment-category",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Mystery listing\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "category": null,
+          "category_path_normalized": [
+            "Mystery listing"
+          ],
+          "issue_codes": [
+            "CATEGORY_UNCLASSIFIED"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "known-one-segment-sunglasses",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Sunglasses\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "category": "sunglasses",
+          "category_path_normalized": [
+            "Sunglasses"
+          ]
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "absent-size-colour-material",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "size": null,
+          "colour": null,
+          "material": null,
+          "hard_filter_matches": {
+            "size=M": false
+          }
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "baby-medium-not-apparel",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Baby Care >> Test\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"key\"=>\"Size\", \"value\"=>\"Medium\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "size": null,
+          "size_kind": null,
+          "listing_count": 1
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "unscaled-shoe-size",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Footwear >> Test\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": "{\"product_specification\"=>[{\"key\"=>\"Size\", \"value\"=>\"8\"}]}"
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "size": null,
+          "size_kind": null,
+          "listing_count": 1
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "rating-and-brand-remain-null",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "PretendBrand synthetic title",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "Synthetic catalogue fixture",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "rating": null,
+          "brand": null,
+          "seller_id": null
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "unicode-quoted-csv-cells",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Café, \"shirt\"\nsecond line",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "UTF-8 ₹ — quoted, comma\nnewline",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "canonical_active"
+        ],
+        "selected_source_ids": [
+          "obs-001"
+        ],
+        "normalized_fields": {
+          "title": "Café, \"shirt\" second line",
+          "description": "UTF-8 ₹ — quoted, comma newline",
+          "source_logical_record_number": 1
+        },
+        "import_failure": null
+      }
+    },
+    {
+      "case_id": "cell-bound",
+      "input_rows": [
+        {
+          "uniq_id": "obs-001",
+          "pid": "FIXTURE001",
+          "crawl_timestamp": "2016-01-01T00:00:00Z",
+          "product_url": "https://example.invalid/synthetic",
+          "product_name": "Synthetic listing",
+          "product_category_tree": "[\"Clothing >> Shirts\"]",
+          "retail_price": "999",
+          "discounted_price": "379",
+          "image": "[]",
+          "is_FK_Advantage_product": "false",
+          "description": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "product_rating": "No rating available",
+          "overall_rating": "No rating available",
+          "brand": "",
+          "product_specifications": ""
+        }
+      ],
+      "expected": {
+        "dispositions": [
+          "rejected_mandatory"
+        ],
+        "selected_source_ids": [],
+        "normalized_fields": {},
+        "import_failure": {
+          "reason": "INPUT_BOUND_EXCEEDED",
+          "source_row_number": 1
+        }
+      }
+    },
+    {
+      "case_id": "malformed-csv-width",
+      "input_csv": "pid,product_name\nONLY_ONE_COLUMN\n",
+      "expected": {
+        "import_failure": "CSV_STRUCTURE_ERROR",
+        "promotion_allowed": false
+      }
+    },
+    {
+      "case_id": "price-only-update",
+      "input_api_commands": [
+        {
+          "price_minor": 38000,
+          "expected_catalog_version": 1,
+          "idempotency_key": "price-one"
+        },
+        {
+          "price_minor": 38000,
+          "expected_catalog_version": 1,
+          "idempotency_key": "price-one"
+        },
+        {
+          "price_minor": 1000000001,
+          "expected_catalog_version": 2,
+          "idempotency_key": "price-invalid"
+        }
+      ],
+      "expected": {
+        "final_catalog_version": 2,
+        "logical_price_event_count": 1,
+        "embedding_hash_changed": false,
+        "invalid_price_became_active": false
+      }
+    }
+  ]
+}

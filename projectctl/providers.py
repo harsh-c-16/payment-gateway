@@ -76,8 +76,10 @@ class ProviderRegistry:
 
 def default_registry() -> ProviderRegistry:
     from projectctl.contract_checks import check
+    from projectctl.fixture_adapter import build
 
     registry = ProviderRegistry()
     registry.register("contracts check", check)
+    registry.register("fixtures build", build)
     # Other actions still require their owners' explicit production registrations.
     return registry
