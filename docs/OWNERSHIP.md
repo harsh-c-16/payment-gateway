@@ -4,7 +4,7 @@ Version 1.0 — 24 October 2026 | Team: Group 3
 
 This document is the authoritative record of component ownership, directory responsibility, and service boundaries for the Group 3 Data Engineering project: **Agentic Shopping Assistant with a Distributed, Fault-Tolerant E-Commerce Data Platform**.
 
-Refer to [01_PROJECT_CONTEXT.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/01_PROJECT_CONTEXT.md) and [02_COMMON_SPEC.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/02_COMMON_SPEC.md) for full context and interface contracts.
+Refer to [01_PROJECT_CONTEXT.md](../docs/specs/01_PROJECT_CONTEXT.md) and [02_COMMON_SPEC.md](../docs/specs/02_COMMON_SPEC.md) for full context and interface contracts.
 
 ---
 
@@ -12,10 +12,10 @@ Refer to [01_PROJECT_CONTEXT.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies
 
 | Member | Roll Number | Primary Module | Evaluation Ownership | Brief Link |
 |---|---|---|---|---|
-| **Jaineel Vora** | B24CM1080 | **M1**: Session, Cart, Assistant, Fixed Workflow, Tool Adapters | **M0**: Load generation, independent oracle, experiment runner, monitoring/dashboard, and integrated comparison | [04_JAINEEL_VORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/04_JAINEEL_VORA.md) |
-| **Harsh Chaudhari** | B24CM1027 | **M2**: CSV ingestion & normalization, catalogue, authoritative prices, retrieval, quotes, stock read model; optional vector branch | Index/query plans, ANN recall, filter selectivity, Parquet compaction, and analytical query benchmarks | [05_HARSH_CHAUDHARI.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/05_HARSH_CHAUDHARI.md) |
-| **Aditya Gaurav** | B24CM1003 | **M3**: Orders, Inventory, simulated Payments, durable saga orchestrator, shared outbox implementation | Reservation races, duplicate commands, expiry, relay and saga recovery | [06_ADITYA_GAURAV.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/06_ADITYA_GAURAV.md) |
-| **Vichitr Arora** | B24CM1067 | **M4**: Kafka, schema registry, durable streaming ingestion, Silver/Gold, active manifests, DLQ, replay | Batching, partition/consumer scaling, freshness, lineage; publication support for Harsh's file-layout experiments | [07_VICHITR_ARORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/07_VICHITR_ARORA.md) |
+| **Jaineel Vora** | B24CM1080 | **M1**: Session, Cart, Assistant, Fixed Workflow, Tool Adapters | **M0**: Load generation, independent oracle, experiment runner, monitoring/dashboard, and integrated comparison | [04_JAINEEL_VORA.md](../docs/specs/04_JAINEEL_VORA.md) |
+| **Harsh Chaudhari** | B24CM1027 | **M2**: CSV ingestion & normalization, catalogue, authoritative prices, retrieval, quotes, stock read model; optional vector branch | Index/query plans, ANN recall, filter selectivity, Parquet compaction, and analytical query benchmarks | [05_HARSH_CHAUDHARI.md](../docs/specs/05_HARSH_CHAUDHARI.md) |
+| **Aditya Gaurav** | B24CM1003 | **M3**: Orders, Inventory, simulated Payments, durable saga orchestrator, shared outbox implementation | Reservation races, duplicate commands, expiry, relay and saga recovery | [06_ADITYA_GAURAV.md](../docs/specs/06_ADITYA_GAURAV.md) |
+| **Vichitr Arora** | B24CM1067 | **M4**: Kafka, schema registry, durable streaming ingestion, Silver/Gold, active manifests, DLQ, replay | Batching, partition/consumer scaling, freshness, lineage; publication support for Harsh's file-layout experiments | [07_VICHITR_ARORA.md](../docs/specs/07_VICHITR_ARORA.md) |
 
 ---
 

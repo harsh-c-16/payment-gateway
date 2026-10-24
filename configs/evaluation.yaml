@@ -1,0 +1,192 @@
+﻿schema_version: 1
+# Draft until provider manifests, dictionaries, fixtures and infrastructure locks arrive.
+state: draft
+profile:
+  name: local4c8g
+  allocation_status: planned
+  sut: {cpu_cores: 4.0, memory_mib: 8192}
+  generator: {cpu_cores: 1.0, memory_mib: 1024}
+  services: [conversation, catalog, orders, inventory, payments, analytics, postgres, kafka, schema-registry]
+  service_allocations:
+    conversation: {cpu_cores: 0.25, memory_mib: 256}
+    catalog: {cpu_cores: 0.5, memory_mib: 768}
+    orders: {cpu_cores: 0.25, memory_mib: 256}
+    inventory: {cpu_cores: 0.25, memory_mib: 256}
+    payments: {cpu_cores: 0.25, memory_mib: 256}
+    analytics: {cpu_cores: 0.5, memory_mib: 1536}
+    postgres: {cpu_cores: 0.75, memory_mib: 2048}
+    kafka: {cpu_cores: 1.0, memory_mib: 2304}
+    schema-registry: {cpu_cores: 0.25, memory_mib: 512}
+  connection_pools: {conversation: 4, catalog: 4, orders: 4, inventory: 4, payments: 4, analytics: 4}
+  # Total stays fixed when split among P33's three consumers.
+  consumer_group_total: {cpu_cores: 0.5, memory_mib: 1536}
+dataset:
+  source_path: data/raw/flipkart_com-ecommerce_sample.csv
+  # Published exact-file expectation in specification 08; not a local measurement.
+  expected_sha256: 56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1
+  rules_version: flipkart-v1
+  dictionary_path: null
+  dictionary_sha256: null
+  canonical_manifest: null
+  sku_manifest: null
+workloads:
+  W-IMPORT: {required: true, kind: finite, rate_per_second: null, record_count: 20000, query_count: null, warmups_per_query: null, executions_per_query: null, template_sha256: null}
+  W-PIPE: {required: true, kind: sustained, rate_per_second: 500.0, record_count: null, query_count: null, warmups_per_query: null, executions_per_query: null, template_sha256: null}
+  W-QUALITY: {required: true, kind: finite, rate_per_second: null, record_count: 100000, query_count: null, warmups_per_query: null, executions_per_query: null, template_sha256: null}
+  W-SEARCH: {required: true, kind: sustained, rate_per_second: 20.0, record_count: null, query_count: 50, warmups_per_query: null, executions_per_query: null, template_sha256: null}
+  W-CHECKOUT: {required: true, kind: sustained, rate_per_second: 10.0, record_count: null, query_count: null, warmups_per_query: null, executions_per_query: null, template_sha256: null}
+  W-INTEGRATED: {required: true, kind: sustained, rate_per_second: 10.0, record_count: null, query_count: null, warmups_per_query: null, executions_per_query: null, template_sha256: null}
+  W-ANALYTICS: {required: true, kind: queries, rate_per_second: null, record_count: null, query_count: 6, warmups_per_query: 3, executions_per_query: 30, template_sha256: null}
+  W-AGENT: {required: false, kind: finite, rate_per_second: null, record_count: 60, query_count: null, warmups_per_query: null, executions_per_query: null, template_sha256: null}
+variants:
+  B0:
+    optional: false
+    workloads: [W-PIPE, W-QUALITY, W-SEARCH, W-CHECKOUT, W-INTEGRATED, W-ANALYTICS]
+    allowed_differences: []
+    config: &baseline
+      partitions: 1
+      consumers: 1
+      sink_batch_max_rows: 1
+      sink_batch_max_wait_ms: 50
+      raw_capture_max_bytes: 1048576
+      raw_capture_max_wait_ms: 50
+      gold_publish_interval_ms: 250
+      outbox_poll_ms: 25
+      outbox_pass_limit: 100
+      expiry_sweep_ms: 250
+      catalog_optional_btree: false
+      catalog_load_mode: row
+      catalog_chunk_rows: 1000
+      file_layout: small
+      target_file_mib: 32
+      codec: zstd
+      partitioning: date_type
+      retrieval_mode: lexical
+      assistant_mode: fixed
+      hnsw_m: 16
+      hnsw_ef_construction: 64
+      hnsw_ef_search: 40
+      iterative_scan: strict_order
+  O1:
+    optional: false
+    workloads: [W-PIPE, W-INTEGRATED]
+    allowed_differences: [sink_batch_max_rows]
+    config: {<<: *baseline, sink_batch_max_rows: 100}
+  O2:
+    optional: false
+    workloads: [W-SEARCH, W-INTEGRATED]
+    allowed_differences: [catalog_optional_btree]
+    config: {<<: *baseline, catalog_optional_btree: true}
+  O3:
+    optional: false
+    workloads: [W-INTEGRATED]
+    allowed_differences: [sink_batch_max_rows, catalog_optional_btree]
+    config: {<<: *baseline, sink_batch_max_rows: 100, catalog_optional_btree: true}
+  P10:
+    optional: false
+    workloads: [W-PIPE]
+    allowed_differences: []
+    config: *baseline
+  P30:
+    optional: false
+    workloads: [W-PIPE]
+    allowed_differences: [partitions]
+    config: {<<: *baseline, partitions: 3}
+  P33:
+    optional: false
+    workloads: [W-PIPE]
+    allowed_differences: [partitions, consumers]
+    config: {<<: *baseline, partitions: 3, consumers: 3}
+  F-COMPACT:
+    optional: false
+    workloads: [W-ANALYTICS]
+    allowed_differences: [file_layout]
+    config: {<<: *baseline, file_layout: compact}
+  F-PARTITION:
+    optional: false
+    workloads: [W-ANALYTICS]
+    allowed_differences: [file_layout]
+    # P4 expands two children: unpartitioned/date_type, both compact at 32 MiB.
+    config: {<<: *baseline, file_layout: partition_comparison}
+  I0:
+    optional: false
+    workloads: [W-IMPORT]
+    allowed_differences: []
+    config: *baseline
+  I1:
+    optional: false
+    workloads: [W-IMPORT]
+    allowed_differences: [catalog_load_mode]
+    config: {<<: *baseline, catalog_load_mode: copy}
+  R-EXACT:
+    optional: true
+    workloads: [W-SEARCH]
+    allowed_differences: [retrieval_mode]
+    config: {<<: *baseline, retrieval_mode: hybrid_exact}
+  R-ANN:
+    optional: true
+    workloads: [W-SEARCH]
+    allowed_differences: [retrieval_mode]
+    config: {<<: *baseline, retrieval_mode: hybrid_ann}
+  A-FIXED:
+    optional: true
+    workloads: [W-AGENT]
+    allowed_differences: []
+    config: *baseline
+  A-ASSIST:
+    optional: true
+    workloads: [W-AGENT]
+    allowed_differences: [assistant_mode]
+    config: {<<: *baseline, assistant_mode: assist}
+timing:
+  warmup_seconds: 60
+  duration_seconds: 600
+  drain_seconds: 120
+  repetitions: 3
+  sample_interval_seconds: 1
+generator:
+  seed: 42
+  template_sha256: null
+  rate_per_second: 500.0
+  concurrency: 32
+  queue_limit: 1024
+  key_distribution: uniform
+  key_count: 10000
+  payment_success_percent: 95
+  payment_delay_ms: 100
+  initial_on_hand: 10000
+retrieval:
+  mode: lexical
+  query_sha256: null
+  label_sha256: null
+  embedding_sha256: null
+  model_sha256: null
+  cache_state: warm
+  top_k: 5
+  candidate_k: 100
+  index_inventory: []
+assistant:
+  mode: fixed
+  allow_intent_llm: false
+  llm_max_calls: 0
+  timeout_ms: 1500
+  turn_deadline_ms: 3000
+  provider: null
+  model: null
+  prompt_sha256: null
+faults:
+  none: {trigger: none, measurement_second: null, barrier: null, target: null, duration_seconds: 0, recovery_deadline_seconds: 120}
+  relay-publish-before-mark: {trigger: barrier, measurement_second: 180, barrier: relay-publish-before-mark, target: outbox-relay, duration_seconds: 10, recovery_deadline_seconds: 120}
+  saga-after-stock-commit: {trigger: barrier, measurement_second: 180, barrier: saga-after-stock-commit, target: saga, duration_seconds: 10, recovery_deadline_seconds: 120}
+  analytics-outage: {trigger: measurement_second, measurement_second: 180, barrier: null, target: analytics, duration_seconds: 30, recovery_deadline_seconds: 120}
+  kafka-outage: {trigger: measurement_second, measurement_second: 180, barrier: null, target: kafka, duration_seconds: 30, recovery_deadline_seconds: 120}
+  consumer-pause: {trigger: measurement_second, measurement_second: 180, barrier: null, target: analytics-consumer-1, duration_seconds: 30, recovery_deadline_seconds: 120}
+artifacts:
+  root: benchmarks/results
+  schema_version: 1
+  retain_raw_timings: true
+locks:
+  # Exact application SHA is checked against uv.lock; set from the generated file.
+  application: {path: uv.lock, sha256: 05d066056e90caf4733415f7cbfb80cba30f99b211a27eaaf665544e3150b2dd}
+  infrastructure: {path: null, sha256: null}
+  event_schemas: {path: null, sha256: null}

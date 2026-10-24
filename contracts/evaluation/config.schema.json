@@ -1,0 +1,1049 @@
+{
+  "$defs": {
+    "Allocation": {
+      "additionalProperties": false,
+      "properties": {
+        "cpu_cores": {
+          "exclusiveMinimum": 0,
+          "title": "Cpu Cores",
+          "type": "number"
+        },
+        "memory_mib": {
+          "exclusiveMinimum": 0,
+          "title": "Memory Mib",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cpu_cores",
+        "memory_mib"
+      ],
+      "title": "Allocation",
+      "type": "object"
+    },
+    "ArtifactConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "title": "Root",
+          "type": "string"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "retain_raw_timings": {
+          "const": true,
+          "title": "Retain Raw Timings",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "root",
+        "schema_version",
+        "retain_raw_timings"
+      ],
+      "title": "ArtifactConfig",
+      "type": "object"
+    },
+    "Assistant": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "fixed",
+            "assist"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "allow_intent_llm": {
+          "title": "Allow Intent Llm",
+          "type": "boolean"
+        },
+        "llm_max_calls": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Llm Max Calls",
+          "type": "integer"
+        },
+        "timeout_ms": {
+          "const": 1500,
+          "title": "Timeout Ms",
+          "type": "integer"
+        },
+        "turn_deadline_ms": {
+          "const": 3000,
+          "title": "Turn Deadline Ms",
+          "type": "integer"
+        },
+        "provider": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Provider"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model"
+        },
+        "prompt_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Prompt Sha256"
+        }
+      },
+      "required": [
+        "mode",
+        "allow_intent_llm",
+        "llm_max_calls",
+        "timeout_ms",
+        "turn_deadline_ms",
+        "provider",
+        "model",
+        "prompt_sha256"
+      ],
+      "title": "Assistant",
+      "type": "object"
+    },
+    "ConfigurationLocks": {
+      "additionalProperties": false,
+      "properties": {
+        "application": {
+          "$ref": "#/$defs/LockRef"
+        },
+        "infrastructure": {
+          "$ref": "#/$defs/LockRef"
+        },
+        "event_schemas": {
+          "$ref": "#/$defs/LockRef"
+        }
+      },
+      "required": [
+        "application",
+        "infrastructure",
+        "event_schemas"
+      ],
+      "title": "ConfigurationLocks",
+      "type": "object"
+    },
+    "Dataset": {
+      "additionalProperties": false,
+      "properties": {
+        "source_path": {
+          "title": "Source Path",
+          "type": "string"
+        },
+        "expected_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Expected Sha256"
+        },
+        "rules_version": {
+          "const": "flipkart-v1",
+          "title": "Rules Version",
+          "type": "string"
+        },
+        "dictionary_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Dictionary Path"
+        },
+        "dictionary_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Dictionary Sha256"
+        },
+        "canonical_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Canonical Manifest"
+        },
+        "sku_manifest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sku Manifest"
+        }
+      },
+      "required": [
+        "source_path",
+        "expected_sha256",
+        "rules_version",
+        "dictionary_path",
+        "dictionary_sha256",
+        "canonical_manifest",
+        "sku_manifest"
+      ],
+      "title": "Dataset",
+      "type": "object"
+    },
+    "Fault": {
+      "additionalProperties": false,
+      "properties": {
+        "trigger": {
+          "enum": [
+            "none",
+            "measurement_second",
+            "barrier"
+          ],
+          "title": "Trigger",
+          "type": "string"
+        },
+        "measurement_second": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Measurement Second"
+        },
+        "barrier": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Barrier"
+        },
+        "target": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Target"
+        },
+        "duration_seconds": {
+          "minimum": 0,
+          "title": "Duration Seconds",
+          "type": "integer"
+        },
+        "recovery_deadline_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Recovery Deadline Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "trigger",
+        "measurement_second",
+        "barrier",
+        "target",
+        "duration_seconds",
+        "recovery_deadline_seconds"
+      ],
+      "title": "Fault",
+      "type": "object"
+    },
+    "Generator": {
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "template_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Template Sha256"
+        },
+        "rate_per_second": {
+          "exclusiveMinimum": 0,
+          "title": "Rate Per Second",
+          "type": "number"
+        },
+        "concurrency": {
+          "exclusiveMinimum": 0,
+          "title": "Concurrency",
+          "type": "integer"
+        },
+        "queue_limit": {
+          "exclusiveMinimum": 0,
+          "title": "Queue Limit",
+          "type": "integer"
+        },
+        "key_distribution": {
+          "enum": [
+            "uniform",
+            "hot80"
+          ],
+          "title": "Key Distribution",
+          "type": "string"
+        },
+        "key_count": {
+          "exclusiveMinimum": 0,
+          "title": "Key Count",
+          "type": "integer"
+        },
+        "payment_success_percent": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Payment Success Percent",
+          "type": "integer"
+        },
+        "payment_delay_ms": {
+          "minimum": 0,
+          "title": "Payment Delay Ms",
+          "type": "integer"
+        },
+        "initial_on_hand": {
+          "minimum": 0,
+          "title": "Initial On Hand",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seed",
+        "template_sha256",
+        "rate_per_second",
+        "concurrency",
+        "queue_limit",
+        "key_distribution",
+        "key_count",
+        "payment_success_percent",
+        "payment_delay_ms",
+        "initial_on_hand"
+      ],
+      "title": "Generator",
+      "type": "object"
+    },
+    "LockRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Path"
+        },
+        "sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Sha256"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "LockRef",
+      "type": "object"
+    },
+    "Parameters": {
+      "additionalProperties": false,
+      "properties": {
+        "partitions": {
+          "exclusiveMinimum": 0,
+          "title": "Partitions",
+          "type": "integer"
+        },
+        "consumers": {
+          "exclusiveMinimum": 0,
+          "title": "Consumers",
+          "type": "integer"
+        },
+        "sink_batch_max_rows": {
+          "exclusiveMinimum": 0,
+          "title": "Sink Batch Max Rows",
+          "type": "integer"
+        },
+        "sink_batch_max_wait_ms": {
+          "minimum": 0,
+          "title": "Sink Batch Max Wait Ms",
+          "type": "integer"
+        },
+        "raw_capture_max_bytes": {
+          "exclusiveMinimum": 0,
+          "title": "Raw Capture Max Bytes",
+          "type": "integer"
+        },
+        "raw_capture_max_wait_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Raw Capture Max Wait Ms",
+          "type": "integer"
+        },
+        "gold_publish_interval_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Gold Publish Interval Ms",
+          "type": "integer"
+        },
+        "outbox_poll_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Outbox Poll Ms",
+          "type": "integer"
+        },
+        "outbox_pass_limit": {
+          "exclusiveMinimum": 0,
+          "title": "Outbox Pass Limit",
+          "type": "integer"
+        },
+        "expiry_sweep_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Expiry Sweep Ms",
+          "type": "integer"
+        },
+        "catalog_optional_btree": {
+          "title": "Catalog Optional Btree",
+          "type": "boolean"
+        },
+        "catalog_load_mode": {
+          "enum": [
+            "row",
+            "copy"
+          ],
+          "title": "Catalog Load Mode",
+          "type": "string"
+        },
+        "catalog_chunk_rows": {
+          "exclusiveMinimum": 0,
+          "title": "Catalog Chunk Rows",
+          "type": "integer"
+        },
+        "file_layout": {
+          "enum": [
+            "small",
+            "compact",
+            "partition_comparison"
+          ],
+          "title": "File Layout",
+          "type": "string"
+        },
+        "target_file_mib": {
+          "exclusiveMinimum": 0,
+          "title": "Target File Mib",
+          "type": "integer"
+        },
+        "codec": {
+          "const": "zstd",
+          "title": "Codec",
+          "type": "string"
+        },
+        "partitioning": {
+          "enum": [
+            "date_type",
+            "unpartitioned"
+          ],
+          "title": "Partitioning",
+          "type": "string"
+        },
+        "retrieval_mode": {
+          "enum": [
+            "filter_only",
+            "lexical",
+            "hybrid_exact",
+            "hybrid_ann"
+          ],
+          "title": "Retrieval Mode",
+          "type": "string"
+        },
+        "assistant_mode": {
+          "enum": [
+            "fixed",
+            "assist"
+          ],
+          "title": "Assistant Mode",
+          "type": "string"
+        },
+        "hnsw_m": {
+          "exclusiveMinimum": 0,
+          "title": "Hnsw M",
+          "type": "integer"
+        },
+        "hnsw_ef_construction": {
+          "exclusiveMinimum": 0,
+          "title": "Hnsw Ef Construction",
+          "type": "integer"
+        },
+        "hnsw_ef_search": {
+          "exclusiveMinimum": 0,
+          "title": "Hnsw Ef Search",
+          "type": "integer"
+        },
+        "iterative_scan": {
+          "enum": [
+            "off",
+            "strict_order",
+            "relaxed_order"
+          ],
+          "title": "Iterative Scan",
+          "type": "string"
+        }
+      },
+      "required": [
+        "partitions",
+        "consumers",
+        "sink_batch_max_rows",
+        "sink_batch_max_wait_ms",
+        "raw_capture_max_bytes",
+        "raw_capture_max_wait_ms",
+        "gold_publish_interval_ms",
+        "outbox_poll_ms",
+        "outbox_pass_limit",
+        "expiry_sweep_ms",
+        "catalog_optional_btree",
+        "catalog_load_mode",
+        "catalog_chunk_rows",
+        "file_layout",
+        "target_file_mib",
+        "codec",
+        "partitioning",
+        "retrieval_mode",
+        "assistant_mode",
+        "hnsw_m",
+        "hnsw_ef_construction",
+        "hnsw_ef_search",
+        "iterative_scan"
+      ],
+      "title": "Parameters",
+      "type": "object"
+    },
+    "Profile": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "allocation_status": {
+          "enum": [
+            "planned",
+            "enforced"
+          ],
+          "title": "Allocation Status",
+          "type": "string"
+        },
+        "sut": {
+          "$ref": "#/$defs/Allocation"
+        },
+        "generator": {
+          "$ref": "#/$defs/Allocation"
+        },
+        "services": {
+          "items": {
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+            "type": "string"
+          },
+          "title": "Services",
+          "type": "array"
+        },
+        "service_allocations": {
+          "patternProperties": {
+            "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$": {
+              "$ref": "#/$defs/Allocation"
+            }
+          },
+          "title": "Service Allocations",
+          "type": "object"
+        },
+        "connection_pools": {
+          "patternProperties": {
+            "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$": {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            }
+          },
+          "title": "Connection Pools",
+          "type": "object"
+        },
+        "consumer_group_total": {
+          "$ref": "#/$defs/Allocation"
+        }
+      },
+      "required": [
+        "name",
+        "allocation_status",
+        "sut",
+        "generator",
+        "services",
+        "service_allocations",
+        "connection_pools",
+        "consumer_group_total"
+      ],
+      "title": "Profile",
+      "type": "object"
+    },
+    "Retrieval": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "filter_only",
+            "lexical",
+            "hybrid_exact",
+            "hybrid_ann"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "query_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Query Sha256"
+        },
+        "label_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Label Sha256"
+        },
+        "embedding_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Embedding Sha256"
+        },
+        "model_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Model Sha256"
+        },
+        "cache_state": {
+          "enum": [
+            "warm",
+            "cold"
+          ],
+          "title": "Cache State",
+          "type": "string"
+        },
+        "top_k": {
+          "maximum": 20,
+          "minimum": 1,
+          "title": "Top K",
+          "type": "integer"
+        },
+        "candidate_k": {
+          "exclusiveMinimum": 0,
+          "title": "Candidate K",
+          "type": "integer"
+        },
+        "index_inventory": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Index Inventory",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode",
+        "query_sha256",
+        "label_sha256",
+        "embedding_sha256",
+        "model_sha256",
+        "cache_state",
+        "top_k",
+        "candidate_k",
+        "index_inventory"
+      ],
+      "title": "Retrieval",
+      "type": "object"
+    },
+    "Timing": {
+      "additionalProperties": false,
+      "properties": {
+        "warmup_seconds": {
+          "minimum": 0,
+          "title": "Warmup Seconds",
+          "type": "integer"
+        },
+        "duration_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Duration Seconds",
+          "type": "integer"
+        },
+        "drain_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Drain Seconds",
+          "type": "integer"
+        },
+        "repetitions": {
+          "exclusiveMinimum": 0,
+          "title": "Repetitions",
+          "type": "integer"
+        },
+        "sample_interval_seconds": {
+          "exclusiveMinimum": 0,
+          "title": "Sample Interval Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "warmup_seconds",
+        "duration_seconds",
+        "drain_seconds",
+        "repetitions",
+        "sample_interval_seconds"
+      ],
+      "title": "Timing",
+      "type": "object"
+    },
+    "Variant": {
+      "additionalProperties": false,
+      "properties": {
+        "optional": {
+          "title": "Optional",
+          "type": "boolean"
+        },
+        "workloads": {
+          "items": {
+            "enum": [
+              "W-IMPORT",
+              "W-PIPE",
+              "W-QUALITY",
+              "W-SEARCH",
+              "W-CHECKOUT",
+              "W-INTEGRATED",
+              "W-ANALYTICS",
+              "W-AGENT"
+            ],
+            "type": "string"
+          },
+          "title": "Workloads",
+          "type": "array"
+        },
+        "allowed_differences": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Differences",
+          "type": "array"
+        },
+        "config": {
+          "$ref": "#/$defs/Parameters"
+        }
+      },
+      "required": [
+        "optional",
+        "workloads",
+        "allowed_differences",
+        "config"
+      ],
+      "title": "Variant",
+      "type": "object"
+    },
+    "Workload": {
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "finite",
+            "sustained",
+            "queries"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "rate_per_second": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rate Per Second"
+        },
+        "record_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Record Count"
+        },
+        "query_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Query Count"
+        },
+        "warmups_per_query": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Warmups Per Query"
+        },
+        "executions_per_query": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Executions Per Query"
+        },
+        "template_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Template Sha256"
+        }
+      },
+      "required": [
+        "required",
+        "kind",
+        "rate_per_second",
+        "record_count",
+        "query_count",
+        "warmups_per_query",
+        "executions_per_query",
+        "template_sha256"
+      ],
+      "title": "Workload",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "state": {
+      "enum": [
+        "draft",
+        "ready"
+      ],
+      "title": "State",
+      "type": "string"
+    },
+    "profile": {
+      "$ref": "#/$defs/Profile"
+    },
+    "dataset": {
+      "$ref": "#/$defs/Dataset"
+    },
+    "workloads": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Workload"
+      },
+      "propertyNames": {
+        "enum": [
+          "W-IMPORT",
+          "W-PIPE",
+          "W-QUALITY",
+          "W-SEARCH",
+          "W-CHECKOUT",
+          "W-INTEGRATED",
+          "W-ANALYTICS",
+          "W-AGENT"
+        ]
+      },
+      "title": "Workloads",
+      "type": "object"
+    },
+    "variants": {
+      "additionalProperties": {
+        "$ref": "#/$defs/Variant"
+      },
+      "propertyNames": {
+        "enum": [
+          "B0",
+          "O1",
+          "O2",
+          "O3",
+          "P10",
+          "P30",
+          "P33",
+          "F-COMPACT",
+          "F-PARTITION",
+          "I0",
+          "I1",
+          "R-EXACT",
+          "R-ANN",
+          "A-FIXED",
+          "A-ASSIST"
+        ]
+      },
+      "title": "Variants",
+      "type": "object"
+    },
+    "timing": {
+      "$ref": "#/$defs/Timing"
+    },
+    "generator": {
+      "$ref": "#/$defs/Generator"
+    },
+    "retrieval": {
+      "$ref": "#/$defs/Retrieval"
+    },
+    "assistant": {
+      "$ref": "#/$defs/Assistant"
+    },
+    "faults": {
+      "patternProperties": {
+        "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$": {
+          "$ref": "#/$defs/Fault"
+        }
+      },
+      "title": "Faults",
+      "type": "object"
+    },
+    "artifacts": {
+      "$ref": "#/$defs/ArtifactConfig"
+    },
+    "locks": {
+      "$ref": "#/$defs/ConfigurationLocks"
+    }
+  },
+  "required": [
+    "schema_version",
+    "state",
+    "profile",
+    "dataset",
+    "workloads",
+    "variants",
+    "timing",
+    "generator",
+    "retrieval",
+    "assistant",
+    "faults",
+    "artifacts",
+    "locks"
+  ],
+  "title": "EvaluationConfig",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:group3:evaluation:config:1"
+}

@@ -15,33 +15,33 @@ This project implements an e-commerce platform and agentic shopping assistant wi
 
 | Member | Roll Number | Module & Responsibilities | Member Brief |
 |---|---|---|---|
-| **Jaineel Vora** | B24CM1080 | **M1 / M0**: Assistant workflow, session/cart state, measurement harness, oracle, dashboards, integration | [04_JAINEEL_VORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/04_JAINEEL_VORA.md) |
-| **Harsh Chaudhari** | B24CM1027 | **M2**: Catalogue ingestion, normalization, retrieval, stock read model, quotes, compaction & queries | [05_HARSH_CHAUDHARI.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/05_HARSH_CHAUDHARI.md) |
-| **Aditya Gaurav** | B24CM1003 | **M3**: Orders, Inventory, simulated Payments, durable saga orchestrator, shared outbox library | [06_ADITYA_GAURAV.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/06_ADITYA_GAURAV.md) |
-| **Vichitr Arora** | B24CM1067 | **M4**: Kafka streaming infrastructure, Schema Registry, Bronze/Silver/Gold pipelines, manifests, replay | [07_VICHITR_ARORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/07_VICHITR_ARORA.md) |
+| **Jaineel Vora** | B24CM1080 | **M1 / M0**: Assistant workflow, session/cart state, measurement harness, oracle, dashboards, integration | [04_JAINEEL_VORA.md](docs/specs/04_JAINEEL_VORA.md) |
+| **Harsh Chaudhari** | B24CM1027 | **M2**: Catalogue ingestion, normalization, retrieval, stock read model, quotes, compaction & queries | [05_HARSH_CHAUDHARI.md](docs/specs/05_HARSH_CHAUDHARI.md) |
+| **Aditya Gaurav** | B24CM1003 | **M3**: Orders, Inventory, simulated Payments, durable saga orchestrator, shared outbox library | [06_ADITYA_GAURAV.md](docs/specs/06_ADITYA_GAURAV.md) |
+| **Vichitr Arora** | B24CM1067 | **M4**: Kafka streaming infrastructure, Schema Registry, Bronze/Silver/Gold pipelines, manifests, replay | [07_VICHITR_ARORA.md](docs/specs/07_VICHITR_ARORA.md) |
 
 ---
 
 ## 2. Documentation and Specifications
 
-All authoritative specifications and runbooks are maintained in [`docs/specs/`](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/):
+All authoritative specifications and runbooks are maintained in [`docs/specs/`](docs/specs/):
 
-- [00_README.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/00_README.md) — Navigation and document index.
-- [01_PROJECT_CONTEXT.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/01_PROJECT_CONTEXT.md) — Architectural decisions, scope, and frozen technology stack.
-- [02_COMMON_SPEC.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/02_COMMON_SPEC.md) — Normative interface contracts, shared DTOs, and error codes.
-- [03_EVALUATION_SPEC.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/03_EVALUATION_SPEC.md) — Workload definitions, metric math, and correctness gates.
-- [04_JAINEEL_VORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/04_JAINEEL_VORA.md) — Jaineel's brief (M1 & M0 tasks J01–J07).
-- [05_HARSH_CHAUDHARI.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/05_HARSH_CHAUDHARI.md) — Harsh's brief (M2 tasks H01–H07).
-- [06_ADITYA_GAURAV.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/06_ADITYA_GAURAV.md) — Aditya's brief (M3 tasks A01–A07).
-- [07_VICHITR_ARORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/07_VICHITR_ARORA.md) — Vichitr's brief (M4 tasks V01–V07).
-- [08_DATASET_PROFILE_AND_RULES.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/08_DATASET_PROFILE_AND_RULES.md) — Flipkart CSV profile and deterministic normalization rules.
-- [09_EVALUATION_RUNBOOK.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/09_EVALUATION_RUNBOOK.md) — CLI surface, operational runbook, and verification commands.
-- [10_JAINEEL_CODEX_PLAYBOOK.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/10_JAINEEL_CODEX_PLAYBOOK.md) — Phased implementation playbook for Codex.
+- [00_README.md](docs/specs/00_README.md) — Navigation and document index.
+- [01_PROJECT_CONTEXT.md](docs/specs/01_PROJECT_CONTEXT.md) — Architectural decisions, scope, and frozen technology stack.
+- [02_COMMON_SPEC.md](docs/specs/02_COMMON_SPEC.md) — Normative interface contracts, shared DTOs, and error codes.
+- [03_EVALUATION_SPEC.md](docs/specs/03_EVALUATION_SPEC.md) — Workload definitions, metric math, and correctness gates.
+- [04_JAINEEL_VORA.md](docs/specs/04_JAINEEL_VORA.md) — Jaineel's brief (M1 & M0 tasks J01–J07).
+- [05_HARSH_CHAUDHARI.md](docs/specs/05_HARSH_CHAUDHARI.md) — Harsh's brief (M2 tasks H01–H07).
+- [06_ADITYA_GAURAV.md](docs/specs/06_ADITYA_GAURAV.md) — Aditya's brief (M3 tasks A01–A07).
+- [07_VICHITR_ARORA.md](docs/specs/07_VICHITR_ARORA.md) — Vichitr's brief (M4 tasks V01–V07).
+- [08_DATASET_PROFILE_AND_RULES.md](docs/specs/08_DATASET_PROFILE_AND_RULES.md) — Flipkart CSV profile and deterministic normalization rules.
+- [09_EVALUATION_RUNBOOK.md](docs/specs/09_EVALUATION_RUNBOOK.md) — CLI surface, operational runbook, and verification commands.
+- [10_JAINEEL_CODEX_PLAYBOOK.md](docs/specs/10_JAINEEL_CODEX_PLAYBOOK.md) — Phased implementation playbook for Codex.
 
 ### Repository Policies and Governance
-- [AGENTS.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/AGENTS.md) — Shared rules of engagement and constraints for coding agents.
-- [docs/OWNERSHIP.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/OWNERSHIP.md) — Detailed service boundaries, directory allocations, and write authorities.
-- [docs/jaineel/progress.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/jaineel/progress.md) — Jaineel's milestone implementation tracker.
+- [AGENTS.md](AGENTS.md) — Shared rules of engagement and constraints for coding agents.
+- [docs/OWNERSHIP.md](docs/OWNERSHIP.md) — Detailed service boundaries, directory allocations, and write authorities.
+- [docs/jaineel/progress.md](docs/jaineel/progress.md) — Jaineel's milestone implementation tracker.
 
 ---
 
@@ -110,13 +110,18 @@ All authoritative specifications and runbooks are maintained in [`docs/specs/`](
 
 ## 4. Getting Started
 
+The P1 Python 3.11 CLI/configuration foundation is implemented. Follow the
+[locked install and offline checks](projectctl/README.md). Provider actions remain
+unavailable until owner adapters are supplied; they return exit 4 and save evidence.
+See [Jaineel's progress](docs/jaineel/progress.md) for the actual checkpoint results.
+
 1. **Environment Setup:**
    Copy the example environment configuration:
    ```bash
    cp .env.example .env
    ```
 2. **Review Working Rules:**
-   All team members and AI coding assistants must review [AGENTS.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/AGENTS.md) and [docs/OWNERSHIP.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/OWNERSHIP.md).
+   All team members and AI coding assistants must review [AGENTS.md](AGENTS.md) and [docs/OWNERSHIP.md](docs/OWNERSHIP.md).
 3. **Branching Model:**
    After the initial repository scaffold is merged to `main`, work proceeds in small feature branches:
    - Jaineel: `jaineel/j01-foundation`, etc.
