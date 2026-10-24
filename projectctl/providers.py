@@ -51,6 +51,17 @@ class ProviderResult:
 class ProviderRegistry:
     def __init__(self):
         self._actions: dict[str, Callable[[Invocation], ProviderResult]] = {}
+        self._workloads = {}
+
+    def register_workload(self, workload, bindings):
+        from projectctl.config import WORKLOADS
+
+        if workload not in WORKLOADS or workload in self._workloads:
+            raise ValueError("workload binding must be known and registered exactly once")
+        self._workloads[workload] = bindings
+
+    def workload(self, workload):
+        return self._workloads.get(workload)
 
     def register(self, action: str, adapter: Callable[[Invocation], ProviderResult]):
         if action not in OWNERS or action in self._actions:

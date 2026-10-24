@@ -89,14 +89,27 @@ def write_json(path: Path, value):
         stream.write(canonical_json(value).decode("utf-8") + "\n")
 
 
-def save_evidence(invocation, result, *, workload=None, variant=None, repetition=None):
+def save_evidence(
+    invocation, result, *, workload=None, variant=None, repetition=None, execution=None, order=None
+):
     config = invocation.config
     root = repo_path(config.artifacts.root) if config else ROOT / "artifacts" / "projectctl"
     directory = root / invocation.run_id
-    directory.mkdir(parents=True, exist_ok=False)
+    # P4 creates journals first. Only its explicit execution path may reuse that directory.
+    if execution is None:
+        directory.mkdir(parents=True, exist_ok=False)
+    elif not directory.is_dir() or (directory / "manifest.json").exists():
+        raise ValueError("experiment directory missing or already finalized")
     config_dict = config.model_dump() if config else None
     config_sha = content_hash(config_dict) if config_dict else None
     refs = []
+    if order is not None and execution is None:
+        write_json(directory / "execution_order.json", order)
+        refs.append(
+            ArtifactRef(
+                path="execution_order.json", sha256=file_hash(directory / "execution_order.json")
+            )
+        )
     if config:
         write_json(directory / "resolved_config.json", config_dict)
         refs.append(
@@ -126,12 +139,14 @@ def save_evidence(invocation, result, *, workload=None, variant=None, repetition
         run_id=invocation.run_id,
         namespace=invocation.namespace,
         command=invocation.action,
-        status="NOT_RUN",
+        status=execution["status"] if execution else "NOT_RUN",
         exit_code=int(result.code),
         test_mode=result.test_mode,
         reasons=list(result.reasons),
         config_sha256=config_sha,
-        metrics=[
+        metrics=execution["metrics"]
+        if execution
+        else [
             Metric(
                 name=name,
                 unit=unit,
@@ -152,6 +167,11 @@ def save_evidence(invocation, result, *, workload=None, variant=None, repetition
         ],
         artifact_refs=refs.copy(),
     )
+    if execution:
+        for path in sorted(directory.iterdir()):
+            if path.is_file() and path.name != "resolved_config.json":
+                refs.append(ArtifactRef(path=path.name, sha256=file_hash(path)))
+        summary.artifact_refs = refs.copy()
     write_json(directory / "summary.json", summary.model_dump())
     refs.append(ArtifactRef(path="summary.json", sha256=file_hash(directory / "summary.json")))
     lock = ROOT / "uv.lock"
@@ -164,10 +184,12 @@ def save_evidence(invocation, result, *, workload=None, variant=None, repetition
         variant_id=variant,
         repetition=repetition,
         seed=config.generator.seed if config else None,
-        status="NOT_RUN" if result.code == 0 else "INCOMPLETE",
+        status=execution["status"]
+        if execution
+        else ("NOT_RUN" if result.code == 0 else "INCOMPLETE"),
         created_at=datetime.now(UTC).isoformat().replace("+00:00", "Z"),
-        started_at=None,
-        completed_at=None,
+        started_at=execution["started_at"] if execution else None,
+        completed_at=execution["completed_at"] if execution else None,
         git=git_state(),
         locks=Locks(
             application_sha256=file_hash(lock) if lock.exists() else None,
@@ -193,10 +215,11 @@ def save_evidence(invocation, result, *, workload=None, variant=None, repetition
         fault_profiles=invocation.arguments.get("faults", ["none"]),
         workload_protocol=protocol,
         required_artifacts=[
-            EvidenceSlot(path=name, status="NOT_RUN") for name in REQUIRED_ARTIFACTS
+            EvidenceSlot(path=name, status="PRESENT" if (directory / name).exists() else "NOT_RUN")
+            for name in REQUIRED_ARTIFACTS
         ],
         artifacts=refs,
-        correctness_passed=None,
+        correctness_passed=execution["correctness_passed"] if execution else None,
         content_sha256=None,
     )
     manifest.content_sha256 = content_hash(manifest.model_dump())

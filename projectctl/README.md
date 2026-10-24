@@ -57,9 +57,10 @@ python -m projectctl benchmark run --workload W-PIPE --variants B0,O1 --repetiti
 ```
 
 Each invocation saves `manifest.json` and `summary.json`; configuration-bearing
-commands also save `resolved_config.json`. Benchmark requests prepare a unique
-`benchmarks/results/<run_id>/` for each requested variant/repetition. Preparation
-does not start measurement. Commands without evaluation config save under
+commands also save `resolved_config.json`. Benchmark requests use a unique
+`benchmarks/results/<run_id>/` for each requested variant/repetition. P4 executes
+the lifecycle only when explicit real adapters and preflight gates are ready;
+otherwise it preserves NOT_RUN evidence. Commands without evaluation config save under
 `artifacts/projectctl/<run_id>/`. Paths in stdout are repository-relative. P1 metrics
 are null with `NOT_RUN`, and missing collectors are listed without creating fake
 empty Parquet/CSV files. These ignored directories preserve failure evidence locally.
@@ -118,3 +119,11 @@ python benchmarks/manual/verify_p1.py
 
 It writes a new directory under `artifacts/p1/` and expects missing provider actions
 to exit 4. Its own exit 0 means these expected checkpoint outcomes matched.
+
+## P4 benchmark execution
+
+`benchmark run` and `benchmark matrix` now use the isolated lifecycle and record
+seeded paired plans. Missing workload adapters return dependency exit 4 with
+saved evidence. See [P4 bindings and verification](../docs/jaineel/p4_workloads.md).
+The default registry never loads a test double. Comparison/report execution
+remains assigned to later milestones.

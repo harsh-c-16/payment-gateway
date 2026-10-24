@@ -19,7 +19,7 @@
 | **P1** | Python tooling, CLI/config/artifact foundation | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-foundation` | Python 3.11; explicit adapter doubles |
 | **P2** | Conversation contract, clients, explicit stubs | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-contracts` | 89 contract tests + 110 P1 regressions; explicit HTTP/SSE doubles |
 | **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | stub verified (offline checkpoint; real source assertions verified) | `jaineel/j01-oracles` | 76 P3 + 199 P1/P2 tests; explicit evidence doubles |
-| **P4** | Open-loop workload generation & experiment lifecycle | J02 | not started | — | — |
+| **P4** | Open-loop workload generation & experiment lifecycle | J02 | stub verified (offline checkpoint complete) | `jaineel/j02-workloads` | 329 combined tests; explicit publisher/API/lifecycle doubles |
 | **P5** | Telemetry, raw collectors, dashboard | J03 | not started | — | — |
 | **P6** | Durable sessions, cart, and idempotency | J04 | not started | — | — |
 | **P7** | Zero-call search, quote, and checkout workflow | J04 | not started | — | — |
@@ -283,15 +283,76 @@ A later checkpoint completed its assertions but failed session finalization with
 ---
 
 ### Milestone P4: Open-Loop Workload Generator & Lifecycle
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J02
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** Awaiting provider integration adapters as merged.
-- **Next Action:** Implement open-loop generator and stage-managed runner.
+
+- **State:** stub verified; P4/J02 offline checkpoint complete. All provider integration, real G1 and performance results remain `NOT_RUN`. P5 is not started.
+- **Branch/base:** `jaineel/j02-workloads` / `dce94847114fe5263e402e3fecdd8925efb22b10` (`feat: implement P3 fixtures, oracle and metric helpers`). Clean working tree at entry; created this dependent local feature branch without assuming an upstream merge. No commit, push, reset or provider startup performed.
+- **Authorities read:** AGENTS, ownership, this progress file, personal brief J02, playbook P4, context/technology freeze, common IDs/money/time, HTTP/provider/event/producer bounds; evaluation workloads/protocol/metrics/artifacts; runbook §§1/5/7 and dataset identity/mapping/manifest rules. Canonical specs and teammates' implementations/contracts remain unchanged.
+
+**Changed paths and purpose**
+
+- `benchmarks/{__init__,workloads,scheduler,experiment,planning,drivers}.py`: immutable logical workloads, fixed open-loop scheduling, bounded pending count/value bytes, exact duplicate packet reuse, broker/API correlation, admission reconciliation of the complete frozen plan, isolated lifecycle, seeded paired repetitions, controlled matrix expansion and hash/code/config checks for reuse. Workload drivers consume SDK/public APIs/import/query/workflow adapters; no provider business logic is implemented.
+- `projectctl/{benchmark_adapter,artifacts,cli,providers}.py`: register explicit workload bindings; route benchmark commands through the lifecycle; retain hashed journals, failed runs, paired order and matrix plans/results. Verify dictionary hashes. Default production registry remains empty for workloads; real mode never imports doubles.
+- `tests/benchmarks/{doubles,test_workloads,test_scheduler,test_experiment,test_drivers}.py`: explicit slow publisher, lifecycle and public API doubles; scheduling/count/byte/drain/unknown-admission checks, finite/query accounting, corruption/control checks, strict artifact schemas, guarded reuse, confirmation and quote authority. Quote/order requests are additionally validated against the explicitly provisional P2 consumer schemas, pending provider review.
+- `benchmarks/manual/{slow_publisher,verify_p4}.py`: repeatable slow-publisher demo and command/output/exit evidence collector. `.github/workflows/offline.yml` now runs the P1–P4 checkpoint on Windows/Linux; hosted CI was not executed here.
+- `docs/jaineel/p4_workloads.md`, `benchmarks/README.md`, `projectctl/README.md`, this file: adapter handoffs, exact evidence semantics, manual checks and dependency limits. No dependency/lock/config/canonical DTO/schema change.
+
+**Implemented behavior and limits**
+
+- W-PIPE selects the frozen seeded 10,000-key subset from supplied active SKUs. Warmup precedes measurement explicitly, even though canonical JSON sorts object keys. Per-key synthetic stock versions continue across phases; hot80 and uniform are distinct controls. Runtime IDs/timestamps are fresh; logical plans remain paired.
+- Fixed worker count; active plus queued values remain bounded by count and bytes. Sustained offers never await queue capacity or shift their schedule. Missed/failed/unknown sends remain explicit. No submission starts after cutoff; drain uses the original cutoff deadline, rather than granting a delayed generator a fresh 120 seconds.
+- `planned.jsonl` freezes all logical offers before provider execution. `wire.jsonl` retains exact Kafka packet bytes/key/headers; duplicates reuse originals with new source receipts. `attempts.jsonl` flushes before submission; `api_requests.jsonl` retains each exact public HTTP request before awaiting a response, including response loss. Final receipt order may differ from schedule order; joins use physical record IDs.
+- Cutoff and final admission counts are separate. Acknowledgements during drain do not enter measurement admitted rate. Unknown outcomes have no fake acknowledgement time. Gold goodput stays null/`NOT_RUN`; P5 raw timing, lag and resource collectors remain unexecuted.
+- W-IMPORT delegates one whole 20,000-observation job and preserves Harsh's stage/total/digest report; no normalization occurs here. W-QUALITY retains exactly 98,500 new valid + 1,000 duplicates + 500 invalid logical records. W-AGENT uses supplied scenarios. These use actual elapsed job time. W-ANALYTICS executes 18 unmeasured warmups then 180 measured Q1–Q6 calls; no 600-second padding. `perf_counter()` provides high-resolution monotonic elapsed timing on Windows; zero/unavailable timers stay incomplete.
+- Search preserves hard filters and the paired retrieval mode. Checkout prepares a fresh quote before marking the timed submission, sends the common `quote_id/session_id/confirmation_id` body and retains authoritative integer totals. The integrated driver calls M1's public workflow, verifies the frozen SKU appeared in its search results, then explicitly confirms the exact quote/cart version. Orders/Inventory/Payments must produce their own events; no business event is injected by the driver.
+- Prepare must acknowledge a **new** isolated `bench-` namespace; dev/live/prod names and path-escaping IDs are rejected. No reset operation exists in this lifecycle. Prepare/validate/drain/independent audit/fault callbacks remain explicit owner bindings. Named faults require barrier acknowledgements; missing hooks/receipts invalidate the run. Missing downstream audits yield incomplete evidence, never an empty-cohort pass.
+- Plans retain randomized paired order, repetition, seed, config hashes, faults and effective treatment parameters. F-PARTITION emits two labelled compact children with equal size/codec; the hashed execution envelope carries their partitioning, while canonical parent config stays unchanged. Harsh/Vichitr review remains pending. C-BEST rows remain unresolved selection requests. Reuse requires complete real performance evidence, matching clean code/config and every artifact hash; P4's incomplete SUT performance evidence cannot be reused as a full measurement.
+
+**Actual commands and outcomes**
+
+All Python checks used `.\.venv\Scripts\python.exe` (CPython **3.11.15**) from repository root; `uv sync --locked` resolved **38** and audited **37** packages with the lock unchanged.
+
+| Command/check | Actual result |
+|---|---|
+| `git status --short`, branch/log/diff inspection; `git switch -c jaineel/j02-workloads` | Clean P3 base; new local feature branch; exit **0** |
+| `python -m pytest tests/projectctl tests/benchmarks -q --tb=short -W error::pytest.PytestCacheWarning` | Initial existing regressions: **137 passed**, exit **0** |
+| Combined P1–P4 suite before final boundary additions | **323 passed in 52.23 s**, exit **0** |
+| First recorded `python benchmarks/manual/verify_p4.py` | **11/11** expected outcomes matched; **328 passed in 62.58 s**; exit **0**. Retained checkpoint `bab45baf-789e-495c-952e-15269f98315f` below |
+| `python -m pytest tests/benchmarks/test_drivers.py -q --tb=short -W error::pytest.PytestCacheWarning` after final request-journal/nullable-field review | **5 passed in 0.29 s**, exit **0** |
+| `python -m ruff check` / `python -m ruff format --check` on all owned source/test paths; evaluation and conversation schema checks | Passed in the recorded checkpoint; exit **0**; schemas unchanged |
+| Final `python benchmarks/manual/verify_p4.py` | Exit **0**, **11/11** expected outcomes matched; **329 passed in 63.10 s** (**54 P4 + 275 retained P1–P3**), no skips/warnings |
+| Final slow-publisher demo inside that checkpoint | Demo exit **0**, all seven assertions true; experiment exit **5**. Measurement: **400 planned**, **39 attempted/acknowledged**, **361 missed**, **0 failed**, **0 unresolved**; **38** acknowledgements within measurement and **1** after cutoff |
+| Final real-mode W-PIPE B0/O1 command, three repetitions | Expected exit **4**; six fresh blocked runs with resolved configurations and recorded paired order; no provider called and no performance values measured |
+| Final `python -m projectctl contracts check --all` | Expected exit **4**; provider contracts still missing; G0/G1 remain incomplete |
+| Final inline Python scope/hash/link review (`python -`) | Exit **0**; **22** owned/coordinated changed paths, no ownership violations/broken local links, all content/artifact hashes valid across **7** saved runs |
+| `git diff --check`; `git diff --exit-code -- docs/specs uv.lock pyproject.toml configs contracts shared services infra pipelines migrations` | Both exit **0** after fixing README EOF spacing; canonical/provider paths unchanged |
+
+New tests found and fixed phase ordering after JSON canonicalization, Windows short-duration timer resolution, incorrect quote/order request fields, loss of per-step request evidence on response loss, and final summary handling after plan tampering. Tiny saturation tests for unknown/mismatched acknowledgements now use finite mode so their assertions examine acknowledgement semantics independently of sustained cutoff/capacity misses; all unknown outcomes still must remain unresolved. Required assertions were preserved, no test was skipped and no provider gate was weakened.
+
+**Evidence (ignored local artifacts; preserve for review)**
+
+- [Final exact commands/stdout/stderr/exits](../../artifacts/p4/52aba30a-e16d-4481-ba86-e030641429b5/checks.json), [329-test JUnit](../../artifacts/p4/52aba30a-e16d-4481-ba86-e030641429b5/pytest.xml).
+- [Final scope, local links and artifact-hash review](../../artifacts/p4/52aba30a-e16d-4481-ba86-e030641429b5/scope_review.json): no ownership violations, unchanged canonical/provider paths, valid hashes for the demo and six blocked real-mode runs.
+- [Final slow-demo checks](../../artifacts/p4/52aba30a-e16d-4481-ba86-e030641429b5/slow/773905f8-fd94-46fc-8b51-e4c71962b7e2/demo_checks.json), [all physical emission outcomes](../../artifacts/p4/52aba30a-e16d-4481-ba86-e030641429b5/slow/773905f8-fd94-46fc-8b51-e4c71962b7e2/emissions.jsonl), [admission reconciliation](../../artifacts/p4/52aba30a-e16d-4481-ba86-e030641429b5/slow/773905f8-fd94-46fc-8b51-e4c71962b7e2/admission.json), [strict summary](../../artifacts/p4/52aba30a-e16d-4481-ba86-e030641429b5/slow/773905f8-fd94-46fc-8b51-e4c71962b7e2/summary.json).
+- The final checkpoint's `checks.json` contains the printed slow-demo directory, actual phase counts/pressure assertions and six blocked real-mode run directories. Each run retains its resolved config, schema-valid manifest/summary and content/artifact hashes. Its root plan/results JSON records the full paired ordering.
+- [Earlier accepted 328-test checkpoint](../../artifacts/p4/bab45baf-789e-495c-952e-15269f98315f/checks.json) and [JUnit](../../artifacts/p4/bab45baf-789e-495c-952e-15269f98315f/pytest.xml) remain preserved; the final checkpoint additionally covers HTTP response-loss journaling.
+- [Initial independent slow demo](../../artifacts/p4/slow-6e0433dc-5caf-41d2-8697-460dbbf0d148/30f02d54-72f0-4de7-9688-627fea0cc462/demo_checks.json): exactly **400** measurement offers at **200/s**, all physical outcomes retained, count/byte limits respected, visible missed target and experiment exit **5**. Later checkpoint demos supersede its cutoff classification after tightening the final deadline.
+
+**Remaining handoffs**
+
+- **Harsh:** actual importer/stage evidence, canonical catalogue/quote contracts and manifests/dictionary, reviewed 50-query/cart-SKU bindings, pinned Q1–Q6 query/snapshot adapter and layout-child review.
+- **Aditya:** real Orders and deterministic 95/5 simulator/seed bindings using stable scenario IDs, public status/finality observations, read-only inventory/payment/ledger audit projections, retained-state fault barriers and shared outbox.
+- **Vichitr:** SDK/schema/registry and invalid-wire materialization, actual Kafka/analytics/export bindings, active-Gold membership proofs and G1 slice, infrastructure lock/resource enforcement and fault acknowledgements. Provider directories currently contain only scaffold/README files.
+- **Jaineel:** P5 collectors/dashboard next; P6/P7 real session/cart/workflow APIs; later P8 real G1/G3/audit bindings and P9 controlled performance. Human label review, full D/T gates, real integration, hosted CI and the performance matrix remain `NOT_RUN`.
+
+**Concrete manual verification and suggested commit**
+
+1. `uv run --locked python -m pytest tests/benchmarks -q` — expect the P4 and retained P3 benchmark-helper tests to pass.
+2. `uv run --locked python -m benchmarks.manual.slow_publisher` — expect the demo command to exit **0**, every demo assertion true, and its experiment to exit **5**. Sum measurement terminal outcomes to **400**, compare 200/s offered with lower admitted rate, and inspect cutoff versus drain counts and queue peaks.
+3. `uv run --locked python benchmarks/manual/verify_p4.py` — inspect its printed `checks.json`/`pytest.xml`; expected missing-provider exits are **4**, while the verifier succeeds only when every expected outcome matches. All evidence is explicitly stub/offline; Gold/CPU/RAM metrics stay unmeasured.
+4. `uv run --locked python -m projectctl benchmark run --workload W-PIPE --variants B0,O1 --repetitions 3 --config configs/evaluation.yaml` — expect exit **4**, six fresh run IDs/namespaces, recorded seeded paired order, visible dependency reasons and null SUT values. `contracts check --all` also remains exit **4** until owners' contracts merge; real G1 is not a stub result.
+5. Review `git status --short`, `git diff --check` and all source changes, including untracked files. Suggested commit: **`feat: implement P4 open-loop workloads and experiment lifecycle`**. Stage only `benchmarks/`, `projectctl/`, `tests/benchmarks/`, `docs/jaineel/p4_workloads.md`, this progress file and `.github/workflows/offline.yml`; inspect the staged diff/check/stat before committing. Generated results, artifacts, raw CSV and secrets remain ignored.
+
+**Next action:** stop at P4. P5 remains not started. Changes remain uncommitted and unpushed; review the owned source diff before making the suggested commit.
 
 ---
 

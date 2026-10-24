@@ -11,7 +11,6 @@ from projectctl.config import (
     WORKLOADS,
     InputError,
     load_config,
-    load_matrix,
     repo_path,
     resolve_config,
 )
@@ -203,6 +202,13 @@ def preflight(config, workload=None):
         path = getattr(dataset, name)
         if path and not repo_path(path).is_file():
             reasons.append(f"dataset.{name} file unavailable")
+    if (
+        dataset.dictionary_path
+        and dataset.dictionary_sha256
+        and repo_path(dataset.dictionary_path).is_file()
+        and file_hash(repo_path(dataset.dictionary_path)) != dataset.dictionary_sha256
+    ):
+        raise InputError("dictionary SHA-256 differs from the frozen dataset")
     if config.generator.template_sha256 is None:
         reasons.append("generator logical fixture hash unavailable")
     if workload and config.workloads[workload].template_sha256 is None:
@@ -231,20 +237,11 @@ def execute(args, registry: ProviderRegistry):
         config.generator.seed = args["seed"]
     if config and "faults" in args and set(args["faults"]) - config.faults.keys():
         raise InputError("unregistered fault profile")
-    if args["action"] == "benchmark matrix":
-        load_matrix(args["matrix"], config)
+    if args["action"] in {"benchmark run", "benchmark matrix"}:
+        from projectctl.benchmark_adapter import execute_benchmarks
+
+        return execute_benchmarks(args, registry, config)
     planned = [(None, None, None)]
-    if args["action"] == "benchmark run":
-        repetitions = args["repetitions"] or config.timing.repetitions
-        config.timing.repetitions = repetitions
-        # This is evidence preparation only. Scheduling/execution belongs to P4.
-        planned = [
-            (args["workload"], variant, rep)
-            for variant in args["variants"]
-            for rep in range(1, repetitions + 1)
-        ]
-        for workload, variant, _ in planned:
-            resolve_config(config, workload, variant)
     outputs = []
     for workload, variant, repetition in planned:
         resolved = resolve_config(config, workload, variant) if workload else config
