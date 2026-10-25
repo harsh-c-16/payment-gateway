@@ -304,7 +304,7 @@ def dirty_catalogue():
     }
 
 
-def assistant_scenarios():
+def original_assistant_scenarios():
     groups = [
         ("explicit_search", 12),
         ("paraphrase_ambiguity", 8),
@@ -477,6 +477,12 @@ def assistant_scenarios():
         "quality_evaluation": "NOT_RUN",
         "scenarios": scenarios,
     }
+
+
+def assistant_scenarios():
+    from tests.oracles.assistant_revision import revise
+
+    return revise(original_assistant_scenarios())
 
 
 def main():

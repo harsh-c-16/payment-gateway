@@ -18,7 +18,7 @@
 | **P0** | Team repository scaffold and governance | Setup / Prompt 0 | real verified (local scaffold) | `jaineel/j01-foundation` | local files/Git |
 | **P1** | Python tooling, CLI/config/artifact foundation | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-foundation` | Python 3.11; explicit adapter doubles |
 | **P2** | Conversation contract, clients, explicit stubs | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-contracts` | 89 contract tests + 110 P1 regressions; explicit HTTP/SSE doubles |
-| **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | stub verified (offline checkpoint; real source assertions verified) | `jaineel/j01-oracles` | 76 P3 + 199 P1/P2 tests; explicit evidence doubles |
+| **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | stub verified; automated LLM-judge review complete; human review not performed | `jaineel/j01-oracles` | 153 focused fixture/schema tests; current P3 verifier 450 regressions; explicit fixtures/doubles |
 | **P4** | Open-loop workload generation & experiment lifecycle | J02 | stub verified (offline checkpoint complete) | `jaineel/j02-workloads` | 329 combined tests; explicit publisher/API/lifecycle doubles |
 | **P5** | Telemetry, raw collectors, dashboard | J03 | not started | — | — |
 | **P6** | Durable sessions, cart, and idempotency | J04 | not started | — | — |
@@ -203,7 +203,7 @@ Implementation failures were fixed within P2. Initial SSE validation exposed a l
 
 ### Milestone P3: Independent Fixtures, Oracle, and Metric Math
 
-- **State:** stub verified for the offline P3 checkpoint; real independent CSV identity/count assertions verified locally. This is not a real provider, D-01/D-02 full gate, D-05 workflow or G0 pass. Draft label review is pending; integration, wire materialization and performance remain `NOT_RUN`.
+- **State:** stub verified for the offline P3 checkpoint; real independent CSV identity/count assertions verified locally. This is not a real provider, D-01/D-02 full gate, D-05 workflow or G0 pass. The subsequent authorized automated LLM-judge adjudication is complete: 29 PASS, 31 CONCERN, 0 FAIL after fixture corrections. Human review is not performed; integration, wire materialization, real intent quality and performance remain `NOT_RUN`.
 - **Branch/base:** `jaineel/j01-oracles` / `a48ef864f148c4f5724844f1b77d957035fcad8c` (`convo contracts`, the user's P2 commit). The working tree was clean at entry. This is a dependent local feature branch; no upstream PR merge is assumed. No P3 commit or push was performed.
 - **Scope:** J01 + early J06/P3 only. Read AGENTS, ownership, progress, personal brief, playbook P3, context technology/ownership, common event/money/inventory/ledger/Gold rules, dataset §§2–7, evaluation §§2/5/7/9 and runbook §§3/4/6/7. P4 scheduling, services, reducers, provider normalization, real evaluation cases and comparison/report execution remain outside this change.
 
@@ -279,6 +279,168 @@ A later checkpoint completed its assertions but failed session finalization with
 5. Review `git status --short`, `git diff --check` and the complete intended source diff. Suggested message: **`feat: implement P3 fixtures, oracle and metric helpers`**. Stage only the owned/coordinated P3 paths listed above; run `git diff --cached --check` and `git diff --cached --stat` before committing. No Git commit/push command was executed by this task.
 
 **Next action:** stop at P3. P4 is not started. Changes remain uncommitted and unpushed.
+
+---
+
+### P3 evaluation-only follow-up: 25 October 2026
+
+- **Scope:** evaluation and automated semantic review only. Entry tree clean on `jaineel/j02-workloads`, commit `e47de1a24ad6c1457e8ad88914f234feeb92ce61`. Existing P4 work was preserved; no P4/P5 implementation, verifier or performance experiment was started. The unchanged P3 verifier includes existing P4 regression tests in its broad suite.
+- **Source change:** this progress file only. Fresh ignored evidence was written under `artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/`, plus the verifier's fresh P3 evidence and offline fixture bundle. No production/provider code, labels, canonical specifications, config or prior fixture bundle was edited. No commit or push performed.
+- `human_label_review = AUTOMATED_REVIEW_COMPLETE_PENDING_JAINEEL_APPROVAL`
+- **Checkpoint interpretation:** P3's offline implementation, source accounting and explicit-double oracle are verified. The final label checkpoint is **not complete**: automated review found semantic and workflow issues; human approval, provider bindings, real D-05/integration and performance remain pending/`NOT_RUN`.
+
+**Actual commands and results**
+
+All Python commands used `.\.venv\Scripts\python.exe` (CPython 3.11.15) from `payment-gateway/`. Exact argument lists, stdout, stderr and exit codes are retained in [commands.json](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/commands.json).
+
+| Command/check | Actual result |
+|---|---|
+| `python benchmarks/manual/verify_p3.py` | Exit **0**, **10/10** expected outcomes matched; **329 passed in 53.36 s**, **0 failed**, **0 errors**, **0 skipped** |
+| `python -m pytest tests/oracles tests/benchmarks/test_fixtures.py tests/benchmarks/test_metrics.py tests/benchmarks/test_pytest_cache.py -q --tb=short -W error::pytest.PytestCacheWarning --junitxml=artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/p3-tests.xml` | Exit **0**, **76 passed in 12.48 s**, **0 failed**, **0 skipped**; this rerun overlaps the broad suite, giving **329 distinct tests / 405 test executions** |
+| Verifier's `python -m tests.oracles.probe --out artifacts/p3/87871a89-1fa6-41e4-8a7c-db2ad81bedd1` | Exit **0**; clean explicit-double control passed; **23/23** corruptions detected for their intended invariant reason |
+| Verifier's `python -m projectctl fixtures build --config configs/evaluation.yaml --seed 42` | Exit **0**; new offline bundle `benchmarks/results/fixtures/2f6ecb04-90b7-41a3-a47b-9f5c7c7b7e43/`; wire/API/model execution `NOT_RUN` |
+| Verifier's `python -m projectctl contracts check --all` | Expected exit **4**; actual provider contracts/bindings missing; G0 remains `INCOMPLETE` |
+| `python artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/complete_review.py` | Exit **0**; independent CSV accounting, four dirty examples, all **60 scenarios / 840 review criteria**, **19/19** metric checks, oracle-result inspection and fixture hash checks saved |
+
+**CSV, fixtures, metrics and oracle inspection**
+
+- Both available CSV copies match SHA-256 **`56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1`**, each **38,114,963 bytes**. Independent read-only accounting confirms **20,000 = 19,920 active + 78 inactive missing-price + 2 superseded + 0 mandatory rejected**, **19,998 canonical rows**, **15 columns**, and **20,000 unique observations**. The probe also confirms **323 unknown categories** and the exact selected duplicate observations. Full normalization/facet-coverage comparison remains `NOT_RUN`.
+- Inspected `fixture_review.json`: sale 379 rupees becomes **37900**, retail 999 becomes **99900**; a missing sale price remains **null/inactive** despite retail price; the newer duplicate wins; missing size/colour/material stay **null** and do not match size M. These four examples are literal partial expectations from the **33-case** dirty fixture, not a provider normalization result.
+- Inspected `tiny_math.json` and ran supplemental independent examples: nearest-rank **p50=30, p95=100, p99=100 ms** for `[10,20,30,40,100]`; descending 100..1 gives **50/95/99**; Kafka lag **25-20=5**, two-partition sum **8**; latency reduction **20%**; throughput gain **25%**. Baseline-zero percentages remain undefined/null. Missing/unresolved timing stays **null/INCOMPLETE**; actual unexecuted CLI metrics stay **null/NOT_RUN** with zero samples. No missing sample is converted to zero. The separate INR example **1,000 rupees = 100000 minor units** passes. These are arithmetic checks, not SUT measurements.
+- Inspected all **23** corruption records, confirming the actual failing invariant includes the intended code. Coverage includes missing IDs, duplicate Silver/source/Gold effects, wrong dispositions/content, Gold monetary/business rows/visibility, stale generations/hashes/source references, quote/order mismatch, duplicate reversed debits, stock loss/illegal states, payment/currency/cancellation conflicts, reservation items/duplicate lines, overlapping attempts and invented replenishment. Real provider reconciliation remains `NOT_RUN`.
+- Assistant fixture SHA-256 remains **`9875444a2586a0ba5ecfd8912d278a1cf591a97ad6a12fd4dfff47b0d22741bb`**. W-QUALITY logical hash remains **`e02076acd38846ab374b8717f1688348f0d4f655b7f4c20c8f5d5531ecf06cd1`**. No final fixture hash changed; original fixture review status remains `awaiting_human_review` and `frozen=false`.
+
+**Automated semantic label review: 13 PASS / 45 SUSPICIOUS / 2 FAIL**
+
+Every row in the [complete readable review](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/label_review.md) and [JSON review](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/label_review.json) contains the ID, exact user request, all six original expected slots, workflow outcome, result, exact reasons, unapplied suggested corrections and decision requirement. The JSON additionally records all 14 criteria per scenario. **PASS is an automated finding, not human approval.**
+
+| Scenarios | Result and exact issue requiring review |
+|---|---|
+| **A-024, A-028** | **FAIL:** `XXXXXL` is outside the canonical apparel vocabulary. The user explicitly asks for clarification, while the outcome also permits no-results. Decide how to preserve the raw unresolved constraint with canonical size null and require clarification; do not silently drop the requested constraint. No correction applied. |
+| **A-001–A-012, A-015** | **SUSPICIOUS:** `under`/`below` can denote a strict cap; the label records a maximum without specifying equality behavior. Amount conversion is correct. Approve an explicit boundary convention or clearer wording; this is a semantic ambiguity, not a proven money-conversion error. |
+| **A-021–A-023, A-025–A-027** | **SUSPICIOUS:** concrete hard filters are labelled only `honest_no_results_or_clarification`, permitting unnecessary clarification and excluding successful search without a snapshot proving no matches. Compound material/colour labels themselves are preserved correctly. |
+| **A-029–A-034** | **SUSPICIOUS:** untrusted instructions correctly confer no purchase/price authority, but verified displayable hits and the injected listing are unbound. These also use the ambiguous `under` price wording. Bind a reviewed explicit backend response before claiming display behavior. |
+| **A-041–A-052** | **SUSPICIOUS:** control-marker text lacks concrete action inputs and pre-state/backend evidence. Confirmed checkout **A-043/A-049** declares confirmation and quote/version binding, but supplies no actual quote/version/confirmation IDs. Unconfirmed **A-044/A-050** correctly requires no purchase. Each row lists its missing payload/state. |
+| **A-053, A-054, A-057, A-058** | **SUSPICIOUS:** generic request/outcome does not distinguish search 503 from order-status 503, identify targets, or justify a pending-state branch. Specify exact actions, failures and known state. |
+| **A-055, A-059** | **SUSPICIOUS:** response loss is assigned to `order_status`; this cannot establish lost order-creation response recovery. Decide which operation is intended and bind its identity/retry/status evidence. |
+| **A-056, A-060** | **SUSPICIOUS:** analytics-only outage must not itself invent an Orders dependency failure/pending status. Bind a healthy Orders snapshot and verify its authoritative status remains available, with analytics failure recorded separately. |
+
+- Original positive counts: **category 28, size 16, colour 16, material 16, max_price_minor 22, occasion 16**. Excluding the two invalid size values leaves **14 valid size positives**. Every original slot meets the planned **10-positive numeric minimum**, but labels are not ready for final F1 until issues and human approval are resolved. There are only **33 distinct request strings**, two categories, correlated size/colour templates and repeated fault/control cases; counts alone do not establish diversity.
+- Category-ambiguous `medium` appears in **A-014/A-016/A-018/A-020/A-035–A-040** and correctly retains null size with clarification. In A-018, “whether I mean clothing” is a category to confirm, not an asserted category. Unsupported-size ambiguity is **A-024/A-028**. Budget-bound ambiguities and unsupported/unverifiable outcome assumptions are enumerated in the summary.
+- All **60** rows have optional brand/path fields **null**; **0** scenarios use positive optional brand/category-path labels. Optional slots are excluded from the original six-slot metric. All catalogue/relevance bindings remain null, and real extractor F1/workflow success were not run.
+- Provenance review found only `copy`, `json` and `pathlib` imports in the fixture author, with no production parser import. Labels appear machine-drafted alongside template text, rather than derived from production parser output. Current static code cannot prove complete historical provenance; generator-equality tests establish consistency, not semantic correctness or independent human approval. This review used request text/specifications, never current parser behavior as proof.
+
+**Fresh evidence and remaining dependencies**
+
+- [Evaluation summary](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/evaluation_summary.json), [verifier output](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/verifier_output.json), [verifier commands](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/verifier_checks.json), [test counts and IDs](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/test_results.json), [329-test JUnit](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/verifier-tests.xml), [76-test JUnit](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/p3-tests.xml).
+- [Label-review summary](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/label_review_summary.json), [metric checks](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/metric_checks.json), [CSV checksum/accounting](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/csv_accounting.json), [corruption results](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/oracle_corruption_results.json), [dirty-case inspection](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/fixture_inspection.json), [inspected file paths/hashes](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/inspected_references.json), [fixture hash checks](../../artifacts/p3-evaluation/8f0bbc77-d58a-4a75-875b-7f23114835b7/fixture_hash_checks.json). Raw `tiny_math.json`, `fixture_review.json`, `dataset_checks.json`, `oracle_clean.json` and `oracle_corruptions.json` are copied unchanged into this directory.
+- Original fresh verifier evidence remains at `artifacts/p3/87871a89-1fa6-41e4-8a7c-db2ad81bedd1/`. Baseline tracked-file hashes and final scope/evidence validation are retained in the evaluation directory. Evidence and raw data remain ignored local files.
+- **Harsh:** reviewed dictionary/facet/catalogue snapshot, canonical catalogue/quote API contracts and real normalization comparison. **Aditya:** concrete quote/order/confirmation/status and audit bindings, canonical transaction contracts/shared outbox. **Vichitr:** canonical event/transport schemas, wire materialization and real source/Silver/Gold membership evidence. **Jaineel:** all-scenario human adjudication, precise workflow fixtures and later approved label freeze. These dependencies are visible; no missing module was replaced or real integration mocked.
+
+**Manual approval and reproducibility steps**
+
+1. Open `label_review.md` and `label_review.json`; inspect each request, six slots, all criteria and expected outcome. Make an explicit decision on each SUSPICIOUS/FAIL suggestion. None has been applied.
+2. Approve the budget-bound convention, unknown-size handling, exact no-results versus clarification expectations, confirmation/pre-state payloads, response-loss operation and analytics isolation. Verify real dictionary/snapshot facts with owners; use explicitly labelled doubles where real dependencies are unavailable.
+3. Inspect the CSV hash/equation, `tiny_math.json`, all four `fixture_review.json` cases and each named corruption failure. Reproduce using the two exact verifier/pytest commands above; each verifier run creates fresh evidence.
+4. Final completion requires Jaineel's actual human review and separate authorization for any fixture edits/refreeze/hash change. Keep `human_label_review` at **AUTOMATED_REVIEW_COMPLETE_PENDING_JAINEEL_APPROVAL** in the meantime. This evaluation does not set it to COMPLETE.
+5. Review `git diff -- docs/jaineel/progress.md`, `git diff --check` and `git status --short`. If later committing this documentation-only result, suggested message: `docs: record P3 evaluation and automated label review`; stage only `docs/jaineel/progress.md` and inspect `git diff --cached --check` before committing. No commit/push was run here.
+
+**Next action:** stop after this evaluation. Preserve findings and hashes; await Jaineel's label decisions. P4/P5 work was not modified or advanced.
+
+---
+
+### P3 authorized fixture correction and LLM-judge adjudication: 25 October 2026
+
+The user subsequently authorized Codex to judge every scenario, choose defensible executable expectations and apply corrections without human adjudication. This supersedes the prior evaluation-only restriction on editing labels and hashes; the earlier report and its findings remain historical evidence. The current branch remains `jaineel/j02-workloads` at `e47de1a24ad6c1457e8ad88914f234feeb92ce61`; the existing progress edit was preserved at entry. No production/provider code or P4/P5 implementation was changed, and no commit/push was performed.
+
+- `automated_llm_judge_review = COMPLETE`
+- `human_label_review = PENDING_NOT_PERFORMED`
+- **Actual judgment:** all **60** scenarios adjudicated; deterministic fixture consistency **60 PASS**; qualitative LLM judgment **29 PASS / 31 CONCERN / 0 FAIL**, with confidence HIGH for the 29 clear cases and MEDIUM for the 31 cases retaining alternative readings. Codex in this conversation supplied the judgment; no external model provider or runtime LLM call was added or invoked.
+- **Limit:** this completes the requested automated review. It does not satisfy the runbook's separate human-reviewed final W-AGENT requirement, constitute human approval, or establish real-world intent quality. The source fixture remains `review_status=awaiting_human_review`, `frozen=false`, with null human reviewer/review timestamp/relevance labels and real catalogue binding. Real provider/dictionary review, D-05 execution and actual F1 remain pending/`NOT_RUN`.
+
+**Corrections and documented decisions**
+
+- **A-001–A-012, A-015, A-029–A-034:** strict `under/below R rupees` means `price_minor < R*100`. Encode it in the inclusive integer `max_price_minor` ceiling as **R*100-1**, so under 500 is **49999**, not 49900 or 50000. `At most`, `within a budget`, and `or less` remain inclusive (**50000**). No normative natural-language inclusive override was found. This changes 19 budget labels and does not change a production parser/API.
+- **A-024/A-028:** replace unsupported canonical size `XXXXXL` with null, preserve its exact raw value in `unresolved_constraints`, require targeted clarification and forbid search before resolution. A valid but unavailable size remains a hard filter; it is not rewritten to null.
+- **All search expectations:** bind a labelled synthetic catalogue/dictionary/view by SHA-256, preserve all hard filters, and assert literal eligible fixture SKU sets. Matching fixtures yield verified fixture facts; an empty or missing-facet view yields honest no-results. Dependency failure remains distinct from an empty response. Occasion remains semantic query text, not a universal hard catalogue field; no relevance rankings are manufactured. Pairs A-021/A-025, A-022/A-026 and A-023/A-027 now exercise matching versus missing/empty views with identical intent labels.
+- **A-029–A-034:** bind the malicious description to a returned synthetic SKU as untrusted data, retaining its authoritative fixture price. Explicit expectations forbid instruction execution, price mutation and cart/quote/checkout/order actions.
+- **A-041–A-052:** replace control-marker prose with explicit requests and concrete synthetic identities/state. Cover one cart effect for identical retries, authoritative quote totals despite stale display prices, valid 60-second quotes, exact cart-version and explicit confirmation bindings, rejection of unconfirmed checkout, stale-cart 409 before Orders, and authoritative status snapshots. Transaction totals remain transaction facts; they do not invent search-budget labels.
+- **A-053/A-057 and A-054/A-058:** identify catalogue search 503 versus Orders status GET 503, including attempted HTTP operation, known/unknown state and safe response. Missing current status remains unknown; unavailable search does not imply an empty catalogue.
+- **A-055/A-059:** split ambiguous original response-loss cases into confirmed POST creation-response loss versus GET status-read loss. Pin a two-step synthetic script: same create body/context/idempotency key recovers one PENDING order; a lost GET retries the same read without order creation. All checkout IDs/quote/cart/confirmation inputs are concrete.
+- **A-056/A-060:** healthy Orders returns its pinned CONFIRMED/CANCELLED snapshot despite analytics outage, with **zero analytics calls**. Terminal status derives from that synthetic response, not from the fault.
+- **All 60 audit rows** retain original request/labels/outcome and full original scenario, revised request/labels/outcome and scenario digest, changed fields with before/after values, issue categories, deterministic result, LLM result, rationale/specification references, confidence, alternative interpretations and selected decisions. No history was erased. Original author behavior remains available as `original_assistant_scenarios()`; the existing fixture author now emits the v2 expectations.
+
+**Hashes and coverage**
+
+| Fixture identity | SHA-256 |
+|---|---|
+| Original bytes at this task's entry (CRLF), archived exactly in `history/scenarios-v1.json` | `071543c610d110fb342fed757fa56320136a46fc64a2561c9692bdc3d24c8dba` |
+| Original LF-normalized bytes, matching the prior evaluation hash | `9875444a2586a0ba5ecfd8912d278a1cf591a97ad6a12fd4dfff47b0d22741bb` |
+| Revised v2 fixture bytes (LF) | `441c5becdcd7462972027f567c6cc419010d1b5770d21a3ae4ce85ead1f9dac9` |
+
+The original current JSON and prior evaluated JSON are semantically identical; the different original byte hashes come only from CRLF versus LF. The audit records both byte and normalized hashes so platform checkout conversion is not confused with label changes. The W-QUALITY logical fixture is unchanged.
+
+Valid positive counts are **category 28, size 14, colour 16, material 16, max_price_minor 22, occasion 16**: every original slot meets the minimum **10**. Optional **brand=0**, **category_path_prefix=0**, all null and excluded from six-slot F1. There are **21 scenarios with corrected slot values** and **38 revised workflow outcomes**; IDs remain exactly A-001–A-060. Repeated templates and limited categories remain a coverage limitation, not evidence of general intent quality.
+
+**Exact changed paths for this adjudication**
+
+- `contracts/fixtures/assistant/scenarios.json`: corrected six-slot expectations, explicit outcomes, synthetic data/bindings and workflow/fault state.
+- `contracts/fixtures/assistant/history/scenarios-v1.json`: preserved original bytes and labels.
+- `contracts/fixtures/assistant/adjudication-v2.json`: all 60 machine-readable decisions, before/after history, hashes and concerns.
+- `contracts/fixtures/assistant/review-v2.md`: readable per-scenario LLM-judge report with original/revised slots, outcomes and rationale.
+- `contracts/fixtures/assistant/scenario.schema.json`: test-only fixture envelope, allowed canonical size vocabulary, null optional labels and honest review metadata.
+- `tests/oracles/assistant_revision.py`: authored v2 fixture construction and recorded judgments, independent of production parsers/providers.
+- `tests/oracles/draft_fixtures.py`: retain v1 author and route current assistant-fixture generation through v2.
+- `tests/benchmarks/test_assistant_revision.py`: **121** added parameterized regression checks for requests/slots, pinned matches/nulls, boundaries, size clarification, structured workflow schemas, confirmation, fault distinctions, hash/audit consistency and invalid fixture rejection.
+- `docs/jaineel/progress.md`: this P3 record and P3 status only. The P4/P5 sections remain unchanged.
+
+**Actual checks and evidence**
+
+Commands used `.\.venv\Scripts\python.exe` from `payment-gateway/`. Fresh local evidence: `artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/`.
+
+| Command/check | Actual result |
+|---|---|
+| `python -m pytest tests/benchmarks/test_assistant_revision.py tests/benchmarks/test_fixtures.py tests/contracts/test_contracts.py -q --tb=short -W error::pytest.PytestCacheWarning --junitxml=artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/focused-tests.xml` | **153 passed in 20.16 s**, **0 failed / 0 errors / 0 skipped**, exit **0** |
+| `python -m ruff check tests/oracles/assistant_revision.py tests/oracles/draft_fixtures.py tests/benchmarks/test_assistant_revision.py` and corresponding `ruff format --check` | Final checks exit **0**; all three files formatted. Initial line-length diagnostics were fixed; initial and intermediate lint output is retained. No test assertion was weakened. |
+| Inline regeneration check: `assistant_scenarios()` and all 60 `judge(original,revised)` results versus persisted JSON | Exact equality after formatting; exit **0** |
+| `python benchmarks/manual/verify_p3.py` | Exit **0**, **10/10** expected outcomes; **450 passed in 57.79 s**, **0 failed / 0 errors / 0 skipped**. The unchanged verifier includes pre-existing broader regressions; no P4/P5-specific verifier was run. |
+| Verifier schema commands: `python -m projectctl.schemas --check`, `python -m projectctl.conversation_contract --check` | Both exit **0**; no canonical/provider schema changed |
+| Verifier probe and fixture build | Probe exit **0**: **23/23** intentional oracle corruptions detected, source accounting **PASS**, tiny math **PASS**. Fresh offline fixture bundle `benchmarks/results/fixtures/40aca189-f341-4226-bf6e-c9ad07f78596/`; wire/API/model execution remains `NOT_RUN`. |
+| Verifier `python -m projectctl contracts check --all` | Expected exit **4**, missing owner contracts remain explicit; G0 `INCOMPLETE`, real integration `NOT_RUN` |
+
+The focused 153 tests overlap the 450-test verifier suite; these are **450 distinct tests**, not 603 distinct tests. The source/provider tests use explicitly provisional consumer schemas where canonical owner contracts are unavailable. These validate authored fixture shapes and expectations, not actual provider behavior.
+
+- [Readable report](../../contracts/fixtures/assistant/review-v2.md), [per-scenario audit](../../contracts/fixtures/assistant/adjudication-v2.json), [corrected scenarios](../../contracts/fixtures/assistant/scenarios.json), [original fixture](../../contracts/fixtures/assistant/history/scenarios-v1.json).
+- [Focused command outputs](../../artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/focused-checks.json), [153-test JUnit](../../artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/focused-tests.xml), [final lint checks](../../artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/lint-final.json), [verifier output](../../artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/verifier-run.json), [all verifier commands](../../artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/verifier-checks.json), [450-test JUnit](../../artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/verifier-tests.xml), [test counts](../../artifacts/p3-adjudication/5e39c423-52b1-41ad-a3db-859bf74e64e1/test_results.json).
+- Original verifier evidence remains at `artifacts/p3/842bfd22-7966-4bca-a19b-f19a8bf547eb/`. Prior evaluation evidence is preserved; final scope/hashes/link verification is recorded in the new adjudication evidence directory.
+
+**Unresolved concerns and remaining limits**
+
+- **19 budget-language concerns:** A-001–A-012, A-015, A-029–A-034. Literal strictness is selected as instructed; colloquial inclusive budget language remains a reasonable real-world reading.
+- **10 intentional medium/category ambiguities:** A-014/A-016/A-018/A-020/A-035–A-040. Apparel M versus a non-apparel dimension remains unresolved; the executable expectation is targeted clarification without search.
+- **2 historical operation ambiguities:** A-055/A-059. Original author intent cannot be recovered from the conflicting generic fault/control; the revised explicit wording deterministically covers POST creation loss and GET status loss separately.
+- **Provider handoffs:** synthetic fixtures do not replace Harsh's actual dictionary/catalogue snapshot or canonical quote contract, Aditya's transaction/status bindings, or Vichitr's event/analytics integration. Human review and real-world intent quality remain unperformed. No runtime LLM calls, production service changes or new provider implementations were introduced.
+
+**Next action:** stop after this P3 adjudication. No P4/P5 work, commit or push. The requested automated correction/review is complete with the concerns above retained explicitly.
+
+---
+
+### P3 commit finalization: 25 October 2026
+
+- **Authorization/scope:** user requested inspection and commit of the nine P3 adjudication paths with message `test: adjudicate assistant fixtures with automated model review`. Entry branch `jaineel/j02-workloads`, HEAD `e47de1a24ad6c1457e8ad88914f234feeb92ce61`; all nine intended source paths were reviewed. Generated evidence/results and secrets are excluded from staging. No P4/P5 implementation was started.
+- `automated_llm_judge_review = COMPLETE`
+- `human_label_review = PENDING_NOT_PERFORMED`
+- **Boundary verification:** with inclusive `price_minor <= max_price_minor`, integer `price_minor < 50000` is exactly equivalent to `price_minor <= 49999`. The affected test accepts 49999, rejects 50000 for under 500, and retains 50000 for at most 500. Common section 4 names a maximum and section 10 preserves hard filters; neither explicitly writes the comparison operator. No contradictory normative rule was found. **Remaining contract clarification:** Harsh (catalogue contract owner) and Jaineel (consumer) should confirm `<=` explicitly in the canonical catalogue handoff. This fixture interpretation does not change a shared/public contract.
+- **Concerns retained:** all **31** full CONCERN records are identical to the preceding adjudication, including alternatives, selected interpretation, MEDIUM confidence and rationale. All 60 labels, outcomes, scenario payloads and their canonical digests remain unchanged by finalization.
+- **Hash distinction added to the audit/report:** exact file bytes, CRLF-to-LF-normalized bytes, canonical compact/sorted UTF-8 JSON content, and manifest canonical content excluding its self-hash are separate domains. Original raw `071543c610d110fb342fed757fa56320136a46fc64a2561c9692bdc3d24c8dba` and LF `9875444a2586a0ba5ecfd8912d278a1cf591a97ad6a12fd4dfff47b0d22741bb` remain recorded; original canonical content is `682532cb6deb5f383b49a8db7ba92524a4765579310c99be83128322a9b5e3d1`. Revised raw/LF remains `441c5becdcd7462972027f567c6cc419010d1b5770d21a3ae4ce85ead1f9dac9`; revised canonical content is `f06cffbef1ed8db709640ac65cc6609a13b9949d54aed7a6599c0b99997253df`.
+- **Manifest association verified:** revised bundle `benchmarks/results/fixtures/40aca189-f341-4226-bf6e-c9ad07f78596/` records the revised raw hash in its `fixture_index.json` artifact reference and `w_quality_manifest.json` source reference; the copied scenario JSON has the same canonical content as the current fixture. **Eight historical bundles** retain their own old copied scenarios, artifact/source hashes and content. Historical source paths/checksums identify bytes at the time of those runs; they must not be compared with today's mutable source path and relabelled. Existing result files were not modified.
+- **Configuration verification:** `configs/evaluation.yaml` remains draft, with W-AGENT `template_sha256`, generator `template_sha256` and retrieval `label_sha256` all null; there is no stale old assistant hash to replace. W-AGENT's future frozen template hash identifies the generated logical workload recipe (including templates/seed/protocol), not the raw scenario file. Retrieval-label hashes are separate. Finalization does not falsely freeze an unreviewed benchmark configuration. Exact reference paths, hash domains and observed values are added to `reference_verification` in the audit.
+- **Additional edits within the existing nine paths:** only `adjudication-v2.json` reference/hash metadata, `review-v2.md` explanatory text, `test_assistant_revision.py` concern/reference regression assertions and this P3 progress entry. The other five intended files were inspected and left unchanged by finalization.
+- **Affected checks actually run:** `python -m ruff check tests/benchmarks/test_assistant_revision.py` and `python -m ruff format --check tests/benchmarks/test_assistant_revision.py`, both exit **0**. `python -m pytest tests/benchmarks/test_assistant_revision.py -q --tb=short -k "adjudication_preserves_history or audit_hash_domains or price_boundaries" --junitxml=artifacts/p3-finalization/16361b7a-26da-4c89-9336-3ef7885c0d36/affected-tests.xml`: **3 passed, 119 deselected in 0.52 s**, exit **0**, no failed/errored/skipped tests. Deselection is intentional selection of affected checks, not a skipped dependency/test. One reference/hash-domain regression was added (122 cases now in that module). The previously passing 153-test focused suite and 450-test verifier are preserved as prior evidence; neither full suite was repeated.
+- **Final checks/staging:** validate original/revised/canonical hashes, all concerns and bundle/config references; ensure changes stay within the exact nine-path allowlist; run `git diff --check`, stage those paths explicitly, inspect `git diff --cached --check` and staged paths, then commit with the requested message. Staged fixture blobs are checked using LF-normalized and canonical identities because Git `core.autocrlf=true` normalizes text. Human review remains unperformed; real provider quality, real integration and performance remain `NOT_RUN`.
+- **Evidence:** [affected commands/output](../../artifacts/p3-finalization/16361b7a-26da-4c89-9336-3ef7885c0d36/affected-checks.json), [affected JUnit](../../artifacts/p3-finalization/16361b7a-26da-4c89-9336-3ef7885c0d36/affected-tests.xml). The same ignored directory preserves entry hashes, final reference/scope checks and the resulting commit identity. Original adjudication and evaluation evidence remain preserved.
+
+**Next action:** commit only the reviewed nine P3 paths as authorized, report the commit hash and the comparator clarification, then stop. No push or P5 work is authorized in this turn.
 
 ---
 
