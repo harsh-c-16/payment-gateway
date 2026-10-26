@@ -4,7 +4,7 @@
 **Role:** M1 (Session, Cart, Assistant, Workflow) & M0 (Measurement Harness, Oracle, Dashboards, Benchmarks)
 **Reference Playbook:** [10_JAINEEL_CODEX_PLAYBOOK.md](../specs/10_JAINEEL_CODEX_PLAYBOOK.md)
 **Personal Brief:** [04_JAINEEL_VORA.md](../specs/04_JAINEEL_VORA.md)
-**Status Date:** 25 October 2026 (Asia/Calcutta)
+**Status Date:** 27 October 2026 (Asia/Calcutta)
 
 > [!NOTE]
 > This local progress document tracks technical milestone execution in Codex. It is separate from the academic Excel tracker. Status labels used: `not started`, `in progress`, `stub verified`, `real verified`, `blocked`.
@@ -20,7 +20,7 @@
 | **P2** | Conversation contract, clients, explicit stubs | J01 | stub verified (offline checkpoint complete) | `jaineel/j01-contracts` | 89 contract tests + 110 P1 regressions; explicit HTTP/SSE doubles |
 | **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | stub verified; automated LLM-judge review complete; human review not performed | `jaineel/j01-oracles` | 153 focused fixture/schema tests; current P3 verifier 450 regressions; explicit fixtures/doubles |
 | **P4** | Open-loop workload generation & experiment lifecycle | J02 | stub verified (offline checkpoint complete) | `jaineel/j02-workloads` | 329 combined tests; explicit publisher/API/lifecycle doubles |
-| **P5** | Telemetry, raw collectors, dashboard | J03 | not started | — | — |
+| **P5** | Telemetry, raw collectors, dashboard | J03 | stub verified (offline checkpoint complete); local process collector real verified | `jaineel/j03-telemetry` | 37 telemetry tests; 488 combined; explicit doubles plus separate real generator/loopback checks |
 | **P6** | Durable sessions, cart, and idempotency | J04 | not started | — | — |
 | **P7** | Zero-call search, quote, and checkout workflow | J04 | not started | — | — |
 | **P8** | Real G1/G3 integration, failures, reconciliation | J06 | not started | — | — |
@@ -519,15 +519,69 @@ New tests found and fixed phase ordering after JSON canonicalization, Windows sh
 ---
 
 ### Milestone P5: Telemetry, Raw Collectors, and Dashboard
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J03
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** Prometheus metrics definitions alignment across services.
-- **Next Action:** Implement shared/telemetry and dashboards.
+
+- **State:** stub verified; J03/P5 offline checkpoint complete. Actual local generator CPU/RSS and a loopback HTTP scrape were checked separately. Real Kafka, active Gold, SUT resources, Grafana import, G1/G3, hosted CI and performance remain `NOT_RUN`. P6 is not started.
+- **Branch/base:** `jaineel/j03-telemetry`, created from clean `jaineel/j02-workloads` at `6d0a6ff6b357c6735d4282e874a8953e4da92c8a`. This is an explicit dependent branch; no merge into main is assumed. Existing P3/P4 commits and historical records were preserved.
+- **Authorities:** AGENTS, ownership, progress, personal brief J03 and provider boundaries, playbook P5, context technology freeze, common §14/Appendix A and IDs/time conventions, evaluation §5, runbook §7, dataset provenance/manifest rules. No canonical specification, provider implementation/DTO, dependency or lock changed.
+
+**Changed paths and behavior**
+
+- `shared/telemetry/{__init__,context,metrics,timing}.py`, `shared/telemetry/README.md`: all common metric families, exact latency buckets, finite label vocabularies and series limits, lazy initialization, task-local canonical context/logging, monotonic raw durations and bounded-batch JSONL-to-Parquet retention. Missing values are not converted to zeros; IDs and raw error/request text do not become metric labels.
+- `benchmarks/{observation,collectors,observation_summary}.py`: fixed one-second observations, declared series, bounded polling, explicit timeout/partial/missed-tick gaps; raw JSONL/CSV artifacts; actual HTTP metrics, Kafka Admin read-only offsets, generator process and explicit cgroup-v2 readers; pinned active-Gold audit/membership/generation checks; hashed offline reconstruction with CPU allocation/reset/gap handling and completed-only latency counts. Provider projection seams stay explicit and do not replace the independent oracle.
+- `benchmarks/{experiment,scheduler}.py`: optional explicit observer/metric bindings start after validation and finalize before run hashing; live offered/admitted counters and bounded pending queue gauges. IDs/mode/directory must match. No default real binding or mock fallback was installed. SUT performance remains INCOMPLETE/NOT_RUN until actual evidence gates.
+- `dashboards/{build_dashboard.py,benchmark.json,README.md}`: deterministic Grafana JSON with context/status, offered/admitted/goodput, latency, separate lag/outbox/pending-Gold, quarantine, projection, stock/saga, queues, CPU/RSS and health panels. No sample defaults, zero-fill or interpolated nulls. Stock aggregate and Gold-goodput monitoring bindings require owner review; absent series remain absent.
+- `tests/telemetry/{conftest,doubles,test_instrumentation,test_observation,test_collectors,test_dashboard}.py`: **37** focused tests, explicit doubles, actual local process and loopback HTTP paths. Kafka Admin/cgroup/Gold tests use explicit doubles/file fixtures and are not real integration results.
+- `benchmarks/manual/{observer_stall,verify_p5}.py`, `.github/workflows/offline.yml`: reproducible stall/gap/resource demo, exact command/output/exit/JUnit retention and Windows/Linux P1–P5 CI definition. Hosted execution is unverified.
+- `docs/jaineel/p5_telemetry.md`, this file: owner instrumentation/binding examples, infrastructure handoffs, limits, evidence and manual checks.
+
+**Failures found and fixed**
+
+The first combined run retained **1 failure / 485 passes**. Its raw source journal showed `source-000003` scheduled at **0.600000 s**, sent at **0.585721 s** and acknowledged at **0.585807 s**. Windows' event-loop timer woke early; the strict timing writer correctly rejected a negative schedule-to-ack duration. The generator now rechecks the high-resolution monotonic deadline after waking, rather than clamping the duration or weakening assertions. Observation ticks also recheck their deadline.
+
+The next combined run retained **1 failure / 486 passes**: eliminating the zero-delay yield exposed a zero-warmup lifecycle ordering race. The scheduler now records warmup before starting its phase task, preserving prepare → validate → warmup → measure → drain → reconcile → persist. The existing ordering assertion is unchanged. A deterministic early-wakeup regression was added under P5 tests. All final checks passed after these fixes; failed evidence was preserved.
+
+**Actual commands and outcomes**
+
+Commands ran at repository root with `.\.venv\Scripts\python.exe` (Python **3.11.15**); `uv` is **0.10.8**. In the table, `python` denotes that executable.
+
+| Command | Actual outcome |
+|---|---|
+| `git status --short --branch`, log/diff inspection; `git switch -c jaineel/j03-telemetry` | Clean P3/P4 tree preserved; new feature branch, exit 0 |
+| `uv sync --locked` | Exit 0; 38 packages resolved / 37 audited; lock unchanged |
+| `python -m pytest tests/telemetry -q --tb=short -W error::pytest.PytestCacheWarning` during implementation | 31 then 35 passed; final collection contains 37 P5 tests |
+| `python -m pytest tests/telemetry tests/benchmarks/test_scheduler.py tests/benchmarks/test_experiment.py -q --tb=short -W error::pytest.PytestCacheWarning` | Exit 0; **71 passed in 22.43 s**, no skips |
+| `python benchmarks/manual/verify_p5.py` (final) | Exit **0**; **11/11** expected outcomes matched; combined suite **488 passed in 60.72 s**, **0 failed/errors/skipped** |
+| Verifier lint/format, evaluation schema and conversation schema checks | All exit 0; schemas unchanged |
+| Verifier `python -m benchmarks.manual.observer_stall --out artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/demo` | Exit 0; **9/9 assertions true**. Stub lag remains 0, pending Gold grows to 30, outbox rows to 6; stopped collector has three missing samples and null latest value. Separate real generator has three CPU/RSS readings |
+| Verifier `python -m benchmarks.observation_summary --run-dir artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/demo/stub-stall --out artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/rebuilt` | Exit 0; artifact-only JSON/Markdown reconstruction, evidence status remains INCOMPLETE |
+| Verifier `python -m projectctl contracts check --all` | Expected exit **4**; provider contracts/instrumentation remain missing; no replacement supplied |
+| `git diff --check`; protected spec/lock/config/contracts/providers diff | Exit 0; no whitespace errors or protected-path changes |
+
+**Evidence (ignored local artifacts, not committed)**
+
+- [Final exact commands, stdout/stderr and exits](../../artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/checks.json), [488-test JUnit](../../artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/pytest.xml).
+- [Demo assertions and source directories](../../artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/demo/demo_checks.json), [stub raw observations](../../artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/demo/stub-stall/observations.jsonl), [stub offline table](../../artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/demo/stub-stall/offline_summary.md), [real generator resource table](../../artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/demo/real-generator/offline_summary.md).
+- [Independent offline rebuild](../../artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/rebuilt/telemetry_summary.md); each source directory retains context, end-of-observation metadata, CSVs, raw timings/Parquet and content/file hashes.
+- [Preserved early-wakeup failure](../../artifacts/p5/2226cfd5-8b2d-4d23-ad7b-e5e11ebfac44/checks.json), [preserved zero-warmup ordering failure](../../artifacts/p5/8da929d4-0de2-4605-8046-327d10119090/checks.json). Final evidence above supersedes both.
+- Publication/scope commands and actual outcomes are retained in [the Git handoff evidence](../../artifacts/p5/dd60f52b-990e-411b-93b7-44e1d16a7edb/git_publication.json). User explicitly requested a source-only commit and push; generated evidence/raw data/secrets remain excluded.
+
+**Remaining dependencies and review**
+
+- **Vichitr:** real Kafka/group/partition settings, locked Prometheus/Grafana startup and one-second scrape targets, active-manifest/query/membership binding, publication/lag/outbox projections and actual G1 evidence. No Compose changes were made.
+- **Aditya:** Orders/Inventory/Payments instrumentation, outbox count/oldest age, saga states, approved read-only stock aggregate review and actual resource/audit bindings. The optional `benchmark_inventory_units{state}` consumer projection does not alter business/event contracts.
+- **Harsh:** catalogue/projection/import/query instrumentation, real service metrics and stage timing/manifest handoffs. Source data were not replaced or inferred.
+- **Jaineel/later gates:** reviewed real bindings and producer-to-Gold/Silver/publication timings, full SUT resource measurements, actual Grafana import/PromQL evaluation, G1/G3 and correctness/performance gates remain NOT_RUN. No model calls were made; no performance matrix was launched.
+
+**Concrete manual checkpoint**
+
+1. Run `uv run --locked python -m pytest tests/telemetry -q`; expect 37 tests to pass.
+2. Run `uv run --locked python -m benchmarks.manual.observer_stall`; open its printed `demo_checks.json`. Verify nine true assertions, separate stub/real directories and NOT_RUN SUT/Grafana status.
+3. Open `stub-stall/offline_summary.md` and raw observations: Kafka lag 0, pending Gold 0/10/20/30, outbox 0/2/4/6; three projection gaps and null latest value. These are distinct boundaries, not one combined backlog.
+4. Run the offline command above with the actual emitted directory and a fresh output path. Compare the rebuilt table/JSON with the original. In a disposable copy only, change a CSV; reconstruction must return exit 4 for a hash mismatch.
+5. Run `uv run --locked python benchmarks/manual/verify_p5.py`. Inspect all actual/expected exits and JUnit counts. Missing-provider exit 4 is expected, not an integration pass.
+6. Once owners provide actual endpoints/infrastructure, follow [the P5 handoff](p5_telemetry.md) to register real readers and import `dashboards/benchmark.json`. Select matching scrape jobs/run context/time range, stall the real publisher and stop a real collector. Keep those real checks NOT_RUN until executed; do not infer them from the demo.
+
+**Checkpoint:** stop at P5. Commit message: `feat: implement P5 telemetry collectors and dashboards`; publish on `jaineel/j03-telemetry`. P6 remains not started.
 
 ---
 

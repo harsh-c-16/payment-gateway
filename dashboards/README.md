@@ -1,8 +1,10 @@
-# Monitoring Dashboards (M0)
+# Benchmark dashboard (Jaineel / M0)
 
-**Owner:** Jaineel Vora (B24CM1080)
-**Specification Brief:** [04_JAINEEL_VORA.md](../docs/specs/04_JAINEEL_VORA.md)
-**Context Reference:** [01_PROJECT_CONTEXT.md §3](../docs/specs/01_PROJECT_CONTEXT.md#3-final-primary-ownership)
+Import [benchmark.json](benchmark.json) into the owner-managed Grafana instance.
+Choose the actual Prometheus source/jobs, run context and time range. The JSON
+contains no measured or sample defaults. Real import/PromQL verification is NOT_RUN.
+Vichitr owns infrastructure startup and provisioning.
 
-## Scope
-Maintains Grafana dashboard definitions and Prometheus alert/query rules for monitoring real-time pipeline latency, consumer lag, service request rates, outbox queue sizes, and Gold publication intervals during evaluation runs.
+`python dashboards/build_dashboard.py` regenerates the definition deterministically.
+See the [P5 handoff](../docs/jaineel/p5_telemetry.md) for metric bindings, limitations
+and offline reconstruction without Grafana.

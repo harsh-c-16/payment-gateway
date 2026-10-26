@@ -1,8 +1,8 @@
-# Shared Telemetry & Metrics Library (M0)
+# Shared telemetry (Jaineel / M0)
 
-**Owner:** Jaineel Vora (B24CM1080)
-**Specification Brief:** [04_JAINEEL_VORA.md](../../docs/specs/04_JAINEEL_VORA.md)
-**Evaluation Reference:** [03_EVALUATION_SPEC.md §8](../../docs/specs/03_EVALUATION_SPEC.md) & [02_COMMON_SPEC.md §2](../../docs/specs/02_COMMON_SPEC.md)
+P5 implements the [common §14 metrics](../../docs/specs/02_COMMON_SPEC.md),
+finite label vocabularies, task-local structured logs and raw JSONL/Parquet timers.
+Owners instrument their own services; no service or outbox implementation lives here.
 
-## Scope
-Defines Prometheus metric name conventions, high-resolution monotonic timing context managers, latency percentiles, and structured logging helpers for use across all microservices and benchmark runs.
+See the [P5 handoff and instrumentation examples](../../docs/jaineel/p5_telemetry.md).
+Run `uv run --locked python -m pytest tests/telemetry -q` from the repository root.

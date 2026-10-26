@@ -35,6 +35,8 @@ class ExperimentBindings:
     drain: object = None
     audit: object = None
     fault: object = None
+    observer_factory: object = None  # optional explicit P5 ObservationSession binding
+    telemetry: object = None  # optional shared Telemetry registry exposed by the harness owner
 
 
 def admission_reconciliation(directory, manifest):
@@ -248,7 +250,7 @@ async def run_experiment(
         "topic": namespace + ".inventory-events.v1",
     }
     started, code, correctness, generator = utc_now(), ExitCode.COMPLETED, None, None
-    fault_task = None
+    fault_task = observer = None
     stage = "prepare"
     with (directory / "lifecycle.jsonl").open("x", encoding="utf-8") as lifecycle:
 
@@ -288,6 +290,21 @@ async def run_experiment(
             stage = "validate"
             record(stage)
             await bindings.validate(context, manifest)
+            if bindings.observer_factory is not None:
+                observer = bindings.observer_factory(context, directory, evidence_kind)
+                observed = observer.config
+                if (
+                    observed.run_id != run_id
+                    or observed.namespace != namespace
+                    or observed.workload != workload_id
+                    or observed.variant != variant_id
+                    or observed.mode != mode
+                    or observed.evidence_kind != evidence_kind
+                    or observed.directory.resolve() != directory.resolve()
+                ):
+                    observer = None
+                    raise DependencyError("observation context/mode differs from experiment")
+                await observer.__aenter__()
             stage = "warmup"
 
             async def inject_fault():
@@ -328,6 +345,7 @@ async def run_experiment(
                         resolved.generator.queue_limit,
                     ),
                     boundary=boundary,
+                    telemetry=bindings.telemetry,
                 )
                 remaining = generator["remaining_drain_seconds"]
                 if remaining <= 0:
@@ -377,6 +395,12 @@ async def run_experiment(
                 if not fault_task.done():
                     fault_task.cancel()
                 await asyncio.gather(fault_task, return_exceptions=True)
+            if observer:
+                try:
+                    await observer.__aexit__(None, None, None)
+                except Exception as exc:
+                    code = ExitCode.DEPENDENCY_FAILURE
+                    reasons.append(f"observation persist failed: {type(exc).__name__}")
             record("persist")
     if (directory / "emissions.jsonl").is_file() and not (directory / "admission.json").exists():
         write_json(directory / "admission.json", admission_reconciliation(directory, manifest))
@@ -451,7 +475,11 @@ async def run_experiment(
             "order": order,
             "generator": generator,
             "sut_performance": "NOT_RUN" if mode == "stub" else "INCOMPLETE",
-            "unavailable_collectors": ["timings.parquet", "lag.csv", "resources.csv"],
+            "unavailable_collectors": [
+                name
+                for name in ("timings.parquet", "lag.csv", "resources.csv")
+                if not (directory / name).is_file()
+            ],
         },
     )
     output = save_evidence(

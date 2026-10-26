@@ -24,6 +24,12 @@ def journal(stream, value):
     stream.flush()
 
 
+async def sleep_until(deadline):
+    """Recheck the elapsed clock: event-loop timers can wake early on Windows."""
+    while (remaining := deadline - time.perf_counter()) > 0:
+        await asyncio.sleep(remaining)
+
+
 @dataclass(frozen=True)
 class Packet:
     identity: str
@@ -77,6 +83,7 @@ async def run_schedule(
     drain_seconds,
     limits=None,
     boundary=None,
+    telemetry=None,
 ):
     """Driver.send(packet, context, mark_send) must cooperate with cancellation.
 
@@ -97,6 +104,11 @@ async def run_schedule(
     cutoff_snapshot = None
     phase_seen, wire_offsets = set(), {}
     operation_context = dict(context)
+
+    def record_queue():
+        if telemetry is not None:
+            telemetry.record("benchmark_pending_records", pending_count)
+            telemetry.record("benchmark_pending_bytes", pending_bytes)
 
     def stamp(offset):
         return (wall + timedelta(seconds=offset)).isoformat().replace("+00:00", "Z")
@@ -125,6 +137,12 @@ async def run_schedule(
         phase = row["phase"]
         counters[phase][status] += 1
         at = time.perf_counter()
+        if telemetry is not None and status == "acknowledged":
+            phase_end = start + (
+                warmup_seconds if phase == "warmup" else warmup_seconds + duration_seconds
+            )
+            if cutoff is None or at < phase_end:
+                telemetry.record("benchmark_admitted_total", 1, phase=phase)
         row |= {
             "outcome": status,
             "error": error,
@@ -201,6 +219,7 @@ async def run_schedule(
                 active.pop(row["record_id"], None)
                 pending_count -= 1
                 pending_bytes -= len(packet.body)
+                record_queue()
                 queue.task_done()
                 capacity.set()
 
@@ -213,10 +232,9 @@ async def run_schedule(
         workers = [asyncio.create_task(worker()) for _ in range(limits.concurrency)]
 
         async def phase_clock():
-            enter("warmup")
-            await asyncio.sleep(max(0, start + warmup_seconds - time.perf_counter()))
+            await sleep_until(start + warmup_seconds)
             enter("measurement")
-            await asyncio.sleep(max(0, cutoff - time.perf_counter()))
+            await sleep_until(cutoff)
             capture_cutoff()
 
         def capture_cutoff():
@@ -230,6 +248,8 @@ async def run_schedule(
                 write_json(directory / "cutoff.json", cutoff_snapshot)
                 enter("drain")
 
+        if kind == "sustained":
+            enter("warmup")
         phase_task = asyncio.create_task(phase_clock()) if kind == "sustained" else None
         try:
             with planned_path.open(encoding="utf-8") as planned:
@@ -237,7 +257,7 @@ async def run_schedule(
                     logical = json.loads(line)
                     offset = logical["offset_seconds"]
                     if offset is not None:
-                        await asyncio.sleep(max(0, start + offset - time.perf_counter()))
+                        await sleep_until(start + offset)
                     elif kind == "queries":
                         # A hanging query cannot prevent reaching a bounded failure.
                         async with asyncio.timeout(drain_seconds):
@@ -247,6 +267,8 @@ async def run_schedule(
                     enter(logical["phase"])
                     phase = logical["phase"]
                     counters[phase]["planned"] += 1
+                    if telemetry is not None:
+                        telemetry.record("benchmark_planned_total", 1, phase=phase)
                     request_id = str(uuid5(UUID(context["run_id"]), logical["logical_record_id"]))
                     local = operation_context | {"request_id": request_id, "record": logical}
                     row = {
@@ -348,6 +370,7 @@ async def run_schedule(
                                 max(peak_bytes, pending_bytes),
                             )
                             queue.put_nowait((row, packet, local))
+                            record_queue()
                         journal(
                             pressure,
                             snapshot() | {"record_id": row["record_id"], "pressure": reason},
@@ -355,7 +378,7 @@ async def run_schedule(
                     except Exception as exc:
                         finish(row, "failed", "materialize:" + type(exc).__name__)
             if cutoff is not None:
-                await asyncio.sleep(max(0, cutoff - time.perf_counter()))
+                await sleep_until(cutoff)
             capture_cutoff()
             drain_start = cutoff if cutoff is not None else time.perf_counter()
             try:
@@ -377,6 +400,7 @@ async def run_schedule(
                 finish(row, "missed", "drain_deadline_before_send")
                 pending_count -= 1
                 pending_bytes -= len(packet.body)
+                record_queue()
                 queue.task_done()
         result = snapshot() | {
             "cutoff": cutoff_snapshot,
