@@ -168,9 +168,11 @@ def save_evidence(
         artifact_refs=refs.copy(),
     )
     if execution:
-        for path in sorted(directory.iterdir()):
+        for path in sorted(directory.rglob("*")):
             if path.is_file() and path.name != "resolved_config.json":
-                refs.append(ArtifactRef(path=path.name, sha256=file_hash(path)))
+                refs.append(
+                    ArtifactRef(path=path.relative_to(directory).as_posix(), sha256=file_hash(path))
+                )
         summary.artifact_refs = refs.copy()
     write_json(directory / "summary.json", summary.model_dump())
     refs.append(ArtifactRef(path="summary.json", sha256=file_hash(directory / "summary.json")))
@@ -209,7 +211,7 @@ def save_evidence(
             storage_description=None,
             resources_verified=False,
         ),
-        topics_partitions_groups=[],
+        topics_partitions_groups=execution.get("topics_partitions_groups", []) if execution else [],
         resolved_config=config,
         config_sha256=config_sha,
         fault_profiles=invocation.arguments.get("faults", ["none"]),
@@ -222,6 +224,16 @@ def save_evidence(
         correctness_passed=execution["correctness_passed"] if execution else None,
         content_sha256=None,
     )
+    environment = execution.get("environment") if execution else None
+    if environment:
+        manifest.host.resources_verified = True
+        manifest.host.cpu_model = environment["host"]["cpu_model"]
+        manifest.host.physical_cores = environment["host"]["physical_cores"]
+        manifest.host.total_memory_bytes = environment["host"]["total_memory_bytes"]
+        manifest.host.storage_description = environment["host"]["storage"]
+        manifest.locks.infrastructure_sha256 = config.locks.infrastructure.sha256
+        manifest.locks.event_schemas_sha256 = config.locks.event_schemas.sha256
+        manifest.locks.image_digests = environment["image_digests"]
     manifest.content_sha256 = content_hash(manifest.model_dump())
     write_json(directory / "manifest.json", manifest.model_dump())
     output = summary.model_dump()

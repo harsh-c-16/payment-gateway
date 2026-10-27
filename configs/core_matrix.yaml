@@ -1,6 +1,7 @@
 schema_version: 1
 repetitions: 3
-# Execution, random paired order, measured C-BEST selection and resume are P4/P9.
+# P9: run once after a reviewed real smoke/full B0 and bottleneck diagnosis.
+# Resume verifies raw hashes, full controls, clean revision and real collectors.
 rows:
   - {workload: W-IMPORT, variants: [I0, I1]}
   - {workload: W-PIPE, variants: [B0, O1], rates_per_second: [500]}
@@ -10,7 +11,7 @@ rows:
   - {workload: W-ANALYTICS, variants: [B0, F-COMPACT, F-PARTITION]}
   - {workload: W-CHECKOUT, variants: [B0], faults: [none, relay-publish-before-mark, saga-after-stock-commit]}
   - {workload: W-INTEGRATED, variants: [B0, O3]}
-  # Selection is an unresolved request; no C-BEST result is assumed or fabricated.
+  # Deferred until --selection supplies reviewed measured choices. No default winner.
   - {workload: W-INTEGRATED, variants: [B0], selection: measured_best}
   - {workload: W-PIPE, variants: [B0], rates_per_second: [500, 1000, 2000], selection: measured_best}
   - {workload: W-PIPE, variants: [B0], faults: [consumer-pause], selection: measured_best}

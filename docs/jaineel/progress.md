@@ -24,7 +24,7 @@
 | **P6** | Durable sessions, cart, and idempotency | J04 | state verified with Docker PostgreSQL; shared event gate incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit event/outbox/turn doubles |
 | **P7** | Zero-call search, quote, and checkout workflow | J04 | stub verified; P7 checkpoint complete; real provider/event gates incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit HTTP/event doubles; 717 tests |
 | **P8** | Real G1/G3 integration, failures, reconciliation | J06 | stub verified (owner harness); real gates INCOMPLETE | `jaineel/j03-telemetry` | 774 passed; real M1 PostgreSQL, explicit provider/audit/hook doubles |
-| **P9** | Correct B0 and controlled performance matrix | J07 | not started | — | — |
+| **P9** | Correct B0 and controlled performance matrix | J07 | stub verified (owner harness); real measurements NOT_RUN | `jaineel/j03-telemetry` | 823 regression passes; 49 P9 checks; real matrix dependency-blocked |
 | **P10** | Reproducible report and clean setup rehearsal | J07 | not started | — | — |
 | **P11** | One-call intent fallback (optional last) | J05 | not started | — | — |
 
@@ -1227,15 +1227,126 @@ started; P9 is not advanced.
 ---
 
 ### Milestone P9: Correct B0 Baseline & Controlled Performance Matrix
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J07
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** All team members' baseline services running and locked.
-- **Next Action:** Execute evaluation matrix runs and collect primary benchmark data.
+
+- **State:** stub verified for the available owner harness; real B0, G4/G5,
+  optimization comparisons, C-BEST and stress/recovery measurements remain
+  **NOT_RUN/INCOMPLETE**. P10 and P11 are not advanced.
+- **Owner/branch:** Jaineel; existing `jaineel/j03-telemetry`, no new branch.
+- **Base commit:** `165fa8cf2137d361a2eb5e0852bef7cd78ec9dd4`.
+- **Brief task:** J07 / P9 only. No teammate implementation, public DTO or
+  canonical shared specification was modified. No generative calls were made.
+- **Preservation:** 22 pre-existing audit paths were captured before editing in
+  `C:/Users/voraj/AppData/Local/Temp/payment-gateway-p9-before-ludwi0xe`.
+  Unrelated work stays outside this commit; the overlapping benchmark adapter
+  and progress file are staged by P9 delta. Commit/push uses the current branch
+  as explicitly requested.
+
+**Changed paths and behavior**
+
+- `benchmarks/performance.py`, `benchmarks/experiment.py`: clean code and reviewed
+  same-revision real correctness/resource/input evidence gates; short smoke
+  before full B0; qualified baseline/diagnosis/hypotheses before candidates.
+  Exact source/dictionary/fixture and per-series recipe hashes, actual preparation
+  controls, independent audits and collectors are checked. Missing dependencies
+  remain visible; stub/test artifacts cannot become final measurements.
+- `benchmarks/performance_metrics.py`, `projectctl/artifacts.py`: raw finite versus
+  sustained denominators, stage durations, sample/unresolved counts, actual
+  resource provenance and nested raw evidence hashes. No target/sample results.
+- `benchmarks/comparison.py`, `projectctl/cli.py`: all three paired repetitions,
+  code/lock/resource/cache/source/quality checks, median/min/max and correct
+  percent direction. Missing metrics stay null/INCOMPLETE; baseline-zero percent
+  is undefined. Partition-only comparisons keep 32-MiB compact target/codec;
+  I0/I1 must have equal business digests.
+- `benchmarks/selection.py`, `benchmarks/planning.py`,
+  `projectctl/benchmark_adapter.py`, `configs/core_matrix.yaml`: required rows,
+  strict raw-verified completed-run reuse, reviewed measured C-BEST labels,
+  independent O1/O2 plus O3 interaction evidence and ascending stress tiers.
+  No default winner or invented provider optimization.
+- `benchmarks/capacity.py`: three-repetition qualification, 99% admissions,
+  complete cohorts, final-five-minute lag slope/end bounds, backlog/resource/OOM
+  and generator checks, separate SLO-qualified capacity. Missing samples cannot
+  establish sustainability; a failed/incomplete lower tier blocks escalation.
+- `tests/benchmarks/test_{performance,performance_metrics,comparison,selection,capacity}.py`,
+  `tests/projectctl/test_p9.py`: 49 P9 checks with explicit evidence/telemetry/
+  callback doubles, not real performance/integration results.
+- `benchmarks/manual/verify_p9.py`, [P9 handoff](p9_performance.md), this file:
+  dependency checkpoint, receipt/callback contracts, actual evidence and exact
+  smoke/baseline/matrix/compare/selection/manual steps. P10 is not implemented.
+
+**Actual commands, results and retained evidence**
+
+1. `.venv/Scripts/python.exe -m pytest -q` initially produced **509 passed,
+   129 skipped, 185 setup errors**: Windows denied the default pytest temp
+   directory; no PostgreSQL test URL was configured. The failed output remains
+   at `artifacts/p9-full-pytest.txt`. No assertions/tests were weakened.
+2. Final regression used the existing isolated Docker PostgreSQL **18.6**, port
+   **32773**, with `fsync`, `full_page_writes`, and `synchronous_commit` all
+   **on**. Its local URL was read without printing/committing credentials.
+   Exact child command:
+   `.venv/Scripts/python.exe -m pytest tests/conversation tests/projectctl tests/contracts tests/oracles tests/benchmarks tests/telemetry tests/integration -q --tb=short -o junit_family=xunit1 -o cache_dir=artifacts/p9/verification/cache --basetemp=artifacts/p9/verification/tmp --junitxml=artifacts/p9/verification/pytest.xml`.
+   **823 passed, 0 failures/errors/skips**, one upstream Starlette deprecation
+   warning, **1462.19 seconds**. Interpreter/command, stdout/stderr, exit, JUnit
+   and sanitized database facts are retained in
+   [verification evidence](../../artifacts/p9/verification/pytest.command.json).
+   This is real M1 PostgreSQL with explicit provider/audit doubles, not a real
+   integrated SUT pass.
+3. `.venv/Scripts/python.exe -m pytest tests/benchmarks/test_performance.py tests/benchmarks/test_comparison.py tests/benchmarks/test_capacity.py tests/benchmarks/test_selection.py tests/benchmarks/test_performance_metrics.py tests/projectctl/test_p9.py -q`
+   — **49 passed**, including after final eligibility/comparison corrections.
+   This overlaps the 823 and is not added to that regression count.
+4. `.venv/Scripts/python.exe -m benchmarks.manual.verify_p9` — exit **0** for
+   expected dependency handling. Actual child exits are all **4**:
+   `contracts check --all`;
+   `eval run --suite correctness,smoke,T-10,T-11 --config configs/evaluation.yaml`;
+   `benchmark run --workload W-PIPE --variants B0 --repetitions 1 --smoke --config configs/evaluation.yaml`;
+   `benchmark run --workload W-PIPE --variants B0 --repetitions 1 --config configs/evaluation.yaml`;
+   exactly **one** `benchmark matrix --matrix configs/core_matrix.yaml --config configs/evaluation.yaml`.
+   All **37** evaluation cases are NOT_RUN. The matrix retained **73** result
+   records including unresolved selection dependencies; no benchmark started,
+   and every metric remains null/NOT_RUN. Commands/stdout/stderr and run evidence
+   are linked from [checkpoint checks](../../artifacts/p9/5f5d40f9-dd4a-40cb-a8ef-7bd63d76cc32/checks.json).
+5. Ruff lint/format for all P9 modules/tests, `python -m projectctl.schemas --check`,
+   `python -m projectctl.conversation_contract --check`, and `git diff --check`
+   passed. Canonical/provider specifications and `uv.lock` are unchanged.
+   Final scope/staged-tree checks are retained under `artifacts/p9/staging/`
+   and `artifacts/p9/verification/`.
+6. Final staged-code snapshot (no pending audit code) ran `tests/projectctl`,
+   `tests/benchmarks/test_experiment.py`, and all five new benchmark test files:
+   **192 passed, 0 failures/errors/skips**, **34.76 seconds**, including the final
+   P9 corrections. Exact command/snapshot/temporary paths and JUnit are in
+   [staged verification](../../artifacts/p9/staging/final-command.json).
+   The first snapshot attempt retained **181 passes and 11 failures** because
+   the temporary snapshot lacked Git metadata for existing ignore-rule tests;
+   the rerun used the existing repository metadata with the isolated staged
+   working tree. No branch was created and no test was weakened. Prior output
+   remains `artifacts/p9/staging/pytest.stdout.txt`.
+7. `uv sync --locked` — exit **0**, 38 packages resolved and 37 audited; no
+   application lock change. Final machine-readable check records are in
+   `artifacts/p9/verification/final-checks.json`.
+
+**Remaining dependencies and concrete manual verification**
+
+- **Harsh:** reviewed canonical/active-SKU/facet/query manifests and real import,
+  search, query and compaction adapters; independently expected logical results,
+  digests, plans and index costs.
+- **Aditya:** real transaction/simulator seed, scoped stock/ledger/finality
+  exports and acknowledged retained-volume relay/saga recovery hooks.
+- **Vichitr:** locked real environment/transport, enforced full service and
+  generator allocations, pinned images, real collectors/active membership,
+  one-second cgroup/OOM readings and consumer-pause/recovery hooks.
+- **All owners:** real correctness/G1/G3/D/T coverage and frozen receipt review;
+  clean same-revision B0, actual bottleneck and predeclared hypotheses. Draft
+  config, absent bindings and missing receipt block every real trial. No profile,
+  dictionary hash, result or C-BEST winner was fabricated. A new unregistered
+  combined treatment requires its provider's implementation/review.
+
+Follow [the exact P9 sequence](p9_performance.md): freeze revision/resources and
+source/fixture hashes; execute real short smoke and one complete B0; inspect
+emissions/timings/lag/resources/active Gold and independent stock/ledger audits.
+Save the measured bottleneck before the matrix. Run the matrix once, manually
+compare all three repetitions with equal controls (including finite import and
+partition-only boundaries), review measured choices/costs, then resume verified
+selected/stress/recovery rows. Retain failed trials and read missing/cohort/
+capacity evidence alongside quantiles. Stop before P10.
 
 ---
 

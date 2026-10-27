@@ -37,6 +37,7 @@ class ExperimentBindings:
     fault: object = None
     observer_factory: object = None  # optional explicit P5 ObservationSession binding
     telemetry: object = None  # optional shared Telemetry registry exposed by the harness owner
+    performance_review_path: str | None = None  # P9 reviewed real evidence; no implicit default
 
 
 def admission_reconciliation(directory, manifest):
@@ -154,6 +155,9 @@ async def run_experiment(
     run_id=None,
     evidence_kind="performance",
     order=None,
+    review_path=None,
+    qualified=False,
+    blocking_reasons=(),
 ):
     """Return the finalized RunArtifactManifest; failures retain journals and hashes."""
     from projectctl.cli import preflight
@@ -163,6 +167,11 @@ async def run_experiment(
     resolved = resolve_config(config, workload_id, variant_id)
     if fault_profile not in resolved.faults:
         raise InputError("unregistered fault profile")
+    qualified = (
+        qualified
+        or variant_id not in {"B0", "I0"}
+        or bool((order or {}).get("requires_qualification"))
+    )
     if evidence_kind not in {"test", "smoke", "performance"}:
         raise InputError("explicit evidence kind required")
     run_id = run_id or str(uuid4())
@@ -216,7 +225,20 @@ async def run_experiment(
     invocation = Invocation(
         "benchmark run", {"faults": [fault_profile]}, resolved, run_id, namespace
     )
-    reasons = preflight(resolved, workload_id) if mode != "stub" else []
+    reasons = list(blocking_reasons)
+    reasons.extend(preflight(resolved, workload_id) if mode != "stub" else [])
+    review_path = review_path or (bindings.performance_review_path if bindings else None)
+    if mode != "stub" and evidence_kind in {"performance", "smoke"}:
+        from benchmarks.performance import review_blockers
+
+        reasons.extend(
+            review_blockers(
+                resolved,
+                review_path,
+                qualified=qualified,
+                require_smoke=evidence_kind == "performance",
+            )
+        )
     if bindings is None:
         reasons.append(
             f"{workload_id} provider adapters unavailable; see docs/jaineel/p4_workloads.md"
@@ -254,7 +276,19 @@ async def run_experiment(
         "planned_path": str(directory / "planned.jsonl"),
         "evidence_directory": str(directory),
         "topic": namespace + ".inventory-events.v1",
+        "fault_profile": fault_profile,
     }
+    measurement_git = None
+    if mode == "real" and evidence_kind in {"performance", "smoke"}:
+        from benchmarks.performance import checked_ref, read_json
+        from projectctl.artifacts import git_state
+
+        measurement_git = git_state()
+        review = read_json(repo_path(review_path))
+        write_json(directory / "performance_review.json", review)
+        write_json(
+            directory / "resource_receipt.json", read_json(checked_ref(review["resource_receipt"]))
+        )
     started, code, correctness, generator = utc_now(), ExitCode.COMPLETED, None, None
     admission = None
     fault_task = observer = None
@@ -283,7 +317,12 @@ async def run_experiment(
             manifest = workload.as_dict()
             context["workload_manifest"] = manifest
             if item.template_sha256 and item.template_sha256 != manifest["logical_fixture_sha256"]:
-                raise InputError("workload template hash differs from frozen configuration")
+                from benchmarks.performance import reviewed_recipe
+
+                if mode != "real" or not reviewed_recipe(review_path, manifest):
+                    raise InputError(
+                        "workload template hash differs from frozen configuration/recipe"
+                    )
             with (directory / "planned.jsonl").open("x", encoding="utf-8") as planned:
                 for row in workload.records():
                     journal(planned, row)
@@ -294,6 +333,12 @@ async def run_experiment(
             write_json(directory / "preparation.json", prepared)
             if prepared.get("namespace") != namespace or prepared.get("created_new") is not True:
                 raise DependencyError("provider did not acknowledge a new isolated namespace")
+            if mode == "real" and evidence_kind in {"performance", "smoke"}:
+                if (
+                    prepared.get("resource_profile") != resolved.profile.model_dump()
+                    or prepared.get("effective_parameters") != parameters
+                ):
+                    raise DependencyError("actual per-run resources/treatment not acknowledged")
             stage = "validate"
             record(stage)
             await bindings.validate(context, manifest)
@@ -489,6 +534,34 @@ async def run_experiment(
             evidence_path=None,
         )
     )
+    environment = None
+    performance_valid = False
+    if mode == "real" and evidence_kind in {"performance", "smoke"}:
+        from benchmarks.performance import checked_ref, read_json, validate_outputs
+
+        validation = validate_outputs(directory, context)
+        if git_state() != measurement_git:
+            validation["passed"] = False
+            validation["reasons"].append("code revision changed during measurement")
+        write_json(directory / "performance_validation.json", validation)
+        performance_valid = validation["passed"] and code == ExitCode.COMPLETED
+        if not validation["passed"]:
+            if validation["correctness_failed"]:
+                correctness = False
+                code = ExitCode.CORRECTNESS_FAILURE
+            elif code == ExitCode.COMPLETED:
+                code = ExitCode.DEPENDENCY_FAILURE
+            reasons.extend(validation["reasons"])
+        if performance_valid:
+            from benchmarks.performance_metrics import derive_metrics
+
+            try:
+                metrics = derive_metrics(directory, resolved, run_id, workload_id, metrics)
+                environment = read_json(directory / "resource_receipt.json")
+            except (OSError, ValueError, KeyError, TypeError):
+                performance_valid = False
+                code = ExitCode.DEPENDENCY_FAILURE
+                reasons.append("raw metric derivation incomplete; evidence retained")
     write_json(
         directory / "execution.json",
         {
@@ -496,7 +569,11 @@ async def run_experiment(
             "test_mode": mode,
             "order": order,
             "generator": generator,
-            "sut_performance": "NOT_RUN" if mode == "stub" else "INCOMPLETE",
+            "sut_performance": "MEASURED"
+            if performance_valid and evidence_kind == "performance"
+            else "NOT_RUN"
+            if mode == "stub" or evidence_kind != "performance"
+            else "INCOMPLETE",
             "unavailable_collectors": [
                 name
                 for name in ("timings.parquet", "lag.csv", "resources.csv")
@@ -516,6 +593,10 @@ async def run_experiment(
             "started_at": started,
             "completed_at": utc_now(),
             "correctness_passed": correctness,
+            "environment": environment,
+            "topics_partitions_groups": (
+                prepared.get("topics_partitions_groups", []) if environment else []
+            ),
         },
     )
     return json.loads(

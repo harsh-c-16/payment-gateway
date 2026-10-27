@@ -110,6 +110,16 @@ def parser():
             sub.add_argument("--timeout-seconds", type=positive, required=True)
         if action in {"fixtures build", "eval run", "benchmark run", "benchmark matrix"}:
             sub.add_argument("--config", required=True)
+        if action in {"benchmark run", "benchmark matrix"}:
+            sub.add_argument(
+                "--readiness", help="P9 owner-reviewed real correctness/resource receipt"
+            )
+        if action == "benchmark run":
+            sub.add_argument(
+                "--smoke", action="store_true", help="5-second B0 setup check; never performance"
+            )
+        if action == "benchmark matrix":
+            sub.add_argument("--selection", help="reviewed measured C-BEST choice receipt")
         if action == "fixtures build":
             sub.add_argument("--seed", type=seed, required=True)
         if action == "eval run":
@@ -122,8 +132,18 @@ def parser():
         if action == "benchmark matrix":
             sub.add_argument("--matrix", required=True)
         if action == "benchmark compare":
-            sub.add_argument("--baseline", required=True)
-            sub.add_argument("--candidate", required=True)
+            sub.add_argument(
+                "--baseline",
+                type=csv_values,
+                required=True,
+                help="three comma-separated run directories",
+            )
+            sub.add_argument(
+                "--candidate",
+                type=csv_values,
+                required=True,
+                help="three comma-separated run directories",
+            )
             sub.add_argument("--out", required=True)
         if action == "benchmark reconcile":
             sub.add_argument("--run-dir", required=True)
@@ -145,9 +165,12 @@ def validate_arguments(args):
         "candidate",
         "run_dir",
         "matrix_results",
+        "readiness",
+        "selection",
     ):
-        if key in args:
-            repo_path(args[key])
+        if args.get(key) is not None:
+            for value in args[key] if isinstance(args[key], list) else [args[key]]:
+                repo_path(value)
     if "namespace" in args:
         namespace = args["namespace"]
         if not re.fullmatch(r"[a-z][a-z0-9-]{0,61}", namespace):
@@ -240,6 +263,13 @@ def execute(args, registry: ProviderRegistry):
         from projectctl.benchmark_adapter import execute_benchmarks
 
         return execute_benchmarks(args, registry, config)
+    if args["action"] == "benchmark compare":
+        from benchmarks.comparison import execute_comparison
+
+        invocation = Invocation(
+            args["action"], args.copy(), None, str(uuid4()), "bench-" + uuid4().hex
+        )
+        return [execute_comparison(invocation)]
     if args["action"] in {"eval run", "benchmark reconcile"}:
         from benchmarks.integration import execute_evaluation, execute_reconciliation
 

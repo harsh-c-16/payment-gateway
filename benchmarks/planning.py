@@ -99,11 +99,17 @@ def plan_trials(config, workload, variants, repetitions=None, faults=("none",), 
     return trials
 
 
-def plan_matrix(config, matrix):
+def plan_matrix(config, matrix, selection=None):
     trials, pending, seen = [], [], set()
     for row_index, row in enumerate(matrix.rows):
-        if row.selection == "measured_best":
-            pending.append({"row": row_index, "reason": "C-BEST requires measured selection (P9)"})
+        selected = row.selection == "measured_best"
+        if selected and selection is None:
+            pending.append(
+                {
+                    "row": row_index,
+                    "reason": "C-BEST requires reviewed measured selection; no winner assumed",
+                }
+            )
             continue
         for mode, keys, rate in itertools.product(
             row.retrieval_modes or [None],
@@ -123,9 +129,29 @@ def plan_matrix(config, matrix):
             if rate:
                 controls.workloads[row.workload].rate_per_second = float(rate)
             series = {"retrieval_mode": mode, "key_distribution": keys, "rate": rate}
+            variants = row.variants
+            if selected:
+                choice = selection["variants"][row.workload]
+                variants = (
+                    list(dict.fromkeys([*row.variants, choice]))
+                    if row.rates_per_second
+                    else [choice]
+                )
             for trial in plan_trials(
-                controls, row.workload, row.variants, matrix.repetitions, row.faults, series=series
+                controls, row.workload, variants, matrix.repetitions, row.faults, series=series
             ):
+                trial.order["matrix_row"] = row_index
+                trial.order["requires_qualification"] = True
+                if selected:
+                    trial.order["selection_sha256"] = selection["sha256"]
+                    trial.order["label"] = "C-BEST" if trial.variant == choice else trial.variant
+                    trial.order["stress_tier"] = rate
+                    trial.order["trial_key"] = content_hash(
+                        {
+                            "original_trial_key": trial.order["trial_key"],
+                            "selection_sha256": selection["sha256"],
+                        }
+                    )
                 if trial.order["trial_key"] not in seen:
                     seen.add(trial.order["trial_key"])
                     trials.append(trial)
@@ -184,4 +210,17 @@ def reusable_run(directory, trial):
             verified.add(path)
         return all((directory / name).resolve() in verified for name in required)
     except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def reusable_performance_run(directory, trial):
+    """P9 requires complete collector/audit evidence in addition to the P4 identity check."""
+    if not reusable_run(directory, trial):
+        return False
+    try:
+        from benchmarks.performance import load_performance_run
+
+        run = load_performance_run(directory)
+        return run["order"].get("trial_key") == trial.order["trial_key"]
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError):
         return False
