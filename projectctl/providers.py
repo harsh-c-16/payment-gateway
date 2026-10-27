@@ -52,6 +52,19 @@ class ProviderRegistry:
     def __init__(self):
         self._actions: dict[str, Callable[[Invocation], ProviderResult]] = {}
         self._workloads = {}
+        self._cases = {}
+        self.binding_failure = None
+
+    def register_case(self, case_id, binding):
+        from benchmarks.integration import CaseBinding
+        from benchmarks.integration_cases import BY_ID
+
+        if case_id not in BY_ID or case_id in self._cases or not isinstance(binding, CaseBinding):
+            raise ValueError("case binding must be known, explicit and registered exactly once")
+        self._cases[case_id] = binding
+
+    def case(self, case_id):
+        return self._cases.get(case_id)
 
     def register_workload(self, workload, bindings):
         from projectctl.config import WORKLOADS
@@ -86,11 +99,26 @@ class ProviderRegistry:
 
 
 def default_registry() -> ProviderRegistry:
+    import importlib
+    import os
+    import re
+
     from projectctl.contract_checks import check
     from projectctl.fixture_adapter import build
 
     registry = ProviderRegistry()
     registry.register("contracts check", check)
     registry.register("fixtures build", build)
+    # Explicit production composition entry point; no auto-discovery of test modules.
+    module = os.environ.get("PROJECTCTL_ADAPTER_MODULE")
+    if module:
+        try:
+            if not re.fullmatch(r"[A-Za-z_]\w*(\.[A-Za-z_]\w*)*", module):
+                raise ValueError("invalid module name")
+            importlib.import_module(module).register(registry)
+        except Exception as exc:
+            registry.binding_failure = (
+                f"explicit provider registration failed: {type(exc).__name__}"
+            )
     # Other actions still require their owners' explicit production registrations.
     return registry

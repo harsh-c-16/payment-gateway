@@ -4,7 +4,7 @@
 **Role:** M1 (Session, Cart, Assistant, Workflow) & M0 (Measurement Harness, Oracle, Dashboards, Benchmarks)
 **Reference Playbook:** [10_JAINEEL_CODEX_PLAYBOOK.md](../specs/10_JAINEEL_CODEX_PLAYBOOK.md)
 **Personal Brief:** [04_JAINEEL_VORA.md](../specs/04_JAINEEL_VORA.md)
-**Status Date:** 27 October 2026 (Asia/Calcutta)
+**Status Date:** 28 October 2026 (Asia/Calcutta)
 
 > [!NOTE]
 > This local progress document tracks technical milestone execution in Codex. It is separate from the academic Excel tracker. Status labels used: `not started`, `in progress`, `stub verified`, `real verified`, `blocked`.
@@ -23,7 +23,7 @@
 | **P5** | Telemetry, raw collectors, dashboard | J03 | stub verified (offline checkpoint complete); local process collector real verified | `jaineel/j03-telemetry` | 37 telemetry tests; 488 combined; explicit doubles plus separate real generator/loopback checks |
 | **P6** | Durable sessions, cart, and idempotency | J04 | state verified with Docker PostgreSQL; shared event gate incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit event/outbox/turn doubles |
 | **P7** | Zero-call search, quote, and checkout workflow | J04 | stub verified; P7 checkpoint complete; real provider/event gates incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit HTTP/event doubles; 717 tests |
-| **P8** | Real G1/G3 integration, failures, reconciliation | J06 | not started | — | — |
+| **P8** | Real G1/G3 integration, failures, reconciliation | J06 | stub verified (owner harness); real gates INCOMPLETE | `jaineel/j03-telemetry` | 774 passed; real M1 PostgreSQL, explicit provider/audit/hook doubles |
 | **P9** | Correct B0 and controlled performance matrix | J07 | not started | — | — |
 | **P10** | Reproducible report and clean setup rehearsal | J07 | not started | — | — |
 | **P11** | One-call intent fallback (optional last) | J05 | not started | — | — |
@@ -1065,15 +1065,164 @@ Generated evidence/test databases/credentials are excluded from the commit.
 ---
 
 ### Milestone P8: Real G1/G3 Integration, Failures, and Reconciliation
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
+- **State:** owner harness **stub verified**; real G1/G3, recovery and T-11
+  **INCOMPLETE/NOT_RUN** because provider handoffs are absent. This is not a real
+  integration pass. G4 is not complete; P9–P11 remain not started.
+- **Dates:** 27–28 October 2026 (Asia/Calcutta).
+- **Branch:** `jaineel/j03-telemetry` throughout; no new branch or PR.
+- **Base Commit:** `9f1013bb7f2cdec6e9b4caa407540c4b58b2ee88`.
 - **Brief Task:** J06
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** Vichitr (V02 event transport, V03 ingestion) and Aditya (A03 saga).
-- **Next Action:** Execute end-to-end integration tests and reconciliation oracle against real services.
+- **Git authorization:** user explicitly requested commit/push to this current
+  branch. The 22 pre-existing P1–P7 audit paths were preserved. Only the 15 P8
+  paths below are included in the P8 commit; pre-existing edits, including the
+  earlier progress-file audit section, remain uncommitted. The original diff and
+  status are retained in `artifacts/p8/20261027/preexisting.patch` and
+  `status-before.txt`; `progress-before.md` preserves the original progress file.
+
+**Implementation and changed paths (15)**
+
+- `benchmarks/integration_cases.py`: 37 explicit case plans covering the frozen
+  aliases, G1/G3, D-01/02/03/05 and T-01/03/07/08/09/10/11/12. Overlapping aliases
+  deduplicate. Scenario execution still requires reviewed owner consumer bindings;
+  a plan or a passing double does not establish domain integration coverage.
+- `benchmarks/integration.py`: scoped fresh-case preparation, source/import/SKU/
+  seed/projection prerequisites, explicit real/stub registration, immutable fixture
+  capture before exercise, restricted runtime UUID/source-input binding, independent
+  audit checks and per-case evidence. G1 checks actual physical archives versus
+  logical effects; G3 requires transaction audits and bound workflow traces.
+  Missing callbacks/providers remain visible. `benchmark reconcile` rechecks saved
+  eval and benchmark projections, artifact hashes and admission journals without
+  writing back to the original run or calling a provider.
+- `benchmarks/integration_faults.py`: scoped acknowledged named barriers,
+  restart attempts after lost stop responses, retained-volume recovery/deadlines,
+  and separate T-11 analytics/Kafka schedules at measurement second 180 for 30 s.
+  Real execution uses monotonic time; clock doubles exist only in labelled tests.
+- `benchmarks/integration_clients.py`: actual M1 HTTP consumer for the existing
+  integrated driver, owned OpenAPI validation, stable request/key propagation,
+  explicit confirmation, bounded transport and no hidden mutation retry/fallback.
+- `benchmarks/reconciliation.py`: real audits remain incomplete by default; a
+  scoped reviewed binding is required before a complete real projection can pass.
+  Existing independent stock, ledger, immutable quote and Gold checks are preserved.
+- `projectctl/cli.py`, `projectctl/providers.py`: route evaluation/reconciliation
+  to the harness, register case adapters explicitly, and optionally load the
+  user-selected `PROJECTCTL_ADAPTER_MODULE`. Failed registration is evidence, not
+  fallback. The existing missing-adapter diagnostic remains compatible.
+- `benchmarks/manual/verify_p8.py`: locked-environment checkpoint, read-only
+  provider inventory/source checks, Docker database verification, complete local
+  regression, canonical setup sequencing and required evaluation commands.
+- `tests/integration/{__init__,conftest,doubles,test_http,test_p8}.py`: 37 new
+  tests with explicit HTTP/event/audit/fault/clock doubles. They exercise refusal
+  of doubles in real mode, frozen expectations, runtime binding restrictions,
+  corrupt/missing source/Gold evidence, bad acknowledgements, response loss,
+  read-only rechecks and preserved failure semantics.
+- `docs/integration_runbook.md`, `docs/jaineel/progress.md`: binding interface,
+  pending owner review, concrete checkpoint/manual steps and actual outcomes.
+
+**Commands actually executed and outcomes**
+
+1. `uv sync --locked` — exit 0; Python 3.11.15, 38 resolved packages and
+   37 installed packages audited. `uv.lock` was unchanged.
+2. `.venv/Scripts/python.exe -m benchmarks.manual.verify_p8 --out artifacts/p8/20261028/checkpoint-02 --database-file artifacts/p1-p7-audit/20261027-audit/verifier-p6/local-database.json`
+   — exit **4**, correctly signalling incomplete real providers; its harness
+   checks all passed. Exact child commands/stdout/stderr/exits are in
+   `checkpoint-02/checks.json` and the corresponding `.command.json` files.
+3. The verifier ran `.venv/Scripts/python.exe -m pytest tests/conversation tests/projectctl tests/contracts tests/oracles tests/benchmarks tests/telemetry tests/integration -q --tb=short -o junit_family=xunit1 -o cache_dir=artifacts/p8/20261028/checkpoint-02/cache --basetemp=artifacts/p8/20261028/checkpoint-02/tmp --junitxml=artifacts/p8/20261028/checkpoint-02/pytest.xml`
+   — **774 passed, 0 failures/errors/skips**, 105.78 s; 737 prior tests plus
+   37 P8 tests. One upstream Starlette deprecation warning. The actual verifier
+   records absolute cache/temp/JUnit paths and interpreter path in its command JSON.
+4. Verifier Ruff lint/format checks over the P8 modules/tests, plus
+   `python -m projectctl.schemas --check` and
+   `python -m projectctl.conversation_contract --check` — all exit **0**.
+   `git diff --check` also passed.
+5. `python -m projectctl env up --profile local4c8g` — exit **4**, Vichitr's
+   adapter unavailable. Subsequent dependent file09 §2 setup steps were recorded
+   **NOT_RUN**; no migration/import/seed/projection mutation was attempted.
+6. `python -m projectctl contracts check --all` — exit **4**: 3 local inventory
+   checks pass, **51 required handoffs missing**. No replacement DTO was created.
+7. `python -m projectctl eval run --suite contracts,data,smoke --config configs/evaluation.yaml`
+   — exit **4**, 7 cases NOT_RUN. `--suite correctness` — exit **4**, 31 cases
+   NOT_RUN. `--suite T-10,D-05` — exit **4**, 2 cases NOT_RUN. `--suite T-11`
+   — exit **4**, separate analytics/Kafka cases NOT_RUN. Draft configuration,
+   planned resources, missing infrastructure/schema locks, manifests/dictionary
+   and real case bindings are retained as dependency reasons.
+8. `python -m projectctl benchmark reconcile --run-dir benchmarks/results/6d1094d8-c037-4415-92ef-4bd2615b2d96`
+   — exit **4**; absent original cases stay incomplete. The original evidence
+   is unchanged and the new report is saved separately.
+9. `git ls-remote --heads origin jaineel/j03-telemetry` confirmed the remote
+   still matched the base before publication. Final staged scope and Git checks
+   are retained separately in this milestone's evidence directory.
+
+The authorized `git commit` / `git push origin HEAD:refs/heads/jaineel/j03-telemetry`
+commands, return codes, resulting local/remote commit IDs and preserved dirty paths
+are recorded in `artifacts/p8/20261028/publication.json` at publication time.
+
+The final regression used actual Docker PostgreSQL 18.6 with durability enabled
+for M1 state tests. Catalogue, Orders, events/outbox, audit and hook dependencies
+in unit/contract tests are explicit doubles. The two existing PostgreSQL containers
+were preserved. No real Kafka/registry/domain services existed to exercise.
+
+The independent exact-source check passed: 20,000 observations, 19,998 canonical
+candidates, 19,920 active, 78 inactive, 2 superseded and 323 unknown categories.
+This is the existing independent source/profile check, not Harsh's complete
+normalization/import verification or a completed D-01/D-02 integration gate.
+Source CSV and generated evidence remain ignored. Performance values remain null.
+
+Initial failures and skipped runs remain retained: the first regression without
+the explicit database had 607 passes, 129 skips and one missing-diagnostic
+compatibility failure; restoring the diagnostic fixed it without weakening that
+assertion. `checkpoint-01` had 771 passes/no skips but one lint failure, fixed before
+the final run. A new saved-journal test expectation was corrected to require the
+existing P4 correctness exit 3 for a missing mandatory emission receipt; no
+assertion was removed. The final `checkpoint-02` contains all current code tests.
+
+**Evidence locations**
+
+- [Final checkpoint summary](../../artifacts/p8/20261028/checkpoint-02/summary.json),
+  [exact command ledger](../../artifacts/p8/20261028/checkpoint-02/checks.json),
+  [JUnit](../../artifacts/p8/20261028/checkpoint-02/pytest.xml),
+  [handoff inventory](../../artifacts/p8/20261028/checkpoint-02/handoffs.json),
+  [independent source check](../../artifacts/p8/20261028/checkpoint-02/dataset_checks.json),
+  and [evidence hashes](../../artifacts/p8/20261028/checkpoint-02/evidence_index.json).
+- Real command attempts: `benchmarks/results/6d1094d8-c037-4415-92ef-4bd2615b2d96/`
+  (7 smoke/data/contract cases), `benchmarks/results/e80860d1-1031-4baf-97c4-a69b712533c0/`
+  (31 correctness cases), `benchmarks/results/1f4dc6b6-0fd4-4702-9927-56b5913b684d/`
+  (T-10/D-05), `benchmarks/results/ab9db438-fda0-43ab-9f7a-69842b5296e4/`
+  (T-11), each with `tests.jsonl`, `correctness.json` and manifests.
+- Read-only recheck: `artifacts/projectctl/a59f3679-462d-4ea2-aade-b4033bbad8ee/`.
+  All raw evidence is local and ignored; it is deliberately excluded from Git.
+
+**Remaining dependencies and concrete manual verification**
+
+1. Harsh supplies canonical catalogue/quote/facet schemas, source/normalized/SKU
+   manifests, full normalization comparison, projection receipts/bootstrap and
+   import/compaction barriers. Aditya supplies transaction APIs/DTOs, outbox/DDL,
+   deterministic seed/payment controls and scoped stock/reservation/ledger/guard
+   audits plus transaction fault hooks. Vichitr supplies the locked environment,
+   Kafka/registry/events/transport, analytics publications/receipts/replay and
+   retained-volume fault/observer bindings.
+2. Follow [the P8 integration runbook](../integration_runbook.md) to review the
+   exact export mappings and independent fixtures, register real consumer adapters,
+   and freeze a ready configuration only after actual locks/manifests exist.
+   Additional hook names are pending explicit owner mappings; no public endpoint
+   or teammate implementation was invented to hide their absence.
+3. Run file09 §2 setup in order, then rerun the verifier above with a **new** output
+   directory. Inspect `tests.jsonl` and `correctness.json`; every required real
+   case must execute, with no skips, before claiming P8 integration success.
+4. Follow one success and one decline through the same session/cart/version,
+   quote/confirmation/order, inventory/reservation, signed ledger, stock projection
+   and active Gold generation. Confirm duplicates have multiple broker receipts
+   but one effect. Verify named barrier acknowledgement before each crash and
+   retained storage on restart; inspect each separate T-11 target's acceptance,
+   finality and lag/outbox/pending-export/recovery evidence.
+5. Replay into an initially empty isolated effective namespace, then repeat into
+   that **same** target; compare logical totals and original operational stock/
+   payment snapshots. Run `benchmark reconcile` against the actual saved run.
+   Preserve exact failing requests/expected/actual responses and the named owner
+   for any provider contract violation; keep the case failed/incomplete until rerun.
+
+**Checkpoint:** stop at P8's available owner harness. Real integration depends on
+the handoffs above. No baseline, performance matrix, report or live-model work was
+started; P9 is not advanced.
 
 ---
 

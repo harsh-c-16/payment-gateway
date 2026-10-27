@@ -1,7 +1,7 @@
 """Read-only independent oracle over harness evidence projections.
 
 These projections are not provider DTOs. P3 tests supply explicit doubles;
-real-provider export/schema bindings are a later reviewed handoff.
+real-provider export/schema bindings require the explicit P8 review handoff.
 """
 
 import re
@@ -10,7 +10,7 @@ from collections import Counter, defaultdict
 from benchmarks.metrics import nonnegative
 
 
-def reconcile_run(expected, observed):
+def reconcile_run(expected, observed, *, binding_review=None):
     """Return common ReconciliationResult inside a truthful harness status wrapper.
 
     Never imports reducers/normalizers, mutates inputs or issues corrective writes.
@@ -345,12 +345,20 @@ def reconcile_run(expected, observed):
             fail("MISSING_EXPECTED_IDS")
         if unexpected:
             fail("UNEXPECTED_IDS")
+        reviewed = (
+            isinstance(binding_review, dict)
+            and binding_review.get("namespace") == expected["namespace"]
+            and set(binding_review.get("reviewers", []))
+            == {"Jaineel", "Harsh", "Aditya", "Vichitr"}
+            and re.fullmatch(r"[0-9a-f]{64}", binding_review.get("review_sha256", ""))
+            and bool(binding_review.get("contracts"))
+        )
         incomplete = (
             not observed["collection_complete"]
-            or observed["test_mode"] == "real"
+            or (observed["test_mode"] == "real" and not reviewed)
             or report["unresolved_count"] > 0
         )
-        if observed["test_mode"] == "real":
+        if observed["test_mode"] == "real" and not reviewed:
             report["dependency"] = (
                 "real provider audit/membership bindings pending owner review; "
                 "no real integration pass"

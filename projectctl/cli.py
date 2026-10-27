@@ -240,6 +240,18 @@ def execute(args, registry: ProviderRegistry):
         from projectctl.benchmark_adapter import execute_benchmarks
 
         return execute_benchmarks(args, registry, config)
+    if args["action"] in {"eval run", "benchmark reconcile"}:
+        from benchmarks.integration import execute_evaluation, execute_reconciliation
+
+        invocation = Invocation(
+            args["action"], args.copy(), config, str(uuid4()), "bench-" + uuid4().hex
+        )
+        output = (
+            execute_evaluation(invocation, registry)
+            if args["action"] == "eval run"
+            else execute_reconciliation(invocation)
+        )
+        return [output]
     planned = [(None, None, None)]
     outputs = []
     for workload, variant, repetition in planned:
@@ -248,6 +260,8 @@ def execute(args, registry: ProviderRegistry):
         namespace = args.get("namespace", "bench-" + run_id)
         invocation = Invocation(args["action"], args.copy(), resolved, run_id, namespace)
         reasons = []
+        if registry.binding_failure:
+            reasons.append(registry.binding_failure)
         if resolved and args["action"] in {"eval run", "benchmark run", "benchmark matrix"}:
             reasons.extend(preflight(resolved, workload))
         missing = registry.missing(args["action"])
