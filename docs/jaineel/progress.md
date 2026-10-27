@@ -21,7 +21,7 @@
 | **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | stub verified; automated LLM-judge review complete; human review not performed | `jaineel/j01-oracles` | 153 focused fixture/schema tests; current P3 verifier 450 regressions; explicit fixtures/doubles |
 | **P4** | Open-loop workload generation & experiment lifecycle | J02 | stub verified (offline checkpoint complete) | `jaineel/j02-workloads` | 329 combined tests; explicit publisher/API/lifecycle doubles |
 | **P5** | Telemetry, raw collectors, dashboard | J03 | stub verified (offline checkpoint complete); local process collector real verified | `jaineel/j03-telemetry` | 37 telemetry tests; 488 combined; explicit doubles plus separate real generator/loopback checks |
-| **P6** | Durable sessions, cart, and idempotency | J04 | state verified with real PostgreSQL; shared event gate incomplete | `jaineel/j03-telemetry` | PostgreSQL 18.6; explicit event/outbox/turn doubles |
+| **P6** | Durable sessions, cart, and idempotency | J04 | state verified with Docker PostgreSQL; shared event gate incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit event/outbox/turn doubles |
 | **P7** | Zero-call search, quote, and checkout workflow | J04 | not started | — | — |
 | **P8** | Real G1/G3 integration, failures, reconciliation | J06 | not started | — | — |
 | **P9** | Correct B0 and controlled performance matrix | J07 | not started | — | — |
@@ -799,6 +799,139 @@ The unused initial OneDrive-backed test cluster was stopped with data retained;
 the selected isolated cluster on port 55487 remains available for manual replay.
 [Actual durability settings](../../artifacts/p6/durability-settings.json) confirm
 `fsync=on`, `synchronous_commit=on`, and `full_page_writes=on`.
+
+#### P6 Docker follow-up — 27 October 2026
+
+User requested Docker diagnosis, Docker use going forward, related fixes and a
+commit on the same branch. Work stays on `jaineel/j03-telemetry` from `f07d116`;
+the starting tree was clean. No branch was created and P7 is not advanced.
+
+**Daemon finding:** at the first check of this follow-up, `docker version`,
+`docker info`, `docker desktop status` and `docker compose version` all succeeded.
+Docker Desktop **4.97.0**, engine/CLI **29.9.2**, Compose **5.6.1**, Linux engine,
+context `desktop-linux`; the engine reported no warnings. These versions differ
+from the previous run's client, but this session did not upgrade Docker. The
+previous missing pipe is not currently reproducible. No Docker reset, WSL reset,
+service reconfiguration or speculative host change was performed. Actual image
+pull, container startup, client connectivity, SQL and retained-volume restart
+are checked below rather than treating version output as sufficient evidence.
+
+**Changes**
+
+- `benchmarks/manual/p6_docker.py`: isolated Jaineel-owned test harness using
+  Docker Compose and the actually pulled official PostgreSQL 18.6 digest
+  `sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6`.
+  Per-run generated project/Compose file, named PostgreSQL 18 volume, loopback
+  random port, generated test credential, health/durability checks, complete
+  P6 verification, container restart and persisted-key/cart replay. Journals
+  retain failed/timeout output and redact the generated password. Generated
+  Compose/connection files, data and evidence remain ignored.
+- `benchmarks/manual/verify_p6.py`: Docker is now the default entry point even
+  when a native `P6_TEST_DATABASE_URL` is present. Missing CLI/daemon, wrong
+  engine, unhealthy/unreachable DB or failed checks cannot select native
+  PostgreSQL. The explicit inner `--external-database` option is used by the
+  owning harness after binding its Docker endpoint. The inner summary does not
+  claim Docker provenance independently of the outer container evidence.
+- `.github/workflows/offline.yml`: P6 now invokes the same Docker lifecycle and
+  restart path as local checks; removed the independently configured CI DB.
+  Existing Windows/Linux P1–P5 jobs remain. The Python runner/service subprocesses
+  still use the frozen host application environment; PostgreSQL runs in Docker.
+- `tests/conversation/conftest.py`, `benchmarks/manual/p6_smoke.py`: explicit
+  two-second psycopg connection bounds for test schema setup/cleanup. No changes
+  to business contracts, durability or correctness assertions.
+- `tests/conversation/test_docker_harness.py`: explicitly doubled command-failure
+  tests for missing CLI, stopped daemon, Windows engine, wrong identity/health,
+  wrong/missing volume, public binding, retained timeout output, credential
+  redaction, mandatory default Docker and changed host port after restart.
+- `docs/jaineel/p6_persistence.md`, `services/conversation/README.md`, this file:
+  Docker-first recheck and scoped resource lifecycle instructions. Team infra,
+  provider implementations, shared specs/DTOs, dependencies and lock are untouched.
+
+**Reproduced and fixed restart issue**
+
+The first Docker run passed **595 tests with zero failed/errors/skipped**, plus
+the 13-assertion P6 smoke. It then correctly stayed **INCOMPLETE**: after restarting
+the same healthy container and volume, Docker changed the ephemeral published
+port **32768 → 32769**, while the new harness reused the old connection URL.
+This was a client binding bug, not a PostgreSQL durability failure. Evidence is
+preserved in
+[the first Docker summary](../../artifacts/p6-docker/checkpoint-20261027/docker-summary.json)
+and [its combined JUnit](../../artifacts/p6-docker/checkpoint-20261027/checkpoint/pytest.xml).
+The regression first failed as expected in
+[port-red-pytest.xml](../../artifacts/p6-docker/port-red-pytest.xml).
+The fix refreshes the URL, child environment and saved local connection file from
+the live inspected port after restart. All **13 harness regressions** then passed
+in [port-green-pytest.xml](../../artifacts/p6-docker/port-green-pytest.xml).
+Only that first isolated project's container was stopped; its volume/data and
+failed evidence remain intact. No unrelated Docker resources were changed.
+
+**Commands / evidence**
+
+- `docker version`; `docker context ls`; `docker context inspect`;
+  `docker desktop status`; `docker info`; `docker compose version`;
+  `docker ps -a`; `docker volume ls`: current daemon/Compose available, no
+  pre-existing containers/volumes at the beginning of this follow-up.
+- `docker pull postgres:18.6`; `docker image inspect postgres:18.6`: exit 0,
+  actual digest above. The harness subsequently pulls that exact digest.
+- Targeted harness run: **12 passed** initially; the first invocation also
+  retained **7 passed / 5 temp-directory setup errors** because its newly named
+  artifact parent did not exist yet. The repeated invocation after parent creation
+  passed all 12. The full verifier always creates its output parent first.
+- `.venv/Scripts/python.exe benchmarks/manual/verify_p6.py --out artifacts/p6-docker/checkpoint-20261027`:
+  initial Docker attempt described above; **595 passing tests**, but whole
+  checkpoint incomplete after the port changed. No native fallback.
+- `.venv/Scripts/python.exe -m pytest tests/conversation/test_docker_harness.py::test_restart_refreshes_remapped_port_and_child_connection -q --tb=short --basetemp=artifacts/p6-docker/port-red-temp -o cache_dir=artifacts/p6-docker/port-red-cache --junitxml=artifacts/p6-docker/port-red-pytest.xml`:
+  expected **1 failed** before the binding fix.
+- `.venv/Scripts/python.exe -m pytest tests/conversation/test_docker_harness.py -q --tb=short --basetemp=artifacts/p6-docker/port-green-temp -o cache_dir=artifacts/p6-docker/port-green-cache --junitxml=artifacts/p6-docker/port-green-pytest.xml`:
+  **13 passed** after the fix.
+- `.venv/Scripts/python.exe benchmarks/manual/verify_p6.py --out artifacts/p6-docker/checkpoint-20261027-final`:
+  exit **0**, final combined **596 passed in 86.10 s**, zero failed/errors/skipped;
+  **13/13** smoke assertions and **3/3** post-container-restart assertions pass.
+  All **14** outer Docker/lifecycle commands matched expected exit 0; all **10**
+  inner verifier command outcomes matched, including the visible provider-contract
+  exit **4**. Ruff lint/format, schema/contract generation and protected-path
+  checks pass. The same container and volume survive; host port **32770 → 32771**
+  is refreshed correctly; all three durability settings remain on.
+
+Final ignored evidence:
+
+- [Docker verdict / actual before-after container, volume, ports and durability](../../artifacts/p6-docker/checkpoint-20261027-final/docker-summary.json).
+- [Exact Docker/child commands, outputs and exits](../../artifacts/p6-docker/checkpoint-20261027-final/docker-checks.json).
+- [Inner verifier command evidence](../../artifacts/p6-docker/checkpoint-20261027-final/checkpoint/checks.json),
+  [596-test JUnit](../../artifacts/p6-docker/checkpoint-20261027-final/checkpoint/pytest.xml).
+- [13-assertion smoke](../../artifacts/p6-docker/checkpoint-20261027-final/checkpoint/smoke/smoke.json),
+  [3-assertion container-restart replay](../../artifacts/p6-docker/checkpoint-20261027-final/checkpoint/smoke/database-restart.json).
+- [Inspected resource limits](../../artifacts/p6-docker/checkpoint-20261027-final/resource-limits.json):
+  1,000,000,000 NanoCPUs, 536,870,912 bytes memory, 134,217,728 bytes shared memory,
+  128 PIDs. These are actual test-fixture limits, not a full application benchmark.
+
+The final Docker project is retained, healthy, on loopback port **32771**. The
+previous owned native P6 cluster on port 55487 was stopped with its data retained;
+see [the scoped stop evidence](../../artifacts/p6-docker/native-cluster-stop.json).
+Older native recheck commands above are historical; use the Docker instructions
+below going forward. No unrelated PostgreSQL service was stopped.
+
+**Manual recheck going forward**
+
+1. Run `docker info` and `docker compose version`. On Windows if Desktop is
+   stopped, run `docker desktop start`, select the intended local
+   `desktop-linux` context and repeat the health check. No native fallback.
+2. Run `uv sync --locked`, then
+   `uv run --locked python benchmarks/manual/verify_p6.py`. Use a new `--out`
+   directory for each run, or omit it to generate a unique directory.
+3. Inspect `docker-summary.json`, `docker-checks.json`, `checkpoint/pytest.xml`,
+   `checkpoint/smoke/smoke.json` and `checkpoint/smoke/database-restart.json` under
+   the emitted Docker evidence path. Compare container ID, named volume, startup
+   timestamps, actual before/after ports and durability settings. Test event
+   capture remains explicitly doubled. Connection credentials stay local/ignored.
+4. Use the handoff's exact scoped Compose `ps`/`stop` and smoke `--resume`
+   instructions to inspect the retained Docker DB. Do not prune/reset Docker or
+   delete volumes to obtain a green run.
+
+Shared outbox/event builder/schema/metadata handoffs, real Kafka/Gold, full team
+Compose/G0/G1/G3, performance and hosted CI remain incomplete or `NOT_RUN`.
+This follow-up verifies Docker-backed P6 state, without implementing provider
+modules or the P7 workflow.
 
 ---
 

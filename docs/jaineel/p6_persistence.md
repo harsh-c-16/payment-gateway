@@ -82,28 +82,61 @@ provider validation. Quote and checkout return visible P7-unavailable errors.
 
 ## Repeat checks and manual checkpoint
 
-Use an isolated PostgreSQL **18** database supplied by the database/infra owner.
-No existing schema is reset. Tests create uniquely named `p6_test_<uuid>` schemas
-and remove only their own schemas. The smoke retains a `p6_smoke_<uuid>` schema.
-For native Windows PostgreSQL, keep its cluster outside OneDrive; the initial
-synced-directory run encountered real query timeouts and is retained as failed
-evidence. This host fallback is not a Docker/Compose/G0 deployment claim.
+Docker Compose is now the default and required path for the P6 checkpoint.
+`verify_p6.py` creates a dedicated PostgreSQL 18.6 container and named volume
+through `benchmarks/manual/p6_docker.py`. A missing CLI, unavailable daemon or
+wrong engine fails with retained `INCOMPLETE` evidence; there is no native
+fallback, even if `P6_TEST_DATABASE_URL` already points to a native instance.
+The earlier native Windows runs remain historical evidence only.
 
 ```powershell
 uv sync --locked
-# Set P6_TEST_DATABASE_URL locally to the isolated PostgreSQL 18 test database.
-uv run --locked python -m pytest tests/conversation -q -ra --basetemp=artifacts/p6/manual-temp -o cache_dir=artifacts/p6/manual-cache
+docker info
+docker compose version
 uv run --locked python benchmarks/manual/verify_p6.py
-# Choose a fresh output directory for each first run.
-uv run --locked python -m benchmarks.manual.p6_smoke --out artifacts/p6/manual-smoke
 ```
 
-Without `P6_TEST_DATABASE_URL`, DB cases explicitly skip with `NOT_RUN` and the
-verifier exits 4 with `INCOMPLETE`. An unreachable/configured or wrong-major
-database fails; it never selects SQLite or an in-memory replacement. The full
-verifier reruns P1–P5 regressions, contract/schema generation checks and Ruff,
-then performs the scripted P6 checkpoint. Global provider contracts currently
-return the expected exit 4; this is an incomplete gate, not a passing integration.
+The harness pins the observed official image digest
+`postgres:18.6@sha256:edb0c08dc33befd0262ab3b5cf1c4f3f8cfd8b09e88c05b45adee29d6761ddb6`.
+Its volume mounts at `/var/lib/postgresql`, following the
+[official PostgreSQL 18 image layout](https://github.com/docker-library/docs/blob/master/postgres/README.md#pgdata).
+Each run has a fresh `p6-<uuid>` project, loopback-only random host port, generated
+test password, health check and named volume outside OneDrive. The DB test budget
+is one CPU / 512 MiB, with 128 MiB shared memory and 128 PIDs. This is a test
+fixture budget, not the full team's `local4c8g` measurement profile. The Python
+runner and temporary service processes use the locked host environment; the
+database runs in Docker. No team infra/Compose implementation is replaced.
+
+The harness checks real server version and `fsync`, `synchronous_commit`, and
+`full_page_writes`; all durability settings must be on. It runs the complete
+P1–P6 verifier and scripted smoke, restarts only its own labeled container, checks
+the same named volume and changed startup time, then replays the persisted cart
+and original operation key. The inspected live host port is refreshed after
+restart because Docker may remap an automatically allocated port. The child
+environment and retained local connection file both receive the refreshed URL.
+Containers/volumes remain available for inspection;
+no global reset, prune or volume deletion is performed. Each test uses its own
+`p6_test_<uuid>` schema and cleans only that schema; smoke state stays retained.
+
+Raw evidence is under the printed `artifacts/p6-docker/<run>/` directory:
+`docker-checks.json`, `docker-summary.json`, generated `compose.json`, and
+`checkpoint/{checks.json,pytest.xml,smoke/}`. The generated Compose file and
+`local-database.json` contain local test credentials; they remain ignored and
+must not be committed. Command journals redact the generated password. A failed
+or timed-out command retains available output and leaves the checkpoint incomplete.
+
+The inner `--external-database` option is for the owning Docker harness to supply
+its verified DB URL; it is never selected automatically. Direct pytest without
+a DB still skips with `NOT_RUN`, and the inner verifier exits 4 without one.
+Global provider contracts currently return expected exit 4: their gate stays
+incomplete. GitHub's P6 job invokes the same default Docker entry point, including
+the restart check. There is no second independently configured CI database.
+
+If Docker Desktop is stopped on Windows, run `docker desktop start`, select
+`docker context use desktop-linux` when that is the intended local engine, and
+repeat `docker info`. The follow-up found Desktop already running and the engine
+healthy; no daemon reset, WSL reset or speculative machine setting change was
+needed. Previous daemon-start failure and native results are not rewritten.
 
 Inspect the smoke's `smoke.json` and `transcript.json` directly:
 
@@ -117,14 +150,20 @@ Inspect the smoke's `smoke.json` and `transcript.json` directly:
 4. A deliberate failure after a test event insert rolls back the cart change,
    event capture and operation key. This proves the local transaction boundary
    with a test double, not Aditya's real outbox.
-5. If you control an isolated database process, restart **only that process with
-   retained data**, then run the following against the same database URL:
+5. Inspect the Docker restart evidence: the same container/volume remains, its
+   startup time changes, all durability settings stay on, and
+   `checkpoint/smoke/database-restart.json` records three passing persistence
+   checks. To repeat the smoke against a retained Docker run, substitute its
+   actual printed path for `RUN`:
 
 ```powershell
-uv run --locked python -m benchmarks.manual.p6_smoke --out artifacts/p6/manual-smoke --resume
+$env:P6_TEST_DATABASE_URL = (Get-Content artifacts/p6-docker/RUN/local-database.json | ConvertFrom-Json).url
+uv run --locked python -m benchmarks.manual.p6_smoke --out artifacts/p6-docker/RUN/checkpoint/smoke --resume
+docker compose --file artifacts/p6-docker/RUN/compose.json ps
+# Stop only this test project when finished; retained volume/data are preserved.
+docker compose --file artifacts/p6-docker/RUN/compose.json stop postgres
 ```
 
-Inspect `database-restart.json`: the saved snapshot, original response and single
-test event must survive. Do not restart a shared development database to perform
-this optional check. Final milestone-specific evidence and actual counts are
-recorded in [progress.md](progress.md#milestone-p6-durable-sessions-cart-and-idempotency).
+The saved snapshot, original response and single test event must survive. Do not
+restart a shared development database. Actual counts and evidence paths are in
+[progress.md](progress.md#milestone-p6-durable-sessions-cart-and-idempotency).

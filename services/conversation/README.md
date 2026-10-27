@@ -28,6 +28,12 @@ quote and checkout endpoints return explicit P7-unavailable errors.
 See [P6 persistence handoff](../../docs/jaineel/p6_persistence.md) for exact
 semantics, checks, schema ownership, manual smoke and outstanding reviews.
 
+P6 verification now starts its own Docker Compose PostgreSQL 18.6 database:
+`uv run --locked python benchmarks/manual/verify_p6.py`. Docker failures remain
+visible; it never falls back to a native database. The generated project and
+named volume are retained under the printed Docker evidence directory for
+inspection. Shared event/outbox dependencies are still explicit test doubles.
+
 Run `python -m pytest tests/contracts -q` and
 `python benchmarks/manual/verify_p2.py` from repository root.
 See [P2 handoffs and manual checks](../../docs/jaineel/p2_contracts.md) for usage,

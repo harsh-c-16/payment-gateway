@@ -51,7 +51,7 @@ def main():
         raise ValueError("only an isolated P6 smoke schema is allowed")
     database = Database(make_conninfo(url, options=f"-c search_path={schema}"))
     if not args.resume:
-        with psycopg.connect(url, autocommit=True) as admin:
+        with psycopg.connect(url, autocommit=True, connect_timeout=2) as admin:
             admin.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
         database.migrate()
         EventCaptureDouble.install(database)

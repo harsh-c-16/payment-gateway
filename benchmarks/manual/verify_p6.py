@@ -9,12 +9,24 @@ from pathlib import Path
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path)
+    parser.add_argument(
+        "--external-database",
+        action="store_true",
+        help="use an explicitly provisioned test DB (inner Docker/owner harness only)",
+    )
     args = parser.parse_args()
+    if not args.external_database:
+        # Docker is mandatory by default, even when a native URL happens to be set.
+        from benchmarks.manual.p6_docker import run
+
+        return run(args.out)
     out = args.out or ROOT / "artifacts/p6" / str(uuid4())
     out.mkdir(parents=True, exist_ok=False)
     python = sys.executable
@@ -23,6 +35,7 @@ def main():
         "tests/conversation",
         "benchmarks/manual/p6_smoke.py",
         "benchmarks/manual/verify_p6.py",
+        "benchmarks/manual/p6_docker.py",
     ]
     commands = [
         (
@@ -117,6 +130,7 @@ def main():
         "checkpoint": "P6 only",
         "checks_matched": matched,
         "database": "real PostgreSQL 18" if database_configured else "NOT_RUN",
+        "database_binding": "explicit external; see outer Docker harness for container provenance",
         "events_outbox": "explicit test doubles; real shared event path NOT_RUN",
         "provider_contracts": "incomplete; expected contracts command exit 4",
         "p7": "NOT_RUN",

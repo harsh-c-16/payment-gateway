@@ -21,7 +21,7 @@ def database():
     if not url:
         pytest.skip("NOT_RUN: P6_TEST_DATABASE_URL required for real PostgreSQL 18 checks")
     schema = "p6_test_" + uuid4().hex
-    with psycopg.connect(url, autocommit=True) as admin:
+    with psycopg.connect(url, autocommit=True, connect_timeout=2) as admin:
         if not 180000 <= admin.info.server_version < 190000:
             pytest.fail("P6 real database checks require PostgreSQL 18")
         admin.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
@@ -33,7 +33,7 @@ def database():
     finally:
         # Only the schema created above; never reset a namespace/database supplied by the user.
         assert schema.startswith("p6_test_") and len(schema) == 40
-        with psycopg.connect(url, autocommit=True) as admin:
+        with psycopg.connect(url, autocommit=True, connect_timeout=2) as admin:
             admin.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
 
 
