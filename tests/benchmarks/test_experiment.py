@@ -168,6 +168,51 @@ def test_frozen_plan_tampering_is_visible(experiment_config):
     assert summary["exit_code"] == 2
 
 
+@pytest.mark.parametrize("name", ["planned.jsonl", "emissions.jsonl"])
+def test_corrupt_journal_still_finalizes_failure_evidence(experiment_config, name):
+    async def corrupt(context, deadline):
+        from pathlib import Path
+
+        with (Path(context["evidence_directory"]) / name).open("a") as stream:
+            stream.write('{"truncated":')
+
+    manifest = run(experiment_config, replace(LifecycleDouble().bindings(), drain=corrupt))
+    folder = directory(experiment_config, manifest)
+    summary = json.loads((folder / "summary.json").read_text())
+    assert summary["exit_code"] in {2, 4}
+    assert manifest["correctness_passed"] is None
+    assert summary["status"] == "INCOMPLETE"
+    admission = json.loads((folder / "admission.json").read_text())
+    assert admission["passed"] is None and admission["status"] == "INCOMPLETE"
+    assert (folder / name).read_text().endswith('{"truncated":')
+
+
+def test_invalid_audit_mode_cannot_claim_correctness_passed(experiment_config):
+    async def invalid_audit(context, folder):
+        return {"passed": True, "test_mode": "real"}
+
+    manifest = run(experiment_config, replace(LifecycleDouble().bindings(), audit=invalid_audit))
+    assert manifest["correctness_passed"] is None
+    summary = json.loads((directory(experiment_config, manifest) / "summary.json").read_text())
+    assert summary["exit_code"] == 4
+
+
+@pytest.mark.parametrize(
+    "repetitions,variants,faults", [(0, ["B0"], ["none"]), (1, [], ["none"]), (1, ["B0"], [])]
+)
+def test_empty_trial_plan_is_rejected(repetitions, variants, faults):
+    with pytest.raises(InputError):
+        plan_trials(load_config(), "W-PIPE", variants, repetitions, faults)
+
+
+def test_execution_order_cannot_override_frozen_variant_controls(experiment_config):
+    double = LifecycleDouble()
+    altered = experiment_config.variants["B0"].config.model_dump() | {"consumers": 99}
+    with pytest.raises(InputError, match="parameters"):
+        run(experiment_config, double.bindings(), order={"effective_parameters": altered})
+    assert double.calls == []
+
+
 def test_pairing_repetitions_and_matrix_controls_are_recorded():
     config = load_config()
     trials = plan_trials(config, "W-PIPE", ["B0", "O1"], 3)
@@ -337,6 +382,12 @@ def test_reuse_requires_every_hash_and_clean_matching_code(experiment_config, mo
     monkeypatch.setattr(cli, "preflight", lambda *args: [])
     monkeypatch.setattr(planning, "git_state", lambda: state)
     assert reusable_run(folder, trial)
+    complete = json.loads(json.dumps(manifest))
+    manifest["artifacts"] = [r for r in manifest["artifacts"] if r["path"] != "summary.json"]
+    manifest["content_sha256"] = content_hash(manifest)
+    (folder / "manifest.json").write_text(json.dumps(manifest))
+    assert not reusable_run(folder, trial)
+    (folder / "manifest.json").write_text(json.dumps(complete))
     monkeypatch.setattr(planning, "git_state", lambda: GitState(commit="b" * 40, dirty=False))
     assert not reusable_run(folder, trial)
     monkeypatch.setattr(planning, "git_state", lambda: state)

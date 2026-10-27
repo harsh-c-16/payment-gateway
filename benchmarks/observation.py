@@ -9,7 +9,7 @@ import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from projectctl.artifacts import content_hash, file_hash, write_json
+from projectctl.artifacts import canonical_json, content_hash, file_hash, write_json
 from shared.telemetry.context import utc_now
 from shared.telemetry.timing import TimingWriter
 
@@ -139,6 +139,7 @@ async def observe_run(run_config):
                         raise ValueError("unexpected observation series")
                 except Exception as exc:
                     reason = "timeout" if isinstance(exc, TimeoutError) else "provider_error"
+                    readings = {}
             at, elapsed = utc_now(), time.perf_counter() - start
             result = []
             for series in collector.series:
@@ -151,6 +152,16 @@ async def observe_run(run_config):
                     and math.isfinite(value)
                     and value >= 0
                 )
+                details = {}
+                if valid:
+                    try:
+                        if not isinstance(item.details, dict):
+                            raise ValueError("reading details must be a JSON object")
+                        # Snapshot provider metadata before another reader can mutate
+                        # it; invalid metadata must not kill unrelated observations.
+                        details = json.loads(canonical_json(item.details))
+                    except (ValueError, TypeError, RecursionError):
+                        valid = False
                 result.append(
                     {
                         "run_id": config.run_id,
@@ -172,7 +183,7 @@ async def observe_run(run_config):
                         "value": value if valid else None,
                         "status": "MEASURED" if valid else "MISSING",
                         "reason": None if valid else reason or "missing_or_invalid_sample",
-                        "details": item.details if valid else {},
+                        "details": details if valid else {},
                     }
                 )
             return result
@@ -304,17 +315,28 @@ class ObservationSession:
     async def __aexit__(self, exc_type, exc, traceback):
         stopped = time.perf_counter() - self.started
         self.stop.set()
+        failure = None
         try:
             await self.task
+        except (Exception, asyncio.CancelledError) as error:
+            failure = error
         finally:
             for stream in self.files:
                 stream.close()
+        try:
+            retain_client_timings(
+                Path(self.config.directory), self.config.run_id, self.config.namespace
+            )
+        except Exception as error:
+            failure = failure or error
         write_json(
             Path(self.config.directory) / "observation_end.json",
-            {"stop_elapsed_seconds": stopped, "closed_at": utc_now()},
-        )
-        retain_client_timings(
-            Path(self.config.directory), self.config.run_id, self.config.namespace
+            {
+                "stop_elapsed_seconds": stopped,
+                "closed_at": utc_now(),
+                "status": "INCOMPLETE" if failure else "COMPLETED",
+                "error_type": type(failure).__name__ if failure else None,
+            },
         )
         directory = Path(self.config.directory)
         names = {
@@ -344,6 +366,8 @@ class ObservationSession:
         }
         manifest["content_sha256"] = content_hash(manifest)
         write_json(Path(self.config.directory) / "telemetry_manifest.json", manifest)
+        if failure is not None:
+            raise failure
 
 
 def retain_client_timings(directory, run_id, namespace):
@@ -382,20 +406,27 @@ def retain_client_timings(directory, run_id, namespace):
                         clock_domain="generator_perf_counter",
                     )
     finally:
-        planned = directory / "planned.jsonl"
-        if planned.exists():
-            with planned.open(encoding="utf-8") as stream:
-                for line in stream:
-                    row = json.loads(line)
-                    if row["logical_record_id"] not in seen:
-                        for stage in ("schedule_to_ack", "send_to_ack"):
-                            writer.append(
-                                component="generator",
-                                event_id=None,
-                                record_id=row["logical_record_id"],
-                                stage=stage,
-                                phase=row["phase"],
-                                duration_seconds=None,
-                                clock_domain="generator_perf_counter",
-                            )
-        writer.close()
+        try:
+            retain_missing_timings(directory, writer, seen)
+        finally:
+            writer.close()
+
+
+def retain_missing_timings(directory, writer, seen):
+    """Keep absent completions visible, including when the emissions read failed."""
+    planned = directory / "planned.jsonl"
+    if planned.exists():
+        with planned.open(encoding="utf-8") as stream:
+            for line in stream:
+                row = json.loads(line)
+                if row["logical_record_id"] not in seen:
+                    for stage in ("schedule_to_ack", "send_to_ack"):
+                        writer.append(
+                            component="generator",
+                            event_id=None,
+                            record_id=row["logical_record_id"],
+                            stage=stage,
+                            phase=row["phase"],
+                            duration_seconds=None,
+                            clock_domain="generator_perf_counter",
+                        )

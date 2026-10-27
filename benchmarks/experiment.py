@@ -205,6 +205,14 @@ async def run_experiment(
     if item.kind == "sustained":
         resolved.timing.duration_seconds = duration
         resolved.timing.warmup_seconds = warmup
+    parameters = resolved.variants[variant_id].config.model_dump()
+    child = (order or {}).get("layout_child")
+    if child is not None:
+        if variant_id != "F-PARTITION" or child not in {"unpartitioned", "date_type"}:
+            raise InputError("execution parameters contain an unregistered layout child")
+        parameters |= {"file_layout": "compact", "partitioning": child}
+    if (order or {}).get("effective_parameters", parameters) != parameters:
+        raise InputError("execution parameters differ from the frozen variant")
     invocation = Invocation(
         "benchmark run", {"faults": [fault_profile]}, resolved, run_id, namespace
     )
@@ -240,9 +248,7 @@ async def run_experiment(
         "seed": seed,
         "workload_id": workload_id,
         "variant_id": variant_id,
-        "parameters": (order or {}).get(
-            "effective_parameters", resolved.variants[variant_id].config.model_dump()
-        ),
+        "parameters": parameters,
         "dataset": resolved.dataset.model_dump(),
         "assistant": resolved.assistant.model_dump(),
         "planned_path": str(directory / "planned.jsonl"),
@@ -250,6 +256,7 @@ async def run_experiment(
         "topic": namespace + ".inventory-events.v1",
     }
     started, code, correctness, generator = utc_now(), ExitCode.COMPLETED, None, None
+    admission = None
     fault_task = observer = None
     stage = "prepare"
     with (directory / "lifecycle.jsonl").open("x", encoding="utf-8") as lifecycle:
@@ -362,11 +369,12 @@ async def run_experiment(
             write_json(directory / "admission.json", admission)
             audit = await bindings.audit(context, directory)
             write_json(directory / "audit.json", audit)
-            correctness = audit.get("passed")
-            if (correctness is not None and type(correctness) is not bool) or audit.get(
+            verdict = audit.get("passed")
+            if (verdict is not None and type(verdict) is not bool) or audit.get(
                 "test_mode"
             ) != mode:
                 raise DependencyError("independent audit mode/result contract invalid")
+            correctness = verdict
             write_json(directory / "correctness.json", {"admission": admission, "audit": audit})
             if workload_id == "W-IMPORT":
                 with (directory / "emissions.jsonl").open(encoding="utf-8") as stream:
@@ -395,6 +403,23 @@ async def run_experiment(
                 if not fault_task.done():
                     fault_task.cancel()
                 await asyncio.gather(fault_task, return_exceptions=True)
+            # Reconcile partial journals before the observer freezes its evidence
+            # hashes. Corrupt source files remain untouched and cannot yield rates.
+            if (directory / "emissions.jsonl").is_file() and admission is None:
+                try:
+                    if file_hash(directory / "planned.jsonl") != manifest["planned_sha256"]:
+                        raise InputError("frozen planned journal changed")
+                    admission = admission_reconciliation(directory, manifest)
+                except (OSError, ValueError, KeyError, TypeError) as exc:
+                    reasons.append(f"admission evidence incomplete: {type(exc).__name__}")
+                    admission = {
+                        "passed": None,
+                        "status": "INCOMPLETE",
+                        "reason": "source journals corrupt or frozen plan changed",
+                    }
+                    if code == ExitCode.COMPLETED:
+                        code = ExitCode.DEPENDENCY_FAILURE
+                write_json(directory / "admission.json", admission)
             if observer:
                 try:
                     await observer.__aexit__(None, None, None)
@@ -402,8 +427,6 @@ async def run_experiment(
                     code = ExitCode.DEPENDENCY_FAILURE
                     reasons.append(f"observation persist failed: {type(exc).__name__}")
             record("persist")
-    if (directory / "emissions.jsonl").is_file() and not (directory / "admission.json").exists():
-        write_json(directory / "admission.json", admission_reconciliation(directory, manifest))
     if not (directory / "correctness.json").exists():
         write_json(
             directory / "correctness.json",
@@ -417,8 +440,7 @@ async def run_experiment(
         )
     metrics = []
     sha = content_hash(resolved.model_dump())
-    if generator and file_hash(directory / "planned.jsonl") == manifest["planned_sha256"]:
-        admission = admission_reconciliation(directory, manifest)
+    if generator and admission and "phases" in admission:
         count = admission["phases"]["measurement"]
         denominator = generator["window_seconds"] or generator["measured_job_seconds"]
         for name, numerator in (

@@ -28,6 +28,8 @@
 | **P10** | Reproducible report and clean setup rehearsal | J07 | not started | — | — |
 | **P11** | One-call intent fallback (optional last) | J05 | not started | — | — |
 
+Latest cross-milestone review: [P1–P5 audit and fixes](#p1p5-audit-and-fixes--27-october-2026), **511 tests passed**. The counts above describe the original milestone checkpoints; this review does not advance P6.
+
 ---
 
 ## Detailed Milestone Records
@@ -582,6 +584,76 @@ Commands ran at repository root with `.\.venv\Scripts\python.exe` (Python **3.11
 6. Once owners provide actual endpoints/infrastructure, follow [the P5 handoff](p5_telemetry.md) to register real readers and import `dashboards/benchmark.json`. Select matching scrape jobs/run context/time range, stall the real publisher and stop a real collector. Keep those real checks NOT_RUN until executed; do not infer them from the demo.
 
 **Checkpoint:** stop at P5. Commit message: `feat: implement P5 telemetry collectors and dashboards`; publish on `jaineel/j03-telemetry`. P6 remains not started.
+
+---
+
+### P1–P5 audit and fixes — 27 October 2026
+
+**Scope and state:** user explicitly requested inspection and fixes across P1–P5. Reviewed the CLI/config/artifact foundation, HTTP/SSE clients and contract boundaries, independent metric/oracle/fixture code, workload planning/lifecycle/scheduler, collectors and offline reconstruction against AGENTS.md, OWNERSHIP, the personal brief and shared specs 01/02/03/08/09/10. This is a regression review of the existing milestones, not P6 implementation or real integration approval.
+
+**Git:** started from clean `jaineel/j03-telemetry` at `9fdf112bef1f5dfd68fb9c88ffbd66a2828d0f4b`; initially isolated this review on local `jaineel/p1-p5-audit`. Per the user's branch instruction, the review changes were carried back to the existing pushed `jaineel/j03-telemetry` branch for publication. Continue future Jaineel milestones on the last pushed branch; do not create a branch for each P milestone.
+
+#### Reproduced findings and fixes
+
+| Milestone | Reproduced issue | Fix / regression evidence |
+|---|---|---|
+| P1 | Unexpected adapter exceptions escaped the CLI without a failure manifest. | Catch ordinary exceptions at the adapter boundary, retain exit 4 evidence and only the exception type; regression checks exception text is not leaked. |
+| P2 | NaN deadlines could bypass meaningful timeout arithmetic; Boolean/nonfinite deadlines were accepted inconsistently. | Validate explicit finite monotonic deadlines for HTTP and SSE before sending. |
+| P2 | A shallow query snapshot allowed nested caller mutations to change retry requests. | Deep-copy query inputs before the first await; regression compares both transmitted URLs. |
+| P3 | Verified Gold membership with a timestamp before the event's first planned offer could count as successful goodput. | Reject impossible chronology in the independent rate calculation; physical duplicate offers still share their earliest source time. |
+| P4 | A successful audit with the wrong real/stub mode left `correctness_passed=true` even though the run failed. | Validate the audit verdict and mode before assigning correctness; rejected audit evidence retains null correctness. |
+| P4 | Malformed planned/emissions journals were reparsed outside error handling, preventing the final failure manifest. | Preserve raw corruption, retain incomplete admission evidence, compute rates only from a completed reconciliation and finalize before telemetry hashes are frozen. |
+| P4 | Explicit zero repetitions silently selected the default; empty variant/fault selections produced no trials. | Reject invalid or empty plans and duplicate selections at the planning boundary. |
+| P4 | `order.effective_parameters` could override frozen variant controls sent to provider preparation. | Derive parameters from the resolved variant; permit only the registered F-PARTITION child treatment and reject conflicting metadata before provider calls. |
+| P4 | Reuse accepted a manifest omitting the hash of a decision input such as `summary.json`. | Require hashes for the lifecycle decision evidence and reject duplicate resolved artifact references. |
+| P5 | A collector returning a list caused `.get()` to fail after its result was rejected, interrupting peers. | Discard invalid collector results and emit explicit missing samples while retaining peer observations. |
+| P5 | Non-JSON, nonfinite or non-object reading metadata could crash persistence or reach summary calculations. | Validate and snapshot metadata; invalid readings become missing samples with null values. |
+| P5 | An observer task failure skipped the end record and telemetry manifest, losing reconstruction metadata for partial evidence. | Finalize available evidence with `INCOMPLETE` and an exception type, close timing writers even when journal parsing fails, then propagate the failure. |
+| P5 | Offline reconstruction read optional and required files without requiring their presence in the hash inventory. | Require a verified hash for every consumed file; reject duplicate references and honor incomplete observer/admission status. |
+
+No provider API, canonical DTO, shared specification, dataset rule, frozen configuration, lock or teammate module was changed. Test doubles remain explicitly labeled and confined to tests/demo bindings. No live fallback was added.
+
+#### Changed paths
+
+- `projectctl/cli.py`
+- `services/conversation/clients.py`
+- `benchmarks/{experiment,planning,metrics,observation,observation_summary}.py`
+- `benchmarks/manual/verify_p5.py`: adds explicit `--review-p1-p5` mode, using the same checks and tests while allowing Jaineel's P2 client path in this review. Default P5 scope remains unchanged; teammate service paths remain protected.
+- `tests/projectctl/test_cli.py`, `tests/contracts/test_clients.py`, `tests/benchmarks/{test_experiment,test_metrics}.py`, `tests/telemetry/test_observation.py`
+- `docs/jaineel/progress.md`
+
+#### Actual checks and retained evidence
+
+| Command/check | Actual outcome |
+|---|---|
+| `git status --short --branch`; `git switch -c jaineel/p1-p5-audit` | Clean initial tree; new branch created, exit 0. |
+| Targeted red regression runs, exact pytest argument arrays/output in the linked JSON files below | First run **17 failed / 1 passed / 148 deselected**; additional cases **5 failed / 38 deselected**; frozen-control case **1 failed / 30 deselected**. All pytest exits 1, intentionally retained before fixes. |
+| `.venv/Scripts/python.exe -m pytest tests/projectctl/test_cli.py tests/contracts/test_clients.py tests/benchmarks/test_experiment.py tests/benchmarks/test_metrics.py tests/telemetry/test_observation.py -q --tb=short --junitxml=artifacts/p1-p5-review/4167ae71-dad1-4ac7-babe-0dc55e1128e5/focused.xml` | **189 passed in 33.71 s**, exit 0, before the final frozen-control regression was added. |
+| `.venv/Scripts/python.exe benchmarks/manual/verify_p5.py --review-p1-p5` | Exit **0**, **11/11** expected outcomes matched; combined P1–P5 **511 passed in 62.58 s**, no skipped tests. |
+| Verifier: Python family; Ruff lint/format; evaluation schemas and conversation contract drift checks | All exit **0**, Python **3.11.15**. |
+| Verifier: `python -m benchmarks.manual.observer_stall --out <evidence>/demo`; offline rebuild | Both exit **0**; all nine demo assertions true. Real local generator CPU/RSS recorded separately from stub stall observations. |
+| Verifier: `python -m projectctl contracts check --all` | Expected exit **4**, missing owner contracts remain visible; this is not an integration pass. |
+| Verifier: `git diff --check`; protected-path diff | Both exit **0**; canonical/shared and teammate paths unchanged. |
+
+Evidence is local and ignored by Git; no raw output, generated data or benchmark result directory is staged:
+
+- Red/focused evidence: [red.json](../../artifacts/p1-p5-review/4167ae71-dad1-4ac7-babe-0dc55e1128e5/red.json), [red-additional.json](../../artifacts/p1-p5-review/4167ae71-dad1-4ac7-babe-0dc55e1128e5/red-additional.json), [red-controls.json](../../artifacts/p1-p5-review/4167ae71-dad1-4ac7-babe-0dc55e1128e5/red-controls.json), [focused.json](../../artifacts/p1-p5-review/4167ae71-dad1-4ac7-babe-0dc55e1128e5/focused.json); accompanying JUnit files retain individual cases.
+- Full verification exact command arrays, stdout/stderr and exit codes: [checks.json](../../artifacts/p1-p5-review/f7239a25-41d5-4968-8f07-fc491ba6bb55/checks.json); [pytest.xml](../../artifacts/p1-p5-review/f7239a25-41d5-4968-8f07-fc491ba6bb55/pytest.xml).
+- Demo assertions: [demo_checks.json](../../artifacts/p1-p5-review/f7239a25-41d5-4968-8f07-fc491ba6bb55/demo/demo_checks.json).
+- Raw stub observations: [observations.jsonl](../../artifacts/p1-p5-review/f7239a25-41d5-4968-8f07-fc491ba6bb55/demo/stub-stall/observations.jsonl); separate real generator output: [offline_summary.md](../../artifacts/p1-p5-review/f7239a25-41d5-4968-8f07-fc491ba6bb55/demo/real-generator/offline_summary.md).
+- Independently reconstructed table: [telemetry_summary.md](../../artifacts/p1-p5-review/f7239a25-41d5-4968-8f07-fc491ba6bb55/rebuilt/telemetry_summary.md).
+
+#### Remaining dependencies and manual verification
+
+Harsh's catalogue/import schemas and provider bindings, Aditya's transaction/inventory/payment contracts and endpoints, and Vichitr's event transport, Kafka, active Gold audit export and deployment instrumentation remain required. The actual source CSV, human query-label review, real G1/G3, real SUT resource/lag measurements, Grafana import, hosted CI and performance matrix have not been verified by this review. Existing limitations remain `NOT_RUN`; no stub result establishes those gates.
+
+1. Run `.venv/Scripts/python.exe benchmarks/manual/verify_p5.py --review-p1-p5`. Inspect the new `checks.json` and JUnit file; expect 511 tests and the intentional owner-contract exit 4.
+2. Read the retained red cases beside the regression tests, especially corrupt-journal finalization, wrong-mode audit rejection, frozen-control overrides and missing-hash rejection.
+3. Open the linked reconstructed telemetry table: Kafka lag stays 0 while pending Gold grows to 30, outbox grows separately, and the stopped collector has three missing samples with a null latest value. Confirm mode is `stub`.
+4. Rebuild manually into a fresh output directory: `.venv/Scripts/python.exe -m benchmarks.observation_summary --run-dir artifacts/p1-p5-review/f7239a25-41d5-4968-8f07-fc491ba6bb55/demo/stub-stall --out artifacts/p1-p5-review/manual-rebuild`. Expect successful reconstruction with `INCOMPLETE` data status because gaps are preserved. Use a new output path on each repeat.
+5. Inspect `git diff --check`, `git diff --stat` and `git status --short --branch`. Only the owned paths listed above should differ; review branch is local. When actual providers are available, follow the existing P2/P4/P5 handoffs to run real contracts and collector checks.
+
+**Checkpoint:** P1–P5 review complete for the inspected offline paths; P6 remains not started.
 
 ---
 

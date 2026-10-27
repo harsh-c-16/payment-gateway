@@ -1,5 +1,6 @@
 """Repeat P5 acceptance and retain exact commands, outputs and exit statuses."""
 
+import argparse
 import json
 import os
 import subprocess
@@ -11,7 +12,16 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
-    evidence = ROOT / "artifacts/p5" / str(uuid4())
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--review-p1-p5",
+        action="store_true",
+        help="verify a P1-P5 review, allowing Jaineel's conversation client edits",
+    )
+    args = parser.parse_args()
+    evidence = (
+        ROOT / ("artifacts/p1-p5-review" if args.review_p1_p5 else "artifacts/p5") / str(uuid4())
+    )
     evidence.mkdir(parents=True, exist_ok=False)
     relative = evidence.relative_to(ROOT).as_posix()
     python = sys.executable
@@ -93,6 +103,7 @@ def main():
                 "migrations",
                 "shared/outbox",
                 "shared/event_transport",
+                *([":(exclude)services/conversation"] if args.review_p1_p5 else []),
             ],
             0,
         ),

@@ -27,11 +27,32 @@ def rebuild(directory):
     manifest = load(directory / "telemetry_manifest.json")
     if manifest["content_sha256"] != content_hash(manifest):
         raise ValueError("telemetry manifest hash mismatch")
+    verified = set()
     for ref in manifest["artifacts"]:
         path = (directory / ref["path"]).resolve()
-        if not path.is_relative_to(directory) or file_hash(path) != ref["sha256"]:
+        if (
+            path in verified
+            or not path.is_relative_to(directory)
+            or file_hash(path) != ref["sha256"]
+        ):
             raise ValueError("telemetry artifact hash mismatch")
+        verified.add(path)
+    # Every input read below must be covered, including optional inputs added
+    # after capture. A self-consistent partial manifest is insufficient.
+    required = {"observation_context.json", "observations.jsonl", "observation_end.json"}
+    consumed = required | {
+        "timings.jsonl",
+        "generator.json",
+        "admission.json",
+        "emissions.jsonl",
+        "gold_visibility.jsonl",
+    }
+    for name in consumed:
+        path = directory / name
+        if (name in required or path.exists()) and path.resolve() not in verified:
+            raise ValueError("telemetry input missing artifact hash: " + name)
     context = load(directory / "observation_context.json")
+    end = load(directory / "observation_end.json")
     expected = {s["key"]: s for c in context["collectors"] for s in c["series"]}
     grouped = {key: [] for key in expected}
     seen = set()
@@ -60,7 +81,6 @@ def rebuild(directory):
     else:
         import math
 
-        end = load(directory / "observation_end.json")
         expected_ticks = math.ceil(end["stop_elapsed_seconds"] / context["interval_seconds"])
     summaries = []
     for key, spec in expected.items():
@@ -121,7 +141,9 @@ def rebuild(directory):
         "series": summaries,
         "latencies": latency,
         "status": "MEASURED"
-        if summaries and all(s["status"] == "MEASURED" for s in summaries)
+        if summaries
+        and all(s["status"] == "MEASURED" for s in summaries)
+        and end.get("status") != "INCOMPLETE"
         else "INCOMPLETE",
         "rates": rates(directory, context=context, series=summaries),
         "limitations": [
@@ -142,6 +164,8 @@ def rates(directory, *, context, series):
     if not all(p.exists() for p in required):
         return result | {"status": "NOT_RUN"}
     generator, admission = load(required[0]), load(required[1])
+    if admission.get("status") == "INCOMPLETE" or "phases" not in admission:
+        return result | {"status": "INCOMPLETE"}
     denominator = generator["window_seconds"] or generator["measured_job_seconds"]
     if not denominator or denominator <= 0:
         return result | {"status": "INCOMPLETE"}

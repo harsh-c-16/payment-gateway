@@ -20,6 +20,21 @@ class ExplicitAdapterDouble:
         return ProviderResult(self.code, ("explicit adapter double",), "stub")
 
 
+@pytest.mark.parametrize("failure", [RuntimeError, ValueError])
+def test_provider_exception_retains_failure_evidence(workspace, capsys, failure):
+    def broken(invocation):
+        raise failure("synthetic secret must not appear in evidence")
+
+    registry = ProviderRegistry()
+    registry.register("env verify", broken)
+    assert main(["env", "verify", "--profile", "local4c8g"], registry=registry) == 4
+    output = capsys.readouterr().out
+    assert "synthetic secret" not in output
+    folder = workspace / json.loads(output)["evidence_dir"]
+    assert (folder / "manifest.json").is_file()
+    assert "synthetic secret" not in (folder / "summary.json").read_text()
+
+
 @pytest.mark.parametrize("command", [[], *[action.split() for action in OWNERS]])
 def test_every_command_has_help(command, capsys):
     with pytest.raises(SystemExit) as exc:

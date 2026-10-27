@@ -36,6 +36,38 @@ def http_for(double, **config):
     )
 
 
+@pytest.mark.parametrize("deadline", [float("nan"), float("inf"), True])
+def test_invalid_deadline_never_reaches_transport(deadline, context, pairs):
+    double = ScriptedProvider((200, pairs["order-pending"]["response"]))
+
+    async def run():
+        async with http_for(double) as http:
+            await OrdersClient(http).status(uid(6), context, deadline=deadline)
+
+    with pytest.raises(ValueError, match="deadline"):
+        asyncio.run(run())
+    assert double.requests == []
+
+
+def test_retry_snapshots_nested_query_values(context, pairs):
+    params = {"synthetic_filter": ["original"]}
+    requests = []
+
+    async def changing_caller(request):
+        requests.append(str(request.url))
+        if len(requests) == 1:
+            params["synthetic_filter"].append("changed")
+            return httpx.Response(503, json=common_error())
+        return httpx.Response(200, json=pairs["order-pending"]["response"])
+
+    async def run():
+        async with http_for(changing_caller) as http:
+            await http.request("order_status", context, order_id=uid(6), params=params)
+
+    asyncio.run(run())
+    assert len(requests) == 2 and requests[0] == requests[1]
+
+
 async def invoke(http, pair, context):
     catalog, orders, analytics = CatalogClient(http), OrdersClient(http), AnalyticsClient(http)
     body, name = pair["request"], pair["endpoint"]

@@ -17,7 +17,6 @@ from projectctl.config import (
 from projectctl.models import ExitCode
 from projectctl.providers import (
     OWNERS,
-    DependencyError,
     Invocation,
     ProviderRegistry,
     ProviderResult,
@@ -259,10 +258,12 @@ def execute(args, registry: ProviderRegistry):
         else:
             try:
                 result = registry.invoke(invocation)
-            except (DependencyError, OSError, TimeoutError):
+            except Exception as exc:
+                # An adapter is an external boundary. Preserve evidence even when it
+                # violates its exception contract; never copy potentially secret text.
                 result = ProviderResult(
                     ExitCode.DEPENDENCY_FAILURE,
-                    ("provider unavailable or failed; no fallback used",),
+                    (f"provider unavailable or failed: {type(exc).__name__}; no fallback used",),
                     "real",
                 )
         outputs.append(

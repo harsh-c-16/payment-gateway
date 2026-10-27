@@ -96,6 +96,46 @@ def test_invalid_reader_values_are_missing(tmp_path, value):
     assert all(r["value"] is None and r["status"] == "MISSING" for r in asyncio.run(run()))
 
 
+@pytest.mark.parametrize("bad_result", [[], {"unexpected": Reading(1)}])
+def test_invalid_collector_result_preserves_peer_evidence(tmp_path, bad_result):
+    series = Series("gold_pending_events", "broken", "events")
+
+    async def read(sequence):
+        return bad_result
+
+    async def run():
+        async with ObservationSession(
+            config(tmp_path, stalled_publishers(), Collector("broken", (series,), read, "stub"))
+        ) as session:
+            await session.task
+
+    asyncio.run(run())
+    summary = rebuild(tmp_path)
+    broken = next(s for s in summary["series"] if s["component"] == "broken")
+    assert broken["missing_samples"] == 4
+    assert any(s["status"] == "MEASURED" for s in summary["series"])
+
+
+@pytest.mark.parametrize(
+    "unhashed", ["observation_context.json", "observations.jsonl", "timings.jsonl"]
+)
+def test_offline_summary_rejects_consumed_files_missing_hashes(tmp_path, unhashed):
+    from projectctl.artifacts import content_hash
+
+    async def run():
+        async with ObservationSession(config(tmp_path, stalled_publishers())) as session:
+            await session.task
+
+    asyncio.run(run())
+    path = tmp_path / "telemetry_manifest.json"
+    manifest = json.loads(path.read_text())
+    manifest["artifacts"] = [r for r in manifest["artifacts"] if r["path"] != unhashed]
+    manifest["content_sha256"] = content_hash(manifest)
+    path.write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="hash"):
+        rebuild(tmp_path)
+
+
 def test_real_mode_cannot_import_stub_collectors_and_one_second_is_enforced(tmp_path):
     stub = config(tmp_path, stalled_publishers())
     with pytest.raises(ValueError, match="doubles"):
@@ -112,6 +152,43 @@ def test_empty_collectors_are_visible_as_incomplete_evidence(tmp_path):
             await s.task
 
     asyncio.run(run())
+    assert rebuild(tmp_path)["status"] == "INCOMPLETE"
+
+
+@pytest.mark.parametrize("details", [{"nonfinite": float("nan")}, {"not_json": object()}, []])
+def test_invalid_reading_metadata_becomes_explicit_gap(tmp_path, details):
+    series = Series("gold_pending_events", "invalid-metadata", "events")
+
+    async def read(sequence):
+        return {series.key: Reading(1, details)}
+
+    async def run():
+        async with ObservationSession(
+            config(tmp_path, Collector("invalid", (series,), read, "stub"))
+        ) as session:
+            await session.task
+
+    asyncio.run(run())
+    summary = rebuild(tmp_path)["series"][0]
+    assert summary["sample_count"] == 0 and summary["missing_samples"] == 4
+
+
+def test_observer_task_failure_preserves_partial_manifest(tmp_path):
+    class BrokenInstrumentationDouble:
+        def record(self, *args, **kwargs):
+            raise RuntimeError("explicit instrumentation failure")
+
+    async def run():
+        cfg = replace(
+            config(tmp_path, stalled_publishers()), telemetry=BrokenInstrumentationDouble()
+        )
+        async with ObservationSession(cfg) as session:
+            await session.task
+
+    with pytest.raises(RuntimeError, match="instrumentation failure"):
+        asyncio.run(run())
+    assert (tmp_path / "telemetry_manifest.json").is_file()
+    assert json.loads((tmp_path / "observation_end.json").read_text())["status"] == "INCOMPLETE"
     assert rebuild(tmp_path)["status"] == "INCOMPLETE"
 
 

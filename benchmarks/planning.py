@@ -44,9 +44,16 @@ def check_pair_controls(left, right):
 
 
 def plan_trials(config, workload, variants, repetitions=None, faults=("none",), *, series=None):
-    repetitions = repetitions or config.timing.repetitions
-    if type(repetitions) is not int or repetitions <= 0 or len(set(variants)) != len(variants):
-        raise InputError("positive repetitions and distinct variants required")
+    repetitions = config.timing.repetitions if repetitions is None else repetitions
+    if (
+        type(repetitions) is not int
+        or repetitions <= 0
+        or not variants
+        or len(set(variants)) != len(variants)
+        or not faults
+        or len(set(faults)) != len(faults)
+    ):
+        raise InputError("positive repetitions and nonempty distinct variants/faults required")
     if set(faults) - config.faults.keys():
         raise InputError("unregistered fault profile")
     config = config.model_copy(deep=True)
@@ -152,10 +159,29 @@ def reusable_run(directory, trial):
             or manifest["git"] != current_git
         ):
             return False
+        required = {
+            "summary.json",
+            "execution_order.json",
+            "execution.json",
+            "resolved_config.json",
+            "planned.jsonl",
+            "emissions.jsonl",
+            "generator.json",
+            "admission.json",
+            "audit.json",
+            "correctness.json",
+            "workload_manifest.json",
+        }
+        verified = set()
         for ref in manifest["artifacts"]:
             path = (directory / ref["path"]).resolve()
-            if not path.is_relative_to(directory.resolve()) or file_hash(path) != ref["sha256"]:
+            if (
+                path in verified
+                or not path.is_relative_to(directory.resolve())
+                or file_hash(path) != ref["sha256"]
+            ):
                 return False
-        return bool(manifest["artifacts"])
+            verified.add(path)
+        return all((directory / name).resolve() in verified for name in required)
     except (OSError, ValueError, KeyError, TypeError):
         return False

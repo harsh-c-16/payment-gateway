@@ -162,6 +162,27 @@ def test_zero_window_and_different_machine_clocks_are_explicit():
         )
 
 
+def test_gold_visibility_cannot_precede_first_planned_offer():
+    with pytest.raises(ValueError, match="precedes"):
+        cohort_rates(
+            [{"record_id": "r1", "event_id": "e1", "scheduled_at": 15, "clock_domain": "host"}],
+            [{"record_id": "r1", "status": "accepted", "at": 16, "clock_domain": "host"}],
+            [
+                {
+                    "event_id": "e1",
+                    "at": 11,
+                    "clock_domain": "host",
+                    "active_membership_verified": True,
+                }
+            ],
+            expected_valid_ids={"e1"},
+            start=10,
+            end=20,
+            drain_end=30,
+            clock_domain="host",
+        )
+
+
 def test_missing_admission_receipt_cannot_be_reported_as_zero_admission():
     result = cohort_rates(
         [{"record_id": "r1", "event_id": "e1", "scheduled_at": 1, "clock_domain": "host-a"}],

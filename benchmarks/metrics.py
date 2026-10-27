@@ -130,6 +130,13 @@ def cohort_rates(
         row["record_id"]: row for row in planned if start <= nonnegative(row["scheduled_at"]) < end
     }
     valid = {row["event_id"] for row in cohort.values()} & set(expected_valid_ids)
+    first_offer = {}
+    for row in planned:
+        event = row["event_id"]
+        if event in valid:
+            first_offer[event] = min(
+                row["scheduled_at"], first_offer.get(event, row["scheduled_at"])
+            )
     admitted = unknown = 0
     for row in admissions:
         if row["record_id"] not in all_planned:
@@ -149,6 +156,8 @@ def cohort_rates(
             raise ValueError("receipt alone cannot prove active Gold visibility")
         when = nonnegative(row["at"])
         if row["event_id"] in valid:
+            if when < first_offer[row["event_id"]]:
+                raise ValueError("Gold visibility precedes its first planned source record")
             visible[row["event_id"]] = min(when, visible.get(row["event_id"], when))
     by_drain = {event_id for event_id, when in visible.items() if start <= when <= drain_end}
     in_window = {event_id for event_id, when in visible.items() if start <= when < end}

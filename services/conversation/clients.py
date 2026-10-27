@@ -2,7 +2,9 @@
 
 import asyncio
 import codecs
+import copy
 import json
+import math
 import random
 import re
 import time
@@ -110,6 +112,19 @@ def remaining_time(cutoff):
     return remaining
 
 
+def request_cutoff(deadline, timeout_seconds):
+    if deadline is not None and (
+        isinstance(deadline, bool)
+        or not isinstance(deadline, (int, float))
+        or not math.isfinite(deadline)
+    ):
+        raise ValueError("deadline must be a finite monotonic timestamp")
+    return min(
+        deadline if deadline is not None else float("inf"),
+        time.monotonic() + timeout_seconds,
+    )
+
+
 class ProviderHTTP:
     def __init__(self, config: TransportConfig, contracts, *, transport=None, internal_token=None):
         if config.mode == "real":
@@ -192,13 +207,10 @@ class ProviderHTTP:
         headers=None,
         **path_values,
     ):
-        cutoff = min(
-            deadline if deadline is not None else float("inf"),
-            time.monotonic() + self.config.timeout_seconds,
-        )
+        cutoff = request_cutoff(deadline, self.config.timeout_seconds)
         # Snapshot input once so an awaiting caller cannot change a retry's business body.
         body = strict_json(json.dumps(body, allow_nan=False)) if body is not None else None
-        params = dict(params) if params is not None else None
+        params = copy.deepcopy(dict(params)) if params is not None else None
         endpoint, path, outgoing, params = self.prepare(
             name, context, body, key, path_values, params, headers
         )
@@ -270,10 +282,7 @@ class ProviderHTTP:
         endpoint, path, outgoing, _ = self.prepare(
             "order_events", context, None, None, {"order_id": order_id}, None, headers
         )
-        cutoff = min(
-            deadline if deadline is not None else float("inf"),
-            time.monotonic() + self.config.timeout_seconds,
-        )
+        cutoff = request_cutoff(deadline, self.config.timeout_seconds)
         cursor = last_event_id if last_event_id is not None else -1
         first = True
         try:
