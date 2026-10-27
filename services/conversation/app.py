@@ -1,4 +1,4 @@
-"""P6 HTTP adapter. Workflow endpoints fail visibly until P7 is supplied."""
+"""M1 HTTP adapter with fixed workflow and explicit provider-mode boundaries."""
 
 import logging
 import os
@@ -33,7 +33,10 @@ from shared.telemetry.metrics import Telemetry
 
 from .database import Database
 from .errors import ServiceError
+from .gateway import Gateway
+from .provider_contracts import ContractUnavailable
 from .state import ConversationState
+from .workflow import FixedWorkflow
 
 LOGGER = logging.getLogger("conversation")
 ROUTES = (
@@ -99,11 +102,11 @@ def workflow_unavailable():
     raise ServiceError(
         503,
         ErrorCode.DEPENDENCY_UNAVAILABLE,
-        "P7 workflow is not implemented at the P6 checkpoint.",
+        "Workflow providers are not configured.",
     )
 
 
-def create_app(*, state=None, mode="real", purpose="service", turn_handler=None):
+def create_app(*, state=None, mode="real", purpose="service", turn_handler=None, workflow=None):
     if mode not in {"real", "stub"} or purpose not in {"service", "contract_test"}:
         raise ValueError("explicit real/service or stub/contract_test configuration required")
     if (mode == "stub") != (purpose == "contract_test"):
@@ -116,10 +119,23 @@ def create_app(*, state=None, mode="real", purpose="service", turn_handler=None)
     if mode == "real" and state.events.mode != "real":
         raise ValueError("real service cannot use test event/outbox implementations")
     if mode == "real" and turn_handler is not None:
-        raise ValueError(
-            "P7 must supply canonical provider validation before real turns are enabled"
+        raise ValueError("real turns require the fixed workflow with canonical provider validation")
+    if (
+        os.environ.get("ASSISTANT_MODE", "fixed") != "fixed"
+        or os.environ.get("ALLOW_INTENT_LLM", "false").lower() != "false"
+    ):
+        raise ValueError("P7 requires ASSISTANT_MODE=fixed and ALLOW_INTENT_LLM=false")
+    if workflow is None and mode == "real":
+        workflow = FixedWorkflow(
+            state,
+            Gateway(
+                os.environ.get("CATALOG_BASE_URL", "http://catalog:8002"),
+                os.environ.get("ORDERS_BASE_URL", "http://orders:8003"),
+            ),
         )
-    app = FastAPI(title="Conversation P6", docs_url=None, redoc_url=None, openapi_url=None)
+    if workflow is not None and (workflow.mode != mode or workflow.state is not state):
+        raise ValueError("workflow mode/state must match the service")
+    app = FastAPI(title="Conversation P7", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.conversation = state
     app.state.execution_mode = mode
     telemetry = Telemetry(
@@ -203,19 +219,23 @@ def create_app(*, state=None, mode="real", purpose="service", turn_handler=None)
 
     @app.post("/v1/sessions/{session_id}/turns", response_model=TurnResponse)
     def submit_turn(session_id: UUIDText, body: TurnRequest, context: Context, key: Key):
+        if workflow is not None:
+            return workflow.dispatch_turn(session_id, body, context, key)
         if turn_handler is None:
             workflow_unavailable()
         return state.record_turn(session_id, body, context, key, turn_handler)
 
     @app.post("/v1/carts/{cart_id}/quote", status_code=201)
     def quote_cart(cart_id: UUIDText, body: CartQuoteRequest, context: Context, key: Key):
-        state.get_cart(cart_id, context)
-        workflow_unavailable()
+        if workflow is None:
+            workflow_unavailable()
+        return workflow.request_quote(cart_id, body, context, key)
 
     @app.post("/v1/carts/{cart_id}/checkout", status_code=202)
     def checkout_cart(cart_id: UUIDText, body: CheckoutRequest, context: Context, key: Key):
-        state.get_cart(cart_id, context)
-        workflow_unavailable()
+        if workflow is None:
+            workflow_unavailable()
+        return workflow.checkout_cart(cart_id, body, context, key)
 
     @app.get("/health/live")
     def live():
@@ -224,6 +244,15 @@ def create_app(*, state=None, mode="real", purpose="service", turn_handler=None)
     @app.get("/health/ready")
     def ready():
         state.ready()
+        if workflow is not None:
+            try:
+                workflow.ready()
+            except ContractUnavailable as exc:
+                raise ServiceError(
+                    503,
+                    ErrorCode.DEPENDENCY_UNAVAILABLE,
+                    "Canonical workflow provider contracts unavailable.",
+                ) from exc
         return {"status": "ready", "mode": mode}
 
     @app.get("/metrics")

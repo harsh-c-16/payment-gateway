@@ -15,6 +15,7 @@ from shared.contracts.common import ErrorCode
 from .errors import ServiceError
 
 MIGRATION = Path(__file__).resolve().parents[2] / "migrations/conversation/001_state.sql"
+MIGRATIONS = (MIGRATION, MIGRATION.with_name("002_workflow.sql"))
 
 
 def migration_content():
@@ -56,8 +57,6 @@ class Database:
             raise storage_unavailable()
 
     def migrate(self):
-        content = migration_content()
-        digest = hashlib.sha256(content).hexdigest()
         # DDL is setup work, not an API command; retain the 2-second lock bound.
         with self.transaction(statement_timeout_ms=60000) as tx:
             self._version(tx)
@@ -67,27 +66,34 @@ class Database:
                 "(version integer PRIMARY KEY, sha256 char(64) NOT NULL, "
                 "applied_at timestamptz NOT NULL DEFAULT clock_timestamp())"
             )
-            previous = tx.execute(
-                "SELECT sha256 FROM conversation_schema_migrations WHERE version = 1"
-            ).fetchone()
-            if previous:
-                if previous["sha256"] != digest:
-                    raise storage_unavailable()
-                return
-            tx.execute(content.decode("utf-8"))
-            tx.execute(
-                "INSERT INTO conversation_schema_migrations (version, sha256) VALUES (1, %s)",
-                (digest,),
-            )
+            for version, path in enumerate(MIGRATIONS, 1):
+                content = path.read_text(encoding="utf-8")
+                digest = hashlib.sha256(content.encode("utf-8")).hexdigest()
+                previous = tx.execute(
+                    "SELECT sha256 FROM conversation_schema_migrations WHERE version=%s",
+                    (version,),
+                ).fetchone()
+                if previous:
+                    if previous["sha256"] != digest:
+                        raise storage_unavailable()
+                    continue
+                tx.execute(content)
+                tx.execute(
+                    "INSERT INTO conversation_schema_migrations (version,sha256) VALUES (%s,%s)",
+                    (version, digest),
+                )
 
     def ready(self):
         with self.transaction() as tx:
             self._version(tx)
-            row = tx.execute(
-                "SELECT sha256 FROM conversation_schema_migrations WHERE version = 1"
-            ).fetchone()
-            if not row or row["sha256"] != hashlib.sha256(migration_content()).hexdigest():
-                raise storage_unavailable()
+            for version, path in enumerate(MIGRATIONS, 1):
+                row = tx.execute(
+                    "SELECT sha256 FROM conversation_schema_migrations WHERE version=%s",
+                    (version,),
+                ).fetchone()
+                digest = hashlib.sha256(path.read_text(encoding="utf-8").encode()).hexdigest()
+                if not row or row["sha256"] != digest:
+                    raise storage_unavailable()
             tx.execute("SELECT 1 FROM sessions, carts, cart_items, turns, operation_keys LIMIT 0")
 
 
@@ -103,7 +109,7 @@ def main():
         print("M1 migration failed: STORAGE_UNAVAILABLE (connection details withheld).")
         return 4
     print(
-        "M1 state migration 1 applied/verified; "
+        "M1 state/workflow migrations 1-2 applied/verified; "
         "shared outbox/diagnostic DDL remains owner-supplied."
     )
     return 0

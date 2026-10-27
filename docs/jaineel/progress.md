@@ -22,7 +22,7 @@
 | **P4** | Open-loop workload generation & experiment lifecycle | J02 | stub verified (offline checkpoint complete) | `jaineel/j02-workloads` | 329 combined tests; explicit publisher/API/lifecycle doubles |
 | **P5** | Telemetry, raw collectors, dashboard | J03 | stub verified (offline checkpoint complete); local process collector real verified | `jaineel/j03-telemetry` | 37 telemetry tests; 488 combined; explicit doubles plus separate real generator/loopback checks |
 | **P6** | Durable sessions, cart, and idempotency | J04 | state verified with Docker PostgreSQL; shared event gate incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit event/outbox/turn doubles |
-| **P7** | Zero-call search, quote, and checkout workflow | J04 | not started | — | — |
+| **P7** | Zero-call search, quote, and checkout workflow | J04 | stub verified; P7 checkpoint complete; real provider/event gates incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit HTTP/event doubles; 717 tests |
 | **P8** | Real G1/G3 integration, failures, reconciliation | J06 | not started | — | — |
 | **P9** | Correct B0 and controlled performance matrix | J07 | not started | — | — |
 | **P10** | Reproducible report and clean setup rehearsal | J07 | not started | — | — |
@@ -936,15 +936,131 @@ modules or the P7 workflow.
 ---
 
 ### Milestone P7: Zero-Call Search, Quote, and Checkout Workflow
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J04
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** Harsh (M2 search/quote HTTP API), Aditya (M3 order creation API).
-- **Next Action:** Integrate conversation workflow with catalogue and transaction APIs.
+
+- **State:** stub verified; requested P7/J04 checkpoint complete. M1 storage,
+  migration upgrade, concurrency and command replay use real Docker PostgreSQL
+  **18.6**. Catalogue/Orders HTTP, event builder and transactional event capture
+  are explicit doubles. This is not real G3, a shared outbox/Kafka pass, a
+  performance run or a live assistant quality result. P8 remains not started.
+- **Date/branch/base:** 27 October 2026 (Asia/Calcutta), existing
+  `jaineel/j03-telemetry`, `3a98f343a6a0ae44f367b57b34453192570de108`.
+  Starting tree was clean. User explicitly requested commit/push on this branch;
+  no branch creation, force push, history rewrite or teammate implementation.
+- **Authority read:** AGENTS.md, OWNERSHIP, this tracker, personal J04 brief;
+  playbook P7; common §§3–6.2/8 and Appendices A/B; context/technology freeze;
+  evaluation T-10; dataset §5's exact/null/size/occasion rules; runbook §§4/6/7.
+
+**Changed paths and behavior**
+
+- `services/conversation/{intent,gateway,workflow}.py`: dictionary-driven real
+  deterministic parsing, exact decimal price bounds, clarification for unknown
+  explicit/ambiguous constraints, unchanged hard filters and one lexical search
+  maximum. Structured search bypasses extraction. Templates display supplied
+  facts, exact quote totals and backend order status; text never purchases.
+  Fixed mode has no generative provider integration. The monotonic search-turn
+  deadline is 3,000 ms, passed downstream with the remaining time; provider
+  transport remains bounded to 2 seconds. Stage timings retain null model time.
+- `services/conversation/{app,state,database}.py` and
+  `migrations/conversation/002_workflow.sql`: enable the existing turn/quote/
+  checkout routes; preserve migration 001 and canonical DTOs. Persist a remote
+  command/key before submission, and save results/confirmation bindings in M1
+  transactions. Quote/cart/principal/version are checked, edits invalidate old
+  confirmation, IDs cannot be rebound to another quote, and identical retries
+  return the same resource. Response loss/503 remains unresolved rather than
+  cancelled; pending checkout blocks edits until recovery. Same-quote transport
+  aliases share the downstream key and resolve together. No stock/payment logic
+  or independent event/outbox implementation was added.
+- `tests/conversation/{test_intent,test_workflow,workflow_doubles}.py`: actual
+  production parser/workflow against explicit provisional HTTP schemas/doubles,
+  all 60 existing assistant fixture scenarios, malformed/unsupported constraints,
+  malicious product text, no-results, provider failures, deadline exhaustion,
+  quote mismatch/races/expiry, confirmation/principal isolation, concurrent
+  requests, pending recovery after reopening M1 state, and P6 migration upgrade.
+  Structured fixture cases replay their exact stored business inputs and a
+  labelled test clock; production never imports those fixtures. Human label
+  review/freeze remains incomplete; this does not certify human-reviewed quality.
+- `benchmarks/manual/{p7_smoke,verify_p7}.py`: repeatable Docker-backed checks,
+  explicit `--test-double-providers` opt-in and an independent real-HTTP mode.
+  The smoke captures returned session/cart/SKU/quote/order IDs. It checks stale
+  confirmation and response-loss recovery without hard-coded invented IDs.
+  Raw command output, case/turn records, Docker facts and HTTP transcript are
+  preserved in ignored artifacts. Missing DB/Docker and skipped tests cannot
+  produce a completed verifier result.
+- `services/conversation/README.md`, `docs/jaineel/p7_workflow.md` and this file:
+  operational semantics, contract review items, reproducible commands, evidence
+  and concrete manual checks. Shared specs, provider DTOs, locks/configs, infra
+  and teammates' modules remain unchanged.
+
+**Actual checks and retained evidence**
+
+Commands ran from repository root with the existing locked Python **3.11** venv.
+The verifier consumes the ignored local connection file without printing its
+credentials. Only fresh per-test/per-smoke schemas are created and removed;
+the existing Docker instance/volume and unrelated data are retained.
+
+| Command | Actual result |
+|---|---|
+| `.venv/Scripts/python.exe benchmarks/manual/verify_p7.py --database-file artifacts/p6-docker/checkpoint-20261027-final/local-database.json --out artifacts/p7/checkpoint-20261027-final` | Exit **0**; **10/10** expected command outcomes; P7 **stub verified**. PostgreSQL server `180006`; fsync/full_page_writes/synchronous_commit all on. |
+| `.venv/Scripts/python.exe -m pytest tests/conversation tests/projectctl tests/contracts tests/oracles tests/benchmarks tests/telemetry -q --tb=short -o junit_family=xunit1 -o cache_dir=artifacts/p7/checkpoint-20261027-final/cache --basetemp=artifacts/p7/checkpoint-20261027-final/test-temp --junitxml=artifacts/p7/checkpoint-20261027-final/pytest.xml` | **717 passed in 104.68 s**, zero failed/errors/skipped. One existing Starlette/httpx deprecation warning; no dependency change to suppress it. |
+| `.venv/Scripts/python.exe -m benchmarks.manual.p7_smoke --test-double-providers --confirm-checkout --out artifacts/p7/checkpoint-20261027-final/smoke` | Exit **0**, **16/16 assertions**. Same order after injected response loss/retry; HTTP 202 remains PENDING; **zero model attempts**. |
+| `.venv/Scripts/python.exe -m ruff check services/conversation tests/conversation benchmarks/manual/p7_smoke.py benchmarks/manual/verify_p7.py` and same paths with `ruff format --check` | Both exit **0**. |
+| `.venv/Scripts/python.exe -m projectctl.schemas --check`; `.venv/Scripts/python.exe -m projectctl.conversation_contract --check` | Both exit **0**; canonical generated schemas/OpenAPI unchanged. |
+| `.venv/Scripts/python.exe -m projectctl contracts check --all` | Expected exit **4**, status NOT_RUN for missing provider contracts/DTOs, event transport/outbox/local diagnostic and real readiness handoffs. This is not a full contract/integration pass. |
+| `git diff --check`; protected-path `git diff --exit-code -- ...` | Exit **0**; exact protected paths and outputs retained in `checks.json`. |
+
+The earlier full checkpoint passed 710 tests before final review added malformed
+price, P6-upgrade and identity-isolation checks and kept an Orders 503 explicitly
+unknown. Early failing probes caught the provisional fixture wrapper, the
+string-only common error-details contract, and a case-specific fixture request
+shape; fixed rather than skipped or weakened. The retained first/second/fourth
+JUnit files under `artifacts/p7/` show those failures; the final result above
+supersedes them. The initial successful checkpoint is retained separately.
+
+- [Final checkpoint verdict](../../artifacts/p7/checkpoint-20261027-final/summary.json)
+  and [exact commands, outputs and exits](../../artifacts/p7/checkpoint-20261027-final/checks.json).
+- [717-test JUnit](../../artifacts/p7/checkpoint-20261027-final/pytest.xml).
+- [60 assistant turn/control records](../../artifacts/p7/checkpoint-20261027-final/assistant_turns.jsonl)
+  and [60 T-10/D-05 case records](../../artifacts/p7/checkpoint-20261027-final/tests.jsonl):
+  fixed mode, explicit doubles, zero observed generative attempts, actual outcomes.
+- [Docker identity/version/durability](../../artifacts/p7/checkpoint-20261027-final/database.json).
+- [16-assertion smoke](../../artifacts/p7/checkpoint-20261027-final/smoke/smoke.json)
+  and [captured requests, returned IDs and responses](../../artifacts/p7/checkpoint-20261027-final/smoke/http.json).
+
+**Remaining dependencies and manual verification**
+
+1. Reproduce the verifier with the explicit local Docker connection-file path
+   and a new output directory. Inspect all 60 turn records: zero model attempts,
+   null model time, honest no-results/clarification and dependency outcomes.
+   Inspect the smoke transcript's search facts and exact authoritative quote.
+2. Harsh supplies canonical dictionary/search/product/quote schemas/APIs and
+   reviews revision, brand-key/display, and hard path-filter bindings. Common
+   §5's M1 TurnRequest has no structured field despite §6.2's structured-control
+   requirement: no public field/route was silently added. The local adapter
+   bypasses extraction; HTTP structured controls use M2 `/v1/search`. Any future
+   M1 schema extension needs Jaineel/Harsh consumer review.
+3. Aditya supplies Orders acceptance/status/SSE, stable-key/repeated-quote
+   deduplication and reviews the existing relative status-URL convention.
+   Aditya/Vichitr supply shared builder/append bindings and caller-local DDL.
+   The real application fails closed while those handoffs are absent.
+4. After real providers are ready, follow [the P7 manual runbook](p7_workflow.md):
+   launch M1 with fixed/false settings, run the real read/quote smoke without
+   double flags, inspect the displayed quote, and explicitly select
+   `--confirm-checkout` only for a simulated purchase. Verify old confirmation
+   rejection after an edit; retry the exact checkout body/key; observe real
+   Orders snapshots/SSE. Stop Orders or inject response loss; after recovery
+   verify one order ID and no fabricated terminal state. Real execution is
+   **NOT_RUN** here; full G3 stock/ledger reconciliation belongs to P8.
+5. Optional live assist, human label review, real G1/G3, shared event delivery,
+   hosted CI and performance remain **NOT_RUN/INCOMPLETE**. P8 is not advanced.
+
+**Git publication:** requested commands are
+`git commit -m "feat: implement P7 fixed conversation workflow"` and
+`git push origin HEAD:refs/heads/jaineel/j03-telemetry` on the current branch.
+The exact resulting commit, push output, remote-head check and final status are
+recorded in [local publication evidence](../../artifacts/p7/checkpoint-20261027-final/publication.json).
+Generated evidence/test databases/credentials are excluded from the commit.
+
+**Checkpoint:** stop at P7. No P8 implementation or new branch.
 
 ---
 

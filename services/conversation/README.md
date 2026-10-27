@@ -22,8 +22,12 @@ There is no default database and no automatic migration at service startup.
 Session creation emits no invented event. Cart/turn events require the real
 shared builder and transaction-local outbox; missing libraries cause HTTP 503
 and failed readiness. Tests explicitly select test event/outbox capture, using
-real PostgreSQL. The shared event path remains incomplete. Turn workflow,
-quote and checkout endpoints return explicit P7-unavailable errors.
+real PostgreSQL. The shared event path remains incomplete. P7 supplies the
+fixed turn/search, quote and checkout workflow; missing owner schemas/providers
+remain visible failures. No generative provider or implicit purchase is enabled.
+
+See [P7 workflow and manual replay](../../docs/jaineel/p7_workflow.md) for
+confirmation binding, response-loss recovery, exact checks and provider reviews.
 
 See [P6 persistence handoff](../../docs/jaineel/p6_persistence.md) for exact
 semantics, checks, schema ownership, manual smoke and outstanding reviews.

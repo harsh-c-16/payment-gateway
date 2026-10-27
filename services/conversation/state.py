@@ -170,6 +170,7 @@ class ConversationState:
                 return CartSnapshot.model_validate(cached)
             if request.expected_cart_version != row["version"]:
                 raise conflict(ErrorCode.CART_VERSION_CONFLICT)
+            self.check_pending_checkout(tx, row)
             if row["version"] == INT64_MAX:
                 raise conflict(ErrorCode.ILLEGAL_STATE)
             self.events.ready()
@@ -192,7 +193,7 @@ class ConversationState:
                 )
             row = tx.execute(
                 "UPDATE carts SET version=version+1,updated_at=clock_timestamp(),"
-                "quote_id=NULL,quote_cart_version=NULL,confirmation_id=NULL "
+                "quote_id=NULL,quote_cart_version=NULL,confirmation_id=NULL,quote_payload=NULL "
                 "WHERE namespace=%s AND cart_id=%s RETURNING *",
                 (context.namespace, cart_id),
             ).fetchone()
@@ -212,6 +213,19 @@ class ConversationState:
             )
             self._save(tx, scope, digest, response)
             return response
+
+    def check_pending_checkout(self, tx, row):
+        pending = tx.execute(
+            "SELECT 1 FROM workflow_commands WHERE namespace=%s AND cart_id=%s "
+            "AND operation='checkout_cart' AND state='pending' LIMIT 1",
+            (row["namespace"], row["cart_id"]),
+        ).fetchone()
+        if pending:
+            raise ServiceError(
+                409,
+                ErrorCode.ILLEGAL_STATE,
+                "Checkout outcome is unresolved; retry the original checkout before editing.",
+            )
 
     def record_turn(self, session_id, request: TurnRequest, context, key, handler: TurnHandler):
         """Persist a caller-supplied workflow outcome; P6 implements no workflow.
