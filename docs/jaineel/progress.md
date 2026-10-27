@@ -785,6 +785,21 @@ G1/G3, complete T/D integration, hosted CI and performance remain incomplete or
 
 **Checkpoint:** stop at P6. P7 remains not started.
 
+**Git publication:** implementation commit `31aa699af7ae71942946ad4e090fad5d8385fbac`
+(`feat: implement P6 durable conversation state`) was pushed with
+`git push origin jaineel/j03-telemetry`, exit **0**. `git ls-remote origin
+refs/heads/jaineel/j03-telemetry` returned the same hash; the working tree was
+clean. Only the 21 reviewed source/test/docs/CI paths were staged. Generated
+evidence, native binaries/database files, raw data and secrets were excluded.
+Exact publication commands/outputs are retained in
+[git_publication.json](../../artifacts/p6/git_publication.json). This publication
+note is a documentation-only follow-up; it does not advance P7. Hosted CI is
+pending verification.
+The unused initial OneDrive-backed test cluster was stopped with data retained;
+the selected isolated cluster on port 55487 remains available for manual replay.
+[Actual durability settings](../../artifacts/p6/durability-settings.json) confirm
+`fsync=on`, `synchronous_commit=on`, and `full_page_writes=on`.
+
 ---
 
 ### Milestone P7: Zero-Call Search, Quote, and Checkout Workflow
