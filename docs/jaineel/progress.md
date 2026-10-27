@@ -591,7 +591,7 @@ Commands ran at repository root with `.\.venv\Scripts\python.exe` (Python **3.11
 
 **Scope and state:** user explicitly requested inspection and fixes across P1–P5. Reviewed the CLI/config/artifact foundation, HTTP/SSE clients and contract boundaries, independent metric/oracle/fixture code, workload planning/lifecycle/scheduler, collectors and offline reconstruction against AGENTS.md, OWNERSHIP, the personal brief and shared specs 01/02/03/08/09/10. This is a regression review of the existing milestones, not P6 implementation or real integration approval.
 
-**Git:** started from clean `jaineel/j03-telemetry` at `9fdf112bef1f5dfd68fb9c88ffbd66a2828d0f4b`; initially isolated this review on local `jaineel/p1-p5-audit`. Per the user's branch instruction, the review changes were carried back to the existing pushed `jaineel/j03-telemetry` branch for publication. Continue future Jaineel milestones on the last pushed branch; do not create a branch for each P milestone.
+**Git:** started from clean `jaineel/j03-telemetry` at `9fdf112bef1f5dfd68fb9c88ffbd66a2828d0f4b`; initially isolated this review on local `jaineel/p1-p5-audit`. Per the user's branch instruction, the review changes were carried back to the existing pushed `jaineel/j03-telemetry` branch and published as `adf7b035d4e54d360690b4f87f9316d9a8b3e041` (`fix: resolve P1-P5 audit findings`). `git push origin jaineel/j03-telemetry` exited 0; `git ls-remote origin refs/heads/jaineel/j03-telemetry` returned the same hash. Continue future Jaineel milestones on the last pushed branch; do not create a branch for each P milestone.
 
 #### Reproduced findings and fixes
 
