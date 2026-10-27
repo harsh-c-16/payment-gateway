@@ -1,0 +1,233 @@
+"""P6 HTTP adapter. Workflow endpoints fail visibly until P7 is supplied."""
+
+import logging
+import os
+from time import monotonic
+from typing import Annotated
+from uuid import uuid4
+
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse, Response
+from pydantic import TypeAdapter, ValidationError
+
+from shared.contracts.common import (
+    ErrorCode,
+    IdempotencyKey,
+    Identifier,
+    RequestContext,
+    Sku,
+    UUIDText,
+)
+from shared.contracts.conversation import (
+    CartQuoteRequest,
+    CartSnapshot,
+    CartUpdateRequest,
+    CheckoutRequest,
+    SessionCreated,
+    TurnRequest,
+    TurnResponse,
+)
+from shared.telemetry.context import bind_context, log_operation
+from shared.telemetry.metrics import Telemetry
+
+from .database import Database
+from .errors import ServiceError
+from .state import ConversationState
+
+LOGGER = logging.getLogger("conversation")
+ROUTES = (
+    "/v1/sessions",
+    "/v1/sessions/{session_id}/turns",
+    "/v1/carts/{cart_id}",
+    "/v1/carts/{cart_id}/items/{sku}",
+    "/v1/carts/{cart_id}/quote",
+    "/v1/carts/{cart_id}/checkout",
+    "/health/live",
+    "/health/ready",
+    "/metrics",
+    "unmatched",
+)
+
+
+def correlation(request):
+    existing = getattr(request.state, "safe_correlation_id", None)
+    if existing is not None:
+        return existing
+    value = request.headers.get("X-Correlation-ID")
+    try:
+        result = TypeAdapter(Identifier).validate_python(value)
+    except ValidationError:
+        result = str(uuid4())
+    request.state.safe_correlation_id = result
+    return result
+
+
+def request_context(request: Request):
+    if not request.headers.get("X-User-ID"):
+        raise ServiceError(401, ErrorCode.UNAUTHORIZED, "X-User-ID is required.")
+    try:
+        context = RequestContext(
+            namespace=request.headers.get("X-Namespace"),
+            run_id=request.headers.get("X-Run-ID"),
+            user_id=request.headers["X-User-ID"],
+            correlation_id=request.headers.get("X-Correlation-ID"),
+            request_id=request.headers.get("X-Request-ID"),
+            session_id=request.headers.get("X-Session-ID"),
+            trace_id=request.headers.get("X-Trace-ID"),
+        )
+    except ValidationError as exc:
+        raise ServiceError(422, ErrorCode.VALIDATION_ERROR, "Invalid request context.") from exc
+    request.state.context = context
+    return context
+
+
+def mutation_key(request: Request):
+    try:
+        return TypeAdapter(IdempotencyKey).validate_python(request.headers.get("Idempotency-Key"))
+    except ValidationError as exc:
+        raise ServiceError(
+            400, ErrorCode.BAD_REQUEST, "Valid Idempotency-Key is required."
+        ) from exc
+
+
+Context = Annotated[RequestContext, Depends(request_context)]
+Key = Annotated[str, Depends(mutation_key)]
+
+
+def workflow_unavailable():
+    raise ServiceError(
+        503,
+        ErrorCode.DEPENDENCY_UNAVAILABLE,
+        "P7 workflow is not implemented at the P6 checkpoint.",
+    )
+
+
+def create_app(*, state=None, mode="real", purpose="service", turn_handler=None):
+    if mode not in {"real", "stub"} or purpose not in {"service", "contract_test"}:
+        raise ValueError("explicit real/service or stub/contract_test configuration required")
+    if (mode == "stub") != (purpose == "contract_test"):
+        raise ValueError("test doubles require explicit stub/contract_test mode")
+    state = (
+        state
+        if state is not None
+        else ConversationState(Database(os.environ.get("CONVERSATION_DATABASE_URL", "")))
+    )
+    if mode == "real" and state.events.mode != "real":
+        raise ValueError("real service cannot use test event/outbox implementations")
+    if mode == "real" and turn_handler is not None:
+        raise ValueError(
+            "P7 must supply canonical provider validation before real turns are enabled"
+        )
+    app = FastAPI(title="Conversation P6", docs_url=None, redoc_url=None, openapi_url=None)
+    app.state.conversation = state
+    app.state.execution_mode = mode
+    telemetry = Telemetry(
+        label_values={
+            "service": {"conversation"},
+            "route": set(ROUTES),
+            "status": {str(code) for code in range(100, 600)},
+        }
+    )
+
+    @app.middleware("http")
+    async def observe(request, call_next):
+        started = monotonic()
+        response = await call_next(request)
+        elapsed = monotonic() - started
+        route = getattr(request.scope.get("route"), "path", "unmatched")
+        route = route if route in ROUTES else "unmatched"
+        telemetry.record(
+            "requests_total",
+            1,
+            service="conversation",
+            route=route,
+            status=str(response.status_code),
+        )
+        telemetry.record("request_duration_seconds", elapsed, service="conversation", route=route)
+        context = getattr(request.state, "context", None)
+        if context is not None:
+            with bind_context(context, "conversation"):
+                log_operation(
+                    LOGGER,
+                    request.method + " " + route,
+                    str(response.status_code),
+                    elapsed,
+                    resource_id=request.path_params.get("cart_id")
+                    or request.path_params.get("session_id"),
+                )
+        response.headers["X-Correlation-ID"] = correlation(request)
+        return response
+
+    @app.exception_handler(ServiceError)
+    async def service_error(request, exc):
+        return JSONResponse(exc.response(correlation(request)), status_code=exc.status)
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_error(request, exc):
+        error = ServiceError(422, ErrorCode.VALIDATION_ERROR, "Invalid request fields.")
+        return JSONResponse(error.response(correlation(request)), status_code=422)
+
+    @app.exception_handler(ValidationError)
+    async def local_validation_error(request, exc):
+        error = ServiceError(422, ErrorCode.VALIDATION_ERROR, "Invalid request fields.")
+        return JSONResponse(error.response(correlation(request)), status_code=422)
+
+    @app.post("/v1/sessions", status_code=201, response_model=SessionCreated)
+    async def create_session(request: Request, context: Context, key: Key):
+        raw = await request.body()
+        if raw.strip():
+            try:
+                # Only the contract's empty object is accepted; no identity override.
+                import json
+
+                body = json.loads(raw)
+            except (ValueError, UnicodeError) as exc:
+                raise ServiceError(400, ErrorCode.BAD_REQUEST, "Empty body is required.") from exc
+            if body != {}:
+                raise ServiceError(400, ErrorCode.BAD_REQUEST, "Empty body is required.")
+        # This async route reads the body; execute blocking PostgreSQL off the event loop.
+        from starlette.concurrency import run_in_threadpool
+
+        return await run_in_threadpool(state.create_session, context, key)
+
+    @app.get("/v1/carts/{cart_id}", response_model=CartSnapshot)
+    def get_cart(cart_id: UUIDText, context: Context):
+        return state.get_cart(cart_id, context)
+
+    @app.put("/v1/carts/{cart_id}/items/{sku}", response_model=CartSnapshot)
+    def update_cart(
+        cart_id: UUIDText, sku: Sku, body: CartUpdateRequest, context: Context, key: Key
+    ):
+        return state.update_cart(cart_id, sku, body, context, key)
+
+    @app.post("/v1/sessions/{session_id}/turns", response_model=TurnResponse)
+    def submit_turn(session_id: UUIDText, body: TurnRequest, context: Context, key: Key):
+        if turn_handler is None:
+            workflow_unavailable()
+        return state.record_turn(session_id, body, context, key, turn_handler)
+
+    @app.post("/v1/carts/{cart_id}/quote", status_code=201)
+    def quote_cart(cart_id: UUIDText, body: CartQuoteRequest, context: Context, key: Key):
+        state.get_cart(cart_id, context)
+        workflow_unavailable()
+
+    @app.post("/v1/carts/{cart_id}/checkout", status_code=202)
+    def checkout_cart(cart_id: UUIDText, body: CheckoutRequest, context: Context, key: Key):
+        state.get_cart(cart_id, context)
+        workflow_unavailable()
+
+    @app.get("/health/live")
+    def live():
+        return {"status": "live"}
+
+    @app.get("/health/ready")
+    def ready():
+        state.ready()
+        return {"status": "ready", "mode": mode}
+
+    @app.get("/metrics")
+    def metrics():
+        return Response(telemetry.exposition(), media_type="text/plain; version=0.0.4")
+
+    return app

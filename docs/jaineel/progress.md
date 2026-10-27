@@ -21,7 +21,7 @@
 | **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | stub verified; automated LLM-judge review complete; human review not performed | `jaineel/j01-oracles` | 153 focused fixture/schema tests; current P3 verifier 450 regressions; explicit fixtures/doubles |
 | **P4** | Open-loop workload generation & experiment lifecycle | J02 | stub verified (offline checkpoint complete) | `jaineel/j02-workloads` | 329 combined tests; explicit publisher/API/lifecycle doubles |
 | **P5** | Telemetry, raw collectors, dashboard | J03 | stub verified (offline checkpoint complete); local process collector real verified | `jaineel/j03-telemetry` | 37 telemetry tests; 488 combined; explicit doubles plus separate real generator/loopback checks |
-| **P6** | Durable sessions, cart, and idempotency | J04 | not started | — | — |
+| **P6** | Durable sessions, cart, and idempotency | J04 | state verified with real PostgreSQL; shared event gate incomplete | `jaineel/j03-telemetry` | PostgreSQL 18.6; explicit event/outbox/turn doubles |
 | **P7** | Zero-call search, quote, and checkout workflow | J04 | not started | — | — |
 | **P8** | Real G1/G3 integration, failures, reconciliation | J06 | not started | — | — |
 | **P9** | Correct B0 and controlled performance matrix | J07 | not started | — | — |
@@ -658,15 +658,132 @@ Harsh's catalogue/import schemas and provider bindings, Aditya's transaction/inv
 ---
 
 ### Milestone P6: Durable Sessions, Cart, and Idempotency
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J04
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** Aditya (A02 shared outbox library) and PostgreSQL container.
-- **Next Action:** Implement services/conversation persistence and idempotency.
+
+- **State:** P6 independent state checkpoint complete: real PostgreSQL transaction,
+  concurrency, service restart and retained-data database restart checks; explicit
+  builder/outbox capture doubles. The actual shared event/outbox/registry path
+  remains `NOT_RUN` and incomplete. This is not G1/G3 or a real event integration
+  pass. P7 remains not started.
+- **Branch/base:** existing pushed `jaineel/j03-telemetry`, base
+  `bf267d9` (`docs: record P1-P5 audit publication`), preserving the recorded
+  preference to continue this branch. Initial working tree was clean. User
+  explicitly authorized the source commit and GitHub push for this milestone.
+- **Authority consumed:** AGENTS.md; OWNERSHIP; personal brief J04;
+  common §§3–5/6.1/6.2/7/8, Appendix A/B; project context technology freeze;
+  dataset §4/8 listing identity and no invented stock/price; evaluation §7 and
+  runbook §4's real-database/failure evidence rules; playbook P6.
+
+**Changed paths and behavior**
+
+- `services/conversation/{database,state,events,errors,app}.py`: PostgreSQL 18
+  connections/migration checks; session/cart/turn outcomes; canonical scoped
+  idempotency; stale version checks; locks and coherent reads; safe common
+  errors; HTTP validation, health and bounded-label metrics/logs. Shared builder
+  and append are invoked inside the same transaction, with no direct publish.
+  Missing real implementations fail cart mutations/readiness visibly. Session
+  creation has no invented event. P7 turn/quote/checkout workflows remain
+  explicitly unavailable. No extraction/search/model/purchase logic was added.
+- `migrations/conversation/{001_state,audit}.sql`: only M1 state tables,
+  namespace/owner FKs, uniqueness and value checks, quote/confirmation binding,
+  plus read-only namespace-bound audit queries. Cart edits invalidate prior
+  quote/confirmation references. No teammate outbox or diagnostic schema copied.
+- `tests/conversation/{conftest,doubles,test_state,test_http,process,server,test_process}.py`
+  and `__init__.py`: explicit capture/turn doubles, real PostgreSQL isolated
+  schemas, strict inputs, corruption constraints, isolation, replay/conflicts,
+  rollback, 24 concurrent same/distinct-key edits, 24 session retries,
+  16 turn request retries and actual subprocess restart. Real mode rejects
+  stub injection. Temporary test schemas alone are cleaned; smoke schemas stay.
+- `benchmarks/manual/{verify_p6,p6_smoke}.py`: exact-command evidence collector,
+  P1–P5 regressions, visible incomplete provider gates and replayable smoke
+  capturing actual returned IDs; optional retained-data database restart resume.
+- `.github/workflows/offline.yml`: coordinated PostgreSQL 18.6 P6 CI job with
+  explicit test-event labeling, retaining existing Windows/Linux offline jobs.
+  Hosted execution is not claimed by the local checks.
+- `services/conversation/README.md`, `docs/jaineel/p6_persistence.md`, this file:
+  setup, semantics, manual verification, owner review and actual evidence.
+  Canonical specs, DTOs/OpenAPI, lock/config and teammate modules are unchanged.
+
+**Actual commands and outcomes (27 October 2026, Asia/Calcutta)**
+
+| Command / action | Actual outcome |
+|---|---|
+| `git status --short --branch`; `git diff --stat`; `git remote -v` | Clean current feature branch at start; origin `https://github.com/harsh-c-16/payment-gateway.git`. |
+| `docker version`; `docker ps`; hidden Docker Desktop startup, then `docker info` | Client exists; daemon unavailable. Docker/Compose/G0 checks remain `NOT_RUN`. No infra file changed. |
+| Official EDB PostgreSQL 18.6 binary download; `initdb` / `pg_ctl start` | Native isolated loopback clusters created; source/archive SHA and exact native setup commands retained below. Native PostgreSQL **18.6**, `fsync` and synchronous commit defaults retained. Final cluster uses port **55487**, outside OneDrive. This is a local test fallback, not the frozen Compose profile or a performance result. |
+| Initial `.venv/Scripts/python.exe -m pytest tests/conversation -q --tb=short --junitxml=artifacts/p6/initial-pytest.xml` with explicit test DB env | **56 passed, 4 failed, 10 errors**. DDL and some API queries hit real statement timeouts in the OneDrive-backed cluster. Retained evidence; no assertion weakened. Migration/capture DDL now has a separate setup limit, API bounds stay 2 s; fresh native cluster uses a nonsynced temp directory. |
+| Focused repeat with port 55487, `-o cache_dir=artifacts/p6/focused-cache --junitxml=artifacts/p6/focused-pytest.xml` | **70 passed, 1 setup error**: host's existing `pytest-of-voraj` temp root was inaccessible. Verifier now uses a fresh evidence-owned `--basetemp` and cache directory. |
+| `.venv/Scripts/python.exe -m pytest tests/conversation/test_process.py -q --tb=short --basetemp=artifacts/p6/process-test-temp -o cache_dir=artifacts/p6/process-cache --junitxml=artifacts/p6/process-pytest.xml` | **1 passed in 3.62 s**, actual service process restart. |
+| `uv sync --locked` | Exit **0**, 38 resolved / 37 audited packages, lock unchanged. Python **3.11.15**. |
+| `$env:P6_TEST_DATABASE_URL='postgresql://p6_test@127.0.0.1:55487/conversation_p6'`; `.venv/Scripts/python.exe benchmarks/manual/verify_p6.py --out artifacts/p6/checkpoint-20261027` | Exit **0**, **10/10** expected command outcomes. Combined P1–P6 **582 passed in 102.29 s**, **zero failed/errors/skipped**; smoke **13/13** assertions pass. Ruff lint/format, schema/contract generation, protected-path and whitespace checks pass. Global `contracts check --all` retains expected exit **4** for missing owner handoffs. |
+| `.venv/Scripts/python.exe -m pytest tests/conversation/test_http.py::test_shared_adapter_preserves_storage_failure_classification -q -o cache_dir=artifacts/p6/storage-error-cache --junitxml=artifacts/p6/storage-error-pytest.xml` | **1 passed**, late adapter regression preserves `STORAGE_UNAVAILABLE` classification for local PostgreSQL append failures. Final affected-suite results recorded below. |
+| Isolated native cluster `pg_ctl ... -m fast -w -t 30 ... restart` (exact validated target and argument array in evidence) | Exit **0**, retained data; no shared/development process restarted. |
+| `.venv/Scripts/python.exe -m benchmarks.manual.p6_smoke --out artifacts/p6/checkpoint-20261027/smoke --resume` with the same explicit test DB URL | Exit **0**, all **3/3** checks pass: saved cart and original key survive the PostgreSQL restart; one captured test event remains. |
+| Final `.venv/Scripts/python.exe -m pytest tests/conversation -q --tb=short --basetemp=artifacts/p6/final-test-temp -o cache_dir=artifacts/p6/final-cache --junitxml=artifacts/p6/final-pytest.xml` | **72 passed in 23.47 s**, zero failed/errors/skipped. Includes the late storage-classification regression and actual subprocess restart. Final Ruff lint/format and `git diff --check` also exit **0**. |
+
+The combined suite ran before the final storage-classification regression was
+added; that extra test passed separately and is included in the final affected
+suite. The upstream locked Starlette TestClient emits one deprecation warning
+about HTTPX; it is retained, not suppressed. No dependency was changed to hide it.
+
+**Evidence (local ignored artifacts, excluded from Git)**
+
+- [Combined exact command/output/exit log](../../artifacts/p6/checkpoint-20261027/checks.json),
+  [combined JUnit](../../artifacts/p6/checkpoint-20261027/pytest.xml),
+  [explicit checkpoint limits](../../artifacts/p6/checkpoint-20261027/summary.json).
+- [Scripted smoke](../../artifacts/p6/checkpoint-20261027/smoke/smoke.json),
+  [raw request/response transcript](../../artifacts/p6/checkpoint-20261027/smoke/transcript.json),
+  [subprocess log](../../artifacts/p6/checkpoint-20261027/smoke/server.log).
+  Two actual server PIDs differ; event metadata labels the double explicitly.
+- [Database restart command](../../artifacts/p6/database-restart-command.json),
+  [database restart observations](../../artifacts/p6/checkpoint-20261027/smoke/database-restart.json),
+  [native setup](../../artifacts/p6/native-cluster.json),
+  [native DB log](../../artifacts/p6/postgres-native.log).
+- [Official binary acquisition URL/observed SHA-256](../../artifacts/p6/tools/download.json):
+  `e2246ba91d22345bc3d017586c09ede52d9df180b1eeb480f050445f1cad84e2`.
+  This is the locally observed archive hash, not a claim of a vendor checksum.
+- Preserved initial failures:
+  [initial JUnit](../../artifacts/p6/initial-pytest.xml),
+  [focused host-temp failure](../../artifacts/p6/focused-pytest.xml);
+  successful targeted
+  [restart](../../artifacts/p6/process-pytest.xml) and
+  [storage error](../../artifacts/p6/storage-error-pytest.xml) regressions;
+  [final P6 JUnit](../../artifacts/p6/final-pytest.xml).
+
+**Remaining dependencies / review**
+
+Aditya: real `append_outbox`, caller-transaction compatibility, outbox migration
+template/indices/relay and rollback integration. Vichitr: canonical event builder,
+payload/envelope schemas/cache readiness, metadata configuration and diagnostics
+template. The exact context/source_service/dataset_revision and correlation-ID
+binding gaps are recorded in [the handoff table](p6_persistence.md#shared-handoffs-remain-incomplete);
+no shared DTO/signature was silently extended. Confirm zero-quantity removal
+events and no-op PUT event/version semantics with consumers. Harsh/Aditya/Vichitr
+provider contracts and endpoints, Docker/Compose, Kafka, real event rollback,
+G1/G3, complete T/D integration, hosted CI and performance remain incomplete or
+`NOT_RUN`. No optional model/provider calls were made.
+
+**Concrete manual verification**
+
+1. Set `P6_TEST_DATABASE_URL` to an isolated PostgreSQL 18 DB, run `uv sync --locked`
+   then `uv run --locked python benchmarks/manual/verify_p6.py`. Read the printed
+   `checks.json` and JUnit counts; absent/unreachable DB must not become a fake pass.
+2. Run `uv run --locked python -m benchmarks.manual.p6_smoke --out artifacts/p6/manual-smoke`
+   with a fresh output path. Inspect captured IDs, one-effect replay, changed-input
+   409, old-version 409, other-user 403 and actual restart PIDs in `smoke.json`.
+3. Read the rollback assertions and event count. Their mode is explicitly
+   `real-postgresql/test-double-events`; repeat against the real shared outbox
+   only after its owner supplies the reviewed implementation/schema.
+4. For this session's retained smoke and running isolated native cluster, use
+   port 55487 and `--out artifacts/p6/checkpoint-20261027/smoke --resume` to recheck
+   persistence. Cluster path/commands are in `native-cluster.json`; never reset or
+   restart an unrelated database. Smoke state is deliberately retained.
+5. For production-path failure visibility, set `CONVERSATION_DATABASE_URL`, apply
+   `python -m services.conversation.database`, then start the README's app factory.
+   With missing shared libraries, readiness/cart mutations return common 503;
+   no successful cart effect is fabricated. Quote/checkout/turn workflow remains
+   P7-unavailable. Check P2 header bindings in the linked handoff.
+
+**Checkpoint:** stop at P6. P7 remains not started.
 
 ---
 
