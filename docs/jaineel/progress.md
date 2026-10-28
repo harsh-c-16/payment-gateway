@@ -1594,9 +1594,29 @@ is not certified. Stop before P11.
 
 **Commit-source verification and checkpoint**
 
-The exact isolated staged-source regression and Git scope/preservation results are
-recorded below after execution. Generated data, raw traces and benchmark results
-remain ignored and are not committed. Commit/push uses the current branch only.
+- Implementation commit: `3de86a9` on the same current branch. The exact tested
+  tree was `74aaac3851f120900613bf38f4cc2062805408f7`.
+- A new isolated archive of that staged tree ran all conversation, projectctl,
+  contract and assistant-evaluation tests using the existing Docker database:
+  **549 passed, 0 failures/errors/skips**, **108.35 s**, one upstream warning.
+  This independently verifies P11 without unrelated uncommitted audit code,
+  including the final private provenance/embedding fields. Exact command, cwd,
+  tree hash, sanitized DB facts, raw output and JUnit are retained in
+  `artifacts/p11/staged-verification/{command.json,database.json,pytest.stdout.txt,pytest.xml}`.
+- Staged-source Ruff lint/format, generated schemas and conversation-contract
+  checks also all exited **0**. `staged-verification/checks.json` records each
+  exact command/exit. The checked tree matches the implementation commit exactly.
+- `artifacts/p11/precommit/checks.json` verifies the 20-path ownership scope,
+  empty whitespace errors, no generated data/results/credentials in the index,
+  and unchanged application lock, public DTOs/contracts, fixtures and canonical
+  specifications. Thirty original dirty/untracked files are byte-identical;
+  the intentionally edited parser preserves all earlier content apart from its
+  two new diagnostic type annotations. Earlier audit progress text is preserved
+  outside the P11 section and remains uncommitted.
+- Final evidence inventory: `artifacts/p11/evidence-index.json`; publication and
+  preservation facts: `artifacts/p11/git-final.json`. Generated data, raw traces
+  and benchmark results stay ignored. The final documentation-only commit records
+  these outcomes; push is a normal fast-forward on `jaineel/j03-telemetry`.
 
 **Remaining dependencies and manual continuation**
 
