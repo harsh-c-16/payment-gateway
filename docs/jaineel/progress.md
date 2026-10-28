@@ -1351,9 +1351,9 @@ capacity evidence alongside quantiles. Stop before P10.
 ---
 
 ### Milestone P10: Reproducible Report and Clean Setup Rehearsal
-- **State:** owner report/reconciliation implementation verified; real performance
-  and release **INCOMPLETE/NOT_RUN**. Clean-checkout rehearsal recorded below after
-  the implementation commit. P11 is not started.
+- **State:** owner report/reconciliation implementation and available clean-clone
+  checks verified; real setup, performance and release **INCOMPLETE/NOT_RUN**.
+  P11 is not started.
 - **Owner/branch:** Jaineel; existing `jaineel/j03-telemetry`, as explicitly requested.
 - **Base commit:** `aa26daf` (P9). No new branch, shared-spec/DTO/provider change,
   namespace reset, tracker update or generative call.
@@ -1421,9 +1421,48 @@ capacity evidence alongside quantiles. Stop before P10.
 
 **Clean rehearsal and commit verification**
 
-The implementation revision, clean-clone checks, final report/evidence index,
-exact reconcile/compare attempts and final Git checks are recorded in the follow-up
-entry once executed. Real provider setup and teammate reproduction are still pending.
+- Implementation commit: `c5332aabeb579a63195e3fc76a7d6bcc469e6021`, same current
+  branch. Its exact staged tree `07484f8103e93684bb19ae78664a1af14d67b7a2`
+  independently ran the affected projectctl/performance/comparison/raw-evidence/
+  integration suites: **206 passed, 0 failures/errors/skips**, 43.46 s.
+  Command/cwd/tree hash, raw output and JUnit:
+  `artifacts/p10/staged-verification/{command.json,pytest.stdout.txt,pytest.xml}`.
+  This confirms P10 runs without the unrelated uncommitted audit implementation.
+- Exact rehearsal command:
+  `.venv/Scripts/python.exe -m benchmarks.manual.verify_p10 --revision c5332aabeb579a63195e3fc76a7d6bcc469e6021 --matrix-results artifacts/p10/input/core_matrix_results.json --source data/raw/flipkart_com-ecommerce_sample.csv --out artifacts/p10/rehearsal`.
+  Actual verifier exit: **4**. Invocation/stdout/stderr are in
+  `artifacts/p10/rehearsal-launch/`; exact child commands and outcomes are in
+  `artifacts/p10/rehearsal/*.command.json` and `checks.json`.
+- Isolated local clone and detached checkout exited **0**; its new Python 3.11
+  environment installed the unchanged lock with exit **0**. The explicitly copied
+  CSV matched file08 SHA-256
+  `56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1`;
+  independent accounting passed. No hidden local files, credentials or provider
+  registration were copied. After execution, `git status --porcelain` in the
+  clone was empty and its HEAD matched the implementation commit.
+- Fresh namespace: `bench-p10-2a9f370467de45cebe08231b9c00e2c9`.
+  `env up --profile local4c8g` returned **4** (real adapter unavailable);
+  **10 dependent setup steps stayed NOT_RUN**. Independent contracts and
+  contracts/data/smoke evaluations returned **4** with unavailable cases visible.
+  Migrations, import, seed, projection and a real integrated flow did not execute.
+- Both clean-clone report builds returned **4** and were byte-identical to each
+  other and the original saved-input reconstruction. Removing `summary.json`
+  only from a disposable copied run produced **4** and an empty accepted-run
+  list. `missing_evidence_detected=true`; original/exported evidence is preserved.
+  Performance-metric tracing and teammate reproduction remain **NOT_RUN**.
+- Actual read-only attempts in `artifacts/p10/manual/checks.json`: one saved B0
+  reconcile, all three saved B0/O1 repetitions through `benchmark compare`, and
+  two report builds. Every child exited **4**; no workload ran. Reports at
+  `artifacts/p10/final-report/` and `artifacts/p10/rebuilt-report/` were identical:
+  raw report SHA-256 `92ef6abe69bf42b33a1cc4d45230fdb08ed90a03940270beccc780acf2d6ca37`.
+  They contain **73 records, 37 NOT_RUN cases, 300 indexed input files, zero
+  measured performance metrics**. The source-only quality table is INCOMPLETE
+  because provider normalization/facet coverage remains NOT_RUN.
+- Final local evidence inventory: `artifacts/p10/evidence-index.json`, including
+  source/report references, command ledgers, JUnit, clone/source proof, refusals
+  and Git/scope verification. Generated evidence and data remain ignored.
+  The final documentation-only commit records these actual outcomes; push uses
+  the existing `jaineel/j03-telemetry` branch without force or history rewriting.
 
 **Remaining dependencies and manual verification**
 
