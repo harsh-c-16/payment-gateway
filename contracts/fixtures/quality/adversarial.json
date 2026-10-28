@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "separate_from_w_quality": true,
+  "cases": [
+    {
+      "case_id": "same-id-different-content",
+      "logical_event_id": "conflict-one",
+      "versions": [
+        {
+          "amount_minor": 100
+        },
+        {
+          "amount_minor": 200
+        }
+      ],
+      "expected_reason": "EVENT_ID_CONFLICT"
+    },
+    {
+      "case_id": "same-aggregate-version-conflict",
+      "logical_event_ids": [
+        "aggregate-a",
+        "aggregate-b"
+      ],
+      "aggregate_version": 3,
+      "expected_reason": "AGGREGATE_VERSION_CONFLICT"
+    }
+  ]
+}

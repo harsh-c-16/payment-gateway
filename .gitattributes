@@ -1,0 +1,2 @@
+# Application lock hashes must survive Windows/Linux checkout unchanged.
+uv.lock text eol=lf

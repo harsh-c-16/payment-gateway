@@ -1,0 +1,37 @@
+[project]
+name = "group3-payment-gateway"
+version = "0.1.0"
+description = "Group 3 services and reproducible data-engineering evaluation tooling"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "fastapi>=0.115,<1",
+  "pydantic>=2.10,<3",
+  "psycopg[binary]>=3.2,<4",
+  "confluent-kafka>=2.6,<3",
+  "jsonschema>=4.23,<5",
+  "pyarrow>=19,<24",
+  "duckdb>=1.2,<2",
+  "prometheus-client>=0.21,<1",
+  "httpx>=0.28,<1",
+  "PyYAML>=6,<7",
+  "uvicorn>=0.34,<1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.3,<10", "ruff>=0.11,<1"]
+
+[tool.uv]
+package = false
+required-version = ">=0.10.8,<0.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--strict-markers --strict-config"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

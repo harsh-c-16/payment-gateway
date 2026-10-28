@@ -1,0 +1,770 @@
+{
+  "provisional": true,
+  "synthetic": true,
+  "test_mode": "stub",
+  "pairs": [
+    {
+      "name": "fewer-than-five-null-facets",
+      "endpoint": "search",
+      "request": {
+        "request_id": "00000000-0000-0000-0000-000000000001",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "intent": {
+          "query_text": "synthetic test listing",
+          "category": null,
+          "size": null,
+          "colour": null,
+          "material": null,
+          "max_price_minor": 50000,
+          "occasion": null,
+          "currency": "INR",
+          "brand": null,
+          "category_path_prefix": null
+        },
+        "top_k": 5,
+        "mode": "lexical"
+      },
+      "response": {
+        "search_id": "00000000-0000-0000-0000-000000000003",
+        "hits": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "product_id": "FK-P2-SYNTHETIC-001",
+            "title": "Synthetic P2 test listing",
+            "category": "clothing",
+            "brand": null,
+            "size": null,
+            "colour": null,
+            "material": null,
+            "price_minor": 37900,
+            "currency": "INR",
+            "catalog_version": 1,
+            "dataset_revision": "p2-synthetic-not-dataset",
+            "quality_flags": [
+              "MISSING_BRAND"
+            ],
+            "score": 1.0,
+            "stock_available": 10,
+            "stock_version": 1,
+            "stock_updated_at": "2026-10-25T10:00:00Z",
+            "stock_applied_at": "2026-10-25T10:00:00Z",
+            "retrieval_mode": "lexical",
+            "rank": 1
+          }
+        ],
+        "mode": "lexical",
+        "candidate_count": 1,
+        "eligible_count": 1,
+        "returned_count": 1,
+        "exhausted": true,
+        "embedding_revision": null,
+        "timings_ms": {
+          "embedding": 0,
+          "filter": 1,
+          "rank": 1,
+          "total": 2
+        },
+        "embedding_calls": 0,
+        "served_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "no-results",
+      "endpoint": "search",
+      "request": {
+        "request_id": "00000000-0000-0000-0000-000000000001",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "intent": {
+          "query_text": "synthetic test listing",
+          "category": null,
+          "size": null,
+          "colour": null,
+          "material": null,
+          "max_price_minor": 50000,
+          "occasion": null,
+          "currency": "INR",
+          "brand": null,
+          "category_path_prefix": null
+        },
+        "top_k": 5,
+        "mode": "lexical"
+      },
+      "response": {
+        "search_id": "00000000-0000-0000-0000-000000000003",
+        "hits": [],
+        "mode": "lexical",
+        "candidate_count": 1,
+        "eligible_count": 0,
+        "returned_count": 0,
+        "exhausted": true,
+        "embedding_revision": null,
+        "timings_ms": {
+          "embedding": 0,
+          "filter": 1,
+          "rank": 1,
+          "total": 2
+        },
+        "embedding_calls": 0,
+        "served_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "five-hits",
+      "endpoint": "search",
+      "request": {
+        "request_id": "00000000-0000-0000-0000-000000000001",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "intent": {
+          "query_text": "synthetic test listing",
+          "category": null,
+          "size": null,
+          "colour": null,
+          "material": null,
+          "max_price_minor": 50000,
+          "occasion": null,
+          "currency": "INR",
+          "brand": null,
+          "category_path_prefix": null
+        },
+        "top_k": 5,
+        "mode": "lexical"
+      },
+      "response": {
+        "search_id": "00000000-0000-0000-0000-000000000003",
+        "hits": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "product_id": "FK-P2-SYNTHETIC-001",
+            "title": "Synthetic P2 test listing",
+            "category": "clothing",
+            "brand": null,
+            "size": null,
+            "colour": null,
+            "material": null,
+            "price_minor": 37900,
+            "currency": "INR",
+            "catalog_version": 1,
+            "dataset_revision": "p2-synthetic-not-dataset",
+            "quality_flags": [
+              "MISSING_BRAND"
+            ],
+            "score": 1.0,
+            "stock_available": 10,
+            "stock_version": 1,
+            "stock_updated_at": "2026-10-25T10:00:00Z",
+            "stock_applied_at": "2026-10-25T10:00:00Z",
+            "retrieval_mode": "lexical",
+            "rank": 1
+          },
+          {
+            "sku": "FK-P2-SYNTHETIC-002",
+            "product_id": "FK-P2-SYNTHETIC-002",
+            "title": "Synthetic P2 test listing",
+            "category": "clothing",
+            "brand": null,
+            "size": null,
+            "colour": null,
+            "material": null,
+            "price_minor": 37900,
+            "currency": "INR",
+            "catalog_version": 1,
+            "dataset_revision": "p2-synthetic-not-dataset",
+            "quality_flags": [
+              "MISSING_BRAND"
+            ],
+            "score": 1.0,
+            "stock_available": 10,
+            "stock_version": 1,
+            "stock_updated_at": "2026-10-25T10:00:00Z",
+            "stock_applied_at": "2026-10-25T10:00:00Z",
+            "retrieval_mode": "lexical",
+            "rank": 2
+          },
+          {
+            "sku": "FK-P2-SYNTHETIC-003",
+            "product_id": "FK-P2-SYNTHETIC-003",
+            "title": "Synthetic P2 test listing",
+            "category": "clothing",
+            "brand": null,
+            "size": null,
+            "colour": null,
+            "material": null,
+            "price_minor": 37900,
+            "currency": "INR",
+            "catalog_version": 1,
+            "dataset_revision": "p2-synthetic-not-dataset",
+            "quality_flags": [
+              "MISSING_BRAND"
+            ],
+            "score": 1.0,
+            "stock_available": 10,
+            "stock_version": 1,
+            "stock_updated_at": "2026-10-25T10:00:00Z",
+            "stock_applied_at": "2026-10-25T10:00:00Z",
+            "retrieval_mode": "lexical",
+            "rank": 3
+          },
+          {
+            "sku": "FK-P2-SYNTHETIC-004",
+            "product_id": "FK-P2-SYNTHETIC-004",
+            "title": "Synthetic P2 test listing",
+            "category": "clothing",
+            "brand": null,
+            "size": null,
+            "colour": null,
+            "material": null,
+            "price_minor": 37900,
+            "currency": "INR",
+            "catalog_version": 1,
+            "dataset_revision": "p2-synthetic-not-dataset",
+            "quality_flags": [
+              "MISSING_BRAND"
+            ],
+            "score": 1.0,
+            "stock_available": 10,
+            "stock_version": 1,
+            "stock_updated_at": "2026-10-25T10:00:00Z",
+            "stock_applied_at": "2026-10-25T10:00:00Z",
+            "retrieval_mode": "lexical",
+            "rank": 4
+          },
+          {
+            "sku": "FK-P2-SYNTHETIC-005",
+            "product_id": "FK-P2-SYNTHETIC-005",
+            "title": "Synthetic P2 test listing",
+            "category": "clothing",
+            "brand": null,
+            "size": null,
+            "colour": null,
+            "material": null,
+            "price_minor": 37900,
+            "currency": "INR",
+            "catalog_version": 1,
+            "dataset_revision": "p2-synthetic-not-dataset",
+            "quality_flags": [
+              "MISSING_BRAND"
+            ],
+            "score": 1.0,
+            "stock_available": 10,
+            "stock_version": 1,
+            "stock_updated_at": "2026-10-25T10:00:00Z",
+            "stock_applied_at": "2026-10-25T10:00:00Z",
+            "retrieval_mode": "lexical",
+            "rank": 5
+          }
+        ],
+        "mode": "lexical",
+        "candidate_count": 5,
+        "eligible_count": 5,
+        "returned_count": 5,
+        "exhausted": true,
+        "embedding_revision": null,
+        "timings_ms": {
+          "embedding": 0,
+          "filter": 1,
+          "rank": 1,
+          "total": 2
+        },
+        "embedding_calls": 0,
+        "served_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "product-unknown-stock",
+      "endpoint": "product",
+      "request": null,
+      "response": {
+        "product": {
+          "product_id": "FK-P2-SYNTHETIC-001",
+          "sku": "FK-P2-SYNTHETIC-001",
+          "title": "Synthetic P2 test listing",
+          "category_path_normalized": [
+            "Clothing"
+          ],
+          "attributes": {},
+          "quality_flags": [
+            "MISSING_BRAND"
+          ],
+          "dataset_revision": "p2-synthetic-not-dataset",
+          "source_pid": "P2-SYNTHETIC-001",
+          "source_observation_id": "p2-synthetic-observation",
+          "source_crawled_at": "2016-01-01T00:00:00Z",
+          "currency": "INR",
+          "currency_source": "project_assumption",
+          "catalog_version": 1,
+          "active": true,
+          "description": null,
+          "brand": null,
+          "brand_normalized": null,
+          "size": null,
+          "size_kind": null,
+          "colour": null,
+          "material": null,
+          "seller_id": null,
+          "retail_price_minor": null,
+          "rating": null,
+          "inactive_reason": null,
+          "category": "clothing",
+          "price_minor": 37900
+        },
+        "stock": null
+      }
+    },
+    {
+      "name": "empty-facet-coverage",
+      "endpoint": "facets",
+      "request": null,
+      "response": {
+        "dataset_revision": "p2-synthetic-not-dataset",
+        "dictionary_version": "p2-provisional",
+        "roots": [
+          {
+            "id": "clothing",
+            "label": "Clothing"
+          }
+        ],
+        "path_prefixes": [],
+        "brands": [],
+        "colours": [],
+        "materials": [],
+        "allowed_apparel_sizes": [
+          "XXS",
+          "XS",
+          "S",
+          "M",
+          "L",
+          "XL",
+          "XXL",
+          "XXXL",
+          "FREE_SIZE",
+          "ONE_SIZE"
+        ],
+        "observed_apparel_sizes": [],
+        "coverage_by_category": {}
+      }
+    },
+    {
+      "name": "changed-price-authoritative-quote",
+      "endpoint": "quote",
+      "request": {
+        "cart_id": "00000000-0000-0000-0000-000000000005",
+        "cart_version": 1,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "display_price_minor": 37900
+          }
+        ]
+      },
+      "response": {
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "cart_id": "00000000-0000-0000-0000-000000000005",
+        "cart_version": 1,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "created_at": "2026-10-25T10:00:00Z",
+        "expires_at": "2026-10-25T10:01:00Z"
+      }
+    },
+    {
+      "name": "internal-quote",
+      "endpoint": "quote_lookup",
+      "request": null,
+      "response": {
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "cart_id": "00000000-0000-0000-0000-000000000005",
+        "cart_version": 1,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "created_at": "2026-10-25T10:00:00Z",
+        "expires_at": "2026-10-25T10:01:00Z"
+      }
+    },
+    {
+      "name": "internal-price",
+      "endpoint": "price",
+      "request": {
+        "price_minor": 37900,
+        "expected_catalog_version": 1
+      },
+      "response": {
+        "product_id": "FK-P2-SYNTHETIC-001",
+        "sku": "FK-P2-SYNTHETIC-001",
+        "title": "Synthetic P2 test listing",
+        "category_path_normalized": [
+          "Clothing"
+        ],
+        "attributes": {},
+        "quality_flags": [
+          "MISSING_BRAND"
+        ],
+        "dataset_revision": "p2-synthetic-not-dataset",
+        "source_pid": "P2-SYNTHETIC-001",
+        "source_observation_id": "p2-synthetic-observation",
+        "source_crawled_at": "2016-01-01T00:00:00Z",
+        "currency": "INR",
+        "currency_source": "project_assumption",
+        "catalog_version": 1,
+        "active": true,
+        "description": null,
+        "brand": null,
+        "brand_normalized": null,
+        "size": null,
+        "size_kind": null,
+        "colour": null,
+        "material": null,
+        "seller_id": null,
+        "retail_price_minor": null,
+        "rating": null,
+        "inactive_reason": null,
+        "category": "clothing",
+        "price_minor": 37900
+      }
+    },
+    {
+      "name": "accepted-pending",
+      "endpoint": "order_create",
+      "request": {
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "confirmation_id": "00000000-0000-0000-0000-000000000007"
+      },
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "status": "PENDING",
+        "status_url": "/v1/orders/00000000-0000-0000-0000-000000000006"
+      }
+    },
+    {
+      "name": "order-pending",
+      "endpoint": "order_status",
+      "request": null,
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "status": "PENDING",
+        "order_version": 1,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "reservation_id": null,
+        "payment_id": null,
+        "failure_code": null,
+        "created_at": "2026-10-25T10:00:00Z",
+        "updated_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "sse-pending",
+      "endpoint": "order_events",
+      "request": null,
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "status": "PENDING",
+        "order_version": 1,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "reservation_id": null,
+        "payment_id": null,
+        "failure_code": null,
+        "created_at": "2026-10-25T10:00:00Z",
+        "updated_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "order-confirmed",
+      "endpoint": "order_status",
+      "request": null,
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "status": "CONFIRMED",
+        "order_version": 4,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "reservation_id": null,
+        "payment_id": null,
+        "failure_code": null,
+        "created_at": "2026-10-25T10:00:00Z",
+        "updated_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "sse-confirmed",
+      "endpoint": "order_events",
+      "request": null,
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "status": "CONFIRMED",
+        "order_version": 4,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "reservation_id": null,
+        "payment_id": null,
+        "failure_code": null,
+        "created_at": "2026-10-25T10:00:00Z",
+        "updated_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "order-cancelled",
+      "endpoint": "order_status",
+      "request": null,
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "status": "CANCELLED",
+        "order_version": 5,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "reservation_id": null,
+        "payment_id": null,
+        "failure_code": null,
+        "created_at": "2026-10-25T10:00:00Z",
+        "updated_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "sse-cancelled",
+      "endpoint": "order_events",
+      "request": null,
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "status": "CANCELLED",
+        "order_version": 5,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "reservation_id": null,
+        "payment_id": null,
+        "failure_code": null,
+        "created_at": "2026-10-25T10:00:00Z",
+        "updated_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "order-manual_review",
+      "endpoint": "order_status",
+      "request": null,
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "status": "MANUAL_REVIEW",
+        "order_version": 6,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "reservation_id": null,
+        "payment_id": null,
+        "failure_code": null,
+        "created_at": "2026-10-25T10:00:00Z",
+        "updated_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "sse-manual_review",
+      "endpoint": "order_events",
+      "request": null,
+      "response": {
+        "order_id": "00000000-0000-0000-0000-000000000006",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "user_id": "p2-user",
+        "session_id": "00000000-0000-0000-0000-000000000002",
+        "status": "MANUAL_REVIEW",
+        "order_version": 6,
+        "lines": [
+          {
+            "sku": "FK-P2-SYNTHETIC-001",
+            "quantity": 1,
+            "unit_price_minor": 39900,
+            "line_total_minor": 39900,
+            "catalog_version": 2
+          }
+        ],
+        "total_amount_minor": 39900,
+        "currency": "INR",
+        "reservation_id": null,
+        "payment_id": null,
+        "failure_code": null,
+        "created_at": "2026-10-25T10:00:00Z",
+        "updated_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "active-generation",
+      "endpoint": "active_manifest",
+      "request": null,
+      "response": {
+        "namespace": "bench-p2",
+        "dataset": "gold",
+        "generation": 1,
+        "parent_generation": null,
+        "files": [],
+        "source_ranges": [],
+        "transform_version": "p2-example",
+        "code_commit": "example-not-measured",
+        "input_manifest_ids": [],
+        "created_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "gold-empty",
+      "endpoint": "gold",
+      "request": null,
+      "response": {
+        "generation": 1,
+        "rows": [],
+        "queried_at": "2026-10-25T10:00:00Z"
+      }
+    },
+    {
+      "name": "receipts-missing-timing",
+      "endpoint": "receipts",
+      "request": null,
+      "response": {
+        "receipts": [
+          {
+            "event_id": "00000000-0000-0000-0000-000000000008",
+            "disposition": "new_valid",
+            "silver_at": null,
+            "visibility_generation": null
+          }
+        ],
+        "next_cursor": null
+      }
+    },
+    {
+      "name": "quarantine-empty",
+      "endpoint": "quarantine",
+      "request": null,
+      "response": {
+        "records": [],
+        "next_cursor": null
+      }
+    },
+    {
+      "name": "replay-accepted",
+      "endpoint": "replay_create",
+      "request": {
+        "source_manifest_ids": [
+          "p2-example"
+        ],
+        "target_namespace": "replay-p2",
+        "transform_version": "p2-example"
+      },
+      "response": {
+        "replay_id": "00000000-0000-0000-0000-000000000009",
+        "status_url": "/internal/v1/analytics/replays/00000000-0000-0000-0000-000000000009"
+      }
+    },
+    {
+      "name": "replay-pending",
+      "endpoint": "replay_status",
+      "request": null,
+      "response": {
+        "status": "PENDING",
+        "counts": {},
+        "reconciliation": null,
+        "error": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,235 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ExpectedCounts": {
+      "additionalProperties": false,
+      "properties": {
+        "planned": {
+          "minimum": 0,
+          "title": "Planned",
+          "type": "integer"
+        },
+        "unique_valid": {
+          "minimum": 0,
+          "title": "Unique Valid",
+          "type": "integer"
+        },
+        "duplicate_deliveries": {
+          "minimum": 0,
+          "title": "Duplicate Deliveries",
+          "type": "integer"
+        },
+        "invalid": {
+          "minimum": 0,
+          "title": "Invalid",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "planned",
+        "unique_valid",
+        "duplicate_deliveries",
+        "invalid"
+      ],
+      "title": "ExpectedCounts",
+      "type": "object"
+    },
+    "Workload": {
+      "additionalProperties": false,
+      "properties": {
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "kind": {
+          "enum": [
+            "finite",
+            "sustained",
+            "queries"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "rate_per_second": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Rate Per Second"
+        },
+        "record_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Record Count"
+        },
+        "query_count": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Query Count"
+        },
+        "warmups_per_query": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Warmups Per Query"
+        },
+        "executions_per_query": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Executions Per Query"
+        },
+        "template_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Template Sha256"
+        }
+      },
+      "required": [
+        "required",
+        "kind",
+        "rate_per_second",
+        "record_count",
+        "query_count",
+        "warmups_per_query",
+        "executions_per_query",
+        "template_sha256"
+      ],
+      "title": "Workload",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "workload_id": {
+      "enum": [
+        "W-IMPORT",
+        "W-PIPE",
+        "W-QUALITY",
+        "W-SEARCH",
+        "W-CHECKOUT",
+        "W-INTEGRATED",
+        "W-ANALYTICS",
+        "W-AGENT"
+      ],
+      "title": "Workload Id",
+      "type": "string"
+    },
+    "template_version": {
+      "title": "Template Version",
+      "type": "string"
+    },
+    "seed": {
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "logical_fixture_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Logical Fixture Sha256",
+      "type": "string"
+    },
+    "expected_counts": {
+      "$ref": "#/$defs/ExpectedCounts"
+    },
+    "schedule_parameters": {
+      "$ref": "#/$defs/Workload"
+    },
+    "source_manifests": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "title": "Source Manifests",
+      "type": "array"
+    },
+    "content_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Content Sha256"
+    }
+  },
+  "required": [
+    "schema_version",
+    "workload_id",
+    "template_version",
+    "seed",
+    "logical_fixture_sha256",
+    "expected_counts",
+    "schedule_parameters",
+    "source_manifests",
+    "content_sha256"
+  ],
+  "title": "FixtureManifest",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:group3:evaluation:fixture:1"
+}
