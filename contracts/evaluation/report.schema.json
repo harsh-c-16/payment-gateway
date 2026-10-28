@@ -1,0 +1,529 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "Metric": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "NOT_RUN"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "null"
+              },
+              "sample_count": {
+                "const": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "MEASURED"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "value": {
+                "type": "number"
+              },
+              "sample_count": {
+                "minimum": 1
+              },
+              "evidence_path": {
+                "minLength": 1,
+                "type": "string"
+              }
+            }
+          }
+        }
+      ],
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "unit": {
+          "title": "Unit",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Value"
+        },
+        "sample_count": {
+          "minimum": 0,
+          "title": "Sample Count",
+          "type": "integer"
+        },
+        "numerator": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Numerator"
+        },
+        "denominator": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Denominator"
+        },
+        "cohort": {
+          "enum": [
+            "measurement",
+            "finite_job",
+            "query"
+          ],
+          "title": "Cohort",
+          "type": "string"
+        },
+        "quantile_method": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Quantile Method"
+        },
+        "unresolved_count": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Unresolved Count"
+        },
+        "timing_validity": {
+          "enum": [
+            "NOT_RUN",
+            "VALID",
+            "MISSING",
+            "RECOVERY_UPPER_BOUND"
+          ],
+          "title": "Timing Validity",
+          "type": "string"
+        },
+        "run_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Run Id",
+          "type": "string"
+        },
+        "config_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Config Sha256"
+        },
+        "status": {
+          "enum": [
+            "NOT_RUN",
+            "INCOMPLETE",
+            "MEASURED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "evidence_path": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Evidence Path"
+        }
+      },
+      "required": [
+        "name",
+        "unit",
+        "value",
+        "sample_count",
+        "numerator",
+        "denominator",
+        "cohort",
+        "quantile_method",
+        "unresolved_count",
+        "timing_validity",
+        "run_id",
+        "config_sha256",
+        "status",
+        "evidence_path"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "ReportRun": {
+      "additionalProperties": false,
+      "properties": {
+        "run_id": {
+          "title": "Run Id",
+          "type": "string"
+        },
+        "evidence_dir": {
+          "title": "Evidence Dir",
+          "type": "string"
+        },
+        "workload": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Workload"
+        },
+        "variant": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Variant"
+        },
+        "repetition": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Repetition"
+        },
+        "namespace": {
+          "title": "Namespace",
+          "type": "string"
+        },
+        "config_sha256": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-f]{64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Config Sha256"
+        },
+        "manifest_sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Manifest Sha256",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "MEASURED",
+            "INCOMPLETE",
+            "NOT_RUN"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "test_mode": {
+          "enum": [
+            "real",
+            "stub",
+            "offline"
+          ],
+          "title": "Test Mode",
+          "type": "string"
+        },
+        "exit_code": {
+          "title": "Exit Code",
+          "type": "integer"
+        },
+        "correctness_passed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Correctness Passed"
+        },
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/Metric"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "reasons": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Reasons",
+          "type": "array"
+        },
+        "order": {
+          "additionalProperties": true,
+          "title": "Order",
+          "type": "object"
+        },
+        "context": {
+          "additionalProperties": true,
+          "title": "Context",
+          "type": "object"
+        }
+      },
+      "required": [
+        "run_id",
+        "evidence_dir",
+        "workload",
+        "variant",
+        "repetition",
+        "namespace",
+        "config_sha256",
+        "manifest_sha256",
+        "status",
+        "test_mode",
+        "exit_code",
+        "correctness_passed",
+        "metrics",
+        "reasons",
+        "order",
+        "context"
+      ],
+      "title": "ReportRun",
+      "type": "object"
+    },
+    "ReportTable": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "required": {
+          "title": "Required",
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "MEASURED",
+            "INCOMPLETE",
+            "NOT_RUN"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "run_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Run Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "name",
+        "required",
+        "status",
+        "run_ids"
+      ],
+      "title": "ReportTable",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "MEASURED",
+        "INCOMPLETE"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "required_core_complete": {
+      "title": "Required Core Complete",
+      "type": "boolean"
+    },
+    "release_status": {
+      "enum": [
+        "REVIEW_REQUIRED",
+        "INCOMPLETE"
+      ],
+      "title": "Release Status",
+      "type": "string"
+    },
+    "runs": {
+      "items": {
+        "$ref": "#/$defs/ReportRun"
+      },
+      "title": "Runs",
+      "type": "array"
+    },
+    "tables": {
+      "items": {
+        "$ref": "#/$defs/ReportTable"
+      },
+      "title": "Tables",
+      "type": "array"
+    },
+    "comparisons": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Comparisons",
+      "type": "array"
+    },
+    "dataset_checks": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Dataset Checks"
+    },
+    "correctness": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Correctness",
+      "type": "array"
+    },
+    "targets": {
+      "items": {
+        "additionalProperties": true,
+        "type": "object"
+      },
+      "title": "Targets",
+      "type": "array"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "not_run": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Not Run",
+      "type": "array"
+    },
+    "evidence_index": {
+      "items": {
+        "$ref": "#/$defs/ArtifactRef"
+      },
+      "title": "Evidence Index",
+      "type": "array"
+    },
+    "content_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Sha256"
+    }
+  },
+  "required": [
+    "schema_version",
+    "status",
+    "required_core_complete",
+    "release_status",
+    "runs",
+    "tables",
+    "comparisons",
+    "dataset_checks",
+    "correctness",
+    "targets",
+    "limitations",
+    "not_run",
+    "evidence_index"
+  ],
+  "title": "FinalReport",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:group3:evaluation:report:1"
+}

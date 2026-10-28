@@ -1,9 +1,11 @@
-# Jaineel P8 integration checkpoint
+# Jaineel integration and reproducibility runbook
 
 The normative commands and assertions remain in [runbook §§2–4](specs/09_EVALUATION_RUNBOOK.md),
 [evaluation §§7/9](specs/03_EVALUATION_SPEC.md), and
 [common §§8–12/15](specs/02_COMMON_SPEC.md). This document describes the harness
-binding and the handoffs still needed to execute them. P9 is not part of this checkpoint.
+binding and the handoffs still needed to execute them. Controlled measurements
+are documented in [P9](jaineel/p9_performance.md); saved-evidence reporting and
+the isolated setup rehearsal are documented in [P10](jaineel/p10_report.md).
 
 The current checkout has only M1 and the harness. Catalogue, transaction,
 transport, outbox and analytics implementations/contracts are absent. PostgreSQL
@@ -177,3 +179,48 @@ owner; leave the case failed/incomplete until that owner's fix is merged and rer
 All required real cases must execute without skips before claiming the P8 real
 gate. G4 also requires the actual correct baseline artifacts defined in the common
 spec; this P8 harness never claims that P9 measurement work has happened.
+
+## P10 saved report and clean rehearsal
+
+Use `python -m projectctl benchmark reconcile --run-dir RUN_DIRECTORY` for each
+actual emitted bundle. Evaluation cases use their frozen fixtures and independent
+audits; performance bundles use their workload-specific audit and raw metric
+rebuild, including finite import and query workloads. No provider is called.
+
+Use all three baseline and candidate directories in `benchmark compare`, as in
+[the P9 sequence](jaineel/p9_performance.md#measurement-sequence). Then run:
+
+```powershell
+.venv/Scripts/python.exe -m projectctl report build --matrix-results artifacts/p10/input/core_matrix_results.json --out artifacts/p10/final-report
+```
+
+The current P10 input preserves the previous actual P9 dependency checkpoint.
+Its **73 run records and 37 evaluation cases remain INCOMPLETE/NOT_RUN**. This
+command returns **4**, retains all failures and writes no performance plots.
+The independent source profile is separate from provider normalization, facet
+coverage, real correctness, and measured performance.
+
+After committing the reviewed implementation, rehearse the exact committed
+revision in a new directory with an explicit unchanged source file:
+
+```powershell
+.venv/Scripts/python.exe -m benchmarks.manual.verify_p10 --revision HEAD --matrix-results artifacts/p10/input/core_matrix_results.json --source data/raw/flipkart_com-ecommerce_sample.csv --out artifacts/p10/new-rehearsal
+```
+
+The verifier clones tracked code, installs the lock into a new virtual environment,
+copies only hash-indexed evidence and the explicitly supplied checksum-verified CSV,
+and uses a fresh `bench-p10-*` namespace. It does not copy `.env`, the existing
+virtual environment, local database credentials or implicit adapter configuration.
+Supply `--adapter-module your.reviewed.module` only when that module is committed
+and its owners have completed their handoffs. The canonical setup is attempted in
+order; dependent steps stay NOT_RUN after failure. Independent contract/data/smoke
+checks still retain their actual failures. No namespace reset or cleanup runs.
+
+Two saved reports must rebuild byte-identically. A removed file in a disposable
+copied bundle must cause rejection. Review `checks.json`, each exact command and
+stdout/stderr, `evidence-index.json`, both rebuilt reports, and the corruption
+refusal. A verifier exit **4** means the real setup/release is still incomplete;
+successful dependency detection is not an integration pass. Ask a teammate to
+repeat these commands and trace one successful and one declined checkout using
+the identities in the P8 instructions above. Human reproduction remains NOT_RUN
+until its actual evidence is returned. Stop before P11.

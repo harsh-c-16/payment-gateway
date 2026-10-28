@@ -1351,15 +1351,103 @@ capacity evidence alongside quantiles. Stop before P10.
 ---
 
 ### Milestone P10: Reproducible Report and Clean Setup Rehearsal
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J07
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** Team review of benchmark results.
-- **Next Action:** Generate final consolidated report and test clean environment reproduction.
+- **State:** owner report/reconciliation implementation verified; real performance
+  and release **INCOMPLETE/NOT_RUN**. Clean-checkout rehearsal recorded below after
+  the implementation commit. P11 is not started.
+- **Owner/branch:** Jaineel; existing `jaineel/j03-telemetry`, as explicitly requested.
+- **Base commit:** `aa26daf` (P9). No new branch, shared-spec/DTO/provider change,
+  namespace reset, tracker update or generative call.
+- **Brief task:** J07 / P10 only.
+- **Preservation:** 35 initially dirty/untracked files and their bytes/diff were
+  captured in `artifacts/p10/before/`. Existing raw-validation prerequisites in
+  `benchmarks/{performance,performance_metrics,observation_summary}.py` are included
+  because P10 must independently rebuild saved values and cohorts. Only the
+  relevant raw-evidence cases of the existing untracked
+  `tests/benchmarks/test_audit_evidence.py` enter the index; its other tests stay
+  in the working tree. The progress file is staged from HEAD plus this P10 section,
+  preserving the earlier uncommitted audit text. Other audit changes stay uncommitted.
+
+**Changed paths and behavior**
+
+- `benchmarks/reporting.py`, `projectctl/report_models.py`,
+  `contracts/evaluation/report.schema.json`: deterministic saved-matrix report,
+  required/optional tables, all repetitions, raw trace and hash index; missing,
+  failed, corrupt, mixed-stub and incomparable evidence cannot establish completion.
+  Exact metric DTOs preserve units, counts, cohorts, unresolved work and raw paths.
+- `benchmarks/comparison.py`: three-run spreads, absolute zero-baseline changes,
+  raw-emitted latency/resource directions and negative cost changes are visible.
+- `benchmarks/saved_reconciliation.py`, `projectctl/cli.py`, `projectctl/schemas.py`:
+  wire report building and workload-specific read-only rechecks. Import/query runs
+  use their independent logical audit rather than the stream oracle. Explicit
+  existing stub/evaluation checks retain their labelled compatibility path.
+- `benchmarks/manual/verify_p10.py`: fresh clone, fresh locked virtual environment,
+  explicit indexed evidence/source export, unique benchmark namespace, canonical
+  setup chain, independent contract/data/smoke checks, identical report rebuilds,
+  and corruption detection only on a disposable copy. No hidden local credentials,
+  environment file, test database URL or provider adapter is copied.
+- `tests/projectctl/test_p10.py` and relevant raw-evidence tests: 19 new report,
+  arithmetic, provenance, identity, corruption, repetition and dispatch checks.
+  Positive presentation/dispatch fixtures use explicit loader doubles and are
+  not real integration/performance passes.
+- `docs/integration_runbook.md`, [P10 handoff](p10_report.md), this file: exact
+  command surface, source limitations, owner dependencies and manual review.
+
+**Actual checks and evidence**
+
+- `.venv/Scripts/python.exe -m artifacts.p10.run_checks` retains the exact child
+  arrays, UTC timings/exits, raw output, database facts and JUnit in
+  `artifacts/p10/verification/`. `uv sync --locked --cache-dir artifacts/p10/verification/uv-cache`
+  passed; application lock unchanged.
+- Full child command:
+  `.venv/Scripts/python.exe -m pytest tests/conversation tests/projectctl tests/contracts tests/oracles tests/benchmarks tests/telemetry tests/integration -q --tb=short -o junit_family=xunit1 -o cache_dir=artifacts/p10/verification/cache --basetemp=artifacts/p10/verification/tmp --junitxml=artifacts/p10/verification/pytest.xml`
+  — **859 passed, 0 failures/errors/skips**, 175.46 s; one upstream Starlette
+  deprecation warning. Existing isolated Docker PostgreSQL 18.6, port 32773,
+  durability enabled; fresh test schemas, no existing data reset. M1 database
+  behavior is real; unavailable provider/outbox/transport/audit/fault dependencies
+  are explicit test doubles. This is not a real full-system integration pass.
+- Earlier targeted run: **31 passed**; broader projectctl/comparison/integration
+  run: **188 passed**; final `tests/projectctl/test_p10.py`: **19 passed**. Counts
+  overlap the full suite and are not added. Raw JUnit files remain in `artifacts/p10/`.
+- Ruff lint and format checks for P10 modules/tests, generated-schema check,
+  conversation-contract check and `git diff --check` all exited 0. Exact commands
+  and stdout/stderr are in `verification/*.command.json` and sibling files.
+- The actual preserved P9 checkpoint is supplied through
+  `artifacts/p10/input/core_matrix_results.json`, with the original saved plan and
+  hash-referenced independent source profile/evaluation bundle. It retains **73
+  result records**, **37 NOT_RUN cases**, **300 indexed input files**, and zero
+  measured performance values. `report build --matrix-results artifacts/p10/input/core_matrix_results.json --out artifacts/p10/report-1`
+  returned **4** and wrote an INCOMPLETE report. Original P9 evidence is unchanged.
+  No performance plot or C-BEST winner was fabricated.
+
+**Clean rehearsal and commit verification**
+
+The implementation revision, clean-clone checks, final report/evidence index,
+exact reconcile/compare attempts and final Git checks are recorded in the follow-up
+entry once executed. Real provider setup and teammate reproduction are still pending.
+
+**Remaining dependencies and manual verification**
+
+Harsh supplies canonical catalogue/facet/quote contracts/manifests, normalization,
+category quality, import/query/layout measurements and costs. Aditya supplies real
+transactions, outbox/DDL, deterministic seed and independent stock/ledger/finality
+audits. Vichitr supplies locked enforceable infrastructure, transport/analytics,
+membership/replay, resource collectors and acknowledged faults. All owners review
+same-revision correctness, B0/candidates, three paired repetitions, selection,
+stress/recovery, real plots, cost conclusions and the clean setup rehearsal.
+
+Follow [P10 commands and review](p10_report.md#commands-and-review). Reconcile each
+actual run; compare all B1/B2/B3 against C1/C2/C3; rebuild the same saved report into
+a new directory and check its bytes/hash. Trace a reported performance metric to
+the raw observations, unit, denominator and nearest-rank sample calculation after
+real measurements exist. This performance trace is currently NOT_RUN. In a new
+explicit source/evidence export, run `benchmarks.manual.verify_p10` with the reviewed
+committed revision and adapters. Inspect its lock/source proof, fresh namespace,
+setup barriers, actual case statuses, identical rebuild and disposable corruption
+refusal. Have a teammate repeat setup and one successful/declined checkout and
+return the identity-linked trace/audit paths. Human review remains NOT_RUN.
+
+**Checkpoint:** P10 owner implementation is reviewable; real P10/G4/G5/G6 release
+is not certified. Stop before P11.
 
 ---
 

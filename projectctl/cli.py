@@ -270,8 +270,16 @@ def execute(args, registry: ProviderRegistry):
             args["action"], args.copy(), None, str(uuid4()), "bench-" + uuid4().hex
         )
         return [execute_comparison(invocation)]
+    if args["action"] == "report build":
+        from benchmarks.reporting import execute_report
+
+        invocation = Invocation(
+            args["action"], args.copy(), None, str(uuid4()), "bench-" + uuid4().hex
+        )
+        return [execute_report(invocation)]
     if args["action"] in {"eval run", "benchmark reconcile"}:
-        from benchmarks.integration import execute_evaluation, execute_reconciliation
+        from benchmarks.integration import execute_evaluation
+        from benchmarks.saved_reconciliation import execute_reconciliation
 
         invocation = Invocation(
             args["action"], args.copy(), config, str(uuid4()), "bench-" + uuid4().hex

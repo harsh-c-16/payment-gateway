@@ -6,6 +6,36 @@ from projectctl.artifacts import content_hash
 from projectctl.models import Metric
 
 
+def admission_metrics(config, run_id, workload, generator, admission):
+    """One definition for execution and offline verification of the admission rates."""
+    count = admission["phases"]["measurement"]
+    denominator = generator["window_seconds"] or generator["measured_job_seconds"]
+    return [
+        Metric(
+            name=name,
+            unit="operations/second",
+            value=numerator / denominator if denominator and denominator > 0 else None,
+            sample_count=count["planned"],
+            numerator=float(numerator),
+            denominator=denominator,
+            cohort={"sustained": "measurement", "finite": "finite_job", "queries": "query"}[
+                config.workloads[workload].kind
+            ],
+            quantile_method=None,
+            unresolved_count=count["unresolved"],
+            timing_validity="VALID" if denominator and denominator > 0 else "MISSING",
+            run_id=run_id,
+            config_sha256=content_hash(config.model_dump()),
+            status="MEASURED" if denominator and denominator > 0 else "INCOMPLETE",
+            evidence_path="emissions.jsonl",
+        )
+        for name, numerator in (
+            ("generator_offered_rate", count["planned"]),
+            ("admitted_rate", count["acknowledged_in_window"]),
+        )
+    ]
+
+
 def derive_metrics(directory, config, run_id, workload, existing):
     telemetry = rebuild(directory)
     admission = read_json(directory / "admission.json")["phases"]["measurement"]
@@ -14,7 +44,19 @@ def derive_metrics(directory, config, run_id, workload, existing):
     ]
     result = [m for m in existing if m.name != "gold_goodput"]
 
-    def add(name, unit, value, count, evidence, *, quantile=None, unresolved=None, valid=True):
+    admission_default = object()
+
+    def add(
+        name,
+        unit,
+        value,
+        count,
+        evidence,
+        *,
+        quantile=None,
+        unresolved=admission_default,
+        valid=True,
+    ):
         result.append(
             Metric(
                 name=name,
@@ -25,7 +67,9 @@ def derive_metrics(directory, config, run_id, workload, existing):
                 denominator=None,
                 cohort=cohort,
                 quantile_method=quantile,
-                unresolved_count=admission["unresolved"] if unresolved is None else unresolved,
+                unresolved_count=admission["unresolved"]
+                if unresolved is admission_default
+                else unresolved,
                 timing_validity="VALID" if value is not None and valid else "MISSING",
                 run_id=run_id,
                 config_sha256=content_hash(config.model_dump()),
@@ -53,6 +97,7 @@ def derive_metrics(directory, config, run_id, workload, existing):
             row["peak"],
             row["sample_count"],
             "observations.jsonl",
+            valid=row["status"] == "MEASURED",
         )
         if "mean_cpu_percent" in row:
             add(
@@ -61,6 +106,7 @@ def derive_metrics(directory, config, run_id, workload, existing):
                 row["mean_cpu_percent"],
                 len(row["cpu_percent_samples"]),
                 "observations.jsonl",
+                valid=row["cpu_status"] == "MEASURED",
             )
     # Keep stage-specific distributions separate; missing cohort visibility is
     # carried beside the completed-only quantiles in the raw telemetry summary.
@@ -75,6 +121,7 @@ def derive_metrics(directory, config, run_id, workload, existing):
                 row.get("sample_count", 0),
                 "timings.jsonl",
                 quantile="nearest-rank",
+                unresolved=row.get("unresolved_count", admission["unresolved"]),
                 valid=row.get("timing_validity", "VALID") == "VALID",
             )
         aliases = {
@@ -101,6 +148,7 @@ def derive_metrics(directory, config, run_id, workload, existing):
                 row["sample_count"],
                 "timings.jsonl",
                 quantile="nearest-rank",
+                unresolved=row.get("unresolved_count", admission["unresolved"]),
                 valid=row.get("timing_validity", "VALID") == "VALID",
             )
     if workload == "W-IMPORT":

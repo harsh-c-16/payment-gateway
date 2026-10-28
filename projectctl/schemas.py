@@ -1,4 +1,4 @@
-"""Generate/check the four owned JSON Schemas: python -m projectctl.schemas --check."""
+"""Generate/check owned JSON Schemas: python -m projectctl.schemas --check."""
 
 import argparse
 import json
@@ -7,12 +7,14 @@ from jsonschema import Draft202012Validator
 
 from projectctl.config import ROOT
 from projectctl.models import EvaluationConfig, FixtureManifest, RunManifest, Summary
+from projectctl.report_models import FinalReport
 
 SCHEMAS = {
     "config": EvaluationConfig,
     "run": RunManifest,
     "summary": Summary,
     "fixture": FixtureManifest,
+    "report": FinalReport,
 }
 
 

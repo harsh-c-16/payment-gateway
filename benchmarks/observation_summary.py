@@ -46,6 +46,7 @@ def rebuild(directory):
         "admission.json",
         "emissions.jsonl",
         "gold_visibility.jsonl",
+        "planned.jsonl",
     }
     for name in consumed:
         path = directory / name
@@ -123,18 +124,7 @@ def rebuild(directory):
                 else "INCOMPLETE"
             )
         summaries.append(entry)
-    timings = defaultdict(list)
-    for row in lines(directory / "timings.jsonl"):
-        timings[(row["component"], row["stage"], row["phase"])].append(row["duration_seconds"])
-    latency = [
-        {
-            "component": c,
-            "stage": s,
-            "phase": p,
-            **latency_summary(values, expected_count=len(values)),
-        }
-        for (c, s, p), values in sorted(timings.items())
-    ]
+    latency = summarize_latencies(directory, context)
     return {
         "schema_version": 1,
         "context": context,
@@ -154,6 +144,97 @@ def rebuild(directory):
             "Timing quantiles describe retained rows; business reconciliation is separate.",
         ],
     }
+
+
+def summarize_latencies(directory, context):
+    """Join timers to the independent planned cohort, never to the timer row count.
+
+    Finality/Gold completion needs a stage observation; an API admission alone
+    cannot establish it. Unknown stage/cohort mappings remain explicitly incomplete.
+    """
+    planned = lines(directory / "planned.jsonl")
+    raw_emissions = lines(directory / "emissions.jsonl")
+    emissions = {row["record_id"]: row for row in raw_emissions}
+    if len(emissions) != len(raw_emissions) or len(
+        {r["logical_record_id"] for r in planned}
+    ) != len(planned):
+        raise ValueError("duplicate planned/emission identity")
+    event_records = {}
+    for key, row in emissions.items():
+        if row["expected_disposition"] == "new_valid":
+            if row["event_or_request_id"] in event_records:
+                raise ValueError("conflicting new event identity")
+            event_records[row["event_or_request_id"]] = key
+    for key, row in emissions.items():
+        event_records.setdefault(row["event_or_request_id"], key)
+    timings = defaultdict(dict)
+    clocks = defaultdict(set)
+    for row in lines(directory / "timings.jsonl"):
+        if row["run_id"] != context["run_id"] or row["namespace"] != context["namespace"]:
+            raise ValueError("timing context mismatch")
+        group = (row["component"], row["stage"], row["phase"])
+        identity = row.get("record_id") or event_records.get(row.get("event_id"))
+        identity = identity or row.get("event_id")
+        if not identity or identity in timings[group]:
+            raise ValueError("missing or duplicate stage timing identity")
+        duration = row["duration_seconds"]
+        if duration is not None:
+            if row.get("timing_validity") != "VALID" or not row.get("clock_domain"):
+                raise ValueError("duration lacks a valid clock domain")
+            clocks[group].add(row["clock_domain"])
+        timings[group][identity] = duration
+    result = []
+    client_stages = {"schedule_to_ack", "send_to_ack", "query", "workflow", "acceptance"}
+    event_stages = {
+        "producer_to_gold",
+        "schedule_to_gold",
+        "broker_to_silver",
+        "gold_publication",
+        "outbox",
+    }
+    for (component, stage, phase), rows in sorted(timings.items()):
+        if len(clocks[component, stage, phase]) > 1:
+            raise ValueError("stage timings mix clock domains")
+        known = bool(planned) and (
+            stage in client_stages
+            or stage == "finality"
+            or (stage in event_stages and context["workload"] in {"W-PIPE", "W-QUALITY"})
+        )
+        cohort = {
+            row["logical_record_id"]
+            for row in planned
+            if row["phase"] == phase
+            and (
+                stage in {"schedule_to_ack", "send_to_ack"}
+                or row.get("expected_disposition") == "new_valid"
+            )
+        }
+        if known and set(rows) - cohort:
+            raise ValueError("timing identity outside declared stage cohort")
+        if known:
+            completed = {key for key, duration in rows.items() if duration is not None}
+            if stage in client_stages:
+                completed |= {
+                    key for key in cohort if emissions.get(key, {}).get("outcome") == "acknowledged"
+                }
+            summary = latency_summary(
+                [duration for key, duration in rows.items() if key in completed],
+                expected_count=len(cohort),
+                completed_count=len(completed),
+            )
+        else:
+            summary = latency_summary(rows.values(), expected_count=len(rows))
+            summary.update(
+                cohort_count=None,
+                unresolved_count=None,
+                unresolved_percentage=None,
+                complete_cohort_p99=None,
+                status="INCOMPLETE",
+                timing_validity="MISSING",
+                limitation="stage cohort not established",
+            )
+        result.append({"component": component, "stage": stage, "phase": phase, **summary})
+    return result
 
 
 def rates(directory, *, context, series):

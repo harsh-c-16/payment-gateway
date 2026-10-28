@@ -24,6 +24,7 @@ BASE_FILES = {
     "correctness.json",
     "workload_manifest.json",
     "timings.parquet",
+    "timings.jsonl",
     "resources.csv",
     "telemetry_manifest.json",
     "observation_context.json",
@@ -327,6 +328,26 @@ def load_performance_run(directory, *, kind="performance"):
     )
     if validation["passed"] is not True:
         raise DependencyError("raw audit/collector evidence failed independent recheck")
+    from benchmarks.performance_metrics import admission_metrics, derive_metrics
+
+    try:
+        metrics = derive_metrics(
+            directory,
+            config,
+            manifest["run_id"],
+            manifest["workload_id"],
+            admission_metrics(
+                config,
+                manifest["run_id"],
+                manifest["workload_id"],
+                read_json(directory / "generator.json"),
+                read_json(directory / "admission.json"),
+            ),
+        )
+        if summary.metrics != metrics:
+            raise DependencyError("summary metrics differ from independently rebuilt raw evidence")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise DependencyError("summary metrics cannot be rebuilt from raw evidence") from exc
     return {
         "directory": directory,
         "manifest": manifest,
@@ -368,6 +389,16 @@ def validate_outputs(directory, context):
         ):
             failures.append("missing raw evidence: " + name)
     try:
+        from benchmarks.experiment import admission_reconciliation
+
+        workload_manifest = read_json(directory / "workload_manifest.json")
+        admission = admission_reconciliation(directory, workload_manifest)
+        if (
+            workload_manifest["planned_sha256"] != file_hash(directory / "planned.jsonl")
+            or admission != read_json(directory / "admission.json")
+            or admission["passed"] is not True
+        ):
+            raise DependencyError("frozen plan/admission journal mismatch")
         expected, observed = (
             read_json(directory / "expected.json"),
             read_json(directory / "observed.json"),
@@ -398,6 +429,21 @@ def validate_outputs(directory, context):
                 failures.append("independent import/query logical results differ or missing")
                 correctness_failed = bool(logical) and observed.get("collection_complete") is True
         telemetry = rebuild(directory)
+        stages = {
+            "W-PIPE": {"producer_to_gold", "schedule_to_gold"},
+            "W-CHECKOUT": {"acceptance", "finality"},
+            "W-INTEGRATED": {"workflow", "finality"},
+            "W-SEARCH": {"query"},
+            "W-ANALYTICS": {"query"},
+        }.get(workload, set())
+        for stage in stages:
+            rows = [
+                r
+                for r in telemetry["latencies"]
+                if r["phase"] == "measurement" and r["stage"] == stage
+            ]
+            if len(rows) != 1 or rows[0]["status"] != "MEASURED":
+                failures.append("required stage cohort/timings incomplete: " + stage)
         if telemetry["status"] != "MEASURED" or telemetry["context"]["mode"] != "real":
             failures.append("collector samples incomplete or not real")
         names = {row["metric"] for row in telemetry["series"]}

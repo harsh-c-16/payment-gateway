@@ -31,6 +31,27 @@ DIRECTIONS = {
 }
 
 
+def metric_direction(name):
+    """Directions for the exact names emitted by performance_metrics; unknowns stay null."""
+    if name in DIRECTIONS:
+        return DIRECTIONS[name]
+    if name.endswith((".p50_seconds", ".p95_seconds", ".p99_seconds", ".cpu_percent")):
+        return "reduction"
+    if name.endswith(".peak") and any(
+        f".{metric}." in name
+        for metric in (
+            "process_resident_memory_bytes",
+            "container_memory_bytes",
+            "kafka_consumer_lag",
+            "gold_pending_events",
+            "outbox_pending",
+            "outbox_oldest_age_seconds",
+        )
+    ):
+        return "reduction"
+    return None
+
+
 def spread(values):
     return {"median": median(values), "min": min(values), "max": max(values), "values": values}
 
@@ -64,10 +85,11 @@ def compare_metrics(baseline, candidate):
             "baseline": None,
             "candidate": None,
             "improvement_percent": None,
-            "direction": DIRECTIONS.get(name),
+            "direction": metric_direction(name),
             "unresolved_counts": [r["unresolved_count"] if r else None for r in rows],
             "sample_counts": [r["sample_count"] if r else 0 for r in rows],
             "semantics": list(next(iter(semantics))) if semantics else None,
+            "absolute_change": None,
         }
         if measured:
             a, b = (
@@ -221,8 +243,9 @@ def execute_comparison(invocation):
             "",
             "All three paired repetitions are retained. Values are median [min, max].",
             "",
-            "| Metric | Baseline | Candidate | Improvement % | Status |",
-            "|---|---|---|---|---|",
+            "| Metric | Unit/cohort/method/timing | Baseline | Candidate | Improvement % | "
+            "Absolute change | Samples | Unresolved | Status |",
+            "|---|---|---|---|---|---|---|---|---|",
         ]
         for row in report["metrics"]:
 
@@ -234,9 +257,12 @@ def execute_comparison(invocation):
                 )
 
             lines.append(
-                f"| {row['name']} | {cell(row['baseline'])} | {cell(row['candidate'])} | "
-                f"{row['improvement_percent']} | {row['status']} |"
+                f"| {row['name']} | {row['semantics']} | {cell(row['baseline'])} | "
+                f"{cell(row['candidate'])} | {row['improvement_percent']} | "
+                f"{row['absolute_change']} | {row['sample_counts']} | "
+                f"{row['unresolved_counts']} | {row['status']} |"
             )
+        lines.extend(["", *["- " + item for item in report["limitations"]]])
         (directory / "comparison.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
         result = ProviderResult(
             ExitCode.COMPLETED if report["status"] == "MEASURED" else ExitCode.DEPENDENCY_FAILURE,
