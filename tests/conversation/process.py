@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 @contextmanager
-def server(database, log_path):
+def server(
+    database, log_path, *, workflow=False, lose_order_response=False, catalog_unavailable=False
+):
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
@@ -28,6 +30,12 @@ def server(database, log_path):
         str(port),
         "--test-double-events",
     ]
+    if workflow:
+        command.append("--test-double-workflow")
+    if lose_order_response:
+        command.append("--lose-order-response")
+    if catalog_unavailable:
+        command.append("--catalog-unavailable")
     with Path(log_path).open("ab") as log:
         options = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
         child = subprocess.Popen(

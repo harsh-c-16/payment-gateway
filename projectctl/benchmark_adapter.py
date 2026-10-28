@@ -49,6 +49,8 @@ def execute_benchmarks(args, registry, config):
     )
 
     async def execute():
+        from projectctl.cli import preflight
+
         def capacity_failure(trial, assessment):
             from projectctl.artifacts import save_evidence
             from projectctl.models import ExitCode
@@ -97,7 +99,14 @@ def execute_benchmarks(args, registry, config):
                 )
             )
             existing = None
-            if args["action"] == "benchmark matrix" and not blocking:
+            # A blocked configuration can never reuse a measured result.
+            # Check once before scanning history rather than hashing the source
+            # again for every old run directory in each draft trial.
+            if (
+                args["action"] == "benchmark matrix"
+                and not blocking
+                and not preflight(trial.config, trial.workload)
+            ):
                 existing = next(
                     (
                         path

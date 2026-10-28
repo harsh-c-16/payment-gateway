@@ -15,6 +15,19 @@ from projectctl.artifacts import content_hash, file_hash, write_json
 from projectctl.config import ROOT, repo_path
 
 
+def checkpoint_passed(checks, counts, comparison, fixture_unchanged):
+    """Unavailable real providers are allowed; an executed correctness failure is not."""
+    return (
+        bool(checks)
+        and all(c["exit_code"] == 0 for c in checks[:-1])
+        and checks[-1]["exit_code"] in {0, 4}
+        and counts["tests"] > 0
+        and not any(counts[k] for k in ("failures", "errors", "skipped"))
+        and comparison is not None
+        and fixture_unchanged
+    )
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--out", required=True)
@@ -159,18 +172,15 @@ def main(argv=None):
         comparison["fixture_frozen_for_test_reproduction"] = True
         comparison["human_label_freeze"] = "NOT_RUN"
         write_json(destination / "assistant_comparison.json", comparison)
-    harness_ok = (
-        all(c["exit_code"] == 0 for c in checks[:-1])
-        and not any(counts[k] for k in ("failures", "errors", "skipped"))
-        and comparison is not None
-    )
+    fixture_unchanged = fixture_hash == file_hash(fixture)
+    harness_ok = checkpoint_passed(checks, counts, comparison, fixture_unchanged)
     summary = {
         "schema_version": 1,
         "harness_checks_passed": harness_ok,
         "pytest": counts,
         "test_mode": "real M1 PostgreSQL; explicit HTTP/model/outbox doubles",
         "fixture_sha256": fixture_hash,
-        "fixture_bytes_unchanged": fixture_hash == file_hash(fixture),
+        "fixture_bytes_unchanged": fixture_unchanged,
         "human_review_and_final_quality": "NOT_RUN",
         "real_DE_gates": "INCOMPLETE",
         "sequencing_exception": "user authorized isolated P11 while real gates stay incomplete",

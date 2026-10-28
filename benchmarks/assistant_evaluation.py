@@ -38,6 +38,9 @@ OUTCOMES = {
 
 def evaluate_workflows(scenarios, fixed_adapter, assist_adapter):
     """Adapters declare identical backend identity and return actual identity-bound raw traces."""
+    scenarios = list(scenarios)
+    if not scenarios or len({s["scenario_id"] for s in scenarios}) != len(scenarios):
+        raise ValueError("nonempty distinct scenario identities required")
     if (
         fixed_adapter.backend_identity != assist_adapter.backend_identity
         or fixed_adapter.test_mode != assist_adapter.test_mode
@@ -60,6 +63,9 @@ def evaluate_workflows(scenarios, fixed_adapter, assist_adapter):
                 raise ValueError("actual model attempts exceed scenario budget")
             if scenario["control"] != "search" and count != 0:
                 raise ValueError("purchase and structured controls must make zero model attempts")
+            searches = trace["search_calls"]
+            if type(searches) is not int or not 0 <= searches <= 1:
+                raise ValueError("each scenario permits at most one search attempt")
             expected = OUTCOMES[scenario["expected_outcome"]]
             same = trace["outcome"] == expected
             if expected == "success":
@@ -76,7 +82,7 @@ def evaluate_workflows(scenarios, fixed_adapter, assist_adapter):
             clarifications += same and expected == "clarification"
             unnecessary += trace["outcome"] == "clarification" and expected != "clarification"
             calls.append(count)
-            search_calls.append(trace["search_calls"])
+            search_calls.append(searches)
             traces.append(trace)
         stages = {}
         for stage in ("parse", "llm", "search", "compose", "total"):

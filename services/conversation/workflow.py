@@ -285,9 +285,12 @@ class FixedWorkflow:
             or len(result["hits"]) > request["top_k"]
             or result["returned_count"] > result["eligible_count"]
             or result["eligible_count"] > result["candidate_count"]
+            or len({hit["sku"] for hit in result["hits"]}) != len(result["hits"])
         ):
             raise ContractViolation("fixed search response mode/count mismatch")
-        for hit in result["hits"]:
+        for rank, hit in enumerate(result["hits"], 1):
+            if hit["rank"] != rank or hit["stock_available"] <= 0:
+                raise ContractViolation("search hit rank/availability mismatch")
             if hit["dataset_revision"] != dictionary["dataset_revision"]:
                 raise ContractViolation("search/dictionary revision mismatch")
             for field in ("category", "size", "colour", "material", "brand"):

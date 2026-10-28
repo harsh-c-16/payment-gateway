@@ -126,6 +126,15 @@ Timing producers use stages `producer_to_gold`, `schedule_to_gold`, `query`,
 Stage distributions retain namespaced p50/p95/p99 and unresolved counts. Actual
 usage/resource costs remain separate from requested rates and targets.
 
+Timers must retain the run/namespace and original planned cohort, including
+completions observed during drain. Use `record_id` to bind request stages to
+`planned.jsonl`; synthetic stream stages may instead use the matching emitted
+`event_id`. Each component/stage/cohort/identity has one timing and a declared
+clock domain. Missing timers and unfinished work are counted against the plan;
+an unknown cohort mapping remains INCOMPLETE. Required primary stages must have
+complete cohorts before a real trial can qualify. Saved metric rows are rebuilt
+from the hashed admission/telemetry evidence before comparison, reuse or selection.
+
 ## C-BEST and stress
 
 The selection JSON has `schema_version=1`, `content_sha256`, and `choices` with
@@ -152,6 +161,9 @@ recovery receipt. A missing fault acknowledgement is incomplete evidence.
 Capacity requires cgroup memory samples for every declared SUT component,
 matching its allocation, and actual `details.oom_kill_count=0`. A reader without
 OOM evidence leaves capacity invalid; it does not supply a default zero.
+Every measurement second needs a valid memory sample for every declared service.
+The cgroup v2 reader obtains the OOM counter from `memory.events`; missing or
+invalid counters remain null and prevent capacity qualification.
 
 ## Available local checkpoint
 

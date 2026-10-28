@@ -1,4 +1,4 @@
-name: P1 through P6 checks
+name: P1 through P11 checks
 on: [push, pull_request]
 permissions:
   contents: read
@@ -16,6 +16,9 @@ jobs:
           python-version: "3.11"
       - run: uv sync --locked
       - run: uv run --locked python benchmarks/manual/verify_p5.py
+      - run: uv run --locked python -m ruff check tests/integration
+      - run: uv run --locked python -m ruff format --check tests/integration
+      - run: uv run --locked python -m pytest tests/integration -q --tb=short --junitxml=artifacts/p8-ci.xml
       - uses: actions/upload-artifact@v4
         if: always()
         with:

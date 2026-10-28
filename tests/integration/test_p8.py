@@ -192,6 +192,117 @@ def test_review_pins_export_contract_and_independent_fixture(workspace):
         validate_review(review, "bench-check", fixture)
 
 
+def test_real_shaped_review_round_trips_through_saved_report_validation(workspace, monkeypatch):
+    """Explicit setup/provider doubles isolate persistence, never certify real providers."""
+    import benchmarks.integration as integration
+    from benchmarks.integration import CaseBinding
+    from benchmarks.reporting import _evaluation
+    from projectctl.artifacts import file_hash, write_json
+
+    case = BY_ID["D-01/source"]
+    fixture = workspace / "source-fixture.json"
+    write_json(fixture, {"case_id": case.case_id, "input": {"source": "synthetic"}})
+    review = workspace / "review.json"
+    write_json(
+        review,
+        {
+            "schema_version": 1,
+            "read_only_audit": True,
+            "namespace_scoped": True,
+            "reviewers": ["Jaineel", "Harsh", "Aditya", "Vichitr"],
+            "fixture_sha256": file_hash(fixture),
+            "contracts": [{"path": "source-fixture.json", "sha256": file_hash(fixture)}],
+        },
+    )
+
+    async def prepare(ctx):
+        return {"namespace": ctx["namespace"], "created_new": True}
+
+    async def exercise(ctx, fixture, gate):
+        return None
+
+    async def audit(ctx):
+        return {k: ctx[k] for k in ("namespace", "run_id", "case_id")} | {
+            "collection_complete": True,
+            "facts": dict(case.checks),
+        }
+
+    monkeypatch.setattr(integration, "validate_setup", lambda *args, **kwargs: None)
+    registry = ProviderRegistry()
+    registry.register_case(
+        case.case_id, CaseBinding("real", fixture, prepare, exercise, audit, review)
+    )
+    result = asyncio.run(run_cases(invocation(["D-01"]), registry))
+    directory, records = rows(workspace, result)
+    assert records[0]["status"] == "PASS"
+    _, rebuilt = _evaluation(directory / "manifest.json", {})
+    assert rebuilt[0]["status"] == "PASS"
+
+
+@pytest.mark.parametrize(
+    "corruption", ["unacknowledged", "wrong-target", "lost-volume", "missing-recovery"]
+)
+def test_saved_fault_reconciliation_rechecks_journal_not_just_reference(workspace, corruption):
+    from benchmarks.integration import CaseBinding
+    from projectctl.artifacts import content_hash, file_hash, write_json
+
+    case = BY_ID["D-03/resume"]
+    fixture = workspace / "fault-fixture.json"
+    write_json(fixture, {"case_id": case.case_id, "input": {"source": "explicit-double"}})
+
+    async def prepare(ctx):
+        return {"namespace": ctx["namespace"], "created_new": True}
+
+    async def exercise(ctx, fixture, gate):
+        await gate.run()
+
+    async def audit(ctx):
+        return {k: ctx[k] for k in ("namespace", "run_id", "case_id")} | {
+            "collection_complete": True,
+            "facts": dict(case.checks),
+        }
+
+    registry = ProviderRegistry()
+    registry.register_case(
+        case.case_id,
+        CaseBinding("stub", fixture, prepare, exercise, audit, fault_hooks=HookDouble()),
+    )
+    result = asyncio.run(run_cases(invocation(["D-03"]), registry, allow_test_doubles=True))
+    directory, records = rows(workspace, result)
+    assert result["exit_code"] == 0
+    path = directory / "case-00/faults.jsonl"
+    journal = [json.loads(line) for line in path.read_text().splitlines()]
+    if corruption == "unacknowledged":
+        journal[0]["acknowledged"] = False
+    elif corruption == "wrong-target":
+        journal[0]["target"] = "another-worker"
+    elif corruption == "lost-volume":
+        journal[2]["restart"]["retained_volume"] = False
+    else:
+        journal.pop()
+    path.write_text("".join(json.dumps(r) + "\n" for r in journal))
+    # Reseal this disposable fixture to isolate semantic checking from hash checking.
+    next(r for r in records[0]["artifact_refs"] if r["path"] == "case-00/faults.jsonl")[
+        "sha256"
+    ] = file_hash(path)
+    (directory / "tests.jsonl").write_text("".join(json.dumps(r) + "\n" for r in records))
+    manifest = json.loads((directory / "manifest.json").read_text())
+    for ref in manifest["artifacts"]:
+        ref["sha256"] = file_hash(directory / ref["path"])
+    manifest["content_sha256"] = content_hash(manifest)
+    (directory / "manifest.json").write_text(json.dumps(manifest))
+    replay = execute_reconciliation(
+        Invocation(
+            "benchmark reconcile",
+            {"run_dir": result["evidence_dir"]},
+            None,
+            str(uuid4()),
+            "bench-recheck",
+        )
+    )
+    assert replay["exit_code"] == 4
+
+
 def test_checkout_cannot_start_with_partial_projection_or_seed_proof():
     context = {"namespace": "bench-real"}
     setup = {"namespace": "bench-real", "created_new": True}

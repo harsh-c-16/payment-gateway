@@ -140,3 +140,15 @@ def test_quiesced_payment_cannot_remain_successful_and_unreversed():
         "QUIESCED_PAYMENT_STATE_CONFLICT:fixture-payment"
         in result["reconciliation"]["invariant_failures"]
     )
+
+
+def test_payment_and_ledger_currency_must_match_the_authoritative_order():
+    expected, observed = clean_evidence()
+    observed["payments"][0]["currency"] = "USD"
+    observed["ledger"][0]["currency"] = "USD"
+    result = reconcile_run(expected, observed)
+    assert result["status"] == "FAIL"
+    assert (
+        "PAYMENT_CURRENCY_MISMATCH:fixture-payment"
+        in result["reconciliation"]["invariant_failures"]
+    )

@@ -1,11 +1,75 @@
 """Namespace-scoped acknowledged fault boundaries; no process/shell fallback."""
 
 import asyncio
+import json
 import math
 import time
 
 from benchmarks.scheduler import utc_now
 from projectctl.providers import DependencyError
+
+
+def validate_saved_fault(case, context, directory, row):
+    """Replay the acknowledged boundary/recovery checks from retained journal facts."""
+    if not (case.barrier or case.outage):
+        return
+    refs = row["fault_receipt_refs"]
+    indexed = {ref["path"] for ref in row["artifact_refs"]}
+    if len(refs) != 1 or refs[0] not in indexed:
+        raise DependencyError("one indexed fault acknowledgement/recovery journal required")
+    path = (directory / refs[0]).resolve()
+    if not path.is_relative_to(directory.resolve()):
+        raise DependencyError("fault journal escapes the run")
+    records = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    if [r.get("phase") for r in records] != ["acknowledged", "injected", "recovered"]:
+        raise DependencyError("fault acknowledgement/injection/recovery sequence incomplete")
+    ack, injected, recovered = records
+    expected = {
+        "namespace": context["namespace"],
+        "run_id": context["run_id"],
+        "target": case.target,
+        "barrier": case.barrier,
+    }
+    receipt = ack.get("receipt_id")
+    if (
+        not isinstance(receipt, str)
+        or not receipt
+        or ack.get("acknowledged") is not True
+        or ack.get("case_id") != case.case_id
+        or any(item.get(k) != v for item in (ack, injected) for k, v in expected.items())
+        or any(item.get("receipt_id") != receipt for item in (injected, recovered))
+    ):
+        raise DependencyError("saved fault identity/acknowledgement mismatch")
+    restart = recovered.get("restart", {})
+    if (
+        any(restart.get(k) != expected[k] for k in ("namespace", "run_id", "target"))
+        or restart.get("ready") is not True
+        or restart.get("retained_volume") is not True
+    ):
+        raise DependencyError("saved fault retained-volume recovery unavailable")
+    elapsed, requested, recovery = (
+        recovered.get(k)
+        for k in ("outage_seconds", "restart_requested_after_seconds", "recovery_seconds")
+    )
+    if (
+        any(
+            type(v) not in {int, float} or not math.isfinite(v) or v < 0
+            for v in (elapsed, requested, recovery)
+        )
+        or elapsed > (150 if case.outage else 120)
+        or not math.isclose(elapsed, requested + recovery, abs_tol=0.01)
+    ):
+        raise DependencyError("saved fault recovery timing invalid")
+    if case.outage:
+        second = injected.get("measurement_second")
+        if (
+            type(second) not in {int, float}
+            or not math.isfinite(second)
+            or abs(second - 180) > 1
+            or requested < 30
+            or elapsed < 30
+        ):
+            raise DependencyError("saved outage must start at second 180 and last 30 seconds")
 
 
 class FaultGate:

@@ -129,14 +129,18 @@ def cohort_rates(
     cohort = {
         row["record_id"]: row for row in planned if start <= nonnegative(row["scheduled_at"]) < end
     }
-    valid = {row["event_id"] for row in cohort.values()} & set(expected_valid_ids)
     first_offer = {}
     for row in planned:
         event = row["event_id"]
-        if event in valid:
-            first_offer[event] = min(
-                row["scheduled_at"], first_offer.get(event, row["scheduled_at"])
-            )
+        when = nonnegative(row["scheduled_at"])
+        first_offer[event] = min(when, first_offer.get(event, when))
+    # Cohorts follow the first logical event offer. A physical duplicate in the
+    # measurement window still counts as load, but cannot reclassify warmup work.
+    valid = {
+        event
+        for event in expected_valid_ids
+        if event in first_offer and start <= first_offer[event] < end
+    }
     admitted = unknown = 0
     for row in admissions:
         if row["record_id"] not in all_planned:

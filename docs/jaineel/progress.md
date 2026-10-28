@@ -25,10 +25,10 @@
 | **P7** | Zero-call search, quote, and checkout workflow | J04 | stub verified; P7 checkpoint complete; real provider/event gates incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit HTTP/event doubles; 717 tests |
 | **P8** | Real G1/G3 integration, failures, reconciliation | J06 | stub verified (owner harness); real gates INCOMPLETE | `jaineel/j03-telemetry` | 774 passed; real M1 PostgreSQL, explicit provider/audit/hook doubles |
 | **P9** | Correct B0 and controlled performance matrix | J07 | stub verified (owner harness); real measurements NOT_RUN | `jaineel/j03-telemetry` | 823 regression passes; 49 P9 checks; real matrix dependency-blocked |
-| **P10** | Reproducible report and clean setup rehearsal | J07 | not started | — | — |
-| **P11** | One-call intent fallback (optional last) | J05 | not started | — | — |
+| **P10** | Reproducible report and clean setup rehearsal | J07 | owner implementation verified; real release INCOMPLETE | `jaineel/j03-telemetry` | saved-report rebuild and corruption checks; real setup blocked |
+| **P11** | One-call intent fallback (optional last) | J05 | provider-spy verified under explicit sequencing exception; live quality NOT_RUN | `jaineel/j03-telemetry` | real M1 PostgreSQL; explicit model/provider doubles |
 
-Latest cross-milestone review: [P1–P5 audit and fixes](#p1p5-audit-and-fixes--27-october-2026), **511 tests passed**. The counts above describe the original milestone checkpoints; this review does not advance P6.
+Latest cross-milestone review: [P1–P11 pre-push verification](#p1p11-pre-push-verification--28-october-2026), **993 passed, 0 failures/errors/skips**. PostgreSQL state/concurrency and M1 loopback/process tests are real; provider/event/audit/model paths use explicit doubles. Real integration, performance and human-reviewed assistant quality remain incomplete. Earlier milestone counts and audit records below are historical checkpoints.
 
 ---
 
@@ -1064,6 +1064,80 @@ Generated evidence/test databases/credentials are excluded from the commit.
 
 ---
 
+### P1–P7 Audit and Fixes — 27 October 2026
+
+- **State:** completed owner checkpoint; PostgreSQL state/restart real verified,
+  catalogue/Orders/events explicitly stub verified. Real shared delivery and
+  provider integration gates remain incomplete. P8–P11 were not implemented.
+- **Branch/base:** `jaineel/j03-telemetry`,
+  `9f1013bb7f2cdec6e9b4caa407540c4b58b2ee88`; initial tree clean. No staging,
+  commit, push, merge, history rewrite, or unrelated-data cleanup.
+- **Findings:** fixed dropped hard constraints, conflicting SSE versions,
+  warmup duplicates counted as measurement goodput, incomplete cancellation
+  journals, stale timestamped metrics, false per-case PASS exports, repeated
+  draft-matrix source hashing, and host-dependent stub-test timing. The final
+  timing fix preserves assertions and adds an explicit unit-test clock; real
+  database/API/process/resource/manual checks retain real clocks.
+- **Changed paths (22):**
+  `projectctl/benchmark_adapter.py`;
+  `services/conversation/{clients,intent}.py`;
+  `benchmarks/{collectors,metrics,scheduler}.py`;
+  `benchmarks/manual/verify_p7.py`;
+  `tests/projectctl/test_cli.py`;
+  `tests/contracts/test_clients.py`;
+  `tests/oracles/test_reconciliation.py`;
+  `tests/benchmarks/{test_metrics,test_scheduler,test_verifier_evidence,time_double}.py`;
+  `tests/telemetry/{test_collectors,test_observation}.py`;
+  `tests/conversation/{process,server,test_intent,test_process_workflow}.py`;
+  `docs/jaineel/{P1_P7_AUDIT,progress}.md`.
+- **Commands/outcomes:** clean Python 3.11.15 `uv sync --locked` installed 37
+  packages; all runtime imports passed. Ran existing `verify_p1.py` through
+  `verify_p7.py`. Final P1/P2/P3/P5/P6/P7 exits were 0; P5 used
+  `--review-p1-p5`. P4 exited 1 solely for its original P4-only Git guard after
+  its tests/schema/slow-publisher checks passed (10/11). Independent audit
+  ownership passed for all 22 paths; that guard was not weakened.
+- **Final command:** audit interpreter ran
+  `benchmarks/manual/verify_p7.py --out artifacts/p1-p7-audit/20261027-audit/verifier-p7-final --database-file artifacts/p1-p7-audit/20261027-audit/verifier-p6/local-database.json`.
+  Its complete six-directory regression suite had **737 distinct tests, all
+  passed; zero failures, errors or skips**. Counts: conversation 216,
+  projectctl 113, contracts 94, oracles 50, benchmarks 217, telemetry 47.
+  Overlapping verifier/targeted suites are not added to that count.
+- **Other checks:** Ruff lint passed; format check passed for 112 files;
+  `projectctl.schemas --check`, `projectctl.conversation_contract --check`,
+  `git diff --check`, protected-path checks and ownership all passed.
+  `projectctl contracts check --all` correctly returned 4 for missing handoffs.
+  Exact commands/output/exits are recorded in audit `checks.json`,
+  `final-checks.json`, `final-verifier-command.json` and nested verifier checks.
+- **Real verification:** original PostgreSQL preserved; a fresh Docker
+  PostgreSQL 18.6 container used its retained volume across restart with
+  durability on. Remapped loopback port 32772→32773 was refreshed correctly.
+  Actual loopback M1 requests exercised session/cart creation/read/update,
+  isolation, mutation replay/conflicts, search/quote, stale confirmation,
+  unconfirmed checkout, lost response and recovery to one pending order.
+  Catalogue/Orders/event capture are declared doubles. The 16-assertion smoke
+  passed; 60 frozen scenarios produced zero model attempts. No paid/live model,
+  performance matrix, SLO or real stock/ledger/Gold result is claimed.
+- **Source/labels:** uploaded CSV checksum/source counts independently matched.
+  Provider normalization/facet comparison remains NOT_RUN. Canonical fixtures,
+  label hashes and automated LLM-adjudication history were preserved; human
+  review remains NOT_RUN.
+- **Evidence:** [complete audit](P1_P7_AUDIT.md),
+  [final summary](../../artifacts/p1-p7-audit/20261027-audit/summary.json),
+  [final JUnit](../../artifacts/p1-p7-audit/20261027-audit/verifier-p7-final/pytest.xml),
+  [commands](../../artifacts/p1-p7-audit/20261027-audit/final-verifier-command.json),
+  [scope](../../artifacts/p1-p7-audit/20261027-audit/ownership.json),
+  [evidence index](../../artifacts/p1-p7-audit/20261027-audit/evidence-index.json).
+  Raw reproductions, interrupted P1 and the initial P7 run (730 passed,
+  7 timing failures) remain retained; final evidence uses a fresh directory.
+- **Handoffs/manual recheck:** Harsh supplies canonical catalogue/facet/quote
+  interfaces/manifests and brand/path review; Aditya supplies Orders and shared
+  outbox/DDL; Vichitr supplies builder/transport/registry/analytics and environment
+  bindings. Follow the audit's four manual recheck steps and inspect captured
+  returned IDs/versions. Ready for the next reviewed integration stage once
+  those handoffs exist; no real G0/G1/G3 completion claim.
+
+---
+
 ### Milestone P8: Real G1/G3 Integration, Failures, and Reconciliation
 - **State:** owner harness **stub verified**; real G1/G3, recovery and T-11
   **INCOMPLETE/NOT_RUN** because provider handoffs are absent. This is not a real
@@ -1347,6 +1421,134 @@ compare all three repetitions with equal controls (including finite import and
 partition-only boundaries), review measured choices/costs, then resume verified
 selected/stress/recovery rows. Retain failed trials and read missing/cohort/
 capacity evidence alongside quantiles. Stop before P10.
+
+---
+
+### P1–P9 Audit and Fixes — 28 October 2026
+
+- **Scope/status:** requested audit completed for available Jaineel-owned P1–P9
+  code. **840 distinct tests passed**, no failures/errors/skips. Real provider
+  integration/performance remains **INCOMPLETE/NOT_RUN**; P10/P11 not advanced.
+- **Branch/authorization:** existing `jaineel/j03-telemetry`; no commit, push,
+  merge, reset, unrelated data cleanup or model call. All 22 pre-existing dirty
+  paths were captured before editing. Twenty are byte-identical; intentional
+  additional edits to `benchmarks/collectors.py` and this progress file preserve
+  their earlier content. HEAD/branch/staged diff remain unchanged.
+- **Report/evidence:** [P1–P9 audit](P1_P9_AUDIT.md),
+  `artifacts/p1-p9-audit/20261028-audit/`. Exact command arrays, raw stdout/stderr,
+  UTC timings/exits and JUnit remain in `*.command.json`, `*.stdout.txt`,
+  `*.stderr.txt`, `final.xml`; scope, hashes and incremental source delta are
+  in `ownership.json`, `evidence-index.json`, `audit-delta.patch` and
+  `source-snapshot/`.
+
+**Additional findings/fixes**
+
+1. High P5/P9: offline latency summaries inferred cohort size from received
+   timers. Join the frozen plan/emissions, retain missing/unresolved timings,
+   validate identities/namespaces/clocks and original duplicate offers, and
+   block P9 promotion on incomplete primary stages.
+2. High P9: stage quantiles inherited admission unresolved counts. Preserve the
+   actual stage unresolved count/null and collector/CPU incompleteness.
+3. High P9: the loader trusted saved metric values after checking file hashes.
+   Rebuild rates/metrics from raw evidence and require agreement for comparison,
+   resume and selection; recheck the plan/admission journal independently.
+4. Medium P8: cancellation bypassed per-case/final manifest persistence. Retain
+   the interrupted case as INCOMPLETE and remaining cases as NOT_RUN; execute no
+   later callbacks. Regression covers prepare, exercise and audit cancellation.
+5. Medium P5/P9: cgroup samples omitted the OOM counter their capacity consumer
+   required. Read `memory.events`; absent counters remain null.
+6. High P9: one memory reading per service could qualify a 600-second tier.
+   Require valid per-service resource/OOM coverage at every measurement second.
+7. Medium CI: neither job scheduled `tests/integration`. Add standalone lint,
+   format and pytest steps to the Windows/Linux offline job; hosted CI NOT_RUN.
+8. Medium P6 verification: fixed test namespaces shared PostgreSQL advisory-lock
+   scopes across isolated schemas. Use fresh test namespaces; a real two-connection
+   regression proves isolation without increasing production/test timeouts.
+
+**Changed paths (15, including documentation)**
+
+`.github/workflows/offline.yml`;
+`benchmarks/{capacity,collectors,experiment,integration,observation_summary,performance,performance_metrics}.py`;
+`tests/benchmarks/test_audit_evidence.py`;
+`tests/conversation/{conftest,test_state}.py`;
+`tests/integration/test_audit_cancellation.py`;
+`docs/jaineel/{P1_P9_AUDIT,p9_performance,progress}.md`.
+
+**Commands and actual outcomes**
+
+- `uv sync --locked --cache-dir artifacts/p1-p9-audit/20261028-audit/uv-cache`:
+  exit 0, 38 resolved/37 installed packages audited, Python 3.11.15; lock unchanged.
+- Baseline full owned suite: **823 passed**, 152.59 s. Final exact command:
+  `.venv/Scripts/python.exe -m pytest tests/conversation tests/projectctl tests/contracts tests/oracles tests/benchmarks tests/telemetry tests/integration -q --tb=short -o junit_family=xunit1 -o cache_dir=artifacts/p1-p9-audit/20261028-audit/final-cache --basetemp=artifacts/p1-p9-audit/20261028-audit/final-tmp --junitxml=artifacts/p1-p9-audit/20261028-audit/final.xml`:
+  **840 passed, 0 failures/errors/skips**, 164.39 s. Seventeen regressions added.
+  Targeted/manual/CI counts overlap these and are not added. One upstream
+  Starlette deprecation warning remains.
+- All `benchmarks.manual.verify_p1` through `verify_p9` exist and were executed
+  using `.venv/Scripts/python.exe -m`. P1/P2/P3/P5/P7/P9 returned 0; P4 returned
+  1 solely for its original P4-only protected-path guard (10/11 checks). The
+  audit's ownership check verifies the actual P1–P9 authorization; guard unchanged.
+- P6 first run retained **797 passed/1 failed** from cross-suite advisory-lock
+  contention. The focused real PostgreSQL reproduction failed before the namespace
+  fix; corrected state/workflow tests passed **124**. Final
+  `verify_p6 --external-database --out artifacts/p1-p9-audit/20261028-audit/verifier-p6-final`:
+  exit 0, **800 passed**, all 10 expected outcomes, real API/process-restart smoke.
+- `verify_p7 --out artifacts/p1-p9-audit/20261028-audit/verifier-p7 --database-file artifacts/p1-p7-audit/20261027-audit/verifier-p6/local-database.json`:
+  exit 0, **798** passes at that intermediate checkpoint, **60** fixed scenarios,
+  **0** model attempts, **16/16** smoke assertions. No real provider claim.
+- `verify_p8 --out artifacts/p1-p9-audit/20261028-audit/verifier-p8 --database-file artifacts/p1-p7-audit/20261027-audit/verifier-p6/local-database.json`:
+  exit **4**, harness checks passed and **839** passes before the last test was
+  added. Setup `env up` exited 4; ten dependent setup steps stayed NOT_RUN.
+  Contract/smoke/correctness/T-10,D-05/T-11/read-only-recheck exits are 4; required
+  coverage is **37 distinct NOT_RUN** cases after alias deduplication.
+- `verify_p9`: checkpoint exit 0; all five real command attempts exited **4**;
+  one short smoke, one full B0 and 73 matrix records stayed blocked. P1 also
+  invokes a blocked matrix preflight. No performance workload or long matrix ran.
+- `.venv/Scripts/python.exe -m pytest tests/integration -q --tb=short --junitxml=artifacts/p1-p9-audit/20261028-audit/ci-integration.xml`:
+  exit 0, **40 passed**, standalone CI test surface.
+- Broad Ruff lint and formatting over owner implementation/tests passed (136
+  formatted files). `python -m projectctl.schemas --check`,
+  `python -m projectctl.conversation_contract --check`, `git diff --check`,
+  protected-path checks and final ownership/history checks passed. Exact arrays
+  and outcomes are in the report and command ledger.
+
+**Real execution, prior results and handoffs**
+
+Existing isolated Docker PostgreSQL 18.6 on loopback port 32773 had fsync,
+full_page_writes and synchronous_commit on. The database container was not
+restarted; application service restart and persistence were exercised. Existing
+containers/volumes were preserved. Tests use fresh schemas and delete only their
+own schemas. Catalogue/quote/Orders/event/outbox/audit/fault/cgroup dependencies
+are explicit doubles in the tests requiring them.
+
+Actual M1 HTTP flows cover session/cart/search/quote/confirmation/checkout,
+duplicate keys, changed inputs, stale versions, cross-user/namespace isolation,
+unavailable catalogue, lost response/unknown outcome and same/new-key recovery
+to one PENDING order. IDs/versions and all 19 requests are retained in
+`final-tmp/test_network_workflow_isolatio0/http.json`; failures remain visible.
+
+The independent exact-source check passed. Twelve tracked fixture/history files
+remain unchanged; automated LLM adjudication is preserved, human review NOT_RUN.
+The previous documented P9 checkpoint's **77 distinct run bundles/230 indexed
+files** passed hash/schema checks. All performance metrics were null/NOT_RUN;
+there are no measured results to mark stale. Original artifacts are preserved.
+
+Harsh still supplies canonical catalogue/search/quote contracts, manifests,
+normalization/import/projection and query/layout adapters. Aditya supplies real
+transaction APIs, simulator/stock/ledger audits, shared outbox/DDL and fault hooks.
+Vichitr supplies locked infrastructure, Kafka/registry/transport, analytics
+membership/replay/deployment and observer/fault bindings. Contract inventory is
+3 local passes/51 missing handoffs. G0/G1/G3/G4/G5, real T-11 outages, controlled
+baseline/candidates, C-BEST and stress/recovery remain incomplete.
+
+Manual continuation: use a new evidence directory and the locked interpreter;
+read the ignored DB connection file without logging credentials, then repeat the
+full regression command. After provider handoffs, follow canonical setup in order,
+rerun P8 and inspect actual case/barrier/audit evidence. Review/freeze all locks,
+fixtures/resources and a clean code revision before the P9 smoke/B0/paired matrix
+in [the P9 handoff](p9_performance.md). The user prohibited commit/push here.
+
+**Checkpoint:** owner-code audit complete; real integration/performance is not
+certified. Stop before P10/P11.
 
 ---
 
@@ -1647,3 +1849,124 @@ for the required DE experiments and complete the outstanding real DE gates.
 **Checkpoint:** isolated P11 code and spy correctness are reviewable under the
 explicit sequencing exception. Real DE release and human-reviewed/live assistant
 quality are not certified. Stop here; no subsequent milestone was started.
+
+---
+
+### P1–P11 Pre-push Verification — 28 October 2026
+
+- **Scope:** audit/fix all implemented P1–P11 owner code, including the existing
+  uncommitted harness fixes; no new milestone. P10/P11 summary rows now match
+  their implemented checkpoints. Current branch remains `jaineel/j03-telemetry`;
+  the user explicitly authorized commit and normal push on this branch.
+- **Preservation:** canonical specs, public DTOs/contracts, migrations, fixture
+  labels/adjudication history and the application lock are unchanged. Existing
+  `P1_P7_AUDIT.md` and `P1_P9_AUDIT.md` remain untouched/untracked. No new audit
+  document was created. Generated evidence stays in the existing ignored P11
+  verifier directories; no credentials, raw data or results enter Git.
+
+**Corrections verified**
+
+- HTTP/SSE order responses must match requested order, user and supplied session;
+  optional identity headers cannot be injected when absent from context. Conflicting
+  payloads for the current SSE version are rejected.
+- Search rejects duplicate SKUs, invalid rank order and unavailable hits. Paired
+  assistant evaluation rejects duplicate scenario IDs and invalid/multiple search
+  attempts. P7 selects only fixed traces from combined P7/P11 JUnit. P11 refuses
+  unexpected real-evaluation exits, skipped tests and changed fixture bytes.
+- P8 archives original reviewed fixture/review bytes so P10 can revalidate them;
+  saved rechecks bind the execution fixture and repeat setup validation. Fault
+  rechecks validate acknowledged identity/target/barrier, receipt continuity,
+  retained-volume recovery and outage timing, not just a nonempty reference.
+- Reviewed earlier fixes retain every scheduled operation and selected case on
+  cancellation, separate warmup duplicates from measurement goodput, share live/
+  rebuilt admission math, reject stale telemetry, retain actual OOM evidence and
+  require per-service memory coverage each measurement second. Blocked matrix
+  preflight avoids repeatedly scanning old results. CI includes integration tests.
+- Migration CLI output now accurately names all three existing migrations.
+
+**Changed paths (36)**
+
+`services/conversation/{clients,database,workflow}.py`;
+`projectctl/benchmark_adapter.py`;
+`benchmarks/{assistant_evaluation,capacity,collectors,experiment,integration,integration_faults,metrics,reporting,scheduler}.py`;
+`benchmarks/manual/{verify_p7,verify_p11}.py`;
+`tests/benchmarks/{test_assistant_evaluation,test_audit_evidence,test_metrics,test_scheduler,test_verifier_evidence,time_double}.py`;
+`tests/contracts/test_clients.py`;
+`tests/conversation/{process,server,test_state,test_workflow,test_process_workflow}.py`;
+`tests/integration/{test_p8,test_audit_cancellation}.py`;
+`tests/oracles/test_reconciliation.py`; `tests/projectctl/test_cli.py`;
+`tests/telemetry/{test_collectors,test_observation}.py`;
+`.github/workflows/offline.yml`; `docs/jaineel/{p9_performance,progress}.md`.
+
+**Actual verification and retained evidence**
+
+- Baseline full verifier: **966 passed**. Reproductions of order/header identity,
+  assistant budgets, review persistence, saved fault corruption and search-result
+  defects failed before their fixes. Red/green JUnit files remain in
+  `artifacts/p11/prepush-baseline-20261028/`; focused counts overlap the final suite.
+- Final command:
+  `.venv/Scripts/python.exe -m benchmarks.manual.verify_p11 --out artifacts/p11/prepush-verified-20261028 --database-file artifacts/p1-p7-audit/20261027-audit/verifier-p6/local-database.json`.
+  Harness checks passed; **993 tests passed, zero failures/errors/skips, 190.32 s**.
+  Ruff, generated schemas and conversation contract checks exited **0**. One
+  upstream Starlette/httpx deprecation warning remains. The verifier retained exact
+  commands, outputs, JUnit, sanitized DB facts, fixture hash and paired traces.
+- `uv sync --locked` also passed with a fresh environment selected through
+  `UV_PROJECT_ENVIRONMENT=artifacts/p11/prepush-clean-env-20261028`; Python 3.11.15,
+  38 resolved/37 installed packages, all runtime imports passed. Broad Ruff lint
+  and format checks passed for all 145 owner implementation/test files. Commands
+  and exits are retained as `clean-*.command.json`, `lint-all.command.json` and
+  `format-all.command.json` in the baseline directory.
+- `.venv/Scripts/python.exe -m benchmarks.manual.p6_smoke --out artifacts/p11/prepush-baseline-20261028/p6-smoke-rerun`
+  passed against the explicit isolated PostgreSQL URL. The first concurrent smoke
+  returned 503/exit 1; PostgreSQL logged an `operation_keys` statement timeout.
+  Its raw failed transcript/log is preserved. The standalone rerun passed without
+  relaxing timeouts, and the final full suite ran without concurrent DB smoke.
+- `.venv/Scripts/python.exe -m benchmarks.manual.p7_smoke --test-double-providers --confirm-checkout --out artifacts/p11/prepush-baseline-20261028/p7-smoke`
+  exited **0**. `benchmarks.manual.slow_publisher --out artifacts/p11/prepush-baseline-20261028/slow`
+  and `benchmarks.manual.observer_stall --out artifacts/p11/prepush-baseline-20261028/stall`
+  (same interpreter and `-m`) exited **0**; the slow publisher's deliberate
+  target-miss experiment remained exit **5**, with every operation accounted for.
+- Actual TCP M1 requests cover session/cart read/write, search, quote, explicit
+  checkout, duplicate/changed keys, stale versions/confirmations, cross-user and
+  namespace access, response loss and recovery to one PENDING order, plus visible
+  catalogue failure. Returned IDs/versions are in final verifier
+  `tmp/test_network_workflow_isolatio0/http.json`. Process restart and rollback
+  tests use real PostgreSQL 18.6, with all durability flags on. Existing Docker
+  containers/volumes were preserved; no database restart was performed this time.
+- Catalogue/Orders, event/outbox, model, fault and analytics dependencies are
+  explicit doubles. Status/SSE identity/reconnect checks use HTTP transport
+  doubles; no live Orders/Kafka/replay/stock/ledger/Gold pass is claimed. Fixed
+  and assist traces retain the same 60 scenarios; fixed calls are zero and live
+  model calls are zero. Provider spies cover eligible one-call fallback failures.
+- Independent source checksum and 20,000-row disposition assertions passed;
+  provider normalization/facet comparison remains NOT_RUN. Saved P10 report
+  rebuilding twice reproduced the original exactly: **73 runs, 300 indexed
+  inputs, 37 correctness cases, zero measured runs/performance values**,
+  `required_core_complete=false` (`saved-report-check.json`). No workload rerun
+  or new report document was generated for this check.
+
+**Remaining handoffs and required reruns**
+
+The following exact commands, prefixed with `.venv/Scripts/python.exe -m`, each
+returned **4** and preserved missing-dependency evidence:
+
+- `projectctl contracts check --all`;
+- `projectctl eval run --suite correctness,smoke,T-10,T-11 --config configs/evaluation.yaml`;
+- `projectctl benchmark run --workload W-PIPE --variants B0 --repetitions 1 --smoke --config configs/evaluation.yaml`.
+
+Harsh must supply canonical catalogue/search/quote DTOs, manifests and import/
+projection adapters; Aditya must supply Orders, shared outbox/DDL, seed, independent
+stock/ledger audits and fault hooks; Vichitr must supply enforceable locked
+infrastructure, Kafka/transport, analytics/replay, collectors and fault bindings.
+Repeat these commands after their handoffs and inspect actual namespace-bound
+receipts. Then complete same-revision real correctness, B0/paired variants,
+selection and stress/recovery under the canonical runbook. No long matrix ran.
+
+Earlier diagnostics produced before the cohort, cancellation, resource or evidence
+validation fixes cannot certify the corrected implementation. Preserve originals
+and regenerate relevant evidence after real handoffs. The inspected P10 report
+contains no measured performance result to carry forward or invalidate. Real DE
+release, human label review/freeze, live assistant quality/cost and hosted CI remain
+unverified. Rebuild/reconcile new real results with P10; do not relabel old blocked
+or synthetic runs as passing. The final local ownership, whitespace, index and
+publication checks are recorded alongside the verifier evidence.

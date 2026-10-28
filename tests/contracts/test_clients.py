@@ -525,3 +525,59 @@ def test_extra_transport_fields_cannot_override_identity(headers, params, contex
     with pytest.raises(ValueError, match="identity|authorization"):
         asyncio.run(run())
     assert double.requests == []
+
+
+def test_sse_conflicting_current_version_is_not_silently_discarded(context, pairs):
+    snapshot = copy.deepcopy(pairs["sse-pending"]["response"])
+    changed = {**snapshot, "status": "RESERVING"}
+
+    async def provider(request):
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/event-stream"},
+            stream=Chunks([sse(snapshot), sse(changed)]),
+        )
+
+    async def run():
+        async with http_for(provider) as http:
+            return [item async for item in http.events(uid(6), context)]
+
+    with pytest.raises(ContractViolation, match="conflicting"):
+        asyncio.run(run())
+
+
+@pytest.mark.parametrize("field", ["X-Session-ID", "X-Trace-ID"])
+def test_extra_headers_cannot_supply_an_identity_absent_from_context(field, context):
+    double = ScriptedProvider()
+    context = context.model_copy(update={"session_id": None, "trace_id": None})
+
+    async def run():
+        async with http_for(double) as http:
+            await http.request("order_status", context, order_id=uid(6), headers={field: uid(99)})
+
+    with pytest.raises(ValueError, match="identity|authorization"):
+        asyncio.run(run())
+    assert not double.requests
+
+
+@pytest.mark.parametrize("stream", [False, True])
+@pytest.mark.parametrize("field", ["order_id", "user_id", "session_id"])
+def test_order_responses_bind_to_requested_resource_and_principal(context, pairs, stream, field):
+    snapshot = copy.deepcopy(pairs["sse-pending"]["response"])
+    snapshot[field] = uid(99)
+
+    async def provider(request):
+        if stream:
+            return httpx.Response(
+                200, headers={"content-type": "text/event-stream"}, stream=Chunks([sse(snapshot)])
+            )
+        return httpx.Response(200, json=snapshot)
+
+    async def run():
+        async with http_for(provider) as http:
+            if stream:
+                return [item async for item in http.events(uid(6), context)]
+            return await OrdersClient(http).status(uid(6), context)
+
+    with pytest.raises(ContractViolation, match="identity|principal"):
+        asyncio.run(run())

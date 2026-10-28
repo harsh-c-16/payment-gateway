@@ -109,7 +109,7 @@ def assess_run(directory, rate):
     }
     values = defaultdict(dict)
     resources_valid = True
-    memory_components = set()
+    memory_seconds = defaultdict(set)
     for row in rows:
         second = math.floor(datetime.fromisoformat(row["timestamp"]).timestamp() - start)
         if not 0 <= second < 600:
@@ -121,7 +121,7 @@ def assess_run(directory, rate):
                 raise ValueError("duplicate/missing capacity observation within a second")
             values[key][row["series_key"]] = row["value"]
         if row["metric_name"] in {"cgroup_memory_current_bytes", "cgroup_memory_peak_bytes"}:
-            memory_components.add(row["component"])
+            memory_seconds[row["component"]].add(second)
             allocation = run["config"].profile.service_allocations.get(row["component"])
             if (
                 allocation is None
@@ -130,7 +130,9 @@ def assess_run(directory, rate):
                 or row["details"].get("oom_kill_count") != 0
             ):
                 resources_valid = False
-    if memory_components != set(run["config"].profile.services):
+    if set(memory_seconds) != set(run["config"].profile.services) or any(
+        seconds != set(range(600)) for seconds in memory_seconds.values()
+    ):
         resources_valid = False
     samples = []
     for second in range(600):

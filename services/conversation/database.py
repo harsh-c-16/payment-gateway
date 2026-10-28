@@ -118,8 +118,8 @@ def main():
         print("M1 migration failed: STORAGE_UNAVAILABLE (connection details withheld).")
         return 4
     print(
-        "M1 state/workflow migrations 1-2 applied/verified; "
-        "shared outbox/diagnostic DDL remains owner-supplied."
+        "M1 state/workflow/intent migrations 1-3 applied/verified; "
+        "shared outbox/local-diagnostic DDL remains owner-supplied."
     )
     return 0
 

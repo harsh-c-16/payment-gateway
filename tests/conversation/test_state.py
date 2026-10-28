@@ -375,3 +375,15 @@ def test_canonical_hash_preserves_arrays_rejects_nan_and_ignores_object_order():
     assert canonical_hash([1, 2]) != canonical_hash([2, 1])
     with pytest.raises(ValueError):
         canonical_hash({"bad": float("nan")})
+
+
+def test_independent_test_contexts_do_not_contend_on_database_advisory_locks(database, context):
+    from .conftest import context as context_fixture
+
+    other = context_fixture.__wrapped__()
+    state = ConversationState(database, events=EventCaptureDouble())
+    key = str(uuid4())
+    with database.transaction() as first:
+        state._lock(first, (context.namespace, context.user_id, "submit_turn", key))
+        with database.transaction(statement_timeout_ms=100) as second:
+            state._lock(second, (other.namespace, other.user_id, "submit_turn", key))

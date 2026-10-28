@@ -16,6 +16,51 @@ import psycopg
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def scenario_results(junit, fixture_hash):
+    """Retain the testcase verdict, including a failure after record_property."""
+    rows, cases = [], []
+    for test in junit.iter("testcase"):
+        failure = test.find("failure")
+        error = test.find("error")
+        skipped = test.find("skipped")
+        status = (
+            "FAIL"
+            if failure is not None or error is not None
+            else ("NOT_RUN" if skipped is not None else "PASS")
+        )
+        for prop in test.iter("property"):
+            if prop.attrib.get("name") != "assistant_turn":
+                continue
+            row = json.loads(prop.attrib["value"])
+            if row.get("mode", "fixed") != "fixed":
+                continue
+            rows.append(row)
+            cases.append(
+                {
+                    "case_id": "T-10/D-05/" + row["scenario_id"],
+                    "input_fixture_hash": fixture_hash,
+                    "namespace": row["namespace"],
+                    "started_at": row["started_at"],
+                    "completed_at": row["completed_at"],
+                    "status": status,
+                    "assertions": [
+                        {
+                            "name": "fixed_scenario_assertions",
+                            "expected": "pass",
+                            "observed": status.lower(),
+                            "passed": status == "PASS",
+                        }
+                    ],
+                    "fault_receipt_refs": [],
+                    "artifact_refs": ["pytest.xml", "assistant_turns.jsonl"],
+                    "failure_reason": None
+                    if status == "PASS"
+                    else "See pytest.xml testcase verdict",
+                }
+            )
+    return rows, cases
+
+
 def docker_database(url):
     """Read only discovery; retain selected facts, never inspect environment secrets."""
     containers = subprocess.run(
@@ -171,40 +216,15 @@ def main():
         print(f"{result.returncode} (expected {expected}): {' '.join(command)}", flush=True)
     junit = ET.parse(args.out / "pytest.xml").getroot()
     tests = list(junit.iter("testcase"))
-    rows = [
-        json.loads(p.attrib["value"])
-        for p in junit.iter("property")
-        if p.attrib.get("name") == "assistant_turn"
-    ]
+    rows, cases = scenario_results(
+        junit,
+        hashlib.sha256(
+            (ROOT / "contracts/fixtures/assistant/scenarios.json").read_bytes()
+        ).hexdigest(),
+    )
     for filename, values in (
         ("assistant_turns.jsonl", rows),
-        (
-            "tests.jsonl",
-            [
-                {
-                    "case_id": "T-10/D-05/" + row["scenario_id"],
-                    "input_fixture_hash": hashlib.sha256(
-                        (ROOT / "contracts/fixtures/assistant/scenarios.json").read_bytes()
-                    ).hexdigest(),
-                    "namespace": row["namespace"],
-                    "started_at": row["started_at"],
-                    "completed_at": row["completed_at"],
-                    "status": "PASS",
-                    "assertions": [
-                        {
-                            "name": "fixed_scenario_assertions",
-                            "expected": "pass",
-                            "observed": "pass",
-                            "passed": True,
-                        }
-                    ],
-                    "fault_receipt_refs": [],
-                    "artifact_refs": ["pytest.xml", "assistant_turns.jsonl"],
-                    "failure_reason": None,
-                }
-                for row in rows
-            ],
-        ),
+        ("tests.jsonl", cases),
     ):
         (args.out / filename).write_text(
             "".join(json.dumps(v) + "\n" for v in values), encoding="utf-8"
@@ -212,6 +232,7 @@ def main():
     passed = (
         all(c["matched"] for c in checks)
         and len(rows) == 60
+        and len({row["scenario_id"] for row in rows}) == 60
         and all(
             t.find("skipped") is None and t.find("failure") is None and t.find("error") is None
             for t in tests

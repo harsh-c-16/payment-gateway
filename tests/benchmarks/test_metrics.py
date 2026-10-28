@@ -144,6 +144,40 @@ def test_rates_separate_physical_admission_unique_goodput_and_drain():
     assert result["status"] == "INCOMPLETE"
 
 
+def test_measurement_duplicate_of_warmup_event_does_not_become_measurement_goodput():
+    domain = "single-host"
+    planned = [
+        {"record_id": record, "event_id": event, "scheduled_at": when, "clock_domain": domain}
+        for record, event, when in [
+            ("warmup", "old", 5),
+            ("duplicate", "old", 11),
+            ("new", "new", 12),
+        ]
+    ]
+    admissions = [
+        {"record_id": record, "at": when, "status": "accepted", "clock_domain": domain}
+        for record, when in [("duplicate", 11), ("new", 12)]
+    ]
+    visibility = [
+        {"event_id": event, "at": 15, "clock_domain": domain, "active_membership_verified": True}
+        for event in ("old", "new")
+    ]
+    result = cohort_rates(
+        planned,
+        admissions,
+        visibility,
+        expected_valid_ids={"old", "new"},
+        start=10,
+        end=20,
+        drain_end=30,
+        clock_domain=domain,
+    )
+    assert result["offered_count"] == result["admitted_count"] == 2
+    assert result["gold_goodput_count"] == 1
+    assert result["gold_goodput_per_second"] == 0.1
+    assert result["completion_fraction"] == 1
+
+
 def test_zero_window_and_different_machine_clocks_are_explicit():
     result = cohort_rates(
         [], [], [], expected_valid_ids=set(), start=1, end=1, drain_end=1, clock_domain="host-a"

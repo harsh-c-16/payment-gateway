@@ -107,8 +107,14 @@ def _external_refs(index, value):
 
 def _evaluation(path, index):
     """Rebuild each completed case's assertions from its immutable raw audit."""
-    from benchmarks.integration import bind_runtime_inputs, check_observation, validate_review
+    from benchmarks.integration import (
+        bind_runtime_inputs,
+        check_observation,
+        load_case_review,
+        validate_setup,
+    )
     from benchmarks.integration_cases import expand_suites
+    from benchmarks.integration_faults import validate_saved_fault
 
     directory = path.parent
     manifest = _bundle(index, directory)
@@ -153,19 +159,18 @@ def _evaluation(path, index):
             bound = bind_runtime_inputs(fixture, read_json(case_dir / "exercise_receipt.json"))
             if bound != read_json(case_dir / "bound_fixture.json"):
                 raise DependencyError("bound case expectations changed")
-            review = validate_review(
-                case_dir / "binding_review.json", row["namespace"], case_dir / "fixture.json"
-            )
+            review = load_case_review(case_dir, row["namespace"])
             _external_refs(index, review["contracts"])
+            context = {"namespace": row["namespace"], "run_id": manifest["run_id"]}
+            validate_setup(read_json(case_dir / "setup.json"), context, real=True)
+            validate_saved_fault(case, context, directory, row)
             assertions, _ = check_observation(
                 case,
                 bound,
                 read_json(case_dir / "observed.json"),
-                {"namespace": row["namespace"], "run_id": manifest["run_id"]},
+                context,
                 review,
             )
-            if (case.barrier or case.outage) and not row["fault_receipt_refs"]:
-                raise DependencyError("fault case has no acknowledgement")
             item["status"] = (
                 "PASS" if assertions and all(a["passed"] for a in assertions) else "FAIL"
             )

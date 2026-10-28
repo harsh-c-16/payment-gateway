@@ -13,7 +13,13 @@ from benchmarks.observation import (
     observe_run,
 )
 from benchmarks.observation_summary import rebuild
+from tests.benchmarks.time_double import install_clock_double
 from tests.telemetry.doubles import stalled_publishers, stopped_collector
+
+
+@pytest.fixture(autouse=True)
+def virtual_elapsed_clock(monkeypatch):
+    install_clock_double(monkeypatch)
 
 
 def config(directory, *collectors, **kwargs):

@@ -94,6 +94,24 @@ def test_turn_persists_authoritative_products_one_search_and_same_request_replay
         )
 
 
+@pytest.mark.parametrize("corruption", ["duplicate-sku", "rank", "unavailable"])
+def test_fixed_workflow_rejects_semantically_invalid_search_hits(
+    workflow, context, provider, corruption
+):
+    def corrupt(response):
+        if corruption == "duplicate-sku":
+            response["hits"][1] = {**response["hits"][0], "rank": 2}
+        elif corruption == "rank":
+            response["hits"][0]["rank"] = 2
+        else:
+            response["hits"][0]["stock_available"] = 0
+
+    provider.tamper_search = corrupt
+    result = turn(workflow, context, "clothing")
+    assert result.outcome == "dependency_error" and result.products == []
+    assert result.llm_call_count == 0 and provider.count("/v1/search") == 1
+
+
 def test_structured_bypasses_extractor_and_zero_bound_stays_zero(
     workflow, context, provider, monkeypatch
 ):

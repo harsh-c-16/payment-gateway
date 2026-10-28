@@ -1,14 +1,11 @@
 """P1-P9 audit regressions. All evidence below is an explicit small test fixture."""
 
+import asyncio
 import json
-
 
 import pytest
 
-
 from benchmarks.observation_summary import rebuild
-
-
 from projectctl.artifacts import content_hash, file_hash, write_json
 
 
@@ -210,6 +207,18 @@ def test_performance_latency_uses_stage_unresolved_count(tmp_path, monkeypatch):
     assert result["producer_to_gold_p95_ms"].unresolved_count == 99
 
 
+def test_cgroup_reader_supplies_the_oom_evidence_required_by_capacity(tmp_path):
+    from benchmarks.collectors import CgroupV2Reader
+
+    (tmp_path / "cpu.stat").write_text("usage_usec 1000000\n")
+    (tmp_path / "memory.current").write_text("100\n")
+    (tmp_path / "memory.peak").write_text("200\n")
+    (tmp_path / "memory.events").write_text("oom 0\noom_kill 0\n")
+    reader = CgroupV2Reader(tmp_path, "fixture-worker", allocated_cores=1)
+    result = asyncio.run(reader(0))
+    assert all(result[s.key].details["oom_kill_count"] == 0 for s in reader.series[1:])
+
+
 @pytest.mark.parametrize("corrupt", [False, True])
 def test_performance_loader_requires_summary_agreement_with_raw_evidence(
     tmp_path, monkeypatch, corrupt
@@ -342,3 +351,77 @@ def test_invalid_stage_timers_cannot_become_latency_samples(tmp_path, change):
     freeze_telemetry(tmp_path)
     with pytest.raises(ValueError):
         rebuild(tmp_path)
+
+
+@pytest.mark.parametrize("resource_mode,valid", [("sparse", False), ("full", True), ("oom", False)])
+def test_capacity_requires_complete_memory_and_oom_evidence(
+    tmp_path, monkeypatch, resource_mode, valid
+):
+    """Evidence double: backlog complete, resources observed only once."""
+    from datetime import UTC, datetime, timedelta
+
+    import benchmarks.performance as performance
+    from benchmarks.capacity import assess_run
+    from projectctl.config import load_config
+
+    config = load_config()
+    monkeypatch.setattr(
+        performance,
+        "load_performance_run",
+        lambda _: {
+            "config": config,
+            "summary": {
+                "metrics": [{"name": "producer_to_gold_p95_ms", "status": "MEASURED", "value": 100}]
+            },
+        },
+    )
+    origin = datetime(2026, 10, 28, tzinfo=UTC)
+    write_json(
+        tmp_path / "generator.json",
+        {"wall_anchor": origin.isoformat(), "measurement_start_elapsed_seconds": 60},
+    )
+    write_json(
+        tmp_path / "admission.json",
+        {
+            "phases": {
+                "measurement": {
+                    "planned": 300000,
+                    "acknowledged_in_window": 300000,
+                    "unresolved": 0,
+                    "missed": 0,
+                }
+            }
+        },
+    )
+    observations = []
+    for second in range(600):
+        for metric in ("kafka_consumer_lag", "gold_pending_events", "outbox_pending"):
+            observations.append(
+                {
+                    "metric_name": metric,
+                    "series_key": metric,
+                    "timestamp": (origin + timedelta(seconds=60 + second)).isoformat(),
+                    "status": "MEASURED",
+                    "value": 0,
+                }
+            )
+    for service in config.profile.services:
+        for second in range(1) if resource_mode == "sparse" else range(600):
+            observations.append(
+                {
+                    "metric_name": "cgroup_memory_peak_bytes",
+                    "component": service,
+                    "series_key": service,
+                    "timestamp": (origin + timedelta(seconds=60 + second)).isoformat(),
+                    "status": "MEASURED",
+                    "value": 100,
+                    "details": {"oom_kill_count": int(resource_mode == "oom" and second >= 300)},
+                }
+            )
+    (tmp_path / "observations.jsonl").write_text(
+        "".join(json.dumps(row) + "\n" for row in observations)
+    )
+    result = assess_run(tmp_path, 500)
+    assert result["capacity_valid"] is valid
+    if not valid:
+        assert "resource budget/OOM evidence invalid" in result["reasons"]

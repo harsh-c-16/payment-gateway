@@ -20,6 +20,36 @@ class ExplicitAdapterDouble:
         return ProviderResult(self.code, ("explicit adapter double",), "stub")
 
 
+def test_draft_matrix_does_not_scan_prior_results_for_each_blocked_trial(
+    workspace, monkeypatch, capsys
+):
+    import projectctl.benchmark_adapter as adapter
+
+    previous = workspace / "benchmarks/results/earlier-run"
+    previous.mkdir(parents=True)
+
+    def forbidden(*args):
+        raise AssertionError("blocked configuration cannot reuse an earlier measurement")
+
+    monkeypatch.setattr(adapter, "reusable_run", forbidden)
+    assert (
+        main(
+            [
+                "benchmark",
+                "matrix",
+                "--matrix",
+                "configs/core_matrix.yaml",
+                "--config",
+                "configs/evaluation.yaml",
+            ]
+        )
+        == 4
+    )
+    result = json.loads(capsys.readouterr().out)
+    assert result["runs"] and all(row["exit_code"] == 4 for row in result["runs"])
+    assert all(row["status"] == "NOT_RUN" for row in result["runs"])
+
+
 @pytest.mark.parametrize("failure", [RuntimeError, ValueError])
 def test_provider_exception_retains_failure_evidence(workspace, capsys, failure):
     def broken(invocation):

@@ -125,6 +125,15 @@ def request_cutoff(deadline, timeout_seconds):
     )
 
 
+def validate_order_identity(snapshot, order_id, context):
+    if (
+        snapshot["order_id"] != order_id
+        or snapshot["user_id"] != context.user_id
+        or (context.session_id is not None and snapshot["session_id"] != context.session_id)
+    ):
+        raise ContractViolation("order response identity/principal mismatch")
+
+
 class ProviderHTTP:
     def __init__(self, config: TransportConfig, contracts, *, transport=None, internal_token=None):
         if config.mode == "real":
@@ -166,7 +175,12 @@ class ProviderHTTP:
             if not self.internal_token:
                 raise ValueError("internal endpoint requires an explicit service token")
             outgoing["Authorization"] = "Bearer " + self.internal_token
-        protected = {field.lower() for field in outgoing} | {"authorization", "idempotency-key"}
+        protected = {field.lower() for field in outgoing} | {
+            "authorization",
+            "idempotency-key",
+            "x-session-id",
+            "x-trace-id",
+        }
         if headers and any(field.lower() in protected for field in headers):
             raise ValueError("extra headers cannot override operation identity or authorization")
         outgoing.update(headers or {})
@@ -248,6 +262,8 @@ class ProviderHTTP:
                                 raise ContractViolation("expected application/json")
                             payload = strict_json(chunks)
                             self.contracts.validate(endpoint, "response", payload)
+                            if name == "order_status":
+                                validate_order_identity(payload, path_values["order_id"], context)
                             if time.monotonic() >= cutoff:
                                 raise DependencyUnavailable(
                                     outcome_unknown=endpoint.method != "GET"
@@ -284,6 +300,7 @@ class ProviderHTTP:
         )
         cutoff = request_cutoff(deadline, self.config.timeout_seconds)
         cursor = last_event_id if last_event_id is not None else -1
+        current_snapshot = None
         first = True
         try:
             async with asyncio.timeout(remaining_time(cutoff)):
@@ -324,11 +341,19 @@ class ProviderHTTP:
                             if data:
                                 snapshot = strict_json("\n".join(data))
                                 self.contracts.validate(endpoint, "response", snapshot)
+                                validate_order_identity(snapshot, order_id, context)
                                 version = snapshot["order_version"]
                                 if event_id != str(version) or snapshot["order_id"] != order_id:
                                     raise ContractViolation("SSE identity/version mismatch")
+                                if (
+                                    version == cursor
+                                    and current_snapshot is not None
+                                    and snapshot != current_snapshot
+                                ):
+                                    raise ContractViolation("SSE conflicting order version")
                                 if version > cursor or (first and version == cursor):
                                     remaining_time(cutoff)
+                                    current_snapshot = copy.deepcopy(snapshot)
                                     yield snapshot
                                     cursor, first = version, False
                             data, event_id, event_bytes = [], None, 0

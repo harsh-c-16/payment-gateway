@@ -24,7 +24,7 @@ class PrometheusReader:
 
     mode = "real"
 
-    def __init__(self, url, series, *, timeout_seconds=0.5):
+    def __init__(self, url, series, *, timeout_seconds=0.5, max_sample_age_seconds=1.0):
         parsed = urlparse(url)
         if (
             parsed.scheme not in {"http", "https"}
@@ -37,7 +37,10 @@ class PrometheusReader:
             raise ValueError("explicit metrics URL without credentials required")
         if not 0 < timeout_seconds < 0.8:
             raise ValueError("scrape timeout must fit one-second collector deadline")
+        if not math.isfinite(max_sample_age_seconds) or max_sample_age_seconds <= 0:
+            raise ValueError("positive finite sample freshness bound required")
         self.url, self.series, self.timeout = url, tuple(series), timeout_seconds
+        self.max_sample_age = max_sample_age_seconds
 
     async def __call__(self, sequence):
         async with (
@@ -53,13 +56,21 @@ class PrometheusReader:
                         raise ValueError("bounded metrics response exceeded")
         wanted = {(s.metric, s.labels): s for s in self.series}
         result = {}
+        observed_at, seen = time.time(), set()
         for family in text_string_to_metric_families(body.decode("utf-8")):
             for sample in family.samples:
                 series = wanted.get((sample.name, tuple(sorted(sample.labels.items()))))
                 if series:
-                    if series.key in result:
+                    if series.key in seen:
                         raise ValueError("duplicate scrape series")
-                    result[series.key] = Reading(sample.value, {"source": "http_metrics"})
+                    seen.add(series.key)
+                    details = {"source": "http_metrics"}
+                    if sample.timestamp is not None:
+                        age = observed_at - float(sample.timestamp)
+                        if not math.isfinite(age) or not 0 <= age <= self.max_sample_age:
+                            continue  # explicitly stale/future samples remain missing
+                        details.update(sample_timestamp=float(sample.timestamp), sample_age=age)
+                    result[series.key] = Reading(sample.value, details)
         return result
 
 
@@ -210,6 +221,18 @@ class CgroupV2Reader:
 
     async def __call__(self, sequence):
         result = {}
+        try:
+            events = dict(
+                line.split()
+                for line in (self.directory / "memory.events")
+                .read_text(encoding="ascii")
+                .splitlines()
+            )
+            oom_kills = int(events["oom_kill"])
+            if oom_kills < 0:
+                raise ValueError("negative OOM counter")
+        except (OSError, ValueError, KeyError):
+            oom_kills = None
         for series, filename in zip(
             self.series, ("cpu.stat", "memory.current", "memory.peak"), strict=True
         ):
@@ -227,6 +250,7 @@ class CgroupV2Reader:
                         "resource_scope": "cgroup_v2",
                         "sample_monotonic": time.perf_counter(),
                         "source_file": filename,
+                        "oom_kill_count": oom_kills,
                     },
                 )
             except (OSError, ValueError, KeyError):

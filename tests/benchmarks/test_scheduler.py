@@ -8,6 +8,12 @@ from benchmarks.experiment import admission_reconciliation
 from benchmarks.scheduler import Limits, Receipt, run_schedule
 from benchmarks.workloads import generate_workload
 from tests.benchmarks.doubles import SlowPublisher
+from tests.benchmarks.time_double import install_clock_double
+
+
+@pytest.fixture(autouse=True)
+def virtual_elapsed_clock(monkeypatch):
+    install_clock_double(monkeypatch)
 
 
 def execute(
@@ -147,3 +153,54 @@ def test_cutoff_and_drain_are_saved_separately(tmp_path):
 def test_illegal_bounds_are_rejected(limits):
     with pytest.raises(ValueError):
         Limits(*limits)
+
+
+def test_cancellation_accounts_for_future_offers_without_fabricating_cutoff(tmp_path):
+    workload = generate_workload(
+        "W-PIPE",
+        42,
+        {"active_skus": ["TEST-SKU"]},
+        key_count=1,
+        warmup_seconds=0,
+        duration_seconds=1,
+        rate_per_second=10,
+    )
+    path = tmp_path / "planned.jsonl"
+    path.write_text("".join(json.dumps(row) + "\n" for row in workload.records()))
+    entered = asyncio.Event()
+
+    class Publisher(SlowPublisher):
+        async def send(self, packet, context, mark_send):
+            mark_send()
+            entered.set()
+            await asyncio.Event().wait()
+
+    async def run():
+        task = asyncio.create_task(
+            run_schedule(
+                path,
+                tmp_path,
+                Publisher(),
+                {"run_id": str(uuid4()), "namespace": "bench-test", "topic": "test"},
+                kind="sustained",
+                warmup_seconds=0,
+                duration_seconds=1,
+                drain_seconds=0.1,
+                limits=Limits(1, 2, 4096),
+            )
+        )
+        await entered.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run())
+    rows = [json.loads(line) for line in (tmp_path / "emissions.jsonl").read_text().splitlines()]
+    assert len(rows) == 10
+    assert sum(row["outcome"] == "unresolved" for row in rows) == 1
+    assert sum(row["outcome"] == "missed" for row in rows) == 9
+    assert not (tmp_path / "cutoff.json").exists()
+    stats = json.loads((tmp_path / "generator.json").read_text())
+    assert stats["status"] == "INCOMPLETE" and stats["cutoff"] is None
+    assert stats["window_seconds"] is None
+    assert not admission_reconciliation(tmp_path, workload.as_dict())["invariant_failures"]

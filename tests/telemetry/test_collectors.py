@@ -46,6 +46,30 @@ def test_actual_http_metrics_scrape_does_not_invent_absent_metrics():
         thread.join()
 
 
+def test_http_scrape_rejects_explicit_stale_sample_timestamp():
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'outbox_pending{service="orders"} 7 1000\n')
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    series = Series("outbox_pending", "orders", "rows", (("service", "orders"),))
+    try:
+        reader = PrometheusReader(f"http://127.0.0.1:{server.server_port}/metrics", (series,))
+        result = asyncio.run(reader(0))
+        assert series.key not in result
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
 def test_actual_generator_process_collector_has_real_cpu_and_rss(tmp_path):
     reader = SelfResourceReader(allocated_cores=1)
     cfg = ObservationConfig(

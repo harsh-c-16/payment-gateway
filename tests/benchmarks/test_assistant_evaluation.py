@@ -76,3 +76,18 @@ def test_purchase_call_budget_violation_fails_even_for_expected_outcome():
     row["control"] = "quote"
     with pytest.raises(ValueError):
         evaluate_workflows([row], SavedDouble("fixed"), BadDouble("assist"))
+
+
+@pytest.mark.parametrize("count", [2, -1, True, 0.5])
+def test_search_attempts_are_strictly_bounded_even_when_outcome_matches(count):
+    class BadDouble(SavedDouble):
+        def __call__(self, scenario):
+            return {**super().__call__(scenario), "search_calls": count}
+
+    with pytest.raises(ValueError, match="search"):
+        evaluate_workflows([scenario()], SavedDouble("fixed"), BadDouble("assist"))
+
+
+def test_duplicate_scenario_identity_cannot_inflate_quality_or_call_denominators():
+    with pytest.raises(ValueError, match="scenario"):
+        evaluate_workflows([scenario(), scenario()], SavedDouble("fixed"), SavedDouble("assist"))

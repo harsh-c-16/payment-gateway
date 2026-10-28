@@ -9,7 +9,7 @@ from pathlib import Path
 from uuid import UUID
 
 from benchmarks.integration_cases import expand_suites
-from benchmarks.integration_faults import FaultGate
+from benchmarks.integration_faults import FaultGate, validate_saved_fault
 from benchmarks.reconciliation import reconcile_run
 from benchmarks.scheduler import journal, utc_now
 from projectctl.artifacts import content_hash, file_hash, save_evidence, write_json
@@ -97,6 +97,17 @@ def validate_setup(setup, context, *, real):
         )
     if setup.get("active_sku_count") != 19920 or setup.get("projected_sku_count") != 19920:
         raise DependencyError("all 19,920 active SKUs must cross the initial projection barrier")
+
+
+def load_case_review(case_dir, namespace):
+    """Revalidate the owner's original bytes, then bind the frozen execution copy."""
+    source = case_dir / "source_fixture.json"
+    review = validate_review(case_dir / "binding_review.json", namespace, source)
+    expected = json.loads(source.read_text(encoding="utf-8"))
+    expected["content_sha256"] = content_hash(expected)
+    if expected != json.loads((case_dir / "fixture.json").read_text(encoding="utf-8")):
+        raise DependencyError("saved fixture differs from the owner-reviewed source")
+    return review
 
 
 def bind_runtime_inputs(fixture, receipt):
@@ -250,6 +261,7 @@ async def run_cases(invocation, registry, *, allow_test_doubles=False, blocking_
         },
     )
     rows, modes = [], set()
+    cancelled = False
     with (directory / "tests.jsonl").open("x", encoding="utf-8") as tests:
         for index, case in enumerate(selected):
             namespace = invocation.namespace + f"-{index:02}"
@@ -282,6 +294,8 @@ async def run_cases(invocation, registry, *, allow_test_doubles=False, blocking_
             }
             binding = registry.case(case.case_id)
             try:
+                if cancelled:
+                    raise DependencyError("evaluation cancelled; remaining case not executed")
                 if blocking_reasons:
                     raise DependencyError("; ".join(blocking_reasons))
                 if binding is None:
@@ -293,12 +307,24 @@ async def run_cases(invocation, registry, *, allow_test_doubles=False, blocking_
                 row["test_mode"] = binding.mode
                 modes.add(binding.mode)
                 review = None
+                fixture_bytes = binding.fixture_path.read_bytes()
                 if binding.mode == "real":
                     if binding.review_path is None:
                         raise DependencyError("reviewed real audit bindings unavailable")
-                    review = validate_review(binding.review_path, namespace, binding.fixture_path)
-                    write_json(case_dir / "binding_review.json", review)
-                fixture = json.loads(binding.fixture_path.read_text(encoding="utf-8"))
+                    # Keep the reviewed bytes before adding the execution fixture hash.
+                    # A derived review projection cannot be revalidated as an owner receipt.
+                    for name, content in (
+                        ("source_fixture.json", fixture_bytes),
+                        ("binding_review.json", binding.review_path.read_bytes()),
+                    ):
+                        with (case_dir / name).open("xb") as snapshot:
+                            snapshot.write(content)
+                    review = validate_review(
+                        case_dir / "binding_review.json",
+                        namespace,
+                        case_dir / "source_fixture.json",
+                    )
+                fixture = json.loads(fixture_bytes)
                 if fixture["case_id"] != case.case_id or not fixture.get("input"):
                     raise DependencyError("independent case input fixture missing or mismatched")
                 fixture["content_sha256"] = content_hash(fixture)
@@ -338,6 +364,10 @@ async def run_cases(invocation, registry, *, allow_test_doubles=False, blocking_
                     row["failure_reason"] = (
                         "independent invariant/contract mismatch; owner review required"
                     )
+            except asyncio.CancelledError:
+                cancelled = True
+                row["status"] = "INCOMPLETE"
+                row["failure_reason"] = "evaluation cancelled; partial evidence retained"
             except DependencyError as exc:
                 row["failure_reason"] = str(exc)
                 row["status"] = "NOT_RUN" if row["test_mode"] == "offline" else "INCOMPLETE"
@@ -494,8 +524,8 @@ def execute_reconciliation(invocation):
                         raise DependencyError("case raw evidence hash mismatch")
                 if row["status"] not in {"PASS", "FAIL"}:
                     raise DependencyError("original case was not complete; rerun required")
-                if (case.barrier or case.outage) and not row["fault_receipt_refs"]:
-                    raise DependencyError("fault acknowledgement/recovery evidence missing")
+                ctx = {"namespace": row["namespace"], "run_id": manifest["run_id"]}
+                validate_saved_fault(case, ctx, source, row)
                 case_dir = source / row["artifact_refs"][0]["path"].split("/")[0]
                 fixture = json.loads((case_dir / "fixture.json").read_text(encoding="utf-8"))
                 if fixture["content_sha256"] != content_hash(fixture) or (
@@ -515,16 +545,12 @@ def execute_reconciliation(invocation):
                     )
                 review = None
                 if row["test_mode"] == "real":
-                    frozen = json.loads(
-                        (case_dir / "binding_review.json").read_text(encoding="utf-8")
-                    )
-                    for ref in frozen["contracts"]:
-                        if file_hash(repo_path(ref["path"])) != ref["sha256"]:
-                            raise DependencyError(
-                                "reviewed binding changed; new owner review required"
-                            )
-                    review = frozen
-                ctx = {"namespace": row["namespace"], "run_id": manifest["run_id"]}
+                    review = load_case_review(case_dir, row["namespace"])
+                validate_setup(
+                    json.loads((case_dir / "setup.json").read_text(encoding="utf-8")),
+                    ctx,
+                    real=row["test_mode"] == "real",
+                )
                 assertions, reconciliation = check_observation(
                     case, bound_fixture, observed, ctx, review
                 )

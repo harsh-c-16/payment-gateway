@@ -104,6 +104,7 @@ async def run_schedule(
     cutoff_snapshot = None
     phase_seen, wire_offsets = set(), {}
     operation_context = dict(context)
+    offered_count, active_offer, failure, drain_start = 0, None, None, None
 
     def record_queue():
         if telemetry is not None:
@@ -112,6 +113,32 @@ async def run_schedule(
 
     def stamp(offset):
         return (wall + timedelta(seconds=offset)).isoformat().replace("+00:00", "Z")
+
+    def new_row(logical):
+        offset = logical["offset_seconds"]
+        return {
+            "record_id": logical["logical_record_id"],
+            "scenario_id": logical["scenario_id"],
+            "event_or_request_id": str(
+                uuid5(UUID(context["run_id"]), logical["logical_record_id"])
+            ),
+            "phase": logical["phase"],
+            "expected_disposition": logical["expected_disposition"],
+            "scheduled_at": stamp(offset) if offset is not None else utc_now(),
+            "scheduled_elapsed_seconds": offset
+            if offset is not None
+            else time.perf_counter() - start,
+            "actual_send_at": None,
+            "actual_send_elapsed_seconds": None,
+            "scheduling_delay_seconds": None,
+            "scheduling_lateness_at_offer_seconds": max(0, time.perf_counter() - start - offset)
+            if offset is not None
+            else None,
+            "wire_offset": None,
+            "wire_sha256": None,
+            "pending_count_at_offer": pending_count,
+            "pending_bytes_at_offer": pending_bytes,
+        }
 
     def snapshot():
         return {
@@ -267,33 +294,12 @@ async def run_schedule(
                     enter(logical["phase"])
                     phase = logical["phase"]
                     counters[phase]["planned"] += 1
+                    offered_count += 1
                     if telemetry is not None:
                         telemetry.record("benchmark_planned_total", 1, phase=phase)
                     request_id = str(uuid5(UUID(context["run_id"]), logical["logical_record_id"]))
                     local = operation_context | {"request_id": request_id, "record": logical}
-                    row = {
-                        "record_id": logical["logical_record_id"],
-                        "scenario_id": logical["scenario_id"],
-                        "event_or_request_id": request_id,
-                        "phase": phase,
-                        "expected_disposition": logical["expected_disposition"],
-                        "scheduled_at": stamp(offset) if offset is not None else utc_now(),
-                        "scheduled_elapsed_seconds": offset
-                        if offset is not None
-                        else time.perf_counter() - start,
-                        "actual_send_at": None,
-                        "actual_send_elapsed_seconds": None,
-                        "scheduling_delay_seconds": None,
-                        "scheduling_lateness_at_offer_seconds": max(
-                            0, time.perf_counter() - start - (offset or 0)
-                        )
-                        if offset is not None
-                        else None,
-                        "wire_offset": None,
-                        "wire_sha256": None,
-                        "pending_count_at_offer": pending_count,
-                        "pending_bytes_at_offer": pending_bytes,
-                    }
+                    row = new_row(logical)
                     local |= {"scheduled_at": row["scheduled_at"], "produced_at": utc_now()}
                     if cutoff is not None and time.perf_counter() >= cutoff:
                         finish(row, "missed", "measurement_cutoff")
@@ -303,6 +309,7 @@ async def run_schedule(
                             | {"record_id": row["record_id"], "pressure": "measurement_cutoff"},
                         )
                         continue
+                    active_offer = row
                     try:
                         original = logical.get("duplicate_of")
                         if original is not None:
@@ -377,6 +384,7 @@ async def run_schedule(
                         )
                     except Exception as exc:
                         finish(row, "failed", "materialize:" + type(exc).__name__)
+                    active_offer = None
             if cutoff is not None:
                 await sleep_until(cutoff)
             capture_cutoff()
@@ -388,6 +396,9 @@ async def run_schedule(
                     await queue.join()
             except TimeoutError:
                 pass
+        except (Exception, asyncio.CancelledError) as exc:
+            failure = type(exc).__name__
+            raise
         finally:
             if phase_task:
                 phase_task.cancel()
@@ -402,17 +413,39 @@ async def run_schedule(
                 pending_bytes -= len(packet.body)
                 record_queue()
                 queue.task_done()
-        result = snapshot() | {
-            "cutoff": cutoff_snapshot,
-            "window_seconds": duration_seconds if kind == "sustained" else None,
-            "job_seconds": time.perf_counter() - start if kind != "sustained" else None,
-            "measured_job_seconds": time.perf_counter() - measured_started
-            if kind != "sustained" and measured_started is not None
-            else None,
-            "remaining_drain_seconds": max(0, drain_seconds - (time.perf_counter() - drain_start)),
-            "measurement_start_elapsed_seconds": warmup_seconds if kind == "sustained" else None,
-            "clock_domain": "generator_perf_counter",
-            "wall_anchor": stamp(0),
-        }
-        write_json(directory / "generator.json", result)
+            if failure:
+                if active_offer is not None:
+                    finish(active_offer, "missed", "aborted_before_queue:" + failure)
+                # Stream the unoffered suffix; do not allocate an unbounded queue
+                # or present an early abort snapshot as the scheduled cutoff.
+                with planned_path.open(encoding="utf-8") as planned:
+                    for index, line in enumerate(planned):
+                        if index < offered_count:
+                            continue
+                        logical = json.loads(line)
+                        counters[logical["phase"]]["planned"] += 1
+                        row = new_row(logical)
+                        row["scheduling_lateness_at_offer_seconds"] = None
+                        finish(row, "missed", "aborted_before_offer:" + failure)
+            result = snapshot() | {
+                "status": "INCOMPLETE" if failure else "COMPLETED",
+                "error_type": failure,
+                "cutoff": cutoff_snapshot,
+                "window_seconds": duration_seconds if kind == "sustained" and not failure else None,
+                "job_seconds": time.perf_counter() - start if kind != "sustained" else None,
+                "measured_job_seconds": time.perf_counter() - measured_started
+                if kind != "sustained" and measured_started is not None and not failure
+                else None,
+                "remaining_drain_seconds": max(
+                    0, drain_seconds - (time.perf_counter() - drain_start)
+                )
+                if drain_start is not None
+                else 0,
+                "measurement_start_elapsed_seconds": warmup_seconds
+                if kind == "sustained"
+                else None,
+                "clock_domain": "generator_perf_counter",
+                "wall_anchor": stamp(0),
+            }
+            write_json(directory / "generator.json", result)
         return result

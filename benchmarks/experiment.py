@@ -486,32 +486,9 @@ async def run_experiment(
     metrics = []
     sha = content_hash(resolved.model_dump())
     if generator and admission and "phases" in admission:
-        count = admission["phases"]["measurement"]
-        denominator = generator["window_seconds"] or generator["measured_job_seconds"]
-        for name, numerator in (
-            ("generator_offered_rate", count["planned"]),
-            ("admitted_rate", count["acknowledged_in_window"]),
-        ):
-            metrics.append(
-                Metric(
-                    name=name,
-                    unit="operations/second",
-                    value=numerator / denominator if denominator and denominator > 0 else None,
-                    sample_count=count["planned"],
-                    numerator=float(numerator),
-                    denominator=denominator,
-                    cohort={"sustained": "measurement", "finite": "finite_job", "queries": "query"}[
-                        item.kind
-                    ],
-                    quantile_method=None,
-                    unresolved_count=count["unresolved"],
-                    timing_validity="VALID" if denominator and denominator > 0 else "MISSING",
-                    run_id=run_id,
-                    config_sha256=sha,
-                    status="MEASURED" if denominator and denominator > 0 else "INCOMPLETE",
-                    evidence_path="emissions.jsonl",
-                )
-            )
+        from benchmarks.performance_metrics import admission_metrics
+
+        metrics.extend(admission_metrics(resolved, run_id, workload_id, generator, admission))
     metrics.append(
         Metric(
             name="gold_goodput",
