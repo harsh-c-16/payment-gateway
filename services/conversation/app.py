@@ -106,7 +106,15 @@ def workflow_unavailable():
     )
 
 
-def create_app(*, state=None, mode="real", purpose="service", turn_handler=None, workflow=None):
+def create_app(
+    *,
+    state=None,
+    mode="real",
+    purpose="service",
+    turn_handler=None,
+    workflow=None,
+    intent_provider=None,
+):
     if mode not in {"real", "stub"} or purpose not in {"service", "contract_test"}:
         raise ValueError("explicit real/service or stub/contract_test configuration required")
     if (mode == "stub") != (purpose == "contract_test"):
@@ -120,22 +128,35 @@ def create_app(*, state=None, mode="real", purpose="service", turn_handler=None,
         raise ValueError("real service cannot use test event/outbox implementations")
     if mode == "real" and turn_handler is not None:
         raise ValueError("real turns require the fixed workflow with canonical provider validation")
-    if (
-        os.environ.get("ASSISTANT_MODE", "fixed") != "fixed"
-        or os.environ.get("ALLOW_INTENT_LLM", "false").lower() != "false"
-    ):
-        raise ValueError("P7 requires ASSISTANT_MODE=fixed and ALLOW_INTENT_LLM=false")
+    assistant_mode = os.environ.get("ASSISTANT_MODE", "fixed")
+    allow = os.environ.get("ALLOW_INTENT_LLM", "false").lower()
+    if assistant_mode not in {"fixed", "assist"} or allow not in {"true", "false"}:
+        raise ValueError("explicit fixed/assist and true/false model policy required")
+    allow = allow == "true"
+    if assistant_mode == "fixed" and allow:
+        raise ValueError("fixed mode requires ALLOW_INTENT_LLM=false")
     if workflow is None and mode == "real":
+        from .intent_fallback import OpenAIIntentProvider
+
+        if intent_provider is None and assistant_mode == "assist" and allow:
+            intent_provider = OpenAIIntentProvider.from_env()
         workflow = FixedWorkflow(
             state,
             Gateway(
                 os.environ.get("CATALOG_BASE_URL", "http://catalog:8002"),
                 os.environ.get("ORDERS_BASE_URL", "http://orders:8003"),
             ),
+            assistant_mode=assistant_mode,
+            allow_intent_llm=allow,
+            intent_provider=intent_provider,
         )
     if workflow is not None and (workflow.mode != mode or workflow.state is not state):
         raise ValueError("workflow mode/state must match the service")
-    app = FastAPI(title="Conversation P7", docs_url=None, redoc_url=None, openapi_url=None)
+    if workflow is not None and (
+        workflow.assistant_mode != assistant_mode or workflow.allow_intent_llm != allow
+    ):
+        raise ValueError("workflow and configured assistant policy differ")
+    app = FastAPI(title="Conversation", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.conversation = state
     app.state.execution_mode = mode
     telemetry = Telemetry(
@@ -257,6 +278,9 @@ def create_app(*, state=None, mode="real", purpose="service", turn_handler=None,
 
     @app.get("/metrics")
     def metrics():
-        return Response(telemetry.exposition(), media_type="text/plain; version=0.0.4")
+        model_metrics = workflow.telemetry.exposition() if workflow is not None else b""
+        return Response(
+            telemetry.exposition() + model_metrics, media_type="text/plain; version=0.0.4"
+        )
 
     return app

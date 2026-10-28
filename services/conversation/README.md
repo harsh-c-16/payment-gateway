@@ -42,3 +42,13 @@ Run `python -m pytest tests/contracts -q` and
 `python benchmarks/manual/verify_p2.py` from repository root.
 See [P2 handoffs and manual checks](../../docs/jaineel/p2_contracts.md) for usage,
 deadline/retry policy, unresolved bindings and evidence interpretation.
+
+P11 adds an opt-in, single-attempt intent adapter. The default remains
+`ASSISTANT_MODE=fixed`, `ALLOW_INTENT_LLM=false`, with zero model calls.
+Apply owned migration 003 before serving the updated code. It adds private turn
+diagnostics and durable attempt reservations; old usage remains null. The existing
+ten-connection budget is split into nine ordinary slots and one intent-audit slot.
+See [P11 configuration and verification](../../docs/jaineel/p11_assist.md) for
+explicit enablement, dated model/prompt settings, attempt-spy tests and limitations.
+Required real DE gates and live quality remain incomplete; no test provider is
+loaded automatically in real mode.

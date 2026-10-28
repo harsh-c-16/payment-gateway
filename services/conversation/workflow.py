@@ -5,6 +5,7 @@ owns acceptance, stock/payment work, quote deduplication and finality.
 """
 
 import asyncio
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from time import monotonic
 from uuid import uuid4
@@ -14,10 +15,12 @@ from pydantic import TypeAdapter
 
 from shared.contracts.common import ErrorCode, IdempotencyKey, RequestContext, UUIDText
 from shared.contracts.conversation import TurnResponse, TurnTimings
+from shared.telemetry.metrics import Telemetry
 
 from .clients import DependencyUnavailable, RemoteError
 from .errors import ServiceError
 from .intent import blank_intent, extract_intent, validate_constraints
+from .intent_fallback import REASON_CODES, OpenAIIntentProvider, eligible, fallback, output_schema
 from .provider_contracts import ENDPOINTS, ContractUnavailable, ContractViolation
 from .state import canonical_hash, conflict
 
@@ -51,13 +54,49 @@ def compose_response(intent=None, search_response=None, action_status=None):
     )
 
 
+@dataclass(frozen=True)
+class TurnExecution:
+    response: TurnResponse
+    diagnostic: dict
+
+    def model_dump(self, **kwargs):
+        return self.response.model_dump(**kwargs)
+
+
 class FixedWorkflow:
-    def __init__(self, state, gateway, *, clock=None):
+    def __init__(
+        self,
+        state,
+        gateway,
+        *,
+        clock=None,
+        assistant_mode="fixed",
+        allow_intent_llm=False,
+        intent_provider=None,
+    ):
         self.state, self.gateway = state, gateway
         self.mode = gateway.mode
         if clock is not None and self.mode != "stub":
             raise ValueError("a test clock requires explicit stub mode")
         self.clock = clock or (lambda: datetime.now(UTC))
+        if assistant_mode not in {"fixed", "assist"} or type(allow_intent_llm) is not bool:
+            raise ValueError("explicit fixed/assist policy required")
+        if assistant_mode == "fixed" and allow_intent_llm:
+            raise ValueError("fixed mode cannot enable generative calls")
+        if intent_provider is not None and (
+            intent_provider.mode != self.mode
+            or (self.mode == "real" and type(intent_provider) is not OpenAIIntentProvider)
+        ):
+            raise ValueError("real workflow requires the single-HTTP-attempt model provider")
+        self.assistant_mode, self.allow_intent_llm = assistant_mode, allow_intent_llm
+        self.intent_provider = intent_provider
+        self.telemetry = Telemetry(
+            label_values={
+                "outcome": {"success", "failure"},
+                "mode": {"fixed", "assist"},
+                "reason": REASON_CODES,
+            }
+        )
 
     def ready(self):
         self.gateway.ready()
@@ -81,6 +120,8 @@ class FixedWorkflow:
         outcome, source = "clarification", "clarification"
         text = "Use the explicit cart, quote, checkout or status control."
         stage = monotonic()
+        result, dictionary, reused_attempt = None, None, False
+        attempt_config = None
         try:
             deadline = started + 3.0
             dictionary = self.call(
@@ -88,6 +129,39 @@ class FixedWorkflow:
             )
             result = extract_intent(request.text, context, dictionary)
             parse_ms = (monotonic() - stage) * 1000
+            if request.mode == "assist" and eligible(result, request.text):
+                if self.assistant_mode == "assist" and self.allow_intent_llm:
+                    if self.intent_provider is not None and monotonic() < deadline:
+                        reservation = self.state.claim_intent_attempt(
+                            request,
+                            context,
+                            {
+                                **self.intent_provider.settings.provenance(),
+                                "schema_sha256": canonical_hash(output_schema(dictionary)),
+                                "dictionary_version": dictionary["dictionary_version"],
+                            },
+                        )
+                        attempt_config = reservation["provider_config"]
+                        if not reservation["claimed"]:
+                            reused_attempt = True
+                            result = replace(
+                                result,
+                                reason_code="MODEL_PREVIOUS_ATTEMPT",
+                                llm_call_count=1,
+                                llm_ms=None,
+                            )
+                    if not reused_attempt:
+                        result = asyncio.run(
+                            fallback(
+                                result,
+                                request.text,
+                                dictionary,
+                                self.intent_provider,
+                                deadline=deadline,
+                            )
+                        )
+                else:
+                    result = replace(result, reason_code="MODEL_DISABLED")
             intent, source = result.intent, result.extractor_source
             if result.outcome != "valid":
                 text = "Please clarify: " + ", ".join(result.missing_fields) + "."
@@ -110,7 +184,17 @@ class FixedWorkflow:
                 [],
                 None,
             )
-        return TurnResponse(
+        calls = result.llm_call_count if result else 0
+        model_ms = result.llm_ms if result else None
+        if calls and not reused_attempt:
+            self.telemetry.record(
+                "intent_llm_calls_total",
+                calls,
+                outcome="success" if result.extractor_source == "llm" else "failure",
+            )
+            if model_ms is not None:
+                self.telemetry.record("intent_llm_duration_seconds", model_ms / 1000)
+        response = TurnResponse(
             turn_id=str(uuid4()),
             response_text=text,
             intent=intent,
@@ -119,15 +203,50 @@ class FixedWorkflow:
             proposed_action=None,
             outcome=outcome,
             extractor_source=source,
-            llm_call_count=0,
+            llm_call_count=calls,
             timings_ms=TurnTimings(
                 parse=parse_ms,
-                llm=None,
+                llm=model_ms,
                 search=search_ms,
                 compose=compose_ms,
                 total=(monotonic() - started) * 1000,
             ),
         )
+        diagnostic = {
+            "mode": request.mode,
+            "configured_mode": self.assistant_mode,
+            "test_mode": self.mode,
+            "reason_code": result.reason_code if result else "CATALOG_UNAVAILABLE",
+            "model_attempts": calls,
+            "reused_attempt_reservation": reused_attempt,
+            "model_ms": model_ms,
+            "model_usage": result.model_usage if result else None,
+            "model_cost": None,
+            "model_settings": attempt_config if calls else None,
+            "dictionary_version": dictionary["dictionary_version"] if dictionary else None,
+            "deterministic_extractor_version": result.extractor_version if result else None,
+            "query_embedding_calls": search["embedding_calls"] if search else None,
+            "query_embedding_ms": search.get("timings_ms", {}).get("embedding") if search else None,
+        }
+        if calls and not reused_attempt:
+            self.state.complete_intent_attempt(context, diagnostic)
+        elapsed = monotonic() - started
+        response = response.model_copy(
+            update={"timings_ms": response.timings_ms.model_copy(update={"total": elapsed * 1000})}
+        )
+        if elapsed >= 3:
+            response = response.model_copy(
+                update={
+                    "outcome": "dependency_error",
+                    "products": [],
+                    "search_id": None,
+                    "response_text": "Turn deadline exceeded; results are unknown. Retry later.",
+                }
+            )
+        self.telemetry.record("turn_duration_seconds", elapsed, mode=request.mode)
+        if response.outcome == "clarification":
+            self.telemetry.record("intent_clarifications_total", 1, reason=result.reason_code)
+        return TurnExecution(response, diagnostic)
 
     def structured_search(self, intent, context, *, key):
         """Python adapter for controls; HTTP structured search is M2 /v1/search.

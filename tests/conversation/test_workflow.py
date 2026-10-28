@@ -61,7 +61,7 @@ def quoted(workflow, context):
 
 def turn(workflow, context, text, *, key="turn"):
     created = workflow.state.create_session(context, "session")
-    request = TurnRequest(request_id=context.request_id, text=text)
+    request = TurnRequest(request_id=context.request_id, text=text, mode=workflow.assistant_mode)
     return workflow.dispatch_turn(created.session_id, request, context, key)
 
 
@@ -499,6 +499,9 @@ def test_T10_D05_fixed_scenarios(workflow, context, provider, scenario, record_p
             workflow.state,
             provider.gateway(),
             clock=lambda: datetime.fromisoformat(fixture["clock_utc"].replace("Z", "+00:00")),
+            assistant_mode=workflow.assistant_mode,
+            allow_intent_llm=workflow.allow_intent_llm,
+            intent_provider=workflow.intent_provider,
         )
         cart_id, quote = fixture["cart"]["cart_id"], fixture["quote"]
         operation = fixture["request"]
@@ -575,7 +578,7 @@ def test_T10_D05_fixed_scenarios(workflow, context, provider, scenario, record_p
     assert provider.model.attempts == 0
     evidence.update(
         scenario_id=scenario["scenario_id"],
-        mode="fixed",
+        mode=workflow.assistant_mode,
         model_attempts=0,
         live_assist="NOT_RUN",
         provider_mode="explicit_http_double",

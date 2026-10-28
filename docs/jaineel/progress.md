@@ -1491,12 +1491,139 @@ is not certified. Stop before P11.
 ---
 
 ### Milestone P11: Optional One-Call Intent Fallback
-- **State:** not started
-- **Branch:** —
-- **Base Commit:** —
-- **Brief Task:** J05 (Optional last)
-- **Commands:** —
-- **Evidence Paths:** —
-- **Test Mode:** —
-- **Pending Owner Handoffs:** Optional external LLM API availability.
-- **Next Action:** Implement structured intent fallback adapter respecting single-call constraint.
+- **State:** owner implementation/provider-spy correctness verified. Required real
+  DE integration/performance and human-reviewed/live assistant quality remain
+  **INCOMPLETE/NOT_RUN**. No subsequent milestone was started.
+- **Owner/branch:** Jaineel; existing `jaineel/j03-telemetry`, as requested; no new
+  branch. Base commit `98a2c0a7c6ba6c9311bf18caaf96e318c702f8a4`.
+- **Brief task:** J05 / P11 only. No teammate implementation, public DTO/API,
+  canonical shared specification, fixture labels, tracker or application lock changed.
+- **Explicit sequencing exception:** after the playbook prerequisite was checked,
+  the user answered **"Implement P11 now; keep real gates incomplete"**. This
+  authorizes isolated optional-code/spy work; it does not complete G4/G5/G6. The
+  actual P10 report still has `required_core_complete=false`, zero measured
+  performance metrics and incomplete setup. Human review of the 60 labels remains
+  `PENDING_NOT_PERFORMED`; no review/approval or live measurement was fabricated.
+- **Preservation:** all 32 initially dirty/untracked paths were snapshotted in
+  `artifacts/p11/before/`. The progress file is staged from HEAD plus only P11,
+  preserving prior uncommitted audit text. Existing conservative parser fixes and
+  their eight assertions, and the test namespace-isolation fix, are necessary P11
+  safety/test prerequisites and enter this commit. Other audit work stays uncommitted.
+
+**Changed paths and behavior**
+
+- `services/conversation/{intent_fallback,intent,workflow,app}.py`: fixed default;
+  explicit request/service/allow gates; deterministic parse first; conservative
+  category-only fallback for an explicit supported apparel size. One bounded raw
+  HTTP POST with strict schema, zero SDK/status/redirect retries, 1,500-ms maximum
+  reduced to remaining turn time; one search inside the 3,000-ms turn budget.
+  Explicit filters cannot change. Invalid/unsupported output, refusal and timeout
+  return clarification/diagnostic. Product text never enters the model; templates
+  and explicit purchase controls retain their existing behavior.
+- `services/conversation/{state,database}.py`,
+  `migrations/conversation/003_intent_diagnostics.sql`: private per-turn settings,
+  actual usage/null, duration/error and separate embedding diagnostics. A durable
+  attempt reservation survives later response/outbox rollback and prevents a
+  second model request for that logical turn. Reused reservations clarify with no
+  new latency sample/counter. Original provider settings survive configuration
+  changes; execution/usage after a crash can remain unknown. The existing total
+  ten-connection budget is nine ordinary slots plus one reserved audit slot.
+- `tests/conversation/{intent_doubles,test_assist,test_workflow,test_intent,conftest}.py`:
+  explicit spy/HTTP doubles, malformed output/extra fields, protected constraints,
+  missing usage, actual timeout, remaining deadline, zero-model controls,
+  identical/concurrent request replay and post-model event rollback. Same 60
+  authored scenarios/backend exercised in both modes; no fixture labels changed.
+- `benchmarks/assistant_evaluation.py`,
+  `tests/benchmarks/test_assistant_evaluation.py`: original six-slot FP/FN/macro F1,
+  separate recommendation/no-result/clarification/dependency outcomes and bounded
+  call counts, actual diagnostic quantiles and missing samples. Different backend
+  or trace identities and model-budget violations are rejected.
+- `benchmarks/manual/verify_p11.py`: exact-command/raw-output/JUnit retention,
+  explicit Docker PostgreSQL verification, same-fixture paired traces and evidence
+  index. Live credentials/configuration are removed from its child environment;
+  real provider cases still fail visibly. No live model call is made.
+- `.env.example`, `services/conversation/README.md`,
+  `docs/integration_runbook.md`, [P11 handoff](p11_assist.md), this file: explicit
+  configuration, migration/provenance, sequencing exception and manual checks.
+
+**Actual commands, results and evidence**
+
+1. Initial read-only prerequisite evidence is retained in
+   `artifacts/p11/prerequisites/`: **40 existing intent tests passed**, 0.32 s;
+   real T-10/D-05 returned **4**, two NOT_RUN cases. This remains a historical
+   pre-exception check, not the final implementation state.
+2. The first new-test run without a database had **35 passed/67 skipped**; it was
+   not accepted as full verification. `artifacts/p11/first.xml` is preserved.
+   Focused runs with the explicit existing Docker DB then passed **319** and
+   **321** tests with no failures/errors/skips. Their commands/raw outputs/JUnit
+   are in `artifacts/p11/{focused,focused-durable}/`.
+3. The first full run retained **965 passed/1 failed**, 202.43 s, in
+   `artifacts/p11/full/`. A new assertion compared a monotonic-clock subtraction
+   against literal 0.2 and failed on `0.200000000011...`. It now verifies the exact
+   interval of the actual absolute deadline supplied to the adapter. No timeout
+   or policy assertion was removed, widened or skipped. The two focused timeout
+   checks then passed; `artifacts/p11/deadline.xml` remains available.
+4. Final full verifier command:
+   `.venv/Scripts/python.exe -m benchmarks.manual.verify_p11 --out artifacts/p11/final --database-file artifacts/p1-p7-audit/20261027-audit/verifier-p6/local-database.json`.
+   Harness exit **0**; full child suite **966 passed, 0 failures/errors/skips**,
+   **198.69 s**, one upstream Starlette deprecation warning. The exact child
+   pytest array (all seven owned test directories), interpreter/cwd, UTC timings,
+   stdout/stderr, JUnit and sanitized database facts are in
+   `artifacts/p11/final/{pytest.command.json,pytest.stdout.txt,pytest.xml,database.json}`.
+   Counts from earlier focused runs overlap and are not added.
+5. PostgreSQL is the existing isolated Docker **18.6**, loopback port **32773**,
+   with durability enabled. Tests create/delete only their own fresh schemas;
+   existing containers/volumes and development data were preserved. M1 SQL is
+   real. Catalogue/Orders/event/outbox/model dependencies are explicit doubles in
+   tests requiring them. No full-system or live-model integration pass is claimed.
+6. `uv sync --locked --cache-dir artifacts/p11/uv-cache` exited **0**; lock unchanged.
+   Ruff lint/format, generated-schema and conversation-contract checks exited
+   **0** in the verifier. Canonical specifications/public DTOs remain unchanged.
+   The real `eval run --suite T-10,D-05 --config configs/evaluation.yaml` child
+   still exited **4**, with both unavailable fixed cases NOT_RUN. Its actual
+   run directory is named in `final/real-assistant-cases.stdout.txt`.
+7. `final/assistant_comparison.json` retains **60 fixed + 60 assist** raw traces,
+   each with **60 expected-outcome matches**, **56 non-dependency task outcomes**,
+   **23 recommendations**, **5 correct no-results**, **12 correct clarifications**,
+   **4 dependency failures**, and **0 model attempts**. None of these 60 texts is
+   eligible under conservative v1; additional spy tests exercise actual attempts
+   and failures. Original six-slot macro F1 is **0.9532163742690059**, explicitly an
+   **unreviewed-label/synthetic diagnostic**, not certified or live quality.
+   The fixture byte hash is pinned for reproduction; human label freeze is NOT_RUN.
+   Live quality/latency/tokens/cost remain NOT_RUN/null; live calls **0**.
+
+**Commit-source verification and checkpoint**
+
+The exact isolated staged-source regression and Git scope/preservation results are
+recorded below after execution. Generated data, raw traces and benchmark results
+remain ignored and are not committed. Commit/push uses the current branch only.
+
+**Remaining dependencies and manual continuation**
+
+- Harsh: canonical catalogue/facet/quote contracts and manifests, independent
+  normalization/query/import/layout evidence and costs.
+- Aditya: real transaction/outbox/seed interfaces, stock/ledger/finality audits
+  and acknowledged recovery controls.
+- Vichitr: locked enforceable infrastructure, real transport/analytics/replay,
+  membership, resource observations and fault bindings.
+- All owners: execute/review the required correctness, measured baseline/paired
+  variants, selection, stress/recovery and clean reproduction. Repeat the P10
+  report and verify actual required-core completion from its raw evidence.
+- Before certified assistant quality, have a human review/freeze the 60 existing
+  scenarios and retain the reviewed hashes. Missing live access remains optional;
+  live quality, latency, tokens and cost stay NOT_RUN/null.
+
+Follow [the P11 manual checks](p11_assist.md#reproducible-checks-and-manual-review).
+Run the verifier into a fresh directory with your own ignored Docker connection
+record. After real handoffs, migrate M1, explicitly configure assist/allow and a
+reviewed dated model privately. Compare fixed and eligible assist requests, inspect
+protected filters, attempt rows and actual remaining deadlines. Recheck invalid/
+timeout/injection cases with labelled doubles; replay the same request and the
+isolated rollback case to confirm no second attempt. Inspect the two 60-scenario
+trace sets and per-slot FP/FN; have a human review/freeze their hashes before final
+quality claims. Keep live usage/cost null when unavailable. Restore fixed/false
+for the required DE experiments and complete the outstanding real DE gates.
+
+**Checkpoint:** isolated P11 code and spy correctness are reviewable under the
+explicit sequencing exception. Real DE release and human-reviewed/live assistant
+quality are not certified. Stop here; no subsequent milestone was started.

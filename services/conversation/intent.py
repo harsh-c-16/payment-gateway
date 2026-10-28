@@ -31,8 +31,8 @@ class IntentResult:
     extractor_source: str = "rules"
     llm_call_count: int = 0
     parse_ms: float = 0
-    llm_ms: None = None
-    model_usage: None = None
+    llm_ms: float | None = None
+    model_usage: dict | None = None
 
 
 def blank_intent(text):
@@ -143,8 +143,7 @@ def extract_intent(text, context, dictionary):
         source = normalized
         if field == "size":
             source = re.sub(r"\b[a-z]\b", " ", source)
-            explicit = re.search(r"\bsize(?:\s*(?:=|:)\s*|\s+)([a-z]+)\b", normalized)
-            if explicit:
+            for explicit in re.finditer(r"\bsize(?:\s*(?:=|:)\s*|\s+)([a-z]+)\b", normalized):
                 source += " " + explicit[1]
         found = phrases(source, mapping)
         if len(found) == 1:
@@ -158,8 +157,9 @@ def extract_intent(text, context, dictionary):
         ("brand", "brand"),
         ("category", "category"),
     ):
-        explicit = re.search(r"\b(?:" + cue + r")(?:\s*(?:=|:)\s*|\s+(?:is\s+)?)(\w+)", normalized)
-        if explicit:
+        for explicit in re.finditer(
+            r"\b(?:" + cue + r")(?:\s*(?:=|:)\s*|\s+(?:is\s+)?)(\w+)", normalized
+        ):
             if intent[field] is None or not any(
                 phrase.split()[0] == explicit[1] for phrase in maps[field]
             ):
@@ -176,6 +176,16 @@ def extract_intent(text, context, dictionary):
     )
     suffix = re.findall(r"\b(\d+(?:\.\d+)?)\s+rupees or less\b", normalized)
     price.extend(("at most", amount) for amount in suffix)
+    # Every monetary clause must be understood. A recognized upper bound does
+    # not license dropping a second malformed bound, minimum, or foreign unit.
+    cues = re.findall(r"\b(?:under|below|at most|within a budget of|up to)\b", normalized)
+    if len(cues) + len(suffix) != len(price) or re.search(
+        r"\b(?:above|over|at least|more than|between|minimum)\s+(?:inr\s*)?[-\d]",
+        normalized,
+    ):
+        missing.append("max_price_minor")
+    if re.search(r"\b(?:usd|eur|gbp|jpy|dollars?|euros?|pounds?|yen)\b|[$€£¥]", normalized):
+        missing.append("currency")
     if len(price) > 1:
         missing.append("max_price_minor")
     elif price:

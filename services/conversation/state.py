@@ -227,6 +227,46 @@ class ConversationState:
                 "Checkout outcome is unresolved; retry the original checkout before editing.",
             )
 
+    def claim_intent_attempt(self, request, context, provider_config):
+        """Reserve one provider attempt durably before I/O, even if the turn later rolls back."""
+        digest = canonical_hash(
+            {"session_id": context.session_id, **request.model_dump(mode="json")}
+        )
+        with self.database.transaction(intent_audit=True) as tx:
+            claimed = tx.execute(
+                "INSERT INTO intent_attempts "
+                "(namespace,request_id,run_id,session_id,user_id,request_hash,provider_config) "
+                "VALUES (%s,%s,%s,%s,%s,%s,%s) ON CONFLICT DO NOTHING RETURNING request_id",
+                (
+                    context.namespace,
+                    request.request_id,
+                    context.run_id,
+                    context.session_id,
+                    context.user_id,
+                    digest,
+                    Jsonb(provider_config),
+                ),
+            ).fetchone()
+            if claimed:
+                return {"claimed": True, "provider_config": provider_config}
+            existing = tx.execute(
+                "SELECT user_id,request_hash,provider_config FROM intent_attempts "
+                "WHERE namespace=%s AND request_id=%s",
+                (context.namespace, request.request_id),
+            ).fetchone()
+            if existing["user_id"] != context.user_id or existing["request_hash"] != digest:
+                raise conflict()
+            return {"claimed": False, "provider_config": existing["provider_config"]}
+
+    def complete_intent_attempt(self, context, diagnostic):
+        """Actual returned usage/error survives any later response/event rollback."""
+        with self.database.transaction(intent_audit=True) as tx:
+            tx.execute(
+                "UPDATE intent_attempts SET diagnostic=%s WHERE namespace=%s AND request_id=%s "
+                "AND user_id=%s AND diagnostic IS NULL",
+                (Jsonb(diagnostic), context.namespace, context.request_id, context.user_id),
+            )
+
     def record_turn(self, session_id, request: TurnRequest, context, key, handler: TurnHandler):
         """Persist a caller-supplied workflow outcome; P6 implements no workflow.
 
@@ -273,8 +313,8 @@ class ConversationState:
                 tx.execute(
                     "INSERT INTO turns "
                     "(namespace,request_id,turn_id,session_id,user_id,"
-                    "request_hash,response,created_at) "
-                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+                    "request_hash,response,created_at,intent_diagnostic) "
+                    "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                     (
                         context.namespace,
                         request.request_id,
@@ -284,6 +324,7 @@ class ConversationState:
                         digest,
                         Jsonb(response.model_dump(mode="json")),
                         created_at,
+                        Jsonb(outcome.diagnostic) if hasattr(outcome, "diagnostic") else None,
                     ),
                 )
                 self._event(

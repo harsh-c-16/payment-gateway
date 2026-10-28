@@ -224,3 +224,11 @@ successful dependency detection is not an integration pass. Ask a teammate to
 repeat these commands and trace one successful and one declined checkout using
 the identities in the P8 instructions above. Human reproduction remains NOT_RUN
 until its actual evidence is returned. Stop before P11.
+
+## Optional P11 under the explicit sequencing exception
+
+The user subsequently authorized isolated P11 implementation while real G4/G5/G6
+stay incomplete. See [P11 configuration and checks](jaineel/p11_assist.md).
+Fixed remains default; no live provider is called by its verifier. Its spy/HTTP
+double checks and real M1 PostgreSQL checks are separate from the still unavailable
+real provider integration and human-reviewed/live quality evaluation.

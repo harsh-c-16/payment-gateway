@@ -63,6 +63,14 @@ def test_real_rules_preserve_hard_slots(text, expected):
         "clothing size:XXXXXL",
         "clothing under 500e3 rupees",
         "clothing under 1,00 rupees",
+        "clothing under 100 USD",
+        "clothing under 100 euros",
+        "clothing under 100 rupees and above 50 rupees",
+        "clothing colour blue and colour ultraviolet",
+        "clothing material cotton and fabric unobtainium",
+        "clothing size M and size XXXXXL",
+        "clothing size M and size L",
+        "clothing up to 500 rupees and below -5 rupees",
     ],
 )
 def test_ambiguous_or_unknown_explicit_constraints_clarify(text):

@@ -45,7 +45,8 @@ def state(database):
 @pytest.fixture
 def context():
     return RequestContext(
-        namespace="bench-p6-test",
+        # Advisory locks are database-wide, including across isolated test schemas.
+        namespace="bench-p6-" + uuid4().hex,
         run_id=str(uuid4()),
         user_id="p6-synthetic-user",
         correlation_id=str(uuid4()),
