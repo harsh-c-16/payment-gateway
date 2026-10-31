@@ -1,8 +1,9 @@
 # ADR-M02 proposal: executable contracts and review handoff
 
-Date: 31 October 2026. Status: implementation proposal with real registry/wire
-evidence; **not a team-approved contract freeze**. No canonical spec or another
-owner's implementation/fixture has been changed.
+Date: 31 October 2026. Status: Jaineel accepted the receipt format, as reported
+by the user in this session. The shared fixture/generator and inventory assertion
+are updated within that explicit authorization. Other producer/G0 reviews remain
+pending; no canonical specification or service implementation was changed.
 
 ## Provided interfaces
 
@@ -31,7 +32,7 @@ owner's implementation/fixture has been changed.
 | Harsh / retrieval | Session-keyed search facts; `PRICE_UPDATED` is SKU-keyed; `PRODUCT_COMPARED` uses aggregate_type `search` and aggregate_id `comparison_id` | Confirm optional compare identity, modes, embedded intent and real dictionary bindings; no compare event is fabricated |
 | Aditya / inventory | `INVENTORY_REJECTED.reservation_request_id` is a UUID, required alongside a non-null order ID and reason | Common §11.4 requires a stable reserve-operation identifier but does not name it. Agree on this field before emitting per-SKU rejection facts |
 | Aditya / order and payment | Required immutable snapshots, positive versions, matching event/state, stock-version equality; dataset and simulation provenance | Review all transaction examples; migrations/outboxes remain Aditya's responsibility |
-| Jaineel / analytics readers | `{receipts:[...],next_cursor}`, `{records:[...],next_cursor}`; uppercase replay states; proposed `receipt_membership_ref` source-range field | Wrapper names follow P2 proposals; detailed items and range-membership naming still need review |
+| Jaineel / analytics readers | `{receipts:[...],next_cursor}`, `{records:[...],next_cursor}`; uppercase replay states; proposed `receipt_membership_ref` source-range field | Receipt item shape accepted by Jaineel via user confirmation; other pagination/range bindings still need review |
 | All HTTP consumers | Internal `Authorization: Bearer <INTERNAL_API_TOKEN>` | Matches the existing client proposal; no alternative token header introduced |
 
 Common §7 permits nullable envelope session/user identities outside session
@@ -42,10 +43,10 @@ transaction facts require `synthetic=true` and `scenario_source=simulation` or
 is never copied from the historical CSV crawl time. Optional future values/nulls
 remain in the original wire document for deduplication/provenance.
 
-## Exact existing receipt mismatch
+## Receipt agreement and former mismatch
 
-`contracts/fixtures/p2/pairs.json`, example `receipts-missing-timing`, currently
-contains this test-only receipt:
+Before this correction, `contracts/fixtures/p2/pairs.json`, example
+`receipts-missing-timing`, contained this provisional test-only receipt:
 
 ```json
 {"event_id":"00000000-0000-0000-0000-000000000008","disposition":"new_valid","silver_at":null,"visibility_generation":null}
@@ -58,18 +59,23 @@ offset/raw locator, `raw_sha256`, `event_id`, `disposition`, `reason_code`,
 or visibility observations are explicitly null; `timing_validity` is `missing`
 or `recovery_upper_bound` when appropriate. Stage times are not fabricated.
 
-This is a documented proposed replacement for an explicitly provisional example,
-not an approved rename of an established API. Jaineel and Vichitr must agree on
-the item shape, update the canonical fixture/client binding in their owned paths,
-and validate old/new missing-timing examples. No live reader migration is claimed.
-The full G0 contract check must continue to fail until that review and the other
-owners' missing contracts are resolved.
+The user confirmed that Jaineel agreed to this detailed receipt shape on
+31 October 2026 and authorized updating the shared files. The fixture generator
+and committed JSON now supply the required source/hash/stage fields, keep missing
+Silver/Gold observations null and set `timing_validity=missing`. The old `silver_at`
+field is removed. Regression coverage validates the accepted fixture against both
+the actual OpenAPI and `ReceiptPage`, and proves the old shape is rejected.
 
 `tests/contracts/test_contracts.py::test_contracts_check_all_preserves_missing_handoffs_in_evidence`
-also assumes `analytics.yaml` is absent and the checker returns 4. With this
-proposal present, the checker correctly inventories analytics and returns 3 for
-the receipt mismatch. Jaineel must revise that historical inventory assertion
-when reviewing the new contract. That shared test has not been weakened/deleted.
+now expects analytics to be present and its receipt example to pass. It still
+requires the checker to report genuinely missing catalogue/transaction contracts,
+return dependency exit 4 and retain unmeasured metrics as NOT_RUN. It also asserts
+there are no contract correctness failures. The P5/P6 expected exit remains 4;
+no failing exit code is accepted merely to make CI green.
+
+This is a fixture/contract migration before a running analytics API exists, so no
+live reader or persisted database migration is needed. Other owner contracts,
+SDK/outbox implementation and full G0 review remain incomplete.
 
 ## Verification and operational bounds
 

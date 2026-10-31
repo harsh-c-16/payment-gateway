@@ -1,4 +1,4 @@
-"""Analytics wire contracts; pagination/receipt extensions await consumer review."""
+"""Analytics wire contracts; Jaineel's receipt agreement recorded in the M02 handoff."""
 
 from typing import Annotated, Literal
 

@@ -16,6 +16,7 @@ from services.conversation.provider_contracts import (
     ContractViolation,
     OpenAPIContracts,
 )
+from shared.contracts.analytics import ReceiptPage
 from shared.contracts.conversation import (
     CartSnapshot,
     CartUpdateRequest,
@@ -323,8 +324,10 @@ def test_contracts_check_all_preserves_missing_handoffs_in_evidence(tmp_path, mo
         for reason in output["reasons"]
     )
     assert any(
-        "MISSING: contracts/http/analytics.yaml (Vichitr)" in reason for reason in output["reasons"]
+        "PASS: contracts/http/analytics.yaml (Vichitr)" in reason for reason in output["reasons"]
     )
+    assert any("PASS: example:receipts-missing-timing" in reason for reason in output["reasons"])
+    assert not any(reason.startswith("FAIL:") for reason in output["reasons"])
     evidence = tmp_path / output["evidence_dir"]
     assert (evidence / "summary.json").is_file()
     manifest = json.loads((evidence / "manifest.json").read_text())
@@ -332,3 +335,30 @@ def test_contracts_check_all_preserves_missing_handoffs_in_evidence(tmp_path, mo
     assert all(
         metric["status"] == "NOT_RUN" and metric["value"] is None for metric in output["metrics"]
     )
+
+
+def test_analytics_receipt_uses_agreed_shape_and_preserves_missing_timing(pairs):
+    response = pairs["receipts-missing-timing"]["response"]
+    contracts = OpenAPIContracts(ROOT / "contracts/http")
+    contracts.validate(ENDPOINTS["receipts"], "response", response)
+    receipt = ReceiptPage.model_validate(response).receipts[0]
+    assert receipt.source.topic == "bench-p2.conversation-events.v1"
+    assert receipt.silver_committed_observed_at is None
+    assert receipt.gold_visible_at is None
+    assert receipt.visibility_generation is None
+    assert receipt.timing_validity == "missing"
+    legacy = {
+        "receipts": [
+            {
+                "event_id": uid(8),
+                "disposition": "new_valid",
+                "silver_at": None,
+                "visibility_generation": None,
+            }
+        ],
+        "next_cursor": None,
+    }
+    with pytest.raises(ContractViolation):
+        contracts.validate(ENDPOINTS["receipts"], "response", legacy)
+    with pytest.raises(ValidationError):
+        ReceiptPage.model_validate(legacy)

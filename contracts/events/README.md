@@ -65,5 +65,5 @@ Registry API/content-model references:
 [JSON Schema behavior](https://docs.confluent.io/platform/current/schema-registry/fundamentals/serdes-develop/serdes-json.html).
 
 See [M02 handoff](../../docs/vichitr/m02_contract_handoff.md) for unresolved
-producer bindings and the receipt example conflict. The publishing/consuming SDK
+producer bindings and the resolved receipt agreement. The publishing/consuming SDK
 and transactional local diagnostic helper remain M03.

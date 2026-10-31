@@ -6,6 +6,33 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M02 correction — Accepted receipt and CI regression, 31 October 2026
+
+The user confirmed Jaineel's agreement with the detailed receipt format and
+explicitly authorized updating the shared fixture/tests. This supersedes the
+receipt-review blocker in the historical M02 entry below; other producer/G0
+reviews remain pending.
+
+- Updated `tests/contracts/provisional.py` and its generated
+  `contracts/fixtures/p2/pairs.json` with namespace, source coordinates, raw hash,
+  durable-stage timestamps and `timing_validity=missing`. Silver/Gold timing and
+  visibility remain null in this synthetic missing-timing fixture.
+- Updated `tests/contracts/test_contracts.py` to require analytics presence and
+  receipt compatibility, while preserving missing Harsh/Aditya handoffs and
+  NOT_RUN metrics. Added actual OpenAPI/DTO coverage that rejects the old shape.
+- Recorded the user-reported agreement in the analytics module/OpenAPI generator,
+  regenerated OpenAPI, and updated the owned plan/review handoff.
+- `python -m pytest tests/contracts tests/pipelines -q --tb=short
+  --junitxml=artifacts/m02-ci-fix/focused.xml`: **210 passed, 3 skipped**. All skipped
+  tests explicitly require unrelated opt-in live Kafka/PostgreSQL checks.
+- `python -m projectctl contracts check --all`: expected dependency exit **4**;
+  `receipts-missing-timing` passes and no correctness FAIL remains. Full G0 is
+  still incomplete. Evidence: `artifacts/projectctl/3e3991e5-fc28-4c24-8dcb-3e517bf2d99a/`.
+
+Full CI-script verification and the real isolated PostgreSQL rehearsal are pending
+at this initial correction checkpoint; subsequent evidence will be recorded here.
+No database format, event schema ID, application lock or deployment was changed.
+
 ## M02 — Contracts implemented; team review pending, 31 October 2026
 
 Branch: `vichitr`. Owned offline and real registry/wire checks pass. This is a

@@ -274,7 +274,8 @@ def analytics_openapi():
             "title": "Analytics API",
             "version": "1.0.0",
             "description": "M02 executable contract proposal; no running API is implied. "
-            "Pagination, receipt extensions and token binding await G0 consumer review. "
+            "Receipt shape accepted by Jaineel via user confirmation on 2026-10-31; "
+            "remaining G0 bindings still require review. "
             "Gold date_from is inclusive; date_to is exclusive. Queries pin active files.",
         },
         "servers": [{"url": "http://analytics:8006"}],
