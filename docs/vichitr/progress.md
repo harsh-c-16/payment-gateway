@@ -6,6 +6,114 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M04 — Durable FileStore, Bronze and capture ledger, 31 October 2026
+
+Implemented within Vichitr-owned paths. This is capture and receipt **foundation**,
+not a completed source disposition/Silver/Gold path. See [M04 handoff](m04_capture_handoff.md).
+
+### Changed paths and behavior
+
+- pipelines/storage/__init__.py and README: three-argument immutable FileStore,
+  input/read-back hashes, file/directory fsync, same-directory rename, cooperating
+  process lock, traversal/symlink rejection, idempotent retry and read-only orphan
+  inventory. Native Windows fails explicitly; real durable execution uses the
+  private Linux named volume. No deletion/cleanup implementation was introduced.
+- pipelines/ingestion/{__init__,bronze,receipts}.py and README: exact base64 byte
+  wrappers, duplicate header order/nulls, source coordinates/times/fingerprint,
+  file/row locators, fixed 1-MiB/50-ms capture bounds and bounded input sequences.
+  Receipt recovery verifies hashes/membership. Caller-owned SQL persistence keeps
+  first source locators, detects changed coordinates/content and rolls back caught
+  conflicts with savepoints. Same bytes at a new offset are a distinct source.
+- shared/contracts/analytics.py adds internal CapturedSource/RawBatchReceipt DTOs;
+  existing public API/receipt fields are unchanged. Capture-only records have no
+  final disposition or Silver/Gold times and never authorize worker durability.
+- migrations/analytics/001_capture.sql creates captures, source receipts, quarantine
+  and processing-run foundations. Migration retry uses an advisory transaction lock
+  and normalized-LF checksum; altered applied SQL fails. Aditya still owns outbox DDL.
+- infra/analytics.py composes the existing env providers with this owner's migration
+  provider. It applies analytics only and explicitly returns dependency exit 4 for
+  incomplete global migration dispatch. It never writes another service database.
+- infra/{storage.Dockerfile,compose.storage.yaml}: digest-pinned Python 3.11.15,
+  existing locked dependencies, opt-in 512-MiB/0.5-CPU Linux verification worker,
+  source mounts, one analytics secret and the retained lakehouse volume. Existing
+  stack plus worker is 2,688 MiB; Docker RAM was not increased.
+- tests/pipelines/{test_storage,test_storage_live,test_analytics_adapter,storage_restart}.py:
+  real filesystem/SQL/Kafka checks and explicitly injected syscall/process faults.
+  Owned test conftest uses importlib; removing its empty package marker prevents
+  test pipelines from shadowing the production namespace. No shared pytest config,
+  dependency lock, other owner's code or assertions changed.
+
+### Actual verification and evidence
+
+- Host `.venv/Scripts/python.exe -m pytest tests/pipelines tests/contracts
+  tests/integration -q --tb=short --junitxml=artifacts/m04/offline-verified.xml`:
+  **286 passed, 31 skipped**, **47.25 seconds**. Windows deliberately skips real
+  POSIX fsync tests; explicit opt-in live tests are skipped in this invocation.
+  The same new filesystem paths run in the Linux suite below, not as fake passes.
+- Linux named-volume `python -m pytest tests/pipelines/test_storage.py
+  tests/pipelines/test_storage_live.py -q --tb=short
+  --junitxml=artifacts/m04/storage-live-verified.xml`: **26 passed, 1 skipped**,
+  **13.77 seconds**. Skip is the Windows-only unsupported-host check. Real broker
+  committed offset remained -1001 after capture+SQL; a commit attempt was rejected.
+- Real PostgreSQL 18.2 SQL capture rollback, first-locator retry, new-offset source,
+  caught corruption rollback and NULL downstream timings passed. Test schemas are
+  isolated and dropped afterward; real shared outbox is NOT_RUN, not a test double
+  claimed as integration. Evidence: artifacts/m04/{sql-capture,kafka-capture}.json.
+- The syscall cases include pre-rename disk/file-fsync failure and directory-fsync
+  failure after rename. A child acknowledged M04_AFTER_RENAME_BARRIER_ACK before
+  os._exit(73); its orphan was recovered by verified immutable retry. These are
+  process/syscall fault checks, not hardware power-loss measurements.
+- Existing streaming env up initially returned ConnectionTimeout during cold
+  startup (artifacts/projectctl/787f99ad-fdbb-47d0-b4d8-29b5335c5acd). Retained stack
+  became healthy; retry exited 0 and verified mappings:
+  artifacts/projectctl/85562d40-f84b-4e5c-ae5f-e8273b1ff83b/.
+- CLI migration applied analytics but an initial adapter incorrectly pre-created
+  the CLI-owned evidence directory; its raw provider result is preserved under
+  artifacts/projectctl/57c35968-d9c4-4517-92a2-575c5c6adfea/. Fixed at the adapter's
+  evidence path and added a regression test. Verified command with
+  PROJECTCTL_ADAPTER_MODULE=infra.analytics, `python -m projectctl db migrate
+  --namespace bench-m04`: expected exit **4**, analytics portion applied and global
+  dependencies explicit. Evidence: artifacts/projectctl/f4c400ce-7b5f-4ae6-90eb-fea746a1f3f2/
+  and artifacts/infra/analytics/checks/f4c400ce-7b5f-4ae6-90eb-fea746a1f3f2/.
+- `python -m tests.pipelines.storage_restart` then a verified real PostgreSQL
+  container restart and a fresh worker `--resume`: **PASS**; container/image/named
+  volume identity retained, database receipt and exact invalid bytes recovered,
+  repeat capture remained idempotent and disposition stayed NULL. Evidence:
+  artifacts/m04/{restart,restart-container}.json. Public test namespace is
+  bench-m04-restart-8d2d7bd3cb264505998693f42249d196; no operational data was reset.
+- Initial collection failures, corrected import/source-mount setup and earlier XMLs
+  are retained. No failed case/assertion was removed to obtain a pass. Final
+  cross-platform migration/checker and delivery evidence follows below.
+- Final Linux suite adds the adapter regression and verifies LF/CRLF migration
+  retry plus rejection of an idle caller connection: **28 passed, 1 skipped**,
+  **6.52 seconds**, artifacts/m04/storage-final.xml. Earlier full run (28/1,
+  6.60 seconds) and the missing-source-mount collection failure are retained.
+- Owned Ruff lint/format and git diff checks passed after formatting a README code
+  block. Existing schemas/API fixtures are unchanged. Real infrastructure/schema
+  mappings verified after restart: exit **0**,
+  artifacts/projectctl/e05e8f66-05cc-4d68-896b-53596cdc17e9/.
+- Environment down exited **0**, volumes retained:
+  artifacts/projectctl/6f2e2bdf-0af7-4a4f-bab5-a6737b20847f/. Docker Desktop stopped
+  after confirming no other containers were running. Ownership and exact retained
+  credential scans passed for all **23** delivery paths; no raw CSV, credentials or
+  generated evidence is staged. Audit: artifacts/m04/source-audit.json.
+- Full shared Ubuntu/Windows/PostgreSQL workflow verification is performed by the
+  branch's GitHub Actions run after delivery; raw status is retained locally in
+  artifacts/m04/github-actions.json. Local P5/P6 scripts were not redundantly rerun
+  for this module; the focused host and actual Linux capture suites are above.
+
+### Remaining handoffs
+
+M05 must atomically finalize dispositions with Silver/reducers or quarantine and
+Aditya's real outbox, then mark durable prefixes. Public receipt/manifest/Gold API,
+active publication, replay and performance remain NOT_RUN. Harsh can adopt FileStore
+inside the Linux volume; his CSV parsing and source manifests remain his work.
+
+A near-1-MiB raw invalid source can exceed the physical file cap after base64.
+CaptureTooLarge backpressures it without committing offsets; fragmentation/locator
+contract review is required. Native Windows directory fsync and host power-loss/
+volume-loss durability are not claimed. Orphan inventory never deletes data.
+
 ## M03 — Shared transport and local diagnostics, 31 October 2026
 
 Implemented on `vichitr` within Vichitr-owned paths. Provider adoption and Aditya's

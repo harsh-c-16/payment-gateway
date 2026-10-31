@@ -6,8 +6,10 @@ Authority: [personal brief](../docs/specs/07_VICHITR_ARORA.md),
 
 M01a provides the **PostgreSQL-only** `postgres-local` profile described below.
 For Kafka, registry and the smaller PostgreSQL allocation, use
-the [M01b streaming-local instructions](STREAMING.md). Application services,
-domain schema freeze, FileStore and benchmark readiness remain later checkpoints.
+the [M01b streaming-local instructions](STREAMING.md). M02/M03 supply event contracts
+and transport; [M04](../docs/vichitr/m04_capture_handoff.md) supplies Linux-volume
+FileStore, Bronze and capture-ledger foundations. Application services, final sink
+dispositions and benchmark readiness remain later checkpoints.
 
 ## Start and verify
 

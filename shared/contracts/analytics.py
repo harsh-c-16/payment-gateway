@@ -50,6 +50,21 @@ class SourceRange(WireModel):
         return self
 
 
+class CapturedSource(WireModel):
+    namespace: Namespace
+    source: SourceLocator
+    raw_sha256: Sha256
+    ingested_at: UTCTime
+    bronze_durable_at: UTCTime
+
+
+class RawBatchReceipt(WireModel):
+    capture_id: UUIDText
+    files: list[FileDescriptor]
+    records: list[CapturedSource]
+    captured_at: UTCTime
+
+
 class DatasetManifest(WireModel):
     namespace: Namespace
     dataset: Literal["silver", "gold"]

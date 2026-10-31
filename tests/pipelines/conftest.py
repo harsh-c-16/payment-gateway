@@ -8,6 +8,8 @@ import pytest
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):
+    # The test package's name otherwise shadows the real top-level pipelines package.
+    config.option.importmode = "importlib"
     directory = config.rootpath / "artifacts/pytest" / str(uuid4())
     directory.mkdir(parents=True)
     config.inicfg.setdefault("cache_dir", str(directory / "cache"))

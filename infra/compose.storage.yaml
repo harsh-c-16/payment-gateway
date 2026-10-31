@@ -1,0 +1,27 @@
+services:
+  storage-check:
+    image: group3-m04-storage:local
+    pull_policy: never
+    profiles: [storage-check]
+    environment:
+      LAKEHOUSE_ROOT: /lakehouse
+      STORAGE_TEST_POSTGRES_HOST: postgres
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PYTHONPYCACHEPREFIX: /tmp/m04-pycache
+    volumes:
+      - lakehouse_data:/lakehouse
+      - ../pipelines:/app/pipelines:ro
+      - ../shared:/app/shared:ro
+      - ../infra:/app/infra:ro
+      - ../projectctl:/app/projectctl:ro
+      - ../contracts:/app/contracts:ro
+      - ../migrations/analytics:/app/migrations/analytics:ro
+      - ../tests:/app/tests:ro
+      - ../artifacts/m04:/app/artifacts/m04
+    secrets: [analytics_password]
+    cpus: 0.5
+    mem_limit: 512m
+    pids_limit: 128
+    labels:
+      group3.owner: vichitr
+      group3.checkpoint: M04

@@ -30,5 +30,15 @@
     "expected_version": "8.1.0",
     "smoke_evidence": "artifacts/infra/streaming-local/checks/03fe5730-05d9-41a1-b0ff-cca4c185ddd7/live-test.json",
     "observed_version": "8.1.0"
+  },
+  "storage-check": {
+    "checkpoint": "M04",
+    "status": "SMOKE_TESTED",
+    "base_image": "python:3.11.15-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3",
+    "observed_python": "3.11.15",
+    "dependency_lock": "uv.lock",
+    "uv_version": "0.10.8",
+    "smoke_evidence": "artifacts/m04/storage-final.xml",
+    "scope": "Linux named-volume verification worker; application source mounted read-only"
   }
 }

@@ -64,8 +64,8 @@ currently says `local-dev`, while common §7 specifies `dev` or isolated `bench-
 service integration; this module does not silently change the shared contract.
 
 Kafka data uses the named `kafka_data` volume. The named `lakehouse_data` volume is
-also provisioned for the upcoming FileStore; no Bronze/Silver/Gold path is claimed
-until M04/M05. All are local Docker-managed volumes. Service passwords remain in
+used by [M04 FileStore/Bronze](../docs/vichitr/m04_capture_handoff.md); Silver/Gold
+remain M05 onward. All are local Docker-managed volumes. Service passwords remain in
 the same ignored `artifacts/infra/postgres-local/` directory used by M01a.
 
 After successful startup, run the explicit real smoke check:
