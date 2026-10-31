@@ -61,11 +61,17 @@ the Linux volume. The checker does not copy source/data/secrets into its image.
 
 ## Boundaries and remaining review
 
-The fixed physical cap is 1 MiB of encoded wrapper bytes. Base64 makes a nearly
-1-MiB raw invalid source exceed that cap, although the transport permits that raw
-size. Such sources backpressure/fail with offsets untouched; a fragmentation/locator
-extension needs owner review. Normal events (maximum 64 KiB) and tested malformed
-fixtures fit. No schema/size change was silently made.
+The user approved increasing the fixed physical cap from 1 MiB to 2 MiB of encoded
+JSONL on 31 October 2026. Common §11.1 and Appendix A now specify 2,097,152 bytes
+including headers/metadata, equally for B0/O1 and scaling variants; 50 ms is unchanged.
+This accommodates 1-MiB raw sources with ordinary headers after base64 expansion.
+The SDK raw ceiling stays 1 MiB and normal event values stay 64 KiB. All metadata
+counts toward the encoded cap; wrappers exceeding it still fail without committing
+offsets. Exact-cap and escaped-header overflow tests cover this boundary. Existing
+1-MiB files remain readable; prior evidence below the old cap remains historical.
+The shared evaluation default and frozen-control validator use the same revised
+cap. [Exact test skips](test_skips.md) distinguish platform skips from older live
+checks not rerun for this change.
 
 Fsync and rename evidence covers successful local Linux syscalls, injected failures,
 an acknowledged process crash and retained-volume restart. It does not prove host

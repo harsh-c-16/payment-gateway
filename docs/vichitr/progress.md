@@ -6,6 +6,65 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M04 follow-up — User-approved 2-MiB cap and exact skips, 31 October 2026
+
+The user explicitly approved increasing Bronze to 2 MiB. This supersedes the
+original 1-MiB capture checkpoint and its ordinary-record format blocker below.
+The canonical common spec §§11.1/Appendix A, implementation, tests, package README,
+plan and handoff now agree on **2,097,152 total encoded JSONL bytes**. This includes
+base64, escaped headers and metadata, for all baseline/optimized/scaling variants.
+The 50-ms timer, 1-MiB raw transport ceiling, 64-KiB valid-event ceiling and batch
+resource bounds are unchanged. Existing smaller Bronze files remain readable.
+
+The same user-authorized bound also requires two coordinated shared-path changes:
+configs/evaluation.yaml's inherited benchmark default and projectctl/config.py's
+frozen B0 validator now pin 2,097,152. Otherwise the harness would retain/reject the
+wrong bound. No other harness behavior changed. Owned test_capture_config.py checks
+every variant agrees with storage and rejects a stale 1-MiB B0/O1 setting. Existing
+saved run/config hashes are not rewritten; no benchmark comparison is claimed.
+
+New tests round-trip a full 1-MiB source after base64 expansion, accept an exact
+2-MiB wrapper and reject a one-byte overflow including escaped-header metadata.
+The size-flush fixture now crosses the new boundary; oversized capture failure
+still leaves offsets untouched. No fragmentation or independent metadata budget
+was introduced. The hard total encoded cap continues to guard header-heavy input.
+
+Actual commands/outcomes:
+
+- Host `.venv/Scripts/python.exe -m pytest tests/pipelines tests/contracts
+  tests/integration -q --tb=short --junitxml=artifacts/m04-2mib/host.xml`:
+  **286 passed, 33 skipped**, **59.97 seconds**.
+- Existing 512-MiB Linux checker, RUN_STORAGE_LIVE_TESTS=1, `python -m pytest
+  tests/pipelines/test_storage.py tests/pipelines/test_storage_live.py
+  tests/pipelines/test_analytics_adapter.py -q --tb=short
+  --junitxml=artifacts/m04/2mib-linux.xml`: **30 passed, 1 skipped**,
+  **8.21 seconds**. A copy is artifacts/m04-2mib/linux.xml. Real filesystem and
+  Kafka/PostgreSQL tests pass; the Linux skip is Windows-only and passed on host.
+- All **33 host skips** are listed individually with reasons in
+  [test_skips.md](test_skips.md). **27 passed separately in Linux**; six older
+  infrastructure/transport live cases were not rerun for this narrow size change.
+  Earlier real evidence is linked explicitly; no current rerun is claimed for them.
+- Streaming env up exited **0** using existing low-memory limits:
+  artifacts/projectctl/f7a1e038-445a-4ca0-bc3d-592c45d2199a/. No Docker RAM increase.
+  Prior M04 raw SQL/Kafka facts were archived in artifacts/m04-2mib/prior-evidence/
+  before the follow-up; current facts and machine-readable skips are retained in
+  artifacts/m04-2mib/.
+- Config regression command: `python -m pytest tests/pipelines/test_capture_config.py
+  tests/projectctl/test_config.py -q --tb=short
+  --junitxml=artifacts/m04-2mib/config.xml`: **34 passed**, **zero skipped**,
+  **3.01 seconds**. Ruff lint/format and generated config/API schema checks passed.
+- Final host suites after the shared default/validator updates: **289 passed,
+  33 skipped**, **36.25 seconds**, artifacts/m04-2mib/host-final.xml. The skip list
+  is unchanged: 27 pass separately in Linux, six older live cases not rerun here.
+- Environment down exited **0**, volumes retained:
+  artifacts/projectctl/d384db5a-6e0c-49c5-886e-c40462f7b34f/. Docker Desktop stopped
+  after confirming no other running containers; no increase in allocated RAM.
+
+The user authorizes this exact common-spec change; no teammate agreement is
+invented. Consumers/experiment owners must use the revised common bound before
+comparing variants. Full Silver/Gold, real shared-outbox integration and performance
+remain NOT_RUN. This follow-up does not start M05.
+
 ## M04 — Durable FileStore, Bronze and capture ledger, 31 October 2026
 
 Implemented within Vichitr-owned paths. This is capture and receipt **foundation**,

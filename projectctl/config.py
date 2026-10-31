@@ -98,7 +98,7 @@ def validate_config(data: dict) -> EvaluationConfig:
         "consumers": 1,
         "sink_batch_max_rows": 1,
         "sink_batch_max_wait_ms": 50,
-        "raw_capture_max_bytes": 1048576,
+        "raw_capture_max_bytes": 2097152,
         "raw_capture_max_wait_ms": 50,
         "gold_publish_interval_ms": 250,
         "outbox_poll_ms": 25,

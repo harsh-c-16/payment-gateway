@@ -11,7 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -229,11 +229,11 @@ def test_capture_is_not_a_final_disposition_or_commit_authorization(store):
 
 
 def test_fixed_size_and_time_flushes_are_independent_of_sink_batching(store, monkeypatch):
-    records = [source(i, b"x" * 60000) for i in range(20)]
+    records = [source(i, b"x" * 60000) for i in range(40)]
     receipt = BronzeCapture(store).ingest_bronze(records)
     assert len(receipt.files) >= 2
-    assert all(f.byte_size <= 1024 * 1024 for f in receipt.files)
-    assert len(read_bronze(store, receipt)) == 20
+    assert all(f.byte_size <= 2 * 1024 * 1024 for f in receipt.files)
+    assert len(read_bronze(store, receipt)) == 40
     tick = iter([0.0, 0.010, 0.060, 0.060, 0.070, 0.070])
     monkeypatch.setattr(bronze, "monotonic", lambda: next(tick))
     timed = BronzeCapture(store).ingest_bronze([source(i) for i in range(3)])
@@ -243,7 +243,7 @@ def test_fixed_size_and_time_flushes_are_independent_of_sink_batching(store, mon
 def test_capture_limits_and_raw_corruption_do_not_become_dirty_records(store):
     capture = BronzeCapture(store)
     with pytest.raises(CaptureTooLarge, match="wrapper"):
-        capture.ingest_bronze([source(value=b"x" * 800000)])
+        capture.ingest_bronze([source(value=b"x" * 1600000)])
     with pytest.raises(CaptureTooLarge, match="16-MiB"):
         capture.ingest_bronze([source(i, b"x" * 60000) for i in range(280)])
     with pytest.raises(ValueError, match="bounded"):
@@ -253,6 +253,37 @@ def test_capture_limits_and_raw_corruption_do_not_become_dirty_records(store):
     with pytest.raises(ValueError, match="DLQ"):
         capture.ingest_bronze([replace(source(), topic="bench-m04.dead-letter.v1")])
     assert store.list_orphans(set()) == []
+
+
+def test_one_mib_raw_source_fits_after_base64_expansion(store):
+    # Two one-byte header names keep total source bytes at the SDK's 1-MiB ceiling.
+    record = source(value=b"x" * (1024 * 1024 - 2))
+    receipt = BronzeCapture(store).ingest_bronze([record])
+    assert len(receipt.files) == 1
+    assert 1024 * 1024 < receipt.files[0].byte_size < 2 * 1024 * 1024
+    assert read_bronze(store, receipt) == [replace(record, assignment_epoch="")]
+
+
+def test_two_mib_encoded_boundary_includes_escaped_header_metadata(store, monkeypatch):
+    capture_uuid = UUID(int=1)
+    monkeypatch.setattr(bronze, "uuid4", lambda: capture_uuid)
+    path = f"bronze/bench-m04/{capture_uuid}-0.jsonl"
+    base = source(value=b"", headers=(("", b""),))
+    overhead = len(bronze._line(base, path, 1))
+    escaped, plain = divmod(2 * 1024 * 1024 - overhead, 6)
+    name = "\x01" * escaped + "a" * plain
+    headers = ((name, b""),)
+    record = replace(base, headers=headers, raw_sha256=raw_fingerprint(None, b"", headers))
+    receipt = BronzeCapture(store).ingest_bronze([record])
+    assert receipt.files[0].byte_size == 2 * 1024 * 1024
+    assert read_bronze(store, receipt) == [replace(record, assignment_epoch="")]
+    oversized_headers = ((name + "a", b""),)
+    oversized = replace(
+        record, headers=oversized_headers, raw_sha256=raw_fingerprint(None, b"", oversized_headers)
+    )
+    with pytest.raises(CaptureTooLarge, match="2-MiB"):
+        BronzeCapture(store).ingest_bronze([oversized])
+    assert store.list_orphans(set()) == [receipt.files[0].path]
 
 
 def test_receipt_hash_locator_and_membership_tampering_are_detected(store):

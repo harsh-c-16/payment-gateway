@@ -17,7 +17,7 @@ from shared.contracts.common import UTCTime
 from shared.contracts.events import Count, Namespace, SourceLocator, SourceRecord
 from shared.event_transport.consumer import TOPIC, raw_fingerprint, record_size
 
-CAPTURE_MAX_BYTES = 1024 * 1024
+CAPTURE_MAX_BYTES = 2 * 1024 * 1024
 CAPTURE_MAX_SECONDS = 0.050
 BATCH_MAX_RECORDS = 2000
 BATCH_MAX_BYTES = 16 * 1024 * 1024
@@ -148,7 +148,7 @@ class BronzeCapture:
                 flush()
             line = _line(record, f"{prefix}-{len(files)}.jsonl", len(pending) + 1)
             if len(line) > CAPTURE_MAX_BYTES:
-                raise CaptureTooLarge("One encoded Bronze wrapper exceeds the 1-MiB file cap")
+                raise CaptureTooLarge("One encoded Bronze wrapper exceeds the 2-MiB file cap")
             if pending and byte_size + len(line) > CAPTURE_MAX_BYTES:
                 flush()
                 line = _line(record, f"{prefix}-{len(files)}.jsonl", 1)

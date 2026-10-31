@@ -22,18 +22,18 @@ coordinates, nullable broker timestamp, UTC ingress, raw fingerprint and
 file#one_based_row locator. Ownership tokens are runtime-only. No parsed event
 substitutes for source bytes; malformed UTF-8/JSON is retained.
 
-Physical chunks use fixed 1-MiB and 50-ms accumulation bounds across sink variants.
+Physical chunks use fixed 2-MiB and 50-ms accumulation bounds across sink variants.
 The function never waits to accumulate another input batch. The timer bounds
 accumulation, not disk latency; callers supply already available bounded sequences.
 Receipt timestamps are observed after file durability, not Kafka acknowledgement,
 Silver commit or Gold visibility.
 
-The **encoded JSONL wrapper**, including base64 overhead, must fit 1 MiB. Larger
-wrappers raise CaptureTooLarge and leave offsets uncommitted. Normal domain values
-are limited to 64 KiB. The SDK's separate 1-MiB raw-source ceiling can admit an
-oversized invalid source that cannot fit this physical wrapper cap; a fragmentation
-contract requires owner review before those sources can progress. No alternate
-chunk size or fabricated dirty disposition silently resolves this conflict.
+The **encoded JSONL wrapper**, including base64, escaped headers and metadata,
+must fit 2 MiB (2,097,152 bytes). The user approved this common-spec increase on
+31 October 2026. A 1-MiB raw source with ordinary headers now fits after encoding;
+the SDK's raw-source ceiling and normal domain value limit (64 KiB) are unchanged.
+Header-heavy wrappers exceeding the total encoded cap still raise CaptureTooLarge
+with offsets untouched. No separate unbounded metadata allowance is added.
 
 persist_capture verifies files/receipt before SQL writes in the caller's active
 analytics transaction. Its savepoint rolls back even a caught content conflict.

@@ -72,7 +72,7 @@ M01 → M02 → M03 → M04 → M05 is the first working slice. M06–M10 comple
 ### M04 — FileStore, Bronze and receipts
 
 - Implement the exact FileStore interface early because Harsh needs it to archive the unchanged CSV. Use immutable hash-verified paths, temporary writes, fsync and same-filesystem atomic rename on the durable volume.
-- Bronze wrappers retain base64 key/value/header bytes, topic/partition/offset, broker/ingress timestamps, raw hash and file/row locator, including invalid UTF-8/JSON. Keep capture chunking fixed at 1 MiB or 50 ms across sink variants.
+- Bronze wrappers retain base64 key/value/header bytes, topic/partition/offset, broker/ingress timestamps, raw hash and file/row locator, including invalid UTF-8/JSON. Keep capture chunking fixed at 2 MiB or 50 ms across sink variants (user-approved increase, 31 October 2026).
 - Add analytics migration foundations for source receipts, quarantine/outbox and processing records. Distinguish a redelivered source coordinate from a repeated event at a new offset; a coordinate with a changed raw hash is corruption.
 - Check round-trip exact bytes, hash/path conflicts, bounded capture, disk/write failures and restart/orphan behavior. No Kafka acknowledgement precedes a durable disposition.
 
@@ -157,7 +157,7 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **M04 FileStore/Bronze/capture-ledger foundations verified**. Exact bytes survive real Linux fsync/rename, source retries, caller rollback, an acknowledged process crash and PostgreSQL/worker restart. Capture rows are not final source dispositions and cannot authorize Kafka commits. M03 transport remains available; real outbox/service adoption and oversized-wrapper review remain pending. Full G0/G1 remain incomplete. Next is M05 one-event-to-active-Gold. Evidence is in [progress](progress.md).
+Current checkpoint: **M04 FileStore/Bronze/capture-ledger foundations verified**. Exact bytes survive real Linux fsync/rename, source retries, caller rollback, an acknowledged process crash and PostgreSQL/worker restart. The user approved the 2-MiB encoded capture cap; all metadata remains inside that bound. Capture rows are not final source dispositions and cannot authorize Kafka commits. M03 transport remains available; real outbox/service adoption remains pending. Full G0/G1 remain incomplete. Next is M05 one-event-to-active-Gold. Evidence is in [progress](progress.md).
 
 ## Source documents
 

@@ -471,7 +471,7 @@ Required storage adapter: durable local filesystem volume. FileStore exposes wri
 
 Bronze stores JSONL wrappers containing original key/value/header bytes encoded as base64, topic, partition, offset, broker timestamp, ingested_at, namespace, raw hash and capture file/row locator. Parsed JSON is supplementary; it does not replace original bytes. Preserve malformed UTF-8/JSON.
 
-Physical capture chunks are capped at 1 MiB or 50 ms and kept identical across sink-batching variants. Multiple source partitions may share a capture file, but every record retains its coordinates. Immutable chunk paths include a UUID; duplicates/orphans after crashes are allowed physically, but the source receipt ledger defines one logical source record.
+Physical capture chunks are capped at 2 MiB (2,097,152 encoded JSONL bytes, including headers/metadata) or 50 ms and kept identical across sink-batching variants. The user approved this increase from 1 MiB on 31 October 2026 to accommodate base64 expansion of raw source bytes; it applies equally to B0/O1 and all scaling variants. Multiple source partitions may share a capture file, but every record retains its coordinates. Immutable chunk paths include a UUID; duplicates/orphans after crashes are allowed physically, but the source receipt ledger defines one logical source record. Any single wrapper above the total encoded cap fails without advancing offsets.
 
 A redelivered Kafka offset is the same source record. Republishing the same event_id to a new offset is another delivery of one logical event. These must not be conflated.
 
@@ -678,7 +678,7 @@ DLQ transport is a registered **DlqNotice**, not a domain EventEnvelope. It cont
 
 Default operational bounds: per-service database pool maximum 10; analytics consumer group total database connections maximum 12 (one worker gets 12 or three workers get 4 each); Gold publisher pool maximum 2. Preserve total pool budgets across scaling trials. Producer application pending queue is limited to 10,000 records or 64 MiB, whichever first. A consumer’s in-flight buffers are bounded by a group-wide 2,000 records or 16 MiB, split across workers for scaling trials. Pause/resume partitions under backpressure while maintaining polls/heartbeats. The maximum event size remains 64 KiB.
 
-B0 sink max rows=1; O1 max rows=100 and max wait=50 ms. Raw capture max bytes=1 MiB and max wait=50 ms; Gold publish interval=250 ms; outbox poll=25 ms, pass limit=100; expiry sweep=250 ms. If a bound prevents the requested load, report the achieved load and backlog. Do not silently enlarge it for one comparator.
+B0 sink max rows=1; O1 max rows=100 and max wait=50 ms. Raw capture max bytes=2 MiB and max wait=50 ms; Gold publish interval=250 ms; outbox poll=25 ms, pass limit=100; expiry sweep=250 ms. If a bound prevents the requested load, report the achieved load and backlog. Do not silently enlarge it for one comparator.
 
 Each measured trial uses fresh, dedicated benchmark databases or clean benchmark-only schemas with no previous-run rows. Do not delete development data. Namespace prefixes remain in all contracts for isolation and provenance even when a trial has dedicated storage. The optional catalogue B-tree is physically on (namespace, category, price_minor) when a shared table stores namespaces; its workload dimensions are the same category equality/price-range comparison.
 
