@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "checkpoint": "M01b",
+  "status": "SMOKE_TESTED",
+  "postgres": {
+    "status": "SMOKE_TESTED",
+    "image": "pgvector/pgvector:0.8.1-pg18-trixie@sha256:2fd905ba95f99a51be207d0ff0b8d5b8538cbce7e9083b3ccfa65b93bb28b938",
+    "registry": "registry-1.docker.io",
+    "resolved_tag": "0.8.1-pg18-trixie",
+    "manifest_sha256": "2fd905ba95f99a51be207d0ff0b8d5b8538cbce7e9083b3ccfa65b93bb28b938",
+    "platforms": [
+      "linux/amd64",
+      "linux/arm64"
+    ],
+    "expected_postgresql_major": 18,
+    "expected_pgvector": "0.8.1",
+    "observed_server_version": "18.2",
+    "smoke_evidence": "artifacts/infra/postgres-local/checks/7671ad46-0834-4918-ab03-3a1be5ce3888/live-test.json"
+  },
+  "kafka": {
+    "status": "SMOKE_TESTED",
+    "image": "apache/kafka:4.1.2@sha256:5cc2a2fd93fa2687b44015eee04fb2c3edd9e526bd64bf8bec5ff1e268772e0e",
+    "expected_version": "4.1.2",
+    "smoke_evidence": "artifacts/infra/streaming-local/checks/03fe5730-05d9-41a1-b0ff-cca4c185ddd7/live-test.json",
+    "observed_version": "4.1.2"
+  },
+  "schema-registry": {
+    "status": "SMOKE_TESTED",
+    "image": "confluentinc/cp-schema-registry:8.1.0@sha256:385c157f9cef42aa65e5c95050d85a439bcb0c897826aeabb3e10d36127ea223",
+    "expected_version": "8.1.0",
+    "smoke_evidence": "artifacts/infra/streaming-local/checks/03fe5730-05d9-41a1-b0ff-cca4c185ddd7/live-test.json",
+    "observed_version": "8.1.0"
+  }
+}

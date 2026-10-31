@@ -1,0 +1,55 @@
+name: group3-postgres-local
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.1-pg18-trixie@sha256:2fd905ba95f99a51be207d0ff0b8d5b8538cbce7e9083b3ccfa65b93bb28b938
+    environment:
+      POSTGRES_USER: group3_admin
+      POSTGRES_DB: postgres
+      POSTGRES_PASSWORD_FILE: /run/secrets/admin_password
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+      - ./postgres/10-databases.sh:/docker-entrypoint-initdb.d/10-databases.sh:ro
+    secrets:
+      - admin_password
+      - conversation_password
+      - catalog_password
+      - orders_password
+      - inventory_password
+      - payments_password
+      - analytics_password
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -U group3_admin -d postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    cpus: 0.75
+    mem_limit: 2048m
+    shm_size: 128m
+    pids_limit: 256
+    labels:
+      group3.owner: vichitr
+      group3.checkpoint: M01a
+volumes:
+  postgres_data:
+    labels:
+      group3.owner: vichitr
+      group3.checkpoint: M01a
+secrets:
+  admin_password:
+    file: ${POSTGRES_SECRETS_DIR:?Run projectctl env up with infra.postgres first}/admin_password
+  conversation_password:
+    file: ${POSTGRES_SECRETS_DIR:?}/conversation_password
+  catalog_password:
+    file: ${POSTGRES_SECRETS_DIR:?}/catalog_password
+  orders_password:
+    file: ${POSTGRES_SECRETS_DIR:?}/orders_password
+  inventory_password:
+    file: ${POSTGRES_SECRETS_DIR:?}/inventory_password
+  payments_password:
+    file: ${POSTGRES_SECRETS_DIR:?}/payments_password
+  analytics_password:
+    file: ${POSTGRES_SECRETS_DIR:?}/analytics_password
