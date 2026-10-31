@@ -6,6 +6,90 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M03 — Shared transport and local diagnostics, 31 October 2026
+
+Implemented on `vichitr` within Vichitr-owned paths. Provider adoption and Aditya's
+actual outbox remain external dependencies; full G0/integrated checkout is not
+claimed. See [M03 handoff](m03_transport_handoff.md) and the two shared READMEs.
+
+### Implemented paths and behavior
+
+- `shared/event_transport/{__init__,codec,publisher,consumer}.py`: public builder,
+  validator, acknowledged publisher, manual consumer/offset functions and pure DLQ
+  construction. Existing M1 keyword build/append binding is tested unchanged.
+- Producer settings are fixed: idempotence, acks=all, max in-flight=5, Zstandard,
+  linger=5 ms, 10,000 records/64 MiB queues, 10-second delivery timeout and 5-second
+  request timeout. Queue admission is never returned as success. Ack uncertainty
+  preserves event identity/content and remains retryable; no silent drop.
+- Consumers preserve exact source bytes/nulls/ordered duplicate headers, namespace,
+  coordinates, Kafka/ingress timestamps and a length-delimited raw-byte fingerprint.
+  Automatic commit/store is disabled. Explicit durable markers gate contiguous
+  delivered prefixes; partial commits release only acknowledged partitions. Revoke
+  commits only durable prefixes; lost/old ownership cannot commit new assignments.
+- Worker declarations split 2,000 records/16 MiB across one/three workers, including
+  remainders. Static indexes, worker-thread ownership, native queue/fetch headroom,
+  pause/resume and heartbeat polling are explicit. Oversized sources rewind/fail
+  visibly without offsets advancing; no source/Gold success is fabricated.
+- `shared/local_diagnostics/{__init__.py,schema.sql}`: caller-owned Connection
+  helper/table template. Missing outbox fails before writing; savepoints also roll
+  back a caught non-SQL append failure. Same-ID same-content retry is idempotent;
+  altered identity conflicts. No service migration or alternate outbox was supplied.
+- `shared/contracts/events.py`: typed source/validation/commit results; optional
+  envelope/metadata values survive serialization. Diagnostic/DLQ services include
+  analytics separately from business producers. All six domain/DLQ schema hashes
+  are regenerated and backward-compatible against the actual retained registry.
+- `shared/event_transport/schemas.py`, `contracts/events/supported-history.json`:
+  verify/cache six current and six released-M02 schema definitions/IDs. Older
+  supported records validate offline; unknown/unpublished IDs remain unsupported.
+- `tests/pipelines/{transport_doubles,test_transport,test_transport_live}.py` and
+  the owned registry live test: explicit doubles, real delivery/offset/rebalance,
+  real SQL transaction behavior and actual schema-evolution evidence.
+
+### Actual focused and live verification
+
+Commands use `.venv/Scripts/python.exe` at repository root. Tests run with the
+existing workspace-local scratch setup outside Windows sandbox ACL restrictions.
+
+| Command/check | Actual outcome | Evidence |
+|---|---|---|
+| Initial `-m pytest tests/pipelines -q --tb=short` | **121 passed, 3 skipped**; initial lint formatting issues corrected without changing assertions | `artifacts/m03/offline-first.xml` |
+| `-m pytest tests/pipelines tests/contracts -q --tb=short --junitxml=artifacts/m03/offline-verified.xml` | **236 passed, 6 skipped**, 26.93 seconds; opt-in infrastructure/live tests skipped in this offline invocation | `artifacts/m03/offline-verified.xml` |
+| Final same focused suites after escaped-invalid-Unicode hashing guard | **237 passed, 6 skipped**, 23.56 seconds; unsupported escaped Unicode returns INVALID_JSON rather than crashing canonical hashing | `artifacts/m03/offline-final-verified.xml` |
+| Workflow integration lint/format and `-m pytest tests/integration -q --tb=short --junitxml=artifacts/m03/integration.xml` | **45 passed**, 10.02 seconds | `artifacts/m03/integration.xml` |
+| Owned Ruff lint/format and `git diff --check` | Passed | Session |
+| `PROJECTCTL_ADAPTER_MODULE=infra.streaming` and `-m projectctl env up --profile streaming-local` | Exit 0. Retained resource profile/volumes; all current and released history schemas read-verified | `artifacts/projectctl/22cf29ed-149a-4268-b60c-00b2548e57d7/` |
+| `RUN_TRANSPORT_LIVE_TESTS=1`, `-m pytest tests/pipelines/test_transport_live.py -q` | **3 passed**, 6.82 seconds: real broker/offset/rebalance and SQL savepoints with an explicit outbox double | `artifacts/m03/live-first.xml` |
+| Final history-aware live run with `RUN_TRANSPORT_LIVE_TESTS=1`, `RUN_CONTRACTS_LIVE_TESTS=1`; `-m pytest tests/pipelines/test_transport_live.py tests/pipelines/test_event_contracts_live.py -q --tb=short --junitxml=artifacts/m03/live-history-verified.xml` | **4 passed**, 12.76 seconds; known old ID validated, all six subjects accept safe evolution/reject breaking or unsafe typed optional additions | `artifacts/m03/live-history-verified.xml`, `kafka-sdk.json`, `rebalance.json`, `diagnostics-sql.json` |
+| `-m projectctl env verify --profile streaming-local` with explicit adapter | Exit 0; real infrastructure and all 12 current/released mappings verified | `artifacts/projectctl/cb6e272c-c322-4fee-a29d-f9bcd30ff77f/` |
+| `-m projectctl env down` with explicit adapter | Exit 0, all volumes retained; Docker Desktop stopped after no other containers were running | `artifacts/projectctl/17e388e9-ebed-4576-9b83-690d5a2872d2/` |
+
+Earlier intermediate offline/live XMLs are preserved, including the initial
+four-live-test pass in `live-final.xml`. No failed test was removed or weakened.
+The final SDK namespace is `bench-m03-3d51729df9914425aa74932f26ac0e07`; rebalance
+namespace is `bench-m03-r-fbf8ed33f78b41bdaf99f4e8e77c78cb`. Released conversation
+schema ID 9 is verified/cached alongside six latest schemas. Latest local IDs are
+17/18/19/20/21/22 for conversation/inventory/order/payment/retrieval/DLQ respectively;
+IDs are local evidence, not portable constants.
+
+The SQL test uses a real analytics connection and a randomly named isolated schema
+with an explicit transactional outbox double; it does not write operational service
+databases. Caller rollback, caught append-failure rollback, one-row retry and
+altered-ID rejection all pass. The isolated SQL schema is removed after evidence;
+Kafka fixture topics and all project data volumes are retained. Native consumer
+durability markers in the transport smoke are fixture assertions, not actual
+M04/M05 source-to-Gold processing.
+
+### Remaining adoption and checkpoint
+
+Aditya must provide the real shared outbox. Each service owner applies the diagnostic
+template and wires startup/readiness/cache/revision/transaction bindings described
+in the handoff. Signature choices for group handles, explicit durable markers and
+source_record=null for coordinate-free validation are documented for consumer
+review. No business implementation, dependency lock, shared caller, CSV importer,
+Bronze/Silver/Gold or performance result was changed/claimed. Next is M04 durable
+FileStore/Bronze/actual source receipts. CI-equivalent checks follow this focused
+implementation checkpoint and will be recorded below before branch delivery.
+
 ## M02 correction — Accepted receipt and CI regression, 31 October 2026
 
 The user confirmed Jaineel's agreement with the detailed receipt format and

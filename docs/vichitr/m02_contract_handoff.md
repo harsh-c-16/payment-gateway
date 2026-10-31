@@ -7,6 +7,10 @@ pending; no canonical specification or service implementation was changed.
 
 ## Provided interfaces
 
+This section records the M02 checkpoint. The subsequent
+[M03 handoff](m03_transport_handoff.md) supplies the public SDK/diagnostic functions
+and verified released-schema history support referenced as future work below.
+
 - `shared/contracts/events.py`: the immutable envelope shape, 24 typed payload
   snapshots, metadata, `DlqNotice`, local diagnostic shape, validation failure,
   publish acknowledgement and topic/key selection.

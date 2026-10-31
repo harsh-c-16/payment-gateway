@@ -60,6 +60,7 @@
       "type": "object"
     }
   },
+  "additionalProperties": true,
   "properties": {
     "event_id": {
       "format": "uuid",
@@ -105,7 +106,8 @@
         "orders",
         "inventory",
         "payments",
-        "benchmark"
+        "benchmark",
+        "analytics"
       ],
       "title": "Source Service",
       "type": "string"

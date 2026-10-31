@@ -32,7 +32,9 @@ def test_registry_compatibility_and_all_domain_wire_examples():
     with httpx.Client(base_url=streaming.REGISTRY, timeout=30, trust_env=False) as client:
         first = cache.verify_online(client)
         repeated = register_schemas(client, streaming.SCHEMA_CACHE)
-        assert [entry["id"] for entry in repeated["schemas"]] == [entry["id"] for entry in first]
+        assert [
+            entry["id"] for entry in [*repeated["schemas"], *repeated["historical_schemas"]]
+        ] == [entry["id"] for entry in first]
         for subject, entry in cache.entries.items():
             old = entry["schema"]
             compatible = copy.deepcopy(old)

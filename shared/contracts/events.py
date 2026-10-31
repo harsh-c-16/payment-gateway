@@ -1,5 +1,7 @@
 """Version-one event snapshots. Producer owners review these before G0 freeze."""
 
+from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -17,6 +19,9 @@ Namespace = Annotated[
 IsolatedNamespace = Annotated[str, Field(pattern=r"^(?:bench|replay)-[a-z0-9-]{1,54}$")]
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 Service = Literal["conversation", "catalog", "orders", "inventory", "payments", "benchmark"]
+DiagnosticService = Literal[
+    "conversation", "catalog", "orders", "inventory", "payments", "benchmark", "analytics"
+]
 FacetValue = Annotated[str, Field(min_length=1, max_length=256)]
 RETRIEVAL_MODES = frozenset(
     ("filter_only", "lexical", "vector_exact", "hybrid_exact", "hybrid_ann")
@@ -265,6 +270,8 @@ EVENTS = {
 
 
 class EventMetadata(EventModel):
+    model_config = ConfigDict(extra="allow", allow_inf_nan=False)
+
     dataset_revision: Identifier | None = None
     synthetic: Annotated[bool, Field(strict=True)] | None = None
     scenario_source: Literal["simulation", "benchmark"] | None = None
@@ -272,6 +279,8 @@ class EventMetadata(EventModel):
 
 
 class EventEnvelope(EventModel):
+    model_config = ConfigDict(extra="allow", allow_inf_nan=False)
+
     event_id: UUIDText
     event_type: str
     schema_version: SchemaVersion
@@ -369,7 +378,7 @@ class LocalDiagnostic(EventModel):
     diagnostic_id: UUIDText
     namespace: Namespace
     run_id: Identifier
-    source_service: Service
+    source_service: DiagnosticService
     reason_code: ReasonCode
     correlation_id: UUIDText
     created_at: UTCTime
@@ -379,13 +388,15 @@ class LocalDiagnostic(EventModel):
 
 
 class DlqNotice(EventModel):
+    model_config = ConfigDict(extra="allow", allow_inf_nan=False)
+
     event_id: UUIDText
     diagnostic_id: UUIDText
     namespace: Namespace
     run_id: Identifier
     schema_version: SchemaVersion
     produced_at: UTCTime
-    source_service: Service
+    source_service: DiagnosticService
     origin_kind: Literal["kafka_record", "service_diagnostic"]
     source_locator: SourceLocator | Identifier
     reason_code: ReasonCode
@@ -424,3 +435,42 @@ class PublishAck(EventModel):
     partition: Count
     offset: Count
     broker_acked_at: UTCTime
+
+
+@dataclass(frozen=True)
+class SourceRecord:
+    source_namespace: str
+    topic: str
+    partition: int
+    offset: int
+    key_bytes: bytes | None
+    value_bytes: bytes | None
+    headers: tuple[tuple[str, bytes | None], ...]
+    broker_timestamp: datetime | None
+    ingested_at: datetime
+    raw_sha256: str
+    assignment_epoch: str = ""
+
+
+@dataclass(frozen=True)
+class ValidEvent:
+    envelope: RegisteredRecord
+    schema_id: int
+    canonical_content_hash: str
+    source_record: SourceRecord | None
+    document: dict[str, JsonValue]
+
+
+@dataclass(frozen=True)
+class CommittedOffset:
+    topic: str
+    partition: int
+    offset: int
+
+
+@dataclass(frozen=True)
+class CommitResult:
+    group_id: str
+    committed_next_offsets: tuple[CommittedOffset, ...]
+    succeeded: bool
+    error: str | None

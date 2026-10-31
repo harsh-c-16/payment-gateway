@@ -1,6 +1,7 @@
 {
   "definitions": {
     "EventMetadata": {
+      "additionalProperties": true,
       "properties": {
         "dataset_revision": {
           "anyOf": [
@@ -242,6 +243,7 @@
       "type": "object"
     }
   },
+  "additionalProperties": true,
   "properties": {
     "event_id": {
       "format": "uuid",

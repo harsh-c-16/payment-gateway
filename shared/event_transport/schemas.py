@@ -59,6 +59,14 @@ def documents():
     return result
 
 
+def history_pins():
+    path = ROOT / "contracts/events/supported-history.json"
+    return {
+        (entry["subject"], entry["sha256"])
+        for entry in json.loads(path.read_text(encoding="utf-8"))["schemas"]
+    }
+
+
 def register_schemas(client: httpx.Client, cache_path: Path):
     """Register only checked-in definitions; cache mappings after all read-backs pass."""
     entries = []
@@ -84,7 +92,35 @@ def register_schemas(client: httpx.Client, cache_path: Path):
         if latest["id"] != identity:
             raise SchemaUnavailable("Subject latest ID does not match registered definition")
         entries.append({**entry, "id": identity, "version": latest["version"], "schema": schema})
-    manifest = {"compatibility": "BACKWARD_TRANSITIVE", "schemas": entries}
+    historical = []
+    pins = history_pins()
+    for entry in entries:
+        subject = entry["subject"]
+        response = client.get(f"/subjects/{subject}/versions")
+        response.raise_for_status()
+        for version in response.json():
+            if version == entry["version"]:
+                continue
+            response = client.get(f"/subjects/{subject}/versions/{version}")
+            response.raise_for_status()
+            item = response.json()
+            schema = json.loads(item["schema"])
+            digest = schema_hash(schema)
+            if (subject, digest) in pins and item.get("schemaType") == "JSON":
+                historical.append(
+                    {
+                        "subject": subject,
+                        "id": item["id"],
+                        "version": version,
+                        "sha256": digest,
+                        "schema": schema,
+                    }
+                )
+    manifest = {
+        "compatibility": "BACKWARD_TRANSITIVE",
+        "schemas": entries,
+        "historical_schemas": historical,
+    }
     SchemaCache(manifest)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     temporary = cache_path.with_suffix(".tmp")
@@ -106,9 +142,12 @@ class SchemaCache:
 
     def __init__(self, manifest):
         expected = documents()
+        if not isinstance(manifest, dict):
+            raise SchemaUnavailable("Cached schema manifest must be an object")
         if manifest.get("compatibility") != "BACKWARD_TRANSITIVE":
             raise SchemaUnavailable("Wrong cached compatibility policy")
         self.entries, self.validators = {}, {}
+        self.subjects_by_id = {}
         for entry in manifest["schemas"]:
             subject, identity = entry["subject"], entry["id"]
             if subject not in expected or type(identity) is not int or identity < 1:
@@ -122,8 +161,26 @@ class SchemaCache:
             # Remove only dialect metadata so nested refs retain strict integer checks.
             schema = {key: value for key, value in entry["schema"].items() if key != "$schema"}
             self.validators[identity] = StrictValidator(schema, format_checker=FormatChecker())
+            self.subjects_by_id[identity] = subject
         if self.entries.keys() != expected.keys():
             raise SchemaUnavailable("Incomplete cached schema mapping")
+        self.historical = manifest.get("historical_schemas", [])
+        pins = history_pins()
+        for entry in self.historical:
+            subject, identity = entry["subject"], entry["id"]
+            if (
+                subject not in expected
+                or type(identity) is not int
+                or identity < 1
+                or identity in self.validators
+                or (subject, entry["sha256"]) not in pins
+                or schema_hash(entry["schema"]) != entry["sha256"]
+            ):
+                raise SchemaUnavailable("Unverified historical schema mapping")
+            schema = {key: value for key, value in entry["schema"].items() if key != "$schema"}
+            Draft7Validator.check_schema(schema)
+            self.validators[identity] = StrictValidator(schema, format_checker=FormatChecker())
+            self.subjects_by_id[identity] = subject
 
     @classmethod
     def load(cls, path):
@@ -133,11 +190,14 @@ class SchemaCache:
             raise SchemaUnavailable("Verified registry mapping is missing or malformed") from exc
 
     def verify_online(self, client):
-        for subject, entry in self.entries.items():
+        for subject in self.entries:
             config = client.get(f"/config/{subject}")
             config.raise_for_status()
             if config.json()["compatibilityLevel"] != "BACKWARD_TRANSITIVE":
                 raise SchemaUnavailable("Subject compatibility policy differs")
+        all_entries = [*self.entries.values(), *self.historical]
+        for entry in all_entries:
+            subject = entry["subject"]
             response = client.get(f"/subjects/{subject}/versions/{entry['version']}")
             response.raise_for_status()
             item = response.json()
@@ -148,8 +208,7 @@ class SchemaCache:
             ):
                 raise SchemaUnavailable("Registry subject/ID/hash mapping differs")
         return [
-            {key: value for key, value in entry.items() if key != "schema"}
-            for entry in self.entries.values()
+            {key: value for key, value in entry.items() if key != "schema"} for entry in all_entries
         ]
 
     def validate(self, raw_bytes, headers, topic, key, *, ingested_at: datetime | None = None):
@@ -188,6 +247,10 @@ class SchemaCache:
             raise RecordInvalid(ReasonCode.INVALID_JSON) from exc
         if not isinstance(doc, dict):
             raise RecordInvalid(ReasonCode.INVALID_TYPE)
+        try:
+            content_hash = schema_hash(doc)
+        except (UnicodeError, RecursionError, ValueError) as exc:
+            raise RecordInvalid(ReasonCode.INVALID_JSON) from exc
         if "schema_version" not in doc:
             raise RecordInvalid(ReasonCode.MISSING_REQUIRED, "schema_version")
         if type(doc.get("schema_version")) is not int or doc["schema_version"] != 1:
@@ -231,12 +294,12 @@ class SchemaCache:
         identity = int(identity_bytes)
         if identity not in self.validators:
             raise RecordInvalid(ReasonCode.UNSUPPORTED_SCHEMA, "schema-id")
-        if self.entries[f"{domain}.v1-value"]["id"] != identity:
+        if self.subjects_by_id[identity] != f"{domain}.v1-value":
             raise RecordInvalid(ReasonCode.SCHEMA_ID_MISMATCH, "schema-id")
         error = next(self.validators[identity].iter_errors(doc), None)
         if error:
             if error.validator == "oneOf":
-                branches = self.entries[f"{domain}.v1-value"]["schema"]["oneOf"]
+                branches = self.validators[identity].schema["oneOf"]
                 selected = next(
                     index
                     for index, branch in enumerate(branches)
@@ -272,4 +335,4 @@ class SchemaCache:
         if isinstance(record, EventEnvelope) and ingested_at is not None:
             if record.event_time > ingested_at + timedelta(seconds=5):
                 raise RecordInvalid(ReasonCode.FUTURE_TIMESTAMP, "event_time")
-        return CheckedRecord(record, doc, identity, schema_hash(doc))
+        return CheckedRecord(record, doc, identity, content_hash)

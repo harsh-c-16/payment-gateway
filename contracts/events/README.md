@@ -66,4 +66,6 @@ Registry API/content-model references:
 
 See [M02 handoff](../../docs/vichitr/m02_contract_handoff.md) for unresolved
 producer bindings and the resolved receipt agreement. The publishing/consuming SDK
-and transactional local diagnostic helper remain M03.
+and transactional local diagnostic helper are implemented in
+[M03](../../docs/vichitr/m03_transport_handoff.md). Its cache also verifies released
+historical hashes from `supported-history.json` before accepting older registry IDs.

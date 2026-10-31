@@ -7,32 +7,32 @@
     {
       "subject": "conversation-events.v1-value",
       "schema_path": "contracts/events/conversation-events.v1.schema.json",
-      "sha256": "698e9b55e34fdd9700a1a5108c8d4425a5305cfa2dd13ef5dfe01f91f42bffd0"
+      "sha256": "2998e4e2adfe13a2b10cd8ac491c86da78dc8b001432131074fd28bf7cc1c596"
     },
     {
       "subject": "inventory-events.v1-value",
       "schema_path": "contracts/events/inventory-events.v1.schema.json",
-      "sha256": "3f46ee54115905186505c75259c24ad72a503f6b5e053f046489608f46399540"
+      "sha256": "9f96441fb9f2555175b614c05b8c2888614f10464516abafbee27113aceea328"
     },
     {
       "subject": "order-events.v1-value",
       "schema_path": "contracts/events/order-events.v1.schema.json",
-      "sha256": "9dcd28964f416ffe70d21b9dfd48bb98f1fbf9004150b05bed9fe164f8bdb450"
+      "sha256": "784fdb3e498cb9b63561631cc34b1f18738446accda68ba0c709559a37723e19"
     },
     {
       "subject": "payment-events.v1-value",
       "schema_path": "contracts/events/payment-events.v1.schema.json",
-      "sha256": "a0e680b900be27ab7cc97c3c2f850251bbb37f6a86a9154b6d9f9376410d4c11"
+      "sha256": "cddb07941339979ead335f75eec921bd19fe7cc083f4aea6fd96fb6d331ff956"
     },
     {
       "subject": "retrieval-events.v1-value",
       "schema_path": "contracts/events/retrieval-events.v1.schema.json",
-      "sha256": "a3fda67ec0ba56eebc01f8ad3f37a639073853ceb496a9fd67a2f356eb92740e"
+      "sha256": "49995fd5ce0c8fa6ecb57cf431d7f10aa06280fae8712b44998b28599e1d2720"
     },
     {
       "subject": "dead-letter.v1-value",
       "schema_path": "contracts/events/dead-letter.v1.schema.json",
-      "sha256": "22c6dbcaf64fb445fa57ea8e57115345988ad353f604df599e46dc496bb818fa"
+      "sha256": "8593a385bb020a14107f3968183783f413fd8fd641617b90849b82babb0b8e59"
     }
   ]
 }
