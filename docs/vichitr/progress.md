@@ -87,8 +87,34 @@ in the handoff. Signature choices for group handles, explicit durable markers an
 source_record=null for coordinate-free validation are documented for consumer
 review. No business implementation, dependency lock, shared caller, CSV importer,
 Bronze/Silver/Gold or performance result was changed/claimed. Next is M04 durable
-FileStore/Bronze/actual source receipts. CI-equivalent checks follow this focused
-implementation checkpoint and will be recorded below before branch delivery.
+FileStore/Bronze/actual source receipts. CI-equivalent checks are recorded below.
+
+### CI-script verification
+
+- Source checkpoint: `55b397b`. No application dependency/lock or other owner's
+  implementation changed. A local source hash snapshot is retained in
+  `artifacts/m03/source-snapshot.json`.
+- `.venv/Scripts/python.exe benchmarks/manual/verify_p5.py`: exit **0**, all
+  **11/11** expected outcomes matched. Its pytest suite passed **626 tests** in
+  **121.58 seconds**; lint, format, generated schema/contract checks, observation
+  rebuild and committed-source guards passed. Evidence:
+  `artifacts/p5/3899e813-1c35-47d9-a855-dab8a4b5f878/`.
+- The contracts inventory retains its expected dependency exit **4**: absent
+  Harsh/Aditya providers and full G0 are visible, not replaced by SDK test doubles.
+  Observer fixture results are not a real system/performance measurement.
+- `.venv/Scripts/python.exe benchmarks/manual/verify_p6.py --out artifacts/m03/p6`:
+  exit **0**, all **10/10** inner checks matched; **949 tests passed** in
+  **246.50 seconds** with 121 existing JUnit `record_property` warnings. Real
+  PostgreSQL 18.6 ran in an isolated 512-MiB Docker container. Restart retained
+  container/image/volume identity and the resumed SQL smoke passed. Evidence:
+  `artifacts/m03/p6/{docker-summary,docker-checks}.json`,
+  `artifacts/m03/p6/checkpoint/{checks.json,pytest.xml,smoke/}`. Its event/outbox
+  dependencies remain explicit test doubles, not real shared-outbox integration.
+- All local workflow-equivalent checks passed sequentially, including the 45
+  integration checks above; no timing assertion, test or expected dependency exit
+  was weakened. Raw evidence remains ignored. The isolated P6 container is stopped
+  with its volume retained; Docker Desktop is stopped after confirming no other
+  running containers.
 
 ## M02 correction — Accepted receipt and CI regression, 31 October 2026
 
