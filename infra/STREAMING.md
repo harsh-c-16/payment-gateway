@@ -50,10 +50,13 @@ projection. Kafka materializes a group when consumers join/commit; idle worker
 groups are not fabricated. The live smoke test creates two real independent groups.
 
 Schema Registry stores schema metadata in Kafka's retained `_schemas` topic.
-It defaults to `BACKWARD_TRANSITIVE`. **M02 still must supply and review/register
-the canonical business and DLQ schemas.** Infrastructure readiness does not claim
-those contracts are ready. The smoke subject `infra-smoke.v1-value` is an explicit
-infrastructure fixture, not a substitute domain schema.
+It defaults to `BACKWARD_TRANSITIVE`. M02 supplies all five business schemas and
+the separate DLQ schema. `env up` registers/read-verifies them and writes the local
+subject/version/ID/hash mapping; `env verify` requires that mapping and checks
+the real registry. Producer/consumer review is still pending; this does not close
+G0. See [event contracts](../contracts/events/README.md) and the
+[review handoff](../docs/vichitr/m02_contract_handoff.md). The smoke subject
+`infra-smoke.v1-value` remains an explicit infrastructure fixture.
 
 Use `RUN_NAMESPACE=dev` for future local services. The shared `.env.example`
 currently says `local-dev`, while common §7 specifies `dev` or isolated `bench-`/

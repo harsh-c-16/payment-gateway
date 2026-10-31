@@ -1,4 +1,4 @@
-"""Low-memory infrastructure providers; domain schema readiness belongs to M02."""
+"""Low-memory infrastructure providers with verified M02 schema readiness."""
 
 import json
 import os
@@ -12,11 +12,13 @@ from confluent_kafka.admin import AdminClient, ConfigResource, NewTopic
 from infra import postgres
 from projectctl.models import ExitCode
 from projectctl.providers import ProviderResult
+from shared.event_transport.schemas import SchemaCache, SchemaUnavailable, register_schemas
 
 ROOT = postgres.ROOT
 RUNTIME = ROOT / "artifacts/infra/streaming-local"
 REGISTRY = "http://127.0.0.1:8081"
 BOOTSTRAP = "127.0.0.1:9092"
+SCHEMA_CACHE = RUNTIME / "registry-manifest.json"
 DOMAINS = (
     "conversation-events",
     "retrieval-events",
@@ -169,6 +171,7 @@ def verify():
         response = client.get("/subjects")
         response.raise_for_status()
         subjects = response.json()
+        schema_mapping = SchemaCache.load(SCHEMA_CACHE).verify_online(client)
     volume = json.loads(
         postgres.command(
             [
@@ -191,7 +194,8 @@ def verify():
         "registry_subjects": subjects,
         "topics": verify_topics(AdminClient({"bootstrap.servers": BOOTSTRAP}), "dev"),
         "lakehouse_volume": volume["Name"],
-        "domain_schemas": "NOT_RUN; M02 required",
+        "domain_schemas": schema_mapping,
+        "contract_review": "PENDING_PRODUCER_CONSUMER_REVIEW",
         "benchmark_readiness": "NOT_RUN",
     }
 
@@ -218,6 +222,8 @@ def adapter(invocation):
                 ]
             )
             provision_topics("dev")
+            with httpx.Client(base_url=REGISTRY, timeout=30, trust_env=False) as client:
+                register_schemas(client, SCHEMA_CACHE)
         elif invocation.action == "env down":
             postgres.credentials()
             compose("down", "--timeout", "30")
@@ -229,7 +235,7 @@ def adapter(invocation):
         return ProviderResult(
             ExitCode.COMPLETED,
             (
-                "Infrastructure verified; domain schemas/benchmark gates pending.",
+                "Infrastructure/schema mappings verified; owner reviews and benchmarks pending.",
                 f"Evidence: {out.relative_to(ROOT).as_posix()}/streaming.json",
             ),
             "real",
@@ -240,6 +246,7 @@ def adapter(invocation):
         KafkaException,
         psycopg.Error,
         TimeoutError,
+        SchemaUnavailable,
     ) as exc:
         reason = str(exc) if isinstance(exc, postgres.SetupError) else type(exc).__name__
         return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (reason,), "real")

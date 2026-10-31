@@ -1,0 +1,162 @@
+{
+  "definitions": {
+    "ReasonCode": {
+      "enum": [
+        "INVALID_UTF8",
+        "INVALID_JSON",
+        "MISSING_REQUIRED",
+        "INVALID_TYPE",
+        "INVALID_TIMESTAMP",
+        "FUTURE_TIMESTAMP",
+        "INVALID_AMOUNT",
+        "INVALID_QUANTITY",
+        "UNKNOWN_EVENT_TYPE",
+        "UNSUPPORTED_SCHEMA",
+        "SCHEMA_ID_MISMATCH",
+        "KEY_MISMATCH",
+        "UNKNOWN_DICTIONARY_VALUE",
+        "EVENT_ID_CONFLICT",
+        "AGGREGATE_VERSION_CONFLICT",
+        "UNKNOWN_SKU",
+        "INVARIANT_VIOLATION",
+        "MODEL_OUTPUT_INVALID"
+      ],
+      "title": "ReasonCode",
+      "type": "string"
+    },
+    "SourceLocator": {
+      "properties": {
+        "topic": {
+          "title": "Topic",
+          "type": "string"
+        },
+        "partition": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Partition",
+          "type": "integer"
+        },
+        "offset": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Offset",
+          "type": "integer"
+        },
+        "raw_locator": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Raw Locator",
+          "type": "string"
+        }
+      },
+      "required": [
+        "topic",
+        "partition",
+        "offset",
+        "raw_locator"
+      ],
+      "title": "SourceLocator",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "diagnostic_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Diagnostic Id",
+      "type": "string"
+    },
+    "namespace": {
+      "maxLength": 62,
+      "pattern": "^(dev|(?:bench|replay)-[a-z0-9-]{1,54})$",
+      "title": "Namespace",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[!-~]+$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "schema_version": {
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "produced_at": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Produced At",
+      "type": "string"
+    },
+    "source_service": {
+      "enum": [
+        "conversation",
+        "catalog",
+        "orders",
+        "inventory",
+        "payments",
+        "benchmark"
+      ],
+      "title": "Source Service",
+      "type": "string"
+    },
+    "origin_kind": {
+      "enum": [
+        "kafka_record",
+        "service_diagnostic"
+      ],
+      "title": "Origin Kind",
+      "type": "string"
+    },
+    "source_locator": {
+      "anyOf": [
+        {
+          "$ref": "#/definitions/SourceLocator"
+        },
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "type": "string"
+        }
+      ],
+      "title": "Source Locator"
+    },
+    "reason_code": {
+      "$ref": "#/definitions/ReasonCode"
+    },
+    "created_at": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Created At",
+      "type": "string"
+    }
+  },
+  "required": [
+    "event_id",
+    "diagnostic_id",
+    "namespace",
+    "run_id",
+    "schema_version",
+    "produced_at",
+    "source_service",
+    "origin_kind",
+    "source_locator",
+    "reason_code",
+    "created_at"
+  ],
+  "title": "DlqNotice",
+  "type": "object",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:group3:dead-letter:v1"
+}

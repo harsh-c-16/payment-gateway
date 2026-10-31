@@ -1,0 +1,610 @@
+{
+  "definitions": {
+    "EventMetadata": {
+      "properties": {
+        "dataset_revision": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dataset Revision"
+        },
+        "synthetic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Synthetic"
+        },
+        "scenario_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "simulation",
+                "benchmark"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scenario Source"
+        },
+        "original_event_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Event Id"
+        }
+      },
+      "title": "EventMetadata",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "PaymentEvent": {
+      "properties": {
+        "payment_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Payment Id",
+          "type": "string"
+        },
+        "order_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Order Id",
+          "type": "string"
+        },
+        "attempt_number": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Attempt Number",
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "PENDING",
+            "SUCCESS",
+            "FAILED",
+            "CANCELLED",
+            "REVERSED"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "amount_minor": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Amount Minor",
+          "type": "integer"
+        },
+        "currency": {
+          "const": "INR",
+          "title": "Currency",
+          "type": "string"
+        },
+        "attempt_created_at": {
+          "format": "date-time",
+          "pattern": "(Z|\\+00:00)$",
+          "title": "Attempt Created At",
+          "type": "string"
+        },
+        "failure_code": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Failure Code"
+        },
+        "debit_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Debit Id"
+        },
+        "reversal_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reversal Id"
+        }
+      },
+      "required": [
+        "payment_id",
+        "order_id",
+        "attempt_number",
+        "status",
+        "amount_minor",
+        "currency",
+        "attempt_created_at",
+        "failure_code",
+        "debit_id",
+        "reversal_id"
+      ],
+      "title": "PaymentEvent",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "PAYMENT_PENDING",
+        "PAYMENT_SUCCESS",
+        "PAYMENT_FAILED",
+        "PAYMENT_CANCELLED",
+        "PAYMENT_REVERSED"
+      ]
+    },
+    "schema_version": {
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "event_time": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Event Time",
+      "type": "string"
+    },
+    "produced_at": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Produced At",
+      "type": "string"
+    },
+    "namespace": {
+      "maxLength": 62,
+      "pattern": "^(dev|(?:bench|replay)-[a-z0-9-]{1,54})$",
+      "title": "Namespace",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[!-~]+$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_service": {
+      "enum": [
+        "conversation",
+        "catalog",
+        "orders",
+        "inventory",
+        "payments",
+        "benchmark"
+      ],
+      "title": "Source Service",
+      "type": "string"
+    },
+    "correlation_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Session Id"
+    },
+    "user_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "User Id"
+    },
+    "aggregate_type": {
+      "enum": [
+        "session",
+        "search",
+        "order",
+        "sku",
+        "payment_attempt"
+      ],
+      "title": "Aggregate Type",
+      "type": "string"
+    },
+    "aggregate_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[!-~]+$",
+      "title": "Aggregate Id",
+      "type": "string"
+    },
+    "aggregate_version": {
+      "maximum": 9223372036854775807,
+      "minimum": 1,
+      "title": "Aggregate Version",
+      "type": "integer"
+    },
+    "payload": {
+      "additionalProperties": {
+        "$ref": "#/definitions/JsonValue"
+      },
+      "title": "Payload",
+      "type": "object"
+    },
+    "metadata": {
+      "$ref": "#/definitions/EventMetadata"
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "event_time",
+    "produced_at",
+    "namespace",
+    "run_id",
+    "source_service",
+    "correlation_id",
+    "session_id",
+    "user_id",
+    "aggregate_type",
+    "aggregate_id",
+    "aggregate_version",
+    "payload",
+    "metadata"
+  ],
+  "title": "EventEnvelope",
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "event_type": {
+          "const": "PAYMENT_PENDING"
+        },
+        "payload": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PaymentEvent"
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "PENDING"
+                }
+              }
+            }
+          ]
+        },
+        "source_service": {
+          "enum": [
+            "payments",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "payment_attempt"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            },
+            "synthetic": {
+              "const": true
+            },
+            "scenario_source": {
+              "enum": [
+                "simulation",
+                "benchmark"
+              ]
+            }
+          },
+          "required": [
+            "dataset_revision",
+            "synthetic",
+            "scenario_source"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "PAYMENT_SUCCESS"
+        },
+        "payload": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PaymentEvent"
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "SUCCESS"
+                }
+              }
+            }
+          ]
+        },
+        "source_service": {
+          "enum": [
+            "payments",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "payment_attempt"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            },
+            "synthetic": {
+              "const": true
+            },
+            "scenario_source": {
+              "enum": [
+                "simulation",
+                "benchmark"
+              ]
+            }
+          },
+          "required": [
+            "dataset_revision",
+            "synthetic",
+            "scenario_source"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "PAYMENT_FAILED"
+        },
+        "payload": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PaymentEvent"
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "FAILED"
+                }
+              }
+            }
+          ]
+        },
+        "source_service": {
+          "enum": [
+            "payments",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "payment_attempt"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            },
+            "synthetic": {
+              "const": true
+            },
+            "scenario_source": {
+              "enum": [
+                "simulation",
+                "benchmark"
+              ]
+            }
+          },
+          "required": [
+            "dataset_revision",
+            "synthetic",
+            "scenario_source"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "PAYMENT_CANCELLED"
+        },
+        "payload": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PaymentEvent"
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "CANCELLED"
+                }
+              }
+            }
+          ]
+        },
+        "source_service": {
+          "enum": [
+            "payments",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "payment_attempt"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            },
+            "synthetic": {
+              "const": true
+            },
+            "scenario_source": {
+              "enum": [
+                "simulation",
+                "benchmark"
+              ]
+            }
+          },
+          "required": [
+            "dataset_revision",
+            "synthetic",
+            "scenario_source"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "PAYMENT_REVERSED"
+        },
+        "payload": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/PaymentEvent"
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "REVERSED"
+                }
+              }
+            }
+          ]
+        },
+        "source_service": {
+          "enum": [
+            "payments",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "payment_attempt"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            },
+            "synthetic": {
+              "const": true
+            },
+            "scenario_source": {
+              "enum": [
+                "simulation",
+                "benchmark"
+              ]
+            }
+          },
+          "required": [
+            "dataset_revision",
+            "synthetic",
+            "scenario_source"
+          ]
+        }
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_service": {
+            "const": "benchmark"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "namespace": {
+            "pattern": "^bench-"
+          },
+          "metadata": {
+            "properties": {
+              "synthetic": {
+                "const": true
+              },
+              "scenario_source": {
+                "const": "benchmark"
+              }
+            },
+            "required": [
+              "synthetic",
+              "scenario_source"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:group3:payment-events:v1"
+}

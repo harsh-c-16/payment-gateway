@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026. Branch: `vichitr`. Status: M01a/M01b infrastructure smoke checks passed on the low-memory development profile; M02 contract freeze is next. See [progress](progress.md).
+Prepared: 31 October 2026. Branch: `vichitr`. Status: M01a/M01b infrastructure passed; M02 contracts implemented and real registry/wire checks passed, with producer/consumer review and one shared receipt-fixture mismatch pending. M03 transport is next. See [progress](progress.md) and [M02 handoff](m02_contract_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
@@ -157,7 +157,7 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **M01a/M01b infrastructure passed**, including PostgreSQL isolation, Kafka/Registry recovery and the supplied CSV hash. Next is M02: canonical business/DLQ schemas, dictionaries, DTOs and analytics API contracts. Full G0 and benchmark readiness remain incomplete. Preparing the original plan ran no application code, containers, migrations, tests or benchmarks; subsequent implementation evidence is in [progress](progress.md).
+Current checkpoint: **M02 implementation and owned/live checks passed; team contract review pending**. Business/DLQ schemas, dictionaries, DTOs, analytics OpenAPI and verified registry cache exist. The existing P2 receipt example and historical inventory test require Jaineel's review; full G0 remains incomplete. Next is M03: shared transport and caller-local diagnostics. Preparing the original plan ran no application code, containers, migrations, tests or benchmarks; subsequent implementation evidence is in [progress](progress.md).
 
 ## Source documents
 

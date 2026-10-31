@@ -1,0 +1,1176 @@
+openapi: 3.1.0
+info:
+  title: Analytics API
+  version: 1.0.0
+  description: M02 executable contract proposal; no running API is implied. Pagination,
+    receipt extensions and token binding await G0 consumer review. Gold date_from
+    is inclusive; date_to is exclusive. Queries pin active files.
+servers:
+- url: http://analytics:8006
+paths:
+  /v1/analytics/manifests/{dataset}/active:
+    get:
+      operationId: active_manifest
+      parameters:
+      - name: dataset
+        in: path
+        required: true
+        schema:
+          enum:
+          - silver
+          - gold
+      - &id001
+        name: namespace
+        in: query
+        required: true
+        schema:
+          type: string
+          pattern: ^(dev|(?:bench|replay)-[a-z0-9-]{1,54})$
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetManifest'
+        '400':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/analytics/gold/{table}:
+    get:
+      operationId: gold
+      parameters:
+      - name: table
+        in: path
+        required: true
+        schema:
+          enum:
+          - pipeline_minute
+          - order_fact
+          - daily_conversion
+          - checkout_funnel
+          - payment_failures
+          - inventory_failures
+          - search_performance
+          - intent_accuracy
+          - retrieval_quality
+      - *id001
+      - name: date_from
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: date_to
+        in: query
+        required: true
+        schema:
+          type: string
+          format: date
+      - name: currency
+        in: query
+        required: false
+        schema:
+          const: INR
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoldQueryResult'
+        '400':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /internal/v1/analytics/receipts:
+    get:
+      operationId: receipts
+      parameters:
+      - *id001
+      - name: after_cursor
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+      - &id002
+        name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1000
+          default: 100
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptPage'
+        '400':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - ServiceToken: []
+  /internal/v1/analytics/quarantine:
+    get:
+      operationId: quarantine
+      parameters:
+      - *id001
+      - name: cursor
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+      - *id002
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuarantinePage'
+        '400':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - ServiceToken: []
+  /internal/v1/analytics/replays:
+    post:
+      operationId: replay_create
+      parameters:
+      - name: X-Namespace
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: X-Run-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: X-Correlation-ID
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+      - name: Idempotency-Key
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 128
+      responses:
+        '202':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayAccepted'
+        '400':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - ServiceToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReplayRequest'
+  /internal/v1/analytics/replays/{replay_id}:
+    get:
+      operationId: replay_status
+      parameters:
+      - name: replay_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReplayStatus'
+        '400':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - ServiceToken: []
+  /health/live:
+    get:
+      responses:
+        '200':
+          description: Healthy
+        '503':
+          description: Not ready
+  /health/ready:
+    get:
+      responses:
+        '200':
+          description: Healthy
+        '503':
+          description: Not ready
+  /metrics:
+    get:
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+components:
+  schemas:
+    FileDescriptor:
+      additionalProperties: false
+      properties:
+        path:
+          minLength: 1
+          title: Path
+          type: string
+        sha256:
+          pattern: ^[0-9a-f]{64}$
+          title: Sha256
+          type: string
+        byte_size:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Byte Size
+          type: integer
+        row_count:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Row Count
+          type: integer
+        schema_name:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Schema Name
+          type: string
+        schema_version:
+          maximum: 9223372036854775807
+          minimum: 1
+          title: Schema Version
+          type: integer
+        partition_values:
+          additionalProperties:
+            anyOf:
+            - type: string
+            - type: 'null'
+          title: Partition Values
+          type: object
+        min_event_time:
+          anyOf:
+          - format: date-time
+            pattern: (Z|\+00:00)$
+            type: string
+          - type: 'null'
+          title: Min Event Time
+        max_event_time:
+          anyOf:
+          - format: date-time
+            pattern: (Z|\+00:00)$
+            type: string
+          - type: 'null'
+          title: Max Event Time
+      required:
+      - path
+      - sha256
+      - byte_size
+      - row_count
+      - schema_name
+      - schema_version
+      - partition_values
+      - min_event_time
+      - max_event_time
+      title: FileDescriptor
+      type: object
+    SourceRange:
+      additionalProperties: false
+      properties:
+        topic:
+          title: Topic
+          type: string
+        partition:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Partition
+          type: integer
+        first_offset:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: First Offset
+          type: integer
+        next_offset:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Next Offset
+          type: integer
+        receipt_membership_ref:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Receipt Membership Ref
+          type: string
+      required:
+      - topic
+      - partition
+      - first_offset
+      - next_offset
+      - receipt_membership_ref
+      title: SourceRange
+      type: object
+    DatasetManifest:
+      additionalProperties: false
+      properties:
+        namespace:
+          maxLength: 62
+          pattern: ^(dev|(?:bench|replay)-[a-z0-9-]{1,54})$
+          title: Namespace
+          type: string
+        dataset:
+          enum:
+          - silver
+          - gold
+          title: Dataset
+          type: string
+        generation:
+          maximum: 9223372036854775807
+          minimum: 1
+          title: Generation
+          type: integer
+        parent_generation:
+          anyOf:
+          - maximum: 9223372036854775807
+            minimum: 1
+            type: integer
+          - type: 'null'
+          title: Parent Generation
+        files:
+          items:
+            $ref: '#/components/schemas/FileDescriptor'
+          title: Files
+          type: array
+        source_ranges:
+          items:
+            $ref: '#/components/schemas/SourceRange'
+          title: Source Ranges
+          type: array
+        transform_version:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Transform Version
+          type: string
+        code_commit:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Code Commit
+          type: string
+        input_manifest_ids:
+          items:
+            maxLength: 128
+            minLength: 1
+            pattern: ^[!-~]+$
+            type: string
+          title: Input Manifest Ids
+          type: array
+        created_at:
+          format: date-time
+          pattern: (Z|\+00:00)$
+          title: Created At
+          type: string
+      required:
+      - namespace
+      - dataset
+      - generation
+      - parent_generation
+      - files
+      - source_ranges
+      - transform_version
+      - code_commit
+      - input_manifest_ids
+      - created_at
+      title: DatasetManifest
+      type: object
+    JsonValue: {}
+    GoldQueryResult:
+      additionalProperties: false
+      properties:
+        generation:
+          maximum: 9223372036854775807
+          minimum: 1
+          title: Generation
+          type: integer
+        rows:
+          items:
+            additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          title: Rows
+          type: array
+        queried_at:
+          format: date-time
+          pattern: (Z|\+00:00)$
+          title: Queried At
+          type: string
+      required:
+      - generation
+      - rows
+      - queried_at
+      title: GoldQueryResult
+      type: object
+    ReasonCode:
+      enum:
+      - INVALID_UTF8
+      - INVALID_JSON
+      - MISSING_REQUIRED
+      - INVALID_TYPE
+      - INVALID_TIMESTAMP
+      - FUTURE_TIMESTAMP
+      - INVALID_AMOUNT
+      - INVALID_QUANTITY
+      - UNKNOWN_EVENT_TYPE
+      - UNSUPPORTED_SCHEMA
+      - SCHEMA_ID_MISMATCH
+      - KEY_MISMATCH
+      - UNKNOWN_DICTIONARY_VALUE
+      - EVENT_ID_CONFLICT
+      - AGGREGATE_VERSION_CONFLICT
+      - UNKNOWN_SKU
+      - INVARIANT_VIOLATION
+      - MODEL_OUTPUT_INVALID
+      title: ReasonCode
+      type: string
+    SourceLocator:
+      properties:
+        topic:
+          title: Topic
+          type: string
+        partition:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Partition
+          type: integer
+        offset:
+          maximum: 9223372036854775807
+          minimum: 0
+          title: Offset
+          type: integer
+        raw_locator:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Raw Locator
+          type: string
+      required:
+      - topic
+      - partition
+      - offset
+      - raw_locator
+      title: SourceLocator
+      type: object
+    SourceReceipt:
+      additionalProperties: false
+      properties:
+        namespace:
+          maxLength: 62
+          pattern: ^(dev|(?:bench|replay)-[a-z0-9-]{1,54})$
+          title: Namespace
+          type: string
+        source:
+          $ref: '#/components/schemas/SourceLocator'
+        raw_sha256:
+          pattern: ^[0-9a-f]{64}$
+          title: Raw Sha256
+          type: string
+        event_id:
+          anyOf:
+          - format: uuid
+            pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+            type: string
+          - type: 'null'
+          title: Event Id
+        disposition:
+          enum:
+          - new_valid
+          - duplicate_delivery
+          - invalid
+          - redelivery_noop
+          title: Disposition
+          type: string
+        reason_code:
+          anyOf:
+          - $ref: '#/components/schemas/ReasonCode'
+          - type: 'null'
+        ingested_at:
+          format: date-time
+          pattern: (Z|\+00:00)$
+          title: Ingested At
+          type: string
+        bronze_durable_at:
+          format: date-time
+          pattern: (Z|\+00:00)$
+          title: Bronze Durable At
+          type: string
+        silver_committed_observed_at:
+          anyOf:
+          - format: date-time
+            pattern: (Z|\+00:00)$
+            type: string
+          - type: 'null'
+          title: Silver Committed Observed At
+        gold_visible_at:
+          anyOf:
+          - format: date-time
+            pattern: (Z|\+00:00)$
+            type: string
+          - type: 'null'
+          title: Gold Visible At
+        visibility_generation:
+          anyOf:
+          - maximum: 9223372036854775807
+            minimum: 1
+            type: integer
+          - type: 'null'
+          title: Visibility Generation
+        timing_validity:
+          enum:
+          - observed
+          - missing
+          - recovery_upper_bound
+          title: Timing Validity
+          type: string
+      required:
+      - namespace
+      - source
+      - raw_sha256
+      - event_id
+      - disposition
+      - reason_code
+      - ingested_at
+      - bronze_durable_at
+      - silver_committed_observed_at
+      - gold_visible_at
+      - visibility_generation
+      - timing_validity
+      title: SourceReceipt
+      type: object
+    ReceiptPage:
+      additionalProperties: false
+      properties:
+        receipts:
+          items:
+            $ref: '#/components/schemas/SourceReceipt'
+          title: Receipts
+          type: array
+        next_cursor:
+          anyOf:
+          - maxLength: 128
+            minLength: 1
+            pattern: ^[!-~]+$
+            type: string
+          - type: 'null'
+          title: Next Cursor
+      required:
+      - receipts
+      - next_cursor
+      title: ReceiptPage
+      type: object
+    QuarantineRecord:
+      additionalProperties: false
+      properties:
+        quarantine_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Quarantine Id
+          type: string
+        namespace:
+          maxLength: 62
+          pattern: ^(dev|(?:bench|replay)-[a-z0-9-]{1,54})$
+          title: Namespace
+          type: string
+        source_locator:
+          $ref: '#/components/schemas/SourceLocator'
+        raw_sha256:
+          pattern: ^[0-9a-f]{64}$
+          title: Raw Sha256
+          type: string
+        reason_code:
+          $ref: '#/components/schemas/ReasonCode'
+        validation_path:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Validation Path
+        diagnostic_message:
+          title: Diagnostic Message
+          type: string
+        first_seen_at:
+          format: date-time
+          pattern: (Z|\+00:00)$
+          title: First Seen At
+          type: string
+        schema_version:
+          anyOf:
+          - maximum: 9223372036854775807
+            minimum: 1
+            type: integer
+          - type: 'null'
+          title: Schema Version
+        transform_version:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Transform Version
+          type: string
+        repair_status:
+          enum:
+          - unrepaired
+          - repaired
+          title: Repair Status
+          type: string
+        repair_reference:
+          anyOf:
+          - maxLength: 128
+            minLength: 1
+            pattern: ^[!-~]+$
+            type: string
+          - type: 'null'
+          title: Repair Reference
+      required:
+      - quarantine_id
+      - namespace
+      - source_locator
+      - raw_sha256
+      - reason_code
+      - validation_path
+      - diagnostic_message
+      - first_seen_at
+      - schema_version
+      - transform_version
+      - repair_status
+      - repair_reference
+      title: QuarantineRecord
+      type: object
+    QuarantinePage:
+      additionalProperties: false
+      properties:
+        records:
+          items:
+            $ref: '#/components/schemas/QuarantineRecord'
+          title: Records
+          type: array
+        next_cursor:
+          anyOf:
+          - maxLength: 128
+            minLength: 1
+            pattern: ^[!-~]+$
+            type: string
+          - type: 'null'
+          title: Next Cursor
+      required:
+      - records
+      - next_cursor
+      title: QuarantinePage
+      type: object
+    ReplayRequest:
+      additionalProperties: false
+      properties:
+        source_manifest_ids:
+          items:
+            maxLength: 128
+            minLength: 1
+            pattern: ^[!-~]+$
+            type: string
+          minItems: 1
+          title: Source Manifest Ids
+          type: array
+        target_namespace:
+          pattern: ^(?:bench|replay)-[a-z0-9-]{1,54}$
+          title: Target Namespace
+          type: string
+        transform_version:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Transform Version
+          type: string
+      required:
+      - source_manifest_ids
+      - target_namespace
+      - transform_version
+      title: ReplayRequest
+      type: object
+    ReplayAccepted:
+      additionalProperties: false
+      properties:
+        replay_id:
+          format: uuid
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          title: Replay Id
+          type: string
+        status_url:
+          title: Status Url
+          type: string
+      required:
+      - replay_id
+      - status_url
+      title: ReplayAccepted
+      type: object
+    ReconciliationResult:
+      additionalProperties: false
+      properties:
+        passed:
+          title: Passed
+          type: boolean
+        counts_by_disposition:
+          additionalProperties:
+            maximum: 9223372036854775807
+            minimum: 0
+            type: integer
+          title: Counts By Disposition
+          type: object
+        missing_ids:
+          items:
+            format: uuid
+            pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+            type: string
+          title: Missing Ids
+          type: array
+        unexpected_ids:
+          items:
+            format: uuid
+            pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+            type: string
+          title: Unexpected Ids
+          type: array
+        conflicting_ids:
+          items:
+            format: uuid
+            pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+            type: string
+          title: Conflicting Ids
+          type: array
+        totals_by_currency:
+          additionalProperties:
+            maximum: 9223372036854775807
+            minimum: 0
+            type: integer
+          propertyNames:
+            const: INR
+          title: Totals By Currency
+          type: object
+        invariant_failures:
+          items:
+            type: string
+          title: Invariant Failures
+          type: array
+        source_manifest_ids:
+          items:
+            maxLength: 128
+            minLength: 1
+            pattern: ^[!-~]+$
+            type: string
+          title: Source Manifest Ids
+          type: array
+      required:
+      - passed
+      - counts_by_disposition
+      - missing_ids
+      - unexpected_ids
+      - conflicting_ids
+      - totals_by_currency
+      - invariant_failures
+      - source_manifest_ids
+      title: ReconciliationResult
+      type: object
+    ReplayStatus:
+      additionalProperties: false
+      properties:
+        status:
+          enum:
+          - PENDING
+          - RUNNING
+          - COMPLETED
+          - FAILED
+          title: Status
+          type: string
+        counts:
+          additionalProperties:
+            maximum: 9223372036854775807
+            minimum: 0
+            type: integer
+          title: Counts
+          type: object
+        reconciliation:
+          anyOf:
+          - $ref: '#/components/schemas/ReconciliationResult'
+          - type: 'null'
+        error:
+          anyOf:
+          - additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          - type: 'null'
+          title: Error
+      required:
+      - status
+      - counts
+      - reconciliation
+      - error
+      title: ReplayStatus
+      type: object
+    ErrorBody:
+      additionalProperties: false
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          title: Message
+          type: string
+        retryable:
+          title: Retryable
+          type: boolean
+        details:
+          additionalProperties:
+            anyOf:
+            - type: string
+            - items:
+                type: string
+              type: array
+          title: Details
+          type: object
+      required:
+      - code
+      - message
+      - retryable
+      - details
+      title: ErrorBody
+      type: object
+    ErrorCode:
+      enum:
+      - BAD_REQUEST
+      - UNAUTHORIZED
+      - FORBIDDEN
+      - NOT_FOUND
+      - IDEMPOTENCY_CONFLICT
+      - CART_VERSION_CONFLICT
+      - QUOTE_EXPIRED
+      - PRODUCT_NOT_SELLABLE
+      - OUT_OF_STOCK
+      - RESERVATION_EXPIRED
+      - ALREADY_COMMITTED
+      - ILLEGAL_STATE
+      - VALIDATION_ERROR
+      - UNSUPPORTED_CURRENCY
+      - UNSUPPORTED_FILTER
+      - RATE_LIMITED
+      - DEPENDENCY_UNAVAILABLE
+      - STORAGE_UNAVAILABLE
+      title: ErrorCode
+      type: string
+    ErrorResponse:
+      additionalProperties: false
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+        correlation_id:
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Correlation Id
+          type: string
+      required:
+      - error
+      - correlation_id
+      title: ErrorResponse
+      type: object
+  securitySchemes:
+    ServiceToken:
+      type: http
+      scheme: bearer
+      description: Proposed environment-provided internal service token binding.

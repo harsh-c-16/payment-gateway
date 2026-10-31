@@ -1,0 +1,802 @@
+{
+  "definitions": {
+    "EventMetadata": {
+      "properties": {
+        "dataset_revision": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dataset Revision"
+        },
+        "synthetic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Synthetic"
+        },
+        "scenario_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "simulation",
+                "benchmark"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scenario Source"
+        },
+        "original_event_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Event Id"
+        }
+      },
+      "title": "EventMetadata",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "ConversationTurn": {
+      "properties": {
+        "turn_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Turn Id",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "fixed",
+            "assist"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "outcome": {
+          "enum": [
+            "success",
+            "clarification",
+            "dependency_error"
+          ],
+          "title": "Outcome",
+          "type": "string"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "number"
+        },
+        "llm_call_count": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Llm Call Count",
+          "type": "integer"
+        },
+        "extractor_source": {
+          "enum": [
+            "rules",
+            "llm",
+            "clarification"
+          ],
+          "title": "Extractor Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "turn_id",
+        "mode",
+        "outcome",
+        "duration_ms",
+        "llm_call_count",
+        "extractor_source"
+      ],
+      "title": "ConversationTurn",
+      "type": "object"
+    },
+    "IntentSnapshot": {
+      "description": "Embedded event snapshot of common §4; not Harsh's API ShoppingIntent DTO.",
+      "properties": {
+        "query_text": {
+          "maxLength": 2000,
+          "title": "Query Text",
+          "type": "string"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Category"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "colour": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Colour"
+        },
+        "material": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Material"
+        },
+        "max_price_minor": {
+          "anyOf": [
+            {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Price Minor"
+        },
+        "occasion": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Occasion"
+        },
+        "currency": {
+          "const": "INR",
+          "title": "Currency",
+          "type": "string"
+        },
+        "brand": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brand"
+        },
+        "category_path_prefix": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category Path Prefix"
+        }
+      },
+      "required": [
+        "query_text",
+        "category",
+        "size",
+        "colour",
+        "material",
+        "max_price_minor",
+        "occasion",
+        "currency"
+      ],
+      "title": "IntentSnapshot",
+      "type": "object"
+    },
+    "IntentExtracted": {
+      "properties": {
+        "turn_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Turn Id",
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/definitions/IntentSnapshot"
+        },
+        "extractor_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Extractor Version",
+          "type": "string"
+        },
+        "outcome": {
+          "const": "valid",
+          "title": "Outcome",
+          "type": "string"
+        }
+      },
+      "required": [
+        "turn_id",
+        "intent",
+        "extractor_version",
+        "outcome"
+      ],
+      "title": "IntentExtracted",
+      "type": "object"
+    },
+    "IntentRejected": {
+      "properties": {
+        "turn_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Turn Id",
+          "type": "string"
+        },
+        "reason_code": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Reason Code",
+          "type": "string"
+        },
+        "extractor_version": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Extractor Version",
+          "type": "string"
+        },
+        "restricted_content_reference": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Restricted Content Reference",
+          "type": "string"
+        }
+      },
+      "required": [
+        "turn_id",
+        "reason_code",
+        "extractor_version",
+        "restricted_content_reference"
+      ],
+      "title": "IntentRejected",
+      "type": "object"
+    },
+    "ToolCalled": {
+      "properties": {
+        "turn_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Turn Id",
+          "type": "string"
+        },
+        "tool_call_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Tool Call Id",
+          "type": "string"
+        },
+        "tool_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Tool Name",
+          "type": "string"
+        },
+        "outcome": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Outcome",
+          "type": "string"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "number"
+        }
+      },
+      "required": [
+        "turn_id",
+        "tool_call_id",
+        "tool_name",
+        "outcome",
+        "duration_ms"
+      ],
+      "title": "ToolCalled",
+      "type": "object"
+    },
+    "AddToCart": {
+      "properties": {
+        "cart_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Cart Id",
+          "type": "string"
+        },
+        "cart_version": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Cart Version",
+          "type": "integer"
+        },
+        "sku": {
+          "pattern": "^[!-~]{1,64}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "quantity_after": {
+          "maximum": 10,
+          "minimum": 0,
+          "title": "Quantity After",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "cart_id",
+        "cart_version",
+        "sku",
+        "quantity_after"
+      ],
+      "title": "AddToCart",
+      "type": "object"
+    },
+    "CheckoutStarted": {
+      "properties": {
+        "cart_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Cart Id",
+          "type": "string"
+        },
+        "quote_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Quote Id",
+          "type": "string"
+        },
+        "order_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Order Id",
+          "type": "string"
+        },
+        "confirmation_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Confirmation Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "cart_id",
+        "quote_id",
+        "order_id",
+        "confirmation_id"
+      ],
+      "title": "CheckoutStarted",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "CONVERSATION_TURN",
+        "INTENT_EXTRACTED",
+        "INTENT_REJECTED",
+        "TOOL_CALLED",
+        "ADD_TO_CART",
+        "CHECKOUT_STARTED"
+      ]
+    },
+    "schema_version": {
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "event_time": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Event Time",
+      "type": "string"
+    },
+    "produced_at": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Produced At",
+      "type": "string"
+    },
+    "namespace": {
+      "maxLength": 62,
+      "pattern": "^(dev|(?:bench|replay)-[a-z0-9-]{1,54})$",
+      "title": "Namespace",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[!-~]+$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_service": {
+      "enum": [
+        "conversation",
+        "catalog",
+        "orders",
+        "inventory",
+        "payments",
+        "benchmark"
+      ],
+      "title": "Source Service",
+      "type": "string"
+    },
+    "correlation_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Session Id"
+    },
+    "user_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "User Id"
+    },
+    "aggregate_type": {
+      "enum": [
+        "session",
+        "search",
+        "order",
+        "sku",
+        "payment_attempt"
+      ],
+      "title": "Aggregate Type",
+      "type": "string"
+    },
+    "aggregate_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[!-~]+$",
+      "title": "Aggregate Id",
+      "type": "string"
+    },
+    "aggregate_version": {
+      "maximum": 9223372036854775807,
+      "minimum": 1,
+      "title": "Aggregate Version",
+      "type": "integer"
+    },
+    "payload": {
+      "additionalProperties": {
+        "$ref": "#/definitions/JsonValue"
+      },
+      "title": "Payload",
+      "type": "object"
+    },
+    "metadata": {
+      "$ref": "#/definitions/EventMetadata"
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "event_time",
+    "produced_at",
+    "namespace",
+    "run_id",
+    "source_service",
+    "correlation_id",
+    "session_id",
+    "user_id",
+    "aggregate_type",
+    "aggregate_id",
+    "aggregate_version",
+    "payload",
+    "metadata"
+  ],
+  "title": "EventEnvelope",
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "event_type": {
+          "const": "CONVERSATION_TURN"
+        },
+        "payload": {
+          "$ref": "#/definitions/ConversationTurn"
+        },
+        "source_service": {
+          "enum": [
+            "conversation",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "session"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "INTENT_EXTRACTED"
+        },
+        "payload": {
+          "$ref": "#/definitions/IntentExtracted"
+        },
+        "source_service": {
+          "enum": [
+            "conversation",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "session"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "INTENT_REJECTED"
+        },
+        "payload": {
+          "$ref": "#/definitions/IntentRejected"
+        },
+        "source_service": {
+          "enum": [
+            "conversation",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "session"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "TOOL_CALLED"
+        },
+        "payload": {
+          "$ref": "#/definitions/ToolCalled"
+        },
+        "source_service": {
+          "enum": [
+            "conversation",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "session"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "ADD_TO_CART"
+        },
+        "payload": {
+          "$ref": "#/definitions/AddToCart"
+        },
+        "source_service": {
+          "enum": [
+            "conversation",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "session"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "dataset_revision"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "CHECKOUT_STARTED"
+        },
+        "payload": {
+          "$ref": "#/definitions/CheckoutStarted"
+        },
+        "source_service": {
+          "enum": [
+            "conversation",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "session"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "dataset_revision"
+          ]
+        }
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_service": {
+            "const": "benchmark"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "namespace": {
+            "pattern": "^bench-"
+          },
+          "metadata": {
+            "properties": {
+              "synthetic": {
+                "const": true
+              },
+              "scenario_source": {
+                "const": "benchmark"
+              }
+            },
+            "required": [
+              "synthetic",
+              "scenario_source"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:group3:conversation-events:v1"
+}

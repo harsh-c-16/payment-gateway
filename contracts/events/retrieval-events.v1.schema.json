@@ -1,0 +1,665 @@
+{
+  "definitions": {
+    "EventMetadata": {
+      "properties": {
+        "dataset_revision": {
+          "anyOf": [
+            {
+              "maxLength": 128,
+              "minLength": 1,
+              "pattern": "^[!-~]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Dataset Revision"
+        },
+        "synthetic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Synthetic"
+        },
+        "scenario_source": {
+          "anyOf": [
+            {
+              "enum": [
+                "simulation",
+                "benchmark"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Scenario Source"
+        },
+        "original_event_id": {
+          "anyOf": [
+            {
+              "format": "uuid",
+              "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Event Id"
+        }
+      },
+      "title": "EventMetadata",
+      "type": "object"
+    },
+    "JsonValue": {},
+    "IntentSnapshot": {
+      "description": "Embedded event snapshot of common §4; not Harsh's API ShoppingIntent DTO.",
+      "properties": {
+        "query_text": {
+          "maxLength": 2000,
+          "title": "Query Text",
+          "type": "string"
+        },
+        "category": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Category"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Size"
+        },
+        "colour": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Colour"
+        },
+        "material": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Material"
+        },
+        "max_price_minor": {
+          "anyOf": [
+            {
+              "maximum": 9223372036854775807,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Price Minor"
+        },
+        "occasion": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Occasion"
+        },
+        "currency": {
+          "const": "INR",
+          "title": "Currency",
+          "type": "string"
+        },
+        "brand": {
+          "anyOf": [
+            {
+              "maxLength": 256,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Brand"
+        },
+        "category_path_prefix": {
+          "anyOf": [
+            {
+              "items": {
+                "maxLength": 256,
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Category Path Prefix"
+        }
+      },
+      "required": [
+        "query_text",
+        "category",
+        "size",
+        "colour",
+        "material",
+        "max_price_minor",
+        "occasion",
+        "currency"
+      ],
+      "title": "IntentSnapshot",
+      "type": "object"
+    },
+    "SearchRequested": {
+      "properties": {
+        "search_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Search Id",
+          "type": "string"
+        },
+        "intent": {
+          "$ref": "#/definitions/IntentSnapshot"
+        },
+        "mode": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "search_id",
+        "intent",
+        "mode"
+      ],
+      "title": "SearchRequested",
+      "type": "object"
+    },
+    "ProductRetrieved": {
+      "properties": {
+        "search_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Search Id",
+          "type": "string"
+        },
+        "skus": {
+          "items": {
+            "pattern": "^[!-~]{1,64}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Skus",
+          "type": "array"
+        },
+        "returned_count": {
+          "maximum": 20,
+          "minimum": 0,
+          "title": "Returned Count",
+          "type": "integer"
+        },
+        "mode": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Mode",
+          "type": "string"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "number"
+        }
+      },
+      "required": [
+        "search_id",
+        "skus",
+        "returned_count",
+        "mode",
+        "duration_ms"
+      ],
+      "title": "ProductRetrieved",
+      "type": "object"
+    },
+    "ProductCompared": {
+      "properties": {
+        "comparison_id": {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "title": "Comparison Id",
+          "type": "string"
+        },
+        "skus": {
+          "items": {
+            "pattern": "^[!-~]{1,64}$",
+            "type": "string"
+          },
+          "maxItems": 20,
+          "minItems": 1,
+          "title": "Skus",
+          "type": "array"
+        },
+        "field_names": {
+          "items": {
+            "maxLength": 128,
+            "minLength": 1,
+            "pattern": "^[!-~]+$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Field Names",
+          "type": "array"
+        }
+      },
+      "required": [
+        "comparison_id",
+        "skus",
+        "field_names"
+      ],
+      "title": "ProductCompared",
+      "type": "object"
+    },
+    "PriceUpdated": {
+      "properties": {
+        "sku": {
+          "pattern": "^[!-~]{1,64}$",
+          "title": "Sku",
+          "type": "string"
+        },
+        "price_minor": {
+          "maximum": 1000000000,
+          "minimum": 1,
+          "title": "Price Minor",
+          "type": "integer"
+        },
+        "currency": {
+          "const": "INR",
+          "title": "Currency",
+          "type": "string"
+        },
+        "catalog_version": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Catalog Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sku",
+        "price_minor",
+        "currency",
+        "catalog_version"
+      ],
+      "title": "PriceUpdated",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "event_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "event_type": {
+      "enum": [
+        "SEARCH_REQUESTED",
+        "PRODUCT_RETRIEVED",
+        "PRODUCT_COMPARED",
+        "PRICE_UPDATED"
+      ]
+    },
+    "schema_version": {
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "event_time": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Event Time",
+      "type": "string"
+    },
+    "produced_at": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Produced At",
+      "type": "string"
+    },
+    "namespace": {
+      "maxLength": 62,
+      "pattern": "^(dev|(?:bench|replay)-[a-z0-9-]{1,54})$",
+      "title": "Namespace",
+      "type": "string"
+    },
+    "run_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[!-~]+$",
+      "title": "Run Id",
+      "type": "string"
+    },
+    "source_service": {
+      "enum": [
+        "conversation",
+        "catalog",
+        "orders",
+        "inventory",
+        "payments",
+        "benchmark"
+      ],
+      "title": "Source Service",
+      "type": "string"
+    },
+    "correlation_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Correlation Id",
+      "type": "string"
+    },
+    "session_id": {
+      "anyOf": [
+        {
+          "format": "uuid",
+          "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Session Id"
+    },
+    "user_id": {
+      "anyOf": [
+        {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "User Id"
+    },
+    "aggregate_type": {
+      "enum": [
+        "session",
+        "search",
+        "order",
+        "sku",
+        "payment_attempt"
+      ],
+      "title": "Aggregate Type",
+      "type": "string"
+    },
+    "aggregate_id": {
+      "maxLength": 128,
+      "minLength": 1,
+      "pattern": "^[!-~]+$",
+      "title": "Aggregate Id",
+      "type": "string"
+    },
+    "aggregate_version": {
+      "maximum": 9223372036854775807,
+      "minimum": 1,
+      "title": "Aggregate Version",
+      "type": "integer"
+    },
+    "payload": {
+      "additionalProperties": {
+        "$ref": "#/definitions/JsonValue"
+      },
+      "title": "Payload",
+      "type": "object"
+    },
+    "metadata": {
+      "$ref": "#/definitions/EventMetadata"
+    }
+  },
+  "required": [
+    "event_id",
+    "event_type",
+    "schema_version",
+    "event_time",
+    "produced_at",
+    "namespace",
+    "run_id",
+    "source_service",
+    "correlation_id",
+    "session_id",
+    "user_id",
+    "aggregate_type",
+    "aggregate_id",
+    "aggregate_version",
+    "payload",
+    "metadata"
+  ],
+  "title": "EventEnvelope",
+  "type": "object",
+  "oneOf": [
+    {
+      "properties": {
+        "event_type": {
+          "const": "SEARCH_REQUESTED"
+        },
+        "payload": {
+          "$ref": "#/definitions/SearchRequested"
+        },
+        "source_service": {
+          "enum": [
+            "catalog",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "search"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "dataset_revision"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "PRODUCT_RETRIEVED"
+        },
+        "payload": {
+          "$ref": "#/definitions/ProductRetrieved"
+        },
+        "source_service": {
+          "enum": [
+            "catalog",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "search"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "dataset_revision"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "PRODUCT_COMPARED"
+        },
+        "payload": {
+          "$ref": "#/definitions/ProductCompared"
+        },
+        "source_service": {
+          "enum": [
+            "catalog",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "search"
+        },
+        "session_id": {
+          "type": "string"
+        },
+        "user_id": {
+          "type": "string"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "dataset_revision"
+          ]
+        }
+      }
+    },
+    {
+      "properties": {
+        "event_type": {
+          "const": "PRICE_UPDATED"
+        },
+        "payload": {
+          "$ref": "#/definitions/PriceUpdated"
+        },
+        "source_service": {
+          "enum": [
+            "catalog",
+            "benchmark"
+          ]
+        },
+        "aggregate_type": {
+          "const": "sku"
+        },
+        "metadata": {
+          "properties": {
+            "dataset_revision": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "dataset_revision"
+          ]
+        }
+      }
+    }
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "source_service": {
+            "const": "benchmark"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "namespace": {
+            "pattern": "^bench-"
+          },
+          "metadata": {
+            "properties": {
+              "synthetic": {
+                "const": true
+              },
+              "scenario_source": {
+                "const": "benchmark"
+              }
+            },
+            "required": [
+              "synthetic",
+              "scenario_source"
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "urn:group3:retrieval-events:v1"
+}

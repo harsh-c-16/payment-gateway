@@ -6,6 +6,85 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M02 — Contracts implemented; team review pending, 31 October 2026
+
+Branch: `vichitr`. Owned offline and real registry/wire checks pass. This is a
+reviewable contract proposal, **not G0 sign-off**. The full shared suite exposes
+one historical inventory/receipt-fixture failure requiring Jaineel's review.
+
+### Changes and scope
+
+- `shared/contracts/events.py`: 24 business payload snapshots, envelope/metadata,
+  local diagnostic/DLQ shape, reason enum, publish acknowledgement, ownership,
+  key/aggregate/version/state/provenance checks and strict known fields.
+- `contracts/events/`: six self-contained draft-07 schemas, hash manifest and
+  usage guide; `contracts/dictionaries/events/reasons.v1.json`: the 18 reasons.
+- `shared/contracts/analytics.py`, `contracts/http/analytics.yaml`: canonical
+  manifest/candidate/source range/reconciliation/batch DTOs and proposed receipt,
+  quarantine and replay bindings for the six exact analytics endpoints. Internal
+  authentication matches the existing `Authorization: Bearer` client proposal.
+- `shared/event_transport/schemas.py`: actual registration/read-back, complete
+  pinned cache, online policy/mapping checks and pure wire validation. Broker
+  wrappers and the service-local transactional helper remain M03.
+- `infra/contract_assets.py`: reproducible owned asset generation from models;
+  `infra/streaming.py` and `infra/STREAMING.md`: schema-aware existing CLI startup
+  and verification, preserving the same low-memory infrastructure profile.
+- `tests/pipelines/{event_examples.py,fixtures/events.v1.json,test_event_contracts.py,test_event_contracts_live.py}`:
+  synthetic valid/invalid contracts, consumer OpenAPI binding and real wire tests.
+- [M02 decision/review handoff](m02_contract_handoff.md): concrete field choices,
+  existing receipt mismatch, affected owners, migration/review and verification.
+
+No shared canonical spec, dependency lock, consumer implementation/test, raw CSV,
+service migration, business database, operational producer or Gold pipeline was
+changed. Optional unknown properties/nulls remain in the immutable parsed wire
+document; content hashes cover that document, including event/production times.
+
+### Actual verification
+
+All Python commands below use `.venv/Scripts/python.exe` from the repository root;
+pytest runs outside the Windows filesystem sandbox using workspace-local scratch
+directories, matching the existing infrastructure test arrangement.
+
+| Command/check | Actual outcome | Evidence |
+|---|---|---|
+| `-m infra.contract_assets`; owned Ruff check/format | Generated assets reproducible; lint/format passed | Source tests/session |
+| Initial contract test collection | Failed relative import; added owned test package initializer | `artifacts/m02/contracts-first.xml` |
+| Second focused run | 58 passed; timestamp reason mismatch and two Windows environment-size errors caused by an oversized pytest case ID; fixed classification and bounded IDs | `artifacts/m02/contracts-second.xml` |
+| First complete owned run | 99 passed, 2 live tests skipped | `artifacts/m02/offline-first.xml` |
+| `-m pytest tests/pipelines -q --tb=short --junitxml=artifacts/m02/offline-final.xml` | **107 passed, 3 skipped**; all three live tests are opt-in | `artifacts/m02/offline-final.xml` |
+| `-m pytest tests/pipelines tests/contracts tests/projectctl -q --tb=short --junitxml=artifacts/m02/regression-first.xml` | **336 passed, 3 skipped, 1 failed**; shared historical inventory assertion expects analytics absent/exit 4; new proposal exposes the known receipt conflict/exit 3 | `artifacts/m02/regression-first.xml` |
+| Same broad suites, final rerun after the added malformed-input tests | **344 passed, 3 skipped, 1 failed**, 83.62 seconds; same documented shared inventory/receipt failure | `artifacts/m02/regression-final.xml` |
+| `PROJECTCTL_ADAPTER_MODULE=infra.streaming` then `-m projectctl env up --profile streaming-local` | Exit 0; registered six actual JSON subjects, verified policy/ID/hash and infrastructure. Repeated after allowing legitimate multiword facets; registration remained backward compatible | `artifacts/projectctl/a12159ec-6e94-4a86-8648-5d0427b1f6a9/`, `artifacts/projectctl/d21a1997-8238-4ead-9140-861a732075cd/` |
+| `RUN_CONTRACTS_LIVE_TESTS=1` then `-m pytest tests/pipelines/test_event_contracts_live.py -q --tb=short --junitxml=artifacts/m02/live-first.xml` | **1 passed**, real Kafka and registry, 25 acknowledged/read records | `artifacts/m02/live-first.xml` |
+| Same live test, final expanded compatibility checks | **1 passed**, 8.09 seconds; all six subjects accept an unconstrained optional addition and reject both a breaking type and an unsafe typed optional addition to the open model. Old/new example validation and 25 exact-byte wire records pass | `artifacts/m02/live-final.xml`, `artifacts/m02/live-contracts.json` |
+| `-m projectctl env verify --profile streaming-local` with explicit adapter | Exit 0; actual final infrastructure/schema mapping checks pass | `artifacts/projectctl/3966f6c7-6e78-4a65-b612-c990f0cfea9f/` |
+| Stop live-check infrastructure | Mistakenly supplied startup-only `--profile` to `env down`, which returned 2. Corrected by stopping all three verified project containers directly, then `docker desktop stop`, exit 0. No volumes removed; final Desktop/backend process count 0 | `artifacts/projectctl/a6b8ac64-a5d5-485a-be60-36f32702f2da/`, session |
+| Owned lint/format, whitespace and secret/file-scope audit | Passed. Secret audit required the existing elevated file access; no protected password values printed or included in changed files | Session |
+
+The final live namespace is `bench-m02-41c04949c3914f6d943322b431b62dd0`.
+The registry returned conversation subject ID 9/version 2, retrieval ID 10/version
+2, inventory ID 4/version 1, order ID 5/version 1, payment ID 6/version 1 and DLQ
+ID 8/version 1. These IDs are local facts, not portable constants. Complete
+ID/hash definitions are retained in the ignored runtime mapping and live evidence.
+Early local versions were test proposals; no operational traffic used them.
+
+The broad suite's failure is preserved. `receipts-missing-timing` uses the earlier
+provisional `silver_at` item, while the proposed DTO names/contains explicit source
+and durable-stage fields. The shared inventory test also asserts the analytics
+contract is missing. Jaineel owns those fixtures/tests. No assertion was weakened,
+test skipped or consumer field silently rewritten to obtain a green shared gate.
+See the handoff for exact old/new shapes and required provider/consumer review.
+
+### Checkpoint and next handoff
+
+M02's implementation and owned/live verification are ready for review. Producer
+owners must approve their payloads; Jaineel must review receipt/pagination/source
+range bindings and update his historical inventory fixture/test as agreed. G0,
+real outbox integration, source-to-Gold correctness and benchmarks remain incomplete.
+M03 is next: keyword-compatible builder/validation exports, acknowledged bounded
+Kafka transport, offset handling and service-local diagnostics. Aditya's actual
+outbox remains a dependency; an explicit test double cannot close real integration.
+
 ## M01b — Low-memory infrastructure passed, 31 October 2026
 
 Branch: `vichitr`. PostgreSQL, Kafka **4.1.2** (single KRaft broker/controller) and
