@@ -29,9 +29,42 @@ reviews remain pending.
   `receipts-missing-timing` passes and no correctness FAIL remains. Full G0 is
   still incomplete. Evidence: `artifacts/projectctl/3e3991e5-fc28-4c24-8dcb-3e517bf2d99a/`.
 
-Full CI-script verification and the real isolated PostgreSQL rehearsal are pending
-at this initial correction checkpoint; subsequent evidence will be recorded here.
+### CI-script verification
+
+- Locked dependency sync passed without changing the lock. Shared fixture JSON
+  matches its generator; owned/shared lint and format checks passed.
+- The remaining workflow steps for integration lint/format and
+  `python -m pytest tests/integration -q --tb=short
+  --junitxml=artifacts/m02-ci-fix/integration.xml` passed: **45 tests**.
+- First `python benchmarks/manual/verify_p5.py` attempt, run concurrently with
+  P6: 10/11 checks matched. The pytest step had **625 passed, 1 failed** in
+  174.57 seconds. The failure was the existing 61-ms real-process telemetry
+  sampler expecting four CPU samples but observing two; the receipt regression
+  passed. Raw evidence is preserved at
+  `artifacts/p5/8f3459f3-58d9-4eb1-9f9d-a6aa0d50eb6d/`.
+- The unchanged telemetry test passed in isolation: **1 passed**, 1.14 seconds,
+  `artifacts/m02-ci-fix/telemetry-isolated.xml`. No telemetry code, timing budget,
+  expected sample count or assertion was relaxed.
+- Serial `python benchmarks/manual/verify_p5.py` rerun passed, exit **0**:
+  **11/11 checks matched**, including **626 tests passed** in 118.858 seconds,
+  schema regeneration checks, the expected dependency-only contract inventory,
+  observer/report reconstruction and clean source guards. Evidence:
+  `artifacts/p5/1e27973f-b8f4-434b-8a8b-cf89bcd4ca8e/{checks.json,pytest.xml}`.
+- `python benchmarks/manual/verify_p6.py --out artifacts/m02-ci-fix/p6` passed,
+  exit **0**, using a real isolated Docker PostgreSQL **18.6** container capped
+  at 512 MiB. All 10 inner verification commands matched, including **949 tests
+  passed** in 245.855 seconds. The smoke and post-restart resume passed; the
+  container ID/data volume were retained and the server start time changed.
+  Evidence: `artifacts/m02-ci-fix/p6/{docker-summary.json,docker-checks.json}`
+  and `checkpoint/{checks.json,pytest.xml,smoke/}`. Its event/outbox collaborators
+  remain explicitly test doubles; no real shared checkout gate is claimed.
+- Stopped only the verified isolated P6 test container, retained its volume,
+  and stopped Docker Desktop after confirming no other containers were running.
+
 No database format, event schema ID, application lock or deployment was changed.
+All workflow-equivalent local checks now pass. The initial failed run is retained
+alongside the successful serial run; full shared-service/G0 completion remains
+incomplete and was not relabelled as a pass.
 
 ## M02 — Contracts implemented; team review pending, 31 October 2026
 
