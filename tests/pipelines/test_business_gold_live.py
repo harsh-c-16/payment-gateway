@@ -316,12 +316,14 @@ def test_migration_004_backfills_existing_silver_and_is_idempotent(vertical, mon
                    gold_dirty_keys,order_fact,order_cohorts,payment_fact,funnel_stages,
                    pending_order_joins,inventory_failure_outcomes,search_fact""")
         tx.execute("DROP INDEX source_receipts_event")
+        tx.execute("DROP VIEW event_time_windows,event_time_visibility")
+        tx.execute("DROP TABLE event_time_observations,event_time_partitions,event_time_watermarks")
         tx.execute("DELETE FROM analytics_schema_migrations WHERE version>=4")
     monkeypatch.setattr(business, "apply_business", actual)
     for _ in range(2):
         with vertical.connect() as tx, tx.transaction():
             migrate_analytics(tx)
-    assert scalar(vertical, "SELECT count(*) FROM analytics_schema_migrations") == 5
+    assert scalar(vertical, "SELECT count(*) FROM analytics_schema_migrations") == 6
     assert scalar(vertical, "SELECT count(*) FROM gold_business_contributions") == 2
     assert scalar(vertical, "SELECT sum(unique_events) FROM pipeline_minute") == 2
     vertical.publish_snapshot(vertical.test_namespace)

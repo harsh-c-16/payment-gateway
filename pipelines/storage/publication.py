@@ -14,6 +14,7 @@ from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter
 
 from pipelines.curation.db import lock_key, one, rows, sink_lock
+from pipelines.curation.event_time import POLICY, advance_watermark
 from pipelines.curation.observations import enqueue_observation
 from pipelines.gold.business import business_query, business_row
 from shared.contracts.analytics import DatasetManifest, SourceRange
@@ -197,13 +198,17 @@ def _lineage(pipeline, tx, namespace, old, snapshot_id):
     for row in stream_rows(
         tx,
         """SELECT e.event_id::text,s.topic,s.partition,s.offset_number,
-        s.raw_locator,s.raw_sha256,s.capture_id::text FROM silver_events e
+        s.raw_locator,s.raw_sha256,s.capture_id::text,
+        t.watermark_before,t.timestamp_quality,t.revision,t.reason FROM silver_events e
         JOIN m08_pending p USING(event_id) JOIN source_receipts s ON s.namespace=e.namespace
         AND s.topic=e.source_topic AND s.partition=e.source_partition
-        AND s.offset_number=e.source_offset WHERE e.namespace=%s ORDER BY e.event_id""",
+        AND s.offset_number=e.source_offset
+        LEFT JOIN event_time_observations t ON t.namespace=e.namespace AND t.event_id=e.event_id
+        WHERE e.namespace=%s ORDER BY e.event_id""",
         (namespace,),
         batch=512,
     ):
+        row["watermark_before"] = _wire(row["watermark_before"])
         batch.append(row)
         if len(batch) == 512:
             flush()
@@ -211,6 +216,10 @@ def _lineage(pipeline, tx, namespace, old, snapshot_id):
         flush()
     document = {
         **provenance(pipeline, namespace),
+        "event_time_policy": POLICY,
+        "event_time_status": _wire(
+            one(tx, "SELECT * FROM event_time_watermarks WHERE namespace=%s", (namespace,))
+        ),
         "membership_files": parts,
         "parent_input_manifest_ids": sorted(
             {ref for manifest in old.values() for ref in manifest.input_manifest_ids}
@@ -448,6 +457,8 @@ def _commit(pipeline, tx, namespace, old, manifests):
 def publish_snapshot(pipeline, namespace):
     started = monotonic()
     with publisher_session(pipeline, namespace) as tx:
+        with tx.transaction():
+            advance_watermark(tx, namespace)
         with tx.transaction():
             tx.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
             tx.execute("SET LOCAL work_mem='4MB'")

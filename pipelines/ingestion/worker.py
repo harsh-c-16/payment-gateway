@@ -32,7 +32,8 @@ def run(pipeline, namespace, run_id, bootstrap):
                         pipeline.publish_snapshot(namespace)
                     except LookupError:
                         pass  # No first publication exists while the source is idle.
-                    deadline = monotonic() + 0.250
+                    # Keep the fixed cadence; skip missed ticks when publication is slow.
+                    deadline += max(1, int((monotonic() - deadline) / 0.250) + 1) * 0.250
         except (
             psycopg.OperationalError,
             psycopg.errors.DeadlockDetected,

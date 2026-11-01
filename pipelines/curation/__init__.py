@@ -17,6 +17,7 @@ from shared.contracts.events import EventEnvelope, Namespace, ReasonCode, Valida
 from shared.telemetry.metrics import Telemetry
 
 from .db import journal, one, sink_lock
+from .event_time import track_event_time
 from .normalization import normalize_payload
 from .observations import enqueue_observation, observe, recover_observations
 from .quarantine import route_dlq
@@ -163,6 +164,7 @@ class AnalyticsPipeline:
                 )
             elif existing:
                 disposition = "duplicate_delivery"
+                track_event_time(tx, record, event, new_fact=False)
             elif version:
                 failure = ValidationFailure(
                     reason_code=ReasonCode.AGGREGATE_VERSION_CONFLICT,
@@ -261,6 +263,7 @@ class AnalyticsPipeline:
             ),
         )
         aggregate_gold([event], tx, transform_version=self.transform_version)
+        track_event_time(tx, record, event, new_fact=True)
 
     def ingest_once(self, group, *, run_id, max_records=100):
         records = group.consume_records(group.topics, max_records, 50)

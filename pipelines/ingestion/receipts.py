@@ -16,6 +16,7 @@ SLICE_MIGRATION = MIGRATION.with_name("002_vertical_slice.sql")
 SILVER_MIGRATION = MIGRATION.with_name("003_full_silver.sql")
 GOLD_MIGRATION = MIGRATION.with_name("004_business_gold.sql")
 PUBLICATION_MIGRATION = MIGRATION.with_name("005_visibility_lookup.sql")
+EVENT_TIME_MIGRATION = MIGRATION.with_name("006_event_time.sql")
 
 
 def _transaction(tx):
@@ -37,6 +38,7 @@ def migrate_analytics(tx):
             (3, SILVER_MIGRATION),
             (4, GOLD_MIGRATION),
             (5, PUBLICATION_MIGRATION),
+            (6, EVENT_TIME_MIGRATION),
         ):
             # Git checkouts may use CRLF; checksums agree across host OSes.
             data = path.read_text(encoding="utf-8").encode("utf-8")
