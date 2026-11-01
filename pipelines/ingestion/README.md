@@ -45,13 +45,15 @@ is M05/M06. Capture IDs cannot change content on retry.
 **Capture alone never authorizes an offset commit.** M04 rows have NULL disposition,
 event ID and downstream times, with timing_validity=missing. They are not public
 SourceReceipt responses. Neither capture nor persistence calls mark_durable,
-commit_offsets, Silver, Gold or an outbox. M05 must atomically finalize disposition
-with Silver/reducers or quarantine plus Aditya's real outbox, commit that transaction,
-then mark only the durable contiguous consumer prefix. Live broker tests prove
-capture-only commits are rejected.
+commit_offsets, Silver, Gold or an outbox. M05 AnalyticsPipeline now finalizes its
+CONVERSATION_TURN slice with Silver/reducers or quarantine plus the real outbox,
+commits, then marks only the owned contiguous consumer prefix. Missing outbox
+blocks invalid sources. Live broker tests prove capture-only commits are rejected.
 
-migrate_analytics(tx) applies only migrations/analytics/001_capture.sql using a
+migrate_analytics(tx) applies analytics migrations 001_capture.sql and
+002_vertical_slice.sql using a
 transaction lock and normalized-line-ending checksum. Caller owns commit. It creates
 capture/source receipt, quarantine and processing-run foundations; no substitute
 outbox. See [handoff](../../docs/vichitr/m04_capture_handoff.md) for CLI composition
-and remaining provider work.
+and remaining provider work. The [M05 handoff](../../docs/vichitr/m05_vertical_handoff.md)
+describes worker/API startup, publication and current supported schema.

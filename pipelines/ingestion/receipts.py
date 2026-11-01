@@ -12,6 +12,7 @@ from shared.contracts.analytics import RawBatchReceipt
 from .bronze import SourceCorruption, read_bronze
 
 MIGRATION = Path(__file__).resolve().parents[2] / "migrations/analytics/001_capture.sql"
+SLICE_MIGRATION = MIGRATION.with_name("002_vertical_slice.sql")
 
 
 def _transaction(tx):
@@ -22,25 +23,27 @@ def _transaction(tx):
 def migrate_analytics(tx):
     """Apply only this owner's immutable migration; caller commits or rolls back."""
     _transaction(tx)
-    # Git checkouts may use CRLF; migration identity must agree across host OSes.
-    data = MIGRATION.read_text(encoding="utf-8").encode("utf-8")
-    digest = hashlib.sha256(data).hexdigest()
     with tx.transaction():
         tx.execute("SELECT pg_advisory_xact_lock(744031001)")
         tx.execute("""CREATE TABLE IF NOT EXISTS analytics_schema_migrations (
             version integer PRIMARY KEY, sha256 char(64) NOT NULL,
             applied_at timestamptz NOT NULL DEFAULT clock_timestamp())""")
-        previous = tx.execute(
-            "SELECT sha256 FROM analytics_schema_migrations WHERE version = 1"
-        ).fetchone()
-        if previous:
-            if previous[0] != digest:
-                raise SourceCorruption("Applied analytics migration checksum changed")
-            return
-        tx.execute(data.decode("utf-8"))
-        tx.execute(
-            "INSERT INTO analytics_schema_migrations(version,sha256) VALUES (1,%s)", (digest,)
-        )
+        for version, path in ((1, MIGRATION), (2, SLICE_MIGRATION)):
+            # Git checkouts may use CRLF; checksums agree across host OSes.
+            data = path.read_text(encoding="utf-8").encode("utf-8")
+            digest = hashlib.sha256(data).hexdigest()
+            previous = tx.execute(
+                "SELECT sha256 FROM analytics_schema_migrations WHERE version=%s", (version,)
+            ).fetchone()
+            if previous:
+                if previous[0] != digest:
+                    raise SourceCorruption("Applied analytics migration checksum changed")
+                continue
+            tx.execute(data.decode("utf-8"))
+            tx.execute(
+                "INSERT INTO analytics_schema_migrations(version,sha256) VALUES (%s,%s)",
+                (version, digest),
+            )
 
 
 @dataclass(frozen=True)

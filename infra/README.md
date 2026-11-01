@@ -8,8 +8,9 @@ M01a provides the **PostgreSQL-only** `postgres-local` profile described below.
 For Kafka, registry and the smaller PostgreSQL allocation, use
 the [M01b streaming-local instructions](STREAMING.md). M02/M03 supply event contracts
 and transport; [M04](../docs/vichitr/m04_capture_handoff.md) supplies Linux-volume
-FileStore, Bronze and capture-ledger foundations. Application services, final sink
-dispositions and benchmark readiness remain later checkpoints.
+FileStore, Bronze and capture-ledger foundations. [M05](../docs/vichitr/m05_vertical_handoff.md)
+adds the opt-in analytics API/B0 worker and one supported Silver/Gold slice.
+Other owners' services, the real outbox and benchmark readiness remain pending.
 
 ## Start and verify
 

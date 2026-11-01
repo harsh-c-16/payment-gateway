@@ -6,6 +6,53 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M05 — First Silver/active-Gold provider, 1 November 2026
+
+Implemented within owned analytics, pipeline, infrastructure and test paths.
+Full G1 is **not claimed**: Aditya's real outbox is absent in this checkout and
+Jaineel's independent G1 provider adoption remains pending. See
+[M05 handoff](m05_vertical_handoff.md). Final source-pinned verification follows.
+
+- New immutable analytics migration 002 (001 unchanged) adds Silver/contribution
+  keys, pipeline_minute staging, pending IDs, paired manifest pointers, exact event
+  membership, visibility observations and the ordered receipt journal.
+- pipelines/curation provides B0 CONVERSATION_TURN validation/dedup/atomic sink,
+  strict batch controls, source corruption fencing, version/content conflict
+  quarantine and post-commit observations. Missing outbox fails closed. Explicit
+  test doubles never become a production outbox. DirtyPartitionSet is an owned
+  canonical DTO; aggregate_gold requires the caller's active transaction.
+- pipelines/storage adds stable typed Zstandard/UTC Parquet, verified file reads,
+  bounded repeatable-read snapshots, namespace publisher locks, unchanged-file
+  reuse, paired pointer CAS, exact-ID pending deletion and generation-pinned queries.
+  The current full snapshot stops above 10,000 facts/8 MiB uncompressed document
+  text; incremental publication/compactor admission remain M08.
+- pipelines/ingestion adds the actual read API and explicit runtime/B0 worker.
+  Internal operations use the environment bearer token. Replay and other reducers
+  remain unavailable. API SQL gauges are namespace-scoped; separate worker counter
+  collection/full benchmark instrumentation still need harness integration.
+- infra/compose.analytics.yaml supplies opt-in localhost:8006 API and worker,
+  384 MiB/0.5 CPU each, using existing locked Python dependencies and read-only
+  source/cache mounts. No .env, raw data or credential enters its image/context.
+  Application readiness stays 503 while the real outbox is missing.
+
+Development verification (before the final source commit):
+
+| Check | Actual result | Evidence |
+|---|---|---|
+| Initial real SQL/files suite | 4 passed, 1 fixture error: payload is a dictionary, not a Pydantic payload object. Fixed fixture access without weakening assertions | artifacts/m05/live-first.xml |
+| SQL/files/API/concurrent-snapshot suite | 10 passed, 17.46 seconds | artifacts/m05/live-second.xml |
+| Expanded native Kafka, SQL pointer rollback and recovery suite | 12 passed, 19.80 seconds | artifacts/m05/live-third.xml |
+| Initial offline M05 boundaries | 8 passed, 24.50 seconds | artifacts/m05/unit.xml |
+| Host pipeline/contracts/integration | 297 passed, 45 skipped, 45.67 seconds | artifacts/m05/host-first.xml |
+
+The host skips comprise 24 POSIX filesystem cases, three M04 live cases, six older
+infrastructure/transport cases and twelve new M05 live cases. New M05 live cases
+run separately in Docker; no host skip is presented as an integration pass. The
+six older unchanged live checks were not rerun for this checkpoint. Source-pinned
+final runs and runtime/restart smoke will be recorded below before branch delivery.
+Development fixtures used the previous base commit identifier while working code
+was uncommitted; they are diagnostic tests, not reproducible performance evidence.
+
 ## M04 follow-up — User-approved 2-MiB cap and exact skips, 31 October 2026
 
 The user explicitly approved increasing Bronze to 2 MiB. This supersedes the

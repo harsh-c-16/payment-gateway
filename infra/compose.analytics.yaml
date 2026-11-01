@@ -1,0 +1,44 @@
+x-analytics: &analytics
+  image: group3-m04-storage:local
+  pull_policy: never
+  environment: &analytics-env
+    CODE_COMMIT: ${CODE_COMMIT:?Supply the actual Git revision}
+    INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Supply the shared internal service token}
+    LAKEHOUSE_ROOT: /lakehouse
+    EVENT_SCHEMA_CACHE_PATH: /app/schema-cache.json
+    ANALYTICS_DB_HOST: postgres
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    RUN_NAMESPACE: ${RUN_NAMESPACE:?Supply dev or an isolated namespace}
+    RUN_ID: ${RUN_ID:?Supply an explicit run identity}
+    SINK_BATCH_MAX_ROWS: "1"
+    SINK_BATCH_MAX_WAIT_MS: "50"
+    PYTHONPYCACHEPREFIX: /tmp/analytics-pycache
+  volumes:
+    - lakehouse_data:/lakehouse
+    - ../pipelines:/app/pipelines:ro
+    - ../shared:/app/shared:ro
+    - ../contracts:/app/contracts:ro
+    - ../migrations/analytics:/app/migrations/analytics:ro
+    - ../artifacts/infra/streaming-local/registry-manifest.json:/app/schema-cache.json:ro
+  secrets: [analytics_password]
+  mem_limit: 384m
+  cpus: 0.5
+  pids_limit: 128
+  labels:
+    group3.owner: vichitr
+    group3.checkpoint: M05
+services:
+  analytics:
+    <<: *analytics
+    profiles: [analytics]
+    command: [uvicorn, pipelines.ingestion.runtime:app_from_env, --factory, --host, "0.0.0.0", --port, "8006", --limit-concurrency, "8", --backlog, "16"]
+    ports: ["127.0.0.1:8006:8006"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/health/live',timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  analytics-worker:
+    <<: *analytics
+    profiles: [analytics-worker]
+    command: [python, -m, pipelines.ingestion.worker]

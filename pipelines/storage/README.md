@@ -41,4 +41,6 @@ automatically. Retain data at least 30 days and through final acceptance; cleanu
 remains explicit and disabled during experiments.
 
 See [M04 handoff](../../docs/vichitr/m04_capture_handoff.md) for real-volume checks.
-Snapshot publication/CAS and compactor admission remain M05/M08.
+M05 publication/CAS and generation-pinned readers are in publication.py/readers.py;
+see the [M05 handoff](../../docs/vichitr/m05_vertical_handoff.md). Complete incremental
+publication and compactor admission remain M08.

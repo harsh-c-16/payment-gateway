@@ -1,0 +1,47 @@
+"""M05's single exact pipeline_minute reducer; other business reducers follow M07."""
+
+from pipelines.ingestion.receipts import _transaction
+from shared.contracts.analytics import DirtyPartitionSet
+
+
+def aggregate_gold(new_facts, db_transaction, *, transform_version="m05-conversation-v1"):
+    _transaction(db_transaction)
+    changed = []
+    with db_transaction.transaction():
+        for event in new_facts:
+            if event.event_type != "CONVERSATION_TURN":
+                raise ValueError("Other Gold reducers are not implemented in M05")
+            inserted = db_transaction.execute(
+                """INSERT INTO reducer_contributions(namespace,event_id) VALUES (%s,%s)
+                   ON CONFLICT DO NOTHING RETURNING event_id""",
+                (event.namespace, event.event_id),
+            ).fetchone()
+            if inserted:
+                db_transaction.execute(
+                    """INSERT INTO pipeline_minute
+                       (namespace,minute,event_type,source_service,unique_events,revision,transform_version)
+                       VALUES (%s,%s,%s,%s,1,1,%s)
+                       ON CONFLICT(namespace,minute,event_type,source_service) DO UPDATE SET
+                       unique_events=pipeline_minute.unique_events+1,
+                       revision=pipeline_minute.revision+1""",
+                    (
+                        event.namespace,
+                        event.event_time.replace(second=0, microsecond=0),
+                        event.event_type,
+                        event.source_service,
+                        transform_version,
+                    ),
+                )
+                db_transaction.execute(
+                    "INSERT INTO export_pending(namespace,event_id) VALUES (%s,%s)",
+                    (event.namespace, event.event_id),
+                )
+                changed.append(event)
+    return DirtyPartitionSet(
+        logical_keys=sorted(
+            {"pipeline_minute:" + e.event_time.date().isoformat() for e in changed}
+        ),
+        new_event_ids=[e.event_id for e in changed],
+        affected_tables=["pipeline_minute"] if changed else [],
+        minimum_event_time=min(e.event_time for e in changed) if changed else None,
+    )

@@ -119,6 +119,13 @@ class BatchOutcome(WireModel):
         return self
 
 
+class DirtyPartitionSet(WireModel):
+    logical_keys: list[Identifier]
+    new_event_ids: list[UUIDText]
+    affected_tables: list[Identifier]
+    minimum_event_time: UTCTime | None
+
+
 class ReconciliationResult(WireModel):
     passed: Annotated[bool, Field(strict=True)]
     counts_by_disposition: dict[str, Count]

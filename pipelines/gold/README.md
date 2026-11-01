@@ -1,8 +1,14 @@
-# Gold Layer & Aggregations (M4)
+# Gold pipeline_minute slice (M05)
 
-**Owner:** Vichitr Arora (B24CM1067)  
-**Specification Brief:** [07_VICHITR_ARORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/07_VICHITR_ARORA.md)  
-**Contract Authority:** [02_COMMON_SPEC.md §8](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/02_COMMON_SPEC.md) & [contracts/http/analytics.yaml](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/contracts/http/analytics.yaml)  
+Owner: Vichitr. Authority: [common §11.4](../../docs/specs/02_COMMON_SPEC.md).
 
-## Scope
-Maintains business aggregates, event-time windowed metrics, and provisional Gold state. Publishes active dataset manifests pointing to validated immutable Gold Parquet files.
+aggregate_gold(new_facts, db_transaction) requires an active caller transaction and
+returns DirtyPartitionSet. A unique (namespace,event_id) contribution key gates
+the exact integer count at UTC minute × event_type × source_service. Repeating a
+contribution has no effect. Contribution, aggregate revision and export-pending
+identity share a savepoint/caller transaction; the reducer never commits it.
+
+M05 supports CONVERSATION_TURN only. Latest-state order/payment reducers, currency
+reconciliation, funnel sets, joins and quality results are M07; they are not stubbed.
+Staging is not visible Gold. Only immutable, hash/schema/count-checked Parquet in an
+active manifest defines queryable Gold. See [publication handoff](../../docs/vichitr/m05_vertical_handoff.md).

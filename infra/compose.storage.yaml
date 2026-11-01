@@ -18,6 +18,8 @@ services:
       - ../migrations/analytics:/app/migrations/analytics:ro
       - ../tests:/app/tests:ro
       - ../artifacts/m04:/app/artifacts/m04
+      - ../artifacts/m05:/app/artifacts/m05
+      - ../artifacts/infra/streaming-local/registry-manifest.json:/app/schema-cache.json:ro
     secrets: [analytics_password]
     cpus: 0.5
     mem_limit: 512m
