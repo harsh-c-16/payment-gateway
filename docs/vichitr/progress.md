@@ -6,6 +6,75 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M08 incremental publication and candidate safety — 1 November 2026
+
+Implementation is ready for final source-pinned verification. See the
+[M08 handoff](m08_publication_handoff.md) for exact behavior, integrity format,
+resource bounds and the required Harsh/Jaineel review. This checkpoint does not
+claim Harsh's actual compactor, full W-QUALITY, integrated T-04/T-12 or performance.
+
+Changed owned paths: analytics migration 005 and migration loader/readiness/version
+evidence; storage FileStore streaming verification/durability, Parquet batch reads,
+incremental publication/lineage/membership, candidate validator and pinned readers;
+business SQL projection helpers and pipeline candidate method; checker read-only
+services/config mounts and M08 artifact mount; owned regression fixtures, digest,
+candidate, crash and large publisher tests; owner/pipeline documentation. Public
+DTOs, event/HTTP schemas, dictionaries, shared workflow, locks, evaluation configs
+and other owners' implementation remain unchanged.
+
+- Repeatable read freezes pending/new-visible identities in SQL. Silver appends
+  fresh facts, including legacy-schema coexistence. Gold replaces dirty partitions
+  in bounded files. Membership deltas inherit retained parent generations rather
+  than copying all source IDs per publication. The internal iter_membership helper
+  resolves complete sets, including older full-set generations.
+- Version-2 lineage uses hashed member shards plus parent roots; source ranges
+  preserve gaps through exact membership references. Old files/roots remain intact.
+- Paired pointer CAS, frozen pending-ID deletion and bounded durable observation
+  jobs preserve concurrent ingestion and truthful first visibility. Seven real
+  child-process crash cases print barrier acknowledgements before abrupt exit.
+- Candidate validation reads pinned files, checks unique logical keys, exact rows,
+  byte-sorted framed SHA-256, counts, currency integrity sums, physical metadata and
+  durable files, then rechecks the base generation. Compaction inherits membership
+  without new visibility or clearing new ingress.
+- The total 10,000-fact / 8-MiB snapshot cap is removed. Files use 512-row/4-MiB
+  chunks; single-row 8-MiB and uncompressed row-group 32-MiB guards remain explicit.
+  Temp sorts use 4-MiB work_mem. Manifest metadata and unpaginated query responses
+  still grow with file/returned-row counts. No memory allocation was increased.
+- ManifestCandidate's existing Money/int64 aggregate-total cap conflicts with
+  larger valid Gold sums. Such candidates fail closed. A widened DTO needs
+  Harsh/Jaineel/Vichitr review; no rounding or silent public-contract change occurs.
+
+Development checks used the uncommitted working tree with base revision 62aa5cf
+in live fixture metadata; they are not final-source or performance claims.
+Commands use `.venv/Scripts/python.exe` from the repository root; Docker/pytest
+needed execution outside the sandbox for the engine pipe and Windows scratch ACLs.
+
+| Development command/check | Actual result | Evidence |
+|---|---|---|
+| `PROJECTCTL_ADAPTER_MODULE=infra.analytics python -m projectctl env up --profile streaming-local` | Existing low-memory services verified, exit 0 | artifacts/projectctl/3aa7d411-c817-43c2-b81a-91966e766d17/ |
+| Existing real vertical/publication/business suites | 23 passed, 28.93 s | artifacts/m08/streaming-first.xml |
+| First new candidate suite | 17 passed, 1 failed: independent fixture assertion mistakenly added five rather than three amount projections | artifacts/m08/candidate-first.xml |
+| Corrected candidates + seven acknowledged process-kill cases | 25 passed, 53.40 s | artifacts/m08/candidates-and-crashes.xml |
+| Additional physical guards, actual commit CAS and business/migration regressions | 36 passed, 327.83 s; no deadlock/timeout | artifacts/m08/candidate-guards-and-migrations.xml |
+| Incremental membership inheritance, candidate/physical guards, publication and seven process kills | 37 passed, 94.47 s | artifacts/m08/incremental-membership.xml |
+| First host pipelines/contracts/integration suite | 327 passed, 90 skipped, 50.30 s; before final additional guard cases | artifacts/m08/host-development.xml |
+| Publisher-only 10,001-event fixture, real Bronze/receipts + bulk accepted staging | 1 passed, 263.35 s; 20 Silver files, max 512 rows, unique Gold count 10,001. Not a B0/Kafka/performance trial | artifacts/m08/large-publisher-first.xml |
+| `PROJECTCTL_ADAPTER_MODULE=infra.analytics python -m projectctl db migrate --namespace bench-m08` | Analytics versions 1–5 APPLIED; expected global dependency exit 4 for other service/outbox composition | artifacts/infra/analytics/checks/510d2480-d196-4c97-8f00-0e874133028b/analytics-migration.json |
+
+The amount fixture now independently asserts 12,345 +12,345 +12,345 =37,035:
+order amount, daily-created amount and daily-confirmed amount. This is a physical
+integrity sum across projections, not revenue. No production arithmetic was changed
+to accommodate the test. The initial large fixture was tightened before final
+verification to construct its document/hash from the original encoded wire bytes,
+and to assert the event-identity lookup index through an actual query plan.
+
+One diagnostic attempted to inspect the slow guard run after its container had
+already completed, returning “No such container”; raw test XML independently shows
+all 36 cases passed. Earlier read-only wait inspection showed no blocked backend.
+The slow run is a test duration, not benchmark evidence. Lint/format feedback and
+one patch-context mismatch were corrected without relaxing assertions. Raw failed
+and successful XML is retained. Final verification/delivery results follow below.
+
 ## M07 business Gold provider — 1 November 2026
 
 M07's business provider is implemented: latest order/payment/search facts, current

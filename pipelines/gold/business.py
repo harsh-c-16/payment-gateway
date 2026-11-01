@@ -232,46 +232,25 @@ def backfill_business(tx):
             apply_business(EventEnvelope.model_validate(document), tx, "m07-business-v1")
 
 
-def freeze_business(tx, namespace, max_rows, max_bytes):
-    from pipelines.curation.db import rows
-    from pipelines.storage.publication import SnapshotCapacityError
+def business_query(table):
+    if table not in TABLES:
+        raise ValueError("Unknown business table")
+    source = (
+        sql.SQL("SELECT o.*,(created_at AT TIME ZONE 'UTC')::date AS cohort_date FROM order_fact o")
+        if table == "order_fact"
+        else sql.SQL("SELECT * FROM {}").format(sql.Identifier(table))
+    )
+    return sql.SQL("""SELECT f.*,r.revision,r.transform_version FROM ({}) f
+        JOIN gold_partition_revisions r ON r.namespace=f.namespace
+        AND r.cohort_date=f.cohort_date AND r.table_name=%s
+        WHERE f.namespace=%s AND f.cohort_date=%s""").format(source)
 
-    result, size, count = {}, 0, 0
-    for table in TABLES:
-        source = (
-            "SELECT o.*,(created_at AT TIME ZONE 'UTC')::date AS cohort_date FROM order_fact o"
-            if table == "order_fact"
-            else sql.SQL("SELECT * FROM {}").format(sql.Identifier(table))
-        )
-        statement = sql.SQL("""SELECT f.*,r.revision,r.transform_version FROM ({}) f
-            JOIN gold_partition_revisions r ON r.namespace=f.namespace
-            AND r.cohort_date=f.cohort_date
-            AND r.table_name=%s WHERE f.namespace=%s""").format(
-            sql.SQL(source) if isinstance(source, str) else source
-        )
-        # Inspect bounds in PostgreSQL before fetching a full bounded cohort snapshot.
-        with tx.cursor() as cursor:
-            cursor.execute(
-                sql.SQL(
-                    "SELECT count(*),COALESCE(sum(octet_length(to_jsonb(x)::text)),0) FROM ({}) x"
-                ).format(statement),
-                (table, namespace),
-            )
-            n, byte_size = cursor.fetchone()
-        count, size = count + n, size + byte_size
-        if count > max_rows or size > max_bytes:
-            raise SnapshotCapacityError(
-                "Business Gold snapshot capacity reached; incremental M08 pending"
-            )
-        data = rows(tx, statement, (table, namespace))
-        for row in data:
-            for key, value in list(row.items()):
-                if key.endswith("_id") and value is not None:
-                    row[key] = str(value)
-            row["cohort_date"] = datetime.combine(
-                row["cohort_date"], datetime.min.time(), tzinfo=UTC
-            )
-            if table == "order_fact":
-                row["order_version"] = row.pop("aggregate_version")
-        result[table] = data
-    return result
+
+def business_row(row, table):
+    for key, value in list(row.items()):
+        if key.endswith("_id") and value is not None:
+            row[key] = str(value)
+    row["cohort_date"] = datetime.combine(row["cohort_date"], datetime.min.time(), tzinfo=UTC)
+    if table == "order_fact":
+        row["order_version"] = row.pop("aggregate_version")
+    return row

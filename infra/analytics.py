@@ -25,7 +25,7 @@ def migrate(invocation):
                 {
                     "owner": "Vichitr",
                     "analytics_capture_migration": "APPLIED",
-                    "analytics_migration_versions": [1, 2, 3, 4],
+                    "analytics_migration_versions": [1, 2, 3, 4, 5],
                     "namespace_argument": invocation.namespace,
                     "scope": "analytics database schema; no namespace data reset",
                     "other_service_migrations": "NOT_RUN",

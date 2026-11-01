@@ -1,5 +1,8 @@
 # M07 business Gold provider
 
+Historical checkpoint: M08 supersedes the publication mechanism and whole-snapshot
+bounds below. See the [current publication handoff](m08_publication_handoff.md).
+
 Owner: Vichitr. Definitions: [common §11.4](../specs/02_COMMON_SPEC.md).
 This checkpoint supplies business reducers and active-file readers. Full G3 and
 labelled evaluation import still require the other owners' actual providers.

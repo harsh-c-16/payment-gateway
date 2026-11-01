@@ -94,7 +94,7 @@ def create_app(pipeline, *, internal_token, metrics_namespace=None):
                         "SELECT version FROM analytics_schema_migrations"
                     ).fetchall()
                 }
-            if not {1, 2, 3, 4}.issubset(applied):
+            if not {1, 2, 3, 4, 5}.issubset(applied):
                 raise RuntimeError("Migration missing")
             outbox_binding()
         except OutboxUnavailable:

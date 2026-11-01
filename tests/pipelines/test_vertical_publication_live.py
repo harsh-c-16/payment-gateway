@@ -46,15 +46,10 @@ def test_concurrent_arrival_survives_frozen_membership_and_stale_cas(vertical, m
     assert query(vertical).rows[0]["unique_events"] == 2
     assert count(vertical, "export_pending") == 1
     with vertical.connect() as tx:
-        frozen = {
-            str(row[0])
-            for row in tx.execute(
-                "SELECT event_id FROM manifest_members WHERE dataset='gold' AND generation=2"
-            ).fetchall()
-        }
+        frozen = set(publication.iter_membership(tx, vertical.test_namespace, "gold", 2))
         assert frozen == {first.event_id, second.event_id}
         with pytest.raises(PublicationConflict, match="STALE_MANIFEST"):
-            publication._commit(vertical, tx, vertical.test_namespace, {}, {}, [], [])
+            publication._commit(vertical, tx, vertical.test_namespace, {}, {})
     assert vertical.active_manifest(vertical.test_namespace, "gold").generation == 2
     monkeypatch.setattr(publication, "_files", original)
     assert vertical.publish_snapshot(vertical.test_namespace).generation == 3
@@ -71,7 +66,7 @@ def test_single_publisher_and_bounded_snapshot(vertical, monkeypatch):
                 vertical.publish_snapshot(vertical.test_namespace)
         finally:
             tx.execute("SELECT pg_advisory_unlock(%s)", (key,))
-    monkeypatch.setattr(publication, "MAX_SNAPSHOT_ROWS", 0)
+    monkeypatch.setattr(publication, "ROW_MAX_BYTES", 1)
     with pytest.raises(SnapshotCapacityError):
         vertical.publish_snapshot(vertical.test_namespace)
     assert count(vertical, "export_pending") == 1
@@ -85,7 +80,7 @@ def test_reader_pins_generation_reuses_untouched_files_and_checks_corruption(ver
     first_manifest = vertical.publish_snapshot(vertical.test_namespace)
     old_paths = {file.path for file in first_manifest.files}
     curate(vertical, [record(vertical, event(vertical, 2), 1)])
-    original = readers.read_verified
+    original = readers.iter_verified
     switched = False
 
     def switch(store, descriptor):
@@ -95,7 +90,7 @@ def test_reader_pins_generation_reuses_untouched_files_and_checks_corruption(ver
             vertical.publish_snapshot(vertical.test_namespace)
         return original(store, descriptor)
 
-    monkeypatch.setattr(readers, "read_verified", switch)
+    monkeypatch.setattr(readers, "iter_verified", switch)
     pinned = query(vertical)
     assert pinned.generation == 1 and sum(row["unique_events"] for row in pinned.rows) == 1
     new = vertical.active_manifest(vertical.test_namespace, "gold")

@@ -179,7 +179,10 @@ def test_real_valid_duplicate_redelivery_and_active_gold(vertical):
             vertical.active_manifest(vertical.test_namespace, "gold").input_manifest_ids[0]
         )
     )
-    assert lineage["event_ids"] == [first.event_id] and len(lineage["sources"]) == 1
+    assert lineage["format_version"] == 2 and len(lineage["membership_files"]) == 1
+    part = lineage["membership_files"][0]
+    members = json.loads(vertical.store.read(part["path"]))
+    assert members["event_ids"] == [first.event_id] and len(members["sources"]) == 1
     Path("artifacts/m05/valid-slice.json").write_text(
         json.dumps(
             {

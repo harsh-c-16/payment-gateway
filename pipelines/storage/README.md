@@ -42,8 +42,9 @@ remains explicit and disabled during experiments.
 
 See [M04 handoff](../../docs/vichitr/m04_capture_handoff.md) for real-volume checks.
 M05 publication/CAS and generation-pinned readers are in publication.py/readers.py;
-see the [M05 handoff](../../docs/vichitr/m05_vertical_handoff.md). Complete incremental
-publication and compactor admission remain M08.
+see the [M05 handoff](../../docs/vichitr/m05_vertical_handoff.md). M08 now supplies
+incremental publication and compactor admission; see the
+[current publication handoff](../../docs/vichitr/m08_publication_handoff.md).
 
 M06 exports `silver-events-v1`: common typed envelope/provenance fields and a typed
 payload struct covering all 24 registered business types, with UTC microsecond
@@ -60,5 +61,14 @@ decimal strings. Generation-pinned queries use half-open cohort date ranges;
 currency applies only to monetary tables and the currency-scoped checkout funnel.
 Per-event dirty keys survive arrivals after a frozen snapshot. Migration 004
 backfills existing Silver without changing its hashes or pipeline counts; see
-the [M07 handoff](../../docs/vichitr/m07_business_gold_handoff.md). Incremental
-publication, candidate admission and compaction remain M08.
+the [M07 handoff](../../docs/vichitr/m07_business_gold_handoff.md).
+
+M08 appends only new Silver files and replaces dirty Gold partitions in bounded
+chunks, with exact frozen membership held in SQL temporary tables. Version-2
+lineage uses hashed membership shards and parent roots. The former total snapshot
+cap is removed; the 8-MiB single-row and 32-MiB uncompressed row-group guards remain.
+publish_candidate validates pinned files, sorted logical digests, exact currency
+integrity totals and key uniqueness before paired generation CAS. See the current
+handoff for Harsh's format, source/visibility preservation and the outstanding
+aggregate-total int64 contract limit. No cleanup or compactor implementation is
+included in this provider.

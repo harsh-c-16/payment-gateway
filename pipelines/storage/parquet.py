@@ -1,6 +1,7 @@
 """Versioned Parquet schemas; old published files remain readable."""
 
 import hashlib
+from contextlib import contextmanager
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -235,6 +236,41 @@ SCHEMAS.update(
 
 class FileVerificationError(RuntimeError):
     pass
+
+
+@contextmanager
+def verified_parquet(store, descriptor):
+    """Check the same file handle used for decoding; retain no whole-file buffer."""
+    from pipelines.storage import ImmutableConflict
+
+    try:
+        if descriptor.schema_version != 1 or descriptor.schema_name not in SCHEMAS:
+            raise FileVerificationError("Unknown published schema/version")
+        with store.open_verified(descriptor) as stream:
+            parquet = pq.ParquetFile(
+                stream,
+                thrift_string_size_limit=8 * 1024 * 1024,
+                thrift_container_size_limit=100000,
+            )
+            if (
+                parquet.schema_arrow != SCHEMAS[descriptor.schema_name]
+                or parquet.metadata.num_rows != descriptor.row_count
+            ):
+                raise FileVerificationError("Published file schema/row count mismatch")
+            if any(
+                parquet.metadata.row_group(i).total_byte_size > 32 * 1024 * 1024
+                for i in range(parquet.metadata.num_row_groups)
+            ):
+                raise FileVerificationError("Parquet row group exceeds 32 MiB decode bound")
+            yield parquet
+    except (pa.ArrowException, ImmutableConflict) as exc:
+        raise FileVerificationError("Invalid published Parquet or content hash") from exc
+
+
+def iter_verified(store, descriptor):
+    with verified_parquet(store, descriptor) as parquet:
+        for batch in parquet.iter_batches(batch_size=32):
+            yield from batch.to_pylist()
 
 
 def read_verified(store, descriptor):

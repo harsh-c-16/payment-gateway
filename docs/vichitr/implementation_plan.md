@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M01–M07 business provider checkpoints implemented. M07 source 8abde27 passed final host and real Linux checks. Labelled quality imports, full W-QUALITY, real outbox/catalogue adoption and G0/G1/G3/G4 remain pending. Next is M08 publication/candidate safety. See [progress](progress.md) and [M07 handoff](m07_business_gold_handoff.md).
+Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M08 incremental publication/candidate provider implemented; final source verification in progress. Labelled quality imports, real outbox/catalogue/compactor adoption, full W-QUALITY and integrated gates remain pending. Next: M09 late data/watermarks. See [progress](progress.md) and [M08 handoff](m08_publication_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
@@ -157,7 +157,7 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **M07 business Gold provider**. Latest business facts, daily conversion, distinct funnel/failures, exact money/duration observations, late-parent joins and active-file readers are implemented. Actual labelled evaluation artifacts/import handoff remain absent. Full 100,000-record W-QUALITY requires real outbox/catalogue handoffs, reason-code review and M08 incremental publication. G0/G1/G3/G4 remain pending; see [progress](progress.md).
+Current checkpoint: **M08 incremental publication and candidate safety provider**. Bounded file exports, delta membership/lineage, exact candidate validation, paired CAS and acknowledged crash recovery are implemented. Harsh must adopt/review the compaction integrity format and row-group bound. The existing int64 aggregate-total DTO limit needs owner review for oversized candidates. Actual outbox/catalogue/compactor integration, labelled quality and full W-QUALITY/performance remain pending. Next is M09; see [progress](progress.md).
 
 ## Source documents
 

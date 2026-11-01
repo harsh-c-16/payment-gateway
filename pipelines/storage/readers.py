@@ -17,7 +17,7 @@ from shared.contracts.analytics import (
 )
 from shared.contracts.events import Namespace, SourceLocator
 
-from .parquet import read_verified
+from .parquet import iter_verified
 
 
 def active_manifest(connect, namespace, dataset):
@@ -65,7 +65,7 @@ def query_gold(pipeline, namespace, table, date_from, date_to, currency=None):
     for descriptor in manifest.files:
         if descriptor.schema_name != table:
             continue
-        for row in read_verified(pipeline.store, descriptor).to_pylist():
+        for row in iter_verified(pipeline.store, descriptor):
             if row["namespace"] != namespace:
                 raise ValueError("Published row namespace mismatch")
             timestamp = row["minute"] if table == "pipeline_minute" else row["cohort_date"]

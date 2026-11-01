@@ -285,6 +285,11 @@ class AnalyticsPipeline:
 
         return active_manifest(self.connect, namespace, dataset)
 
+    def publish_candidate(self, candidate):
+        from pipelines.storage.candidates import publish_candidate
+
+        return publish_candidate(self, candidate)
+
     def query_gold(self, namespace, table, date_from, date_to, currency=None):
         from pipelines.storage.readers import query_gold
 

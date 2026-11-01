@@ -116,6 +116,19 @@ class FileStore:
     def read(self, path):
         return self._path(path).read_bytes()
 
+    @contextmanager
+    def open_verified(self, descriptor):
+        """Verify on the same open file, without retaining its bytes in memory."""
+        with self._path(descriptor.path).open("rb") as stream:
+            digest, size = hashlib.sha256(), 0
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+                size += len(chunk)
+            if size != descriptor.byte_size or digest.hexdigest() != descriptor.sha256:
+                raise ImmutableConflict("Published file size/hash mismatch")
+            stream.seek(0)
+            yield stream
+
     def exists_with_hash(self, path, sha256):
         target = self._path(path)
         if not target.exists():
@@ -125,6 +138,11 @@ class FileStore:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
         return digest.hexdigest() == sha256
+
+    def sync_existing(self, descriptor):
+        with self.open_verified(descriptor) as stream:
+            os.fsync(stream.fileno())
+            self._sync_parents(self._path(descriptor.path).parent)
 
     def list_orphans(self, manifest_set):
         """Read-only inventory; callers supply ALL retained/replay/reader references."""

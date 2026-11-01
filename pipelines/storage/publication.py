@@ -1,27 +1,31 @@
-"""Consistent frozen membership, durable files, paired pointer CAS, post-commit observation."""
+"""Bounded incremental exports, frozen SQL membership and paired generation CAS."""
 
 import hashlib
-from collections import defaultdict
-from datetime import UTC, datetime
+from contextlib import contextmanager
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from time import monotonic
 from uuid import uuid4
 
+from psycopg import sql
+from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import TypeAdapter
 
 from pipelines.curation.db import lock_key, one, rows, sink_lock
 from pipelines.curation.observations import enqueue_observation
-from pipelines.gold.business import TABLES, freeze_business
+from pipelines.gold.business import business_query, business_row
 from shared.contracts.analytics import DatasetManifest, SourceRange
 from shared.contracts.events import Namespace
 from shared.event_transport.schemas import canonical_json
 
-from .parquet import read_verified, write_parquet
+from .parquet import verified_parquet, write_parquet
+from .readers import _wire
 
-# shortcut: bounded full M05 snapshot; implement incremental loading before W-QUALITY/scale runs.
-MAX_SNAPSHOT_ROWS = 10000
-MAX_SNAPSHOT_BYTES = 8 * 1024 * 1024
+FILE_MAX_ROWS = 512
+FILE_MAX_BYTES = 4 * 1024 * 1024
+ROW_MAX_BYTES = 8 * 1024 * 1024
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -33,21 +37,47 @@ class SnapshotCapacityError(RuntimeError):
     pass
 
 
+@dataclass
+class Frozen:
+    pending_count: int
+    dirty_gold: set
+
+
+def boundary(point):
+    """Disabled fault seam; callers cannot supply commands or HTTP fault controls."""
+
+
+@contextmanager
+def publisher_session(pipeline, namespace):
+    TypeAdapter(Namespace).validate_python(namespace)
+    pipeline.recover_observations(namespace)
+    with pipeline.connect() as tx:
+        if not tx.autocommit:
+            raise ValueError(
+                "Publisher connection must be autocommit outside explicit transactions"
+            )
+        key = lock_key(namespace, "publisher")
+        if not one(tx, "SELECT pg_try_advisory_lock(%s) AS locked", (key,))["locked"]:
+            raise PublicationConflict("A publisher already owns this namespace")
+        try:
+            yield tx
+        finally:
+            tx.execute("SELECT pg_advisory_unlock(%s)", (key,))
+
+
 def _active(tx, namespace):
     found = rows(
         tx,
-        """SELECT m.manifest,a.generation,a.dataset FROM active_datasets a JOIN snapshot_manifests m
-        USING(namespace,dataset,generation) WHERE namespace=%s""",
+        """SELECT m.manifest,a.generation,a.dataset FROM active_datasets a
+        JOIN snapshot_manifests m USING(namespace,dataset,generation) WHERE namespace=%s""",
         (namespace,),
     )
-    result = {
-        row["manifest"]["dataset"]: DatasetManifest.model_validate(row["manifest"]) for row in found
-    }
+    result = {r["dataset"]: DatasetManifest.model_validate(r["manifest"]) for r in found}
     if any(
-        row["manifest"]["namespace"] != namespace
-        or row["manifest"]["generation"] != row["generation"]
-        or row["manifest"]["dataset"] != row["dataset"]
-        for row in found
+        r["manifest"]["namespace"] != namespace
+        or r["manifest"]["generation"] != r["generation"]
+        or r["manifest"]["dataset"] != r["dataset"]
+        for r in found
     ):
         raise PublicationConflict("Active manifest identity mismatch")
     if result and (
@@ -58,62 +88,40 @@ def _active(tx, namespace):
     return result
 
 
+def stream_rows(tx, statement, parameters=(), *, batch=1):
+    with tx.cursor(name="m08_" + uuid4().hex, row_factory=dict_row) as cursor:
+        cursor.itersize = batch
+        cursor.execute(statement, parameters)
+        yield from cursor
+
+
 def _freeze(tx, namespace):
-    with tx.transaction():
-        tx.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
-        old = _active(tx, namespace)
-        pending = [
-            str(row["event_id"])
-            for row in rows(
-                tx,
-                "SELECT event_id FROM export_pending WHERE namespace=%s ORDER BY event_id LIMIT %s",
-                (namespace, MAX_SNAPSHOT_ROWS + 1),
-            )
-        ]
-        if len(pending) > MAX_SNAPSHOT_ROWS:
-            raise SnapshotCapacityError("M05 frozen membership bound reached")
-        if not pending:
-            return old, [], [], [], []
-        bounds = one(
-            tx,
-            """SELECT count(*) AS n,COALESCE(sum(octet_length(document::text)),0) AS bytes
-                            FROM silver_events WHERE namespace=%s""",
-            (namespace,),
-        )
-        if bounds["n"] > MAX_SNAPSHOT_ROWS or bounds["bytes"] > MAX_SNAPSHOT_BYTES:
-            raise SnapshotCapacityError(
-                "M05 full-snapshot memory bound reached; incremental M08 pending"
-            )
-        facts = rows(
-            tx, "SELECT * FROM silver_events WHERE namespace=%s ORDER BY event_id", (namespace,)
-        )
-        gold = {
-            "pipeline_minute": rows(
-                tx,
-                """SELECT * FROM pipeline_minute WHERE namespace=%s
-                           ORDER BY minute,event_type,source_service""",
-                (namespace,),
-            )
-        }
-        gold.update(freeze_business(tx, namespace, MAX_SNAPSHOT_ROWS, MAX_SNAPSHOT_BYTES))
-        gold["_dirty_keys"] = {
-            (row["table_name"], row["cohort_date"].isoformat())
-            for row in rows(
-                tx,
-                "SELECT table_name,cohort_date FROM gold_dirty_keys WHERE namespace=%s",
-                (namespace,),
-            )
-        }
-        sources = rows(
-            tx,
-            """SELECT s.topic,s.partition,s.offset_number,s.raw_locator,s.raw_sha256,
-                       s.capture_id FROM source_receipts s JOIN silver_events e
-                       ON e.namespace=s.namespace AND e.source_topic=s.topic
-                       AND e.source_partition=s.partition AND e.source_offset=s.offset_number
-                       WHERE s.namespace=%s ORDER BY s.topic,s.partition,s.offset_number""",
-            (namespace,),
-        )
-    return old, pending, facts, gold, sources
+    old = _active(tx, namespace)
+    tx.execute("CREATE TEMP TABLE m08_pending(event_id uuid PRIMARY KEY) ON COMMIT PRESERVE ROWS")
+    tx.execute(
+        "INSERT INTO m08_pending SELECT event_id FROM export_pending WHERE namespace=%s",
+        (namespace,),
+    )
+    count = one(tx, "SELECT count(*) AS n FROM m08_pending")["n"]
+    if not count:
+        return old, Frozen(0, set())
+    tx.execute("CREATE TEMP TABLE m08_members(event_id uuid PRIMARY KEY) ON COMMIT PRESERVE ROWS")
+    tx.execute(
+        """INSERT INTO m08_members SELECT p.event_id FROM m08_pending p
+        WHERE NOT EXISTS(SELECT 1 FROM event_visibility v
+        WHERE v.namespace=%s AND v.event_id=p.event_id)""",
+        (namespace,),
+    )
+    dirty = rows(
+        tx,
+        """SELECT DISTINCT 'pipeline_minute' AS table_name,
+        (e.event_time AT TIME ZONE 'UTC')::date AS cohort_date
+        FROM silver_events e JOIN m08_pending p USING(event_id) WHERE e.namespace=%s
+        UNION SELECT g.table_name,g.cohort_date FROM gold_dirty_keys g
+        JOIN m08_pending p USING(event_id) WHERE g.namespace=%s""",
+        (namespace, namespace),
+    )
+    return old, Frozen(count, {(r["table_name"], r["cohort_date"].isoformat()) for r in dirty})
 
 
 def _silver_row(fact):
@@ -154,12 +162,9 @@ def _silver_row(fact):
     return row
 
 
-def _lineage(pipeline, namespace, facts, sources, snapshot_id):
-    path = f"lineage/{namespace}/{snapshot_id}.json"
-    ranges = defaultdict(list)
-    for source in sources:
-        ranges[(source["topic"], source["partition"])].append(source["offset_number"])
-    document = {
+def provenance(pipeline, namespace):
+    return {
+        "format_version": 2,
         "namespace": namespace,
         "code_commit": pipeline.code_commit,
         "transform_version": pipeline.transform_version,
@@ -167,194 +172,318 @@ def _lineage(pipeline, namespace, facts, sources, snapshot_id):
         "event_dictionary_sha256": hashlib.sha256(
             (ROOT / "contracts/dictionaries/events/reasons.v1.json").read_bytes()
         ).hexdigest(),
-        "event_ids": [str(fact["event_id"]) for fact in facts],
-        "sources": [{**source, "capture_id": str(source["capture_id"])} for source in sources],
-        "schema_hashes": {
-            subject: entry["sha256"] for subject, entry in pipeline.codec.cache.entries.items()
-        },
-        "source_provenance": "Original event/capture provenance; no inferred origin",
+        "schema_hashes": {s: e["sha256"] for s, e in pipeline.codec.cache.entries.items()},
+        "source_provenance": "Original Silver metadata and Bronze receipts; no inferred origin",
     }
+
+
+def write_lineage(pipeline, namespace, snapshot_id, document):
+    path = f"lineage/{namespace}/{snapshot_id}.json"
     data = canonical_json(document)
     pipeline.store.write_immutable(path, data, hashlib.sha256(data).hexdigest())
-    return path, [
-        SourceRange(
-            topic=topic,
-            partition=partition,
-            first_offset=min(offsets),
-            next_offset=max(offsets) + 1,
-            receipt_membership_ref=path,
-        )
-        for (topic, partition), offsets in ranges.items()
-    ]
+    return path
 
 
-def _files(pipeline, namespace, old, pending, facts, gold, generation, snapshot_id):
-    fresh = set(pending)
-    dirty_silver = {
-        (f["event_time"].date().isoformat(), f["event_type"])
-        for f in facts
-        if str(f["event_id"]) in fresh
+def _lineage(pipeline, tx, namespace, old, snapshot_id):
+    parts, batch = [], []
+
+    def flush():
+        path = f"lineage/{namespace}/{snapshot_id}-{len(parts)}.json"
+        data = canonical_json({"event_ids": [r["event_id"] for r in batch], "sources": batch})
+        file = pipeline.store.write_immutable(path, data, hashlib.sha256(data).hexdigest())
+        parts.append({"path": path, "sha256": file.sha256, "event_count": len(batch)})
+        batch.clear()
+
+    for row in stream_rows(
+        tx,
+        """SELECT e.event_id::text,s.topic,s.partition,s.offset_number,
+        s.raw_locator,s.raw_sha256,s.capture_id::text FROM silver_events e
+        JOIN m08_pending p USING(event_id) JOIN source_receipts s ON s.namespace=e.namespace
+        AND s.topic=e.source_topic AND s.partition=e.source_partition
+        AND s.offset_number=e.source_offset WHERE e.namespace=%s ORDER BY e.event_id""",
+        (namespace,),
+        batch=512,
+    ):
+        batch.append(row)
+        if len(batch) == 512:
+            flush()
+    if batch:
+        flush()
+    document = {
+        **provenance(pipeline, namespace),
+        "membership_files": parts,
+        "parent_input_manifest_ids": sorted(
+            {ref for manifest in old.values() for ref in manifest.input_manifest_ids}
+        ),
     }
-    dirty_dates = {date for date, _ in dirty_silver}
-    business_dirty = gold["_dirty_keys"]
-    result = {"silver": [], "gold": []}
+    path = write_lineage(pipeline, namespace, snapshot_id, document)
+    ranges = rows(
+        tx,
+        """SELECT s.topic,s.partition,min(s.offset_number) AS first_offset,
+        max(s.offset_number)+1 AS next_offset FROM silver_events e
+        JOIN m08_pending m USING(event_id) JOIN source_receipts s ON s.namespace=e.namespace
+        AND s.topic=e.source_topic AND s.partition=e.source_partition
+        AND s.offset_number=e.source_offset WHERE e.namespace=%s GROUP BY s.topic,s.partition
+        ORDER BY s.topic,s.partition""",
+        (namespace,),
+    )
+    merged = (
+        {
+            (r.topic, r.partition): r.model_copy(update={"receipt_membership_ref": path})
+            for r in old["silver"].source_ranges
+        }
+        if old
+        else {}
+    )
+    for row in ranges:
+        key = row["topic"], row["partition"]
+        previous = merged.get(key)
+        if previous:
+            row["first_offset"] = min(previous.first_offset, row["first_offset"])
+            row["next_offset"] = max(previous.next_offset, row["next_offset"])
+        merged[key] = SourceRange(**row, receipt_membership_ref=path)
+    return path, [merged[key] for key in sorted(merged)]
+
+
+def iter_membership(tx, namespace, dataset, generation):
+    """Resolve complete membership across M08 deltas and retained older full sets."""
+    with tx.transaction():
+        for row in stream_rows(
+            tx,
+            """WITH RECURSIVE ancestry AS (
+            SELECT generation,(manifest->>'parent_generation')::bigint AS parent
+            FROM snapshot_manifests WHERE namespace=%s AND dataset=%s AND generation=%s
+            UNION ALL SELECT s.generation,(s.manifest->>'parent_generation')::bigint
+            FROM snapshot_manifests s JOIN ancestry a ON s.generation=a.parent
+            WHERE s.namespace=%s AND s.dataset=%s)
+            SELECT DISTINCT m.event_id::text FROM manifest_members m
+            JOIN ancestry a USING(generation) WHERE m.namespace=%s AND m.dataset=%s
+            ORDER BY event_id""",
+            (namespace, dataset, generation, namespace, dataset, namespace, dataset),
+            batch=512,
+        ):
+            yield row["event_id"]
+
+
+def _export(
+    pipeline,
+    tx,
+    statement,
+    parameters,
+    schema,
+    partitions,
+    time_column,
+    convert,
+    files,
+    namespace,
+    snapshot_id,
+    generation,
+):
+    too_large = one(
+        tx,
+        sql.SQL("""SELECT EXISTS(SELECT 1 FROM ({}) x
+        WHERE octet_length(to_jsonb(x)::text)>%s) AS bad""").format(
+            sql.SQL(statement) if isinstance(statement, str) else statement
+        ),
+        (*parameters, ROW_MAX_BYTES),
+    )["bad"]
+    if too_large:
+        raise SnapshotCapacityError("A single projected row exceeds the 8 MiB bound")
+    batch, size = [], 0
+
+    def flush():
+        dataset = "silver" if schema == "silver-events-v1" else "gold"
+        path = f"{dataset}/{namespace}/{snapshot_id}-{len(files)}.parquet"
+        files.append(
+            write_parquet(
+                pipeline.store, path, batch, schema, partitions, [r[time_column] for r in batch]
+            )
+        )
+        batch.clear()
+
+    for raw in stream_rows(tx, statement, parameters):
+        row = convert(raw)
+        if schema != "silver-events-v1":
+            row["publication_generation"] = generation
+        row_size = len(canonical_json(_wire(row)))
+        if row_size > ROW_MAX_BYTES:
+            raise SnapshotCapacityError("A single exported row exceeds the 8 MiB bound")
+        if batch and (len(batch) >= FILE_MAX_ROWS or size + row_size > FILE_MAX_BYTES):
+            flush()
+            size = 0
+        batch.append(row)
+        size += row_size
+    if batch:
+        flush()
+
+
+def _files(pipeline, tx, namespace, old, frozen, generation, snapshot_id):
+    files = {"silver": [], "gold": []}
     for dataset, manifest in old.items():
         for file in manifest.files:
-            date = file.partition_values.get("event_date", file.partition_values.get("cohort_date"))
-            dirty = (
-                (date, file.partition_values["event_type"]) in dirty_silver
-                if dataset == "silver"
-                else date in dirty_dates
-                if file.schema_name == "pipeline_minute"
-                else (file.schema_name, date) in business_dirty
+            cohort = file.partition_values.get(
+                "event_date", file.partition_values.get("cohort_date")
             )
-            if not dirty:
-                read_verified(pipeline.store, file)
-                result[dataset].append(file)
-    silver_groups, gold_groups = defaultdict(list), defaultdict(list)
-    for fact in facts:
-        key = (fact["event_time"].date().isoformat(), fact["event_type"])
-        if key in dirty_silver:
-            silver_groups[key].append(_silver_row(fact))
-    for row in gold["pipeline_minute"]:
-        date = row["minute"].date().isoformat()
-        if date in dirty_dates:
-            gold_groups[date].append({**row, "publication_generation": generation})
-    for (date, event_type), data in silver_groups.items():
-        path = f"silver/{namespace}/{snapshot_id}-{len(result['silver'])}.parquet"
-        result["silver"].append(
-            write_parquet(
-                pipeline.store,
-                path,
-                data,
-                "silver-events-v1",
-                {"event_date": date, "event_type": event_type},
-                [r["event_time"] for r in data],
-            )
+            if dataset == "gold" and (file.schema_name, cohort) in frozen.dirty_gold:
+                continue
+            with verified_parquet(pipeline.store, file):
+                pass
+            files[dataset].append(file)
+    new = """SELECT e.* FROM silver_events e JOIN m08_pending p USING(event_id)
+        WHERE e.namespace=%s AND NOT EXISTS(SELECT 1 FROM event_visibility v
+        WHERE v.namespace=e.namespace AND v.event_id=e.event_id)"""
+    partitions = rows(
+        tx,
+        sql.SQL("""SELECT DISTINCT (event_time AT TIME ZONE 'UTC')::date AS day,
+        event_type FROM ({}) x ORDER BY day,event_type""").format(sql.SQL(new)),
+        (namespace,),
+    )
+    for part in partitions:
+        statement = (
+            new + " AND (e.event_time AT TIME ZONE 'UTC')::date=%s"
+            " AND e.event_type=%s ORDER BY e.event_id"
         )
-    for date, data in gold_groups.items():
-        path = f"gold/{namespace}/{snapshot_id}-{len(result['gold'])}.parquet"
-        result["gold"].append(
-            write_parquet(
-                pipeline.store,
-                path,
-                data,
-                "pipeline_minute",
-                {"event_date": date, "table": "pipeline_minute"},
-                [r["minute"] for r in data],
-            )
+        _export(
+            pipeline,
+            tx,
+            statement,
+            (namespace, part["day"], part["event_type"]),
+            "silver-events-v1",
+            {"event_date": part["day"].isoformat(), "event_type": part["event_type"]},
+            "event_time",
+            _silver_row,
+            files["silver"],
+            namespace,
+            snapshot_id,
+            generation,
         )
-    for table in TABLES:
-        groups = defaultdict(list)
-        for row in gold[table]:
-            date = row["cohort_date"].date().isoformat()
-            if (table, date) in business_dirty:
-                groups[date].append({**row, "publication_generation": generation})
-        for date, data in sorted(groups.items()):
-            path = f"gold/{namespace}/{snapshot_id}-{len(result['gold'])}.parquet"
-            result["gold"].append(
-                write_parquet(
-                    pipeline.store,
-                    path,
-                    data,
-                    table,
-                    {"cohort_date": date, "table": table},
-                    [r["cohort_date"] for r in data],
-                )
-            )
-    return result
+    for table, day in sorted(frozen.dirty_gold):
+        if table == "pipeline_minute":
+            start = datetime.combine(date.fromisoformat(day), datetime.min.time(), tzinfo=UTC)
+            statement = """SELECT * FROM pipeline_minute WHERE namespace=%s AND minute>=%s
+                AND minute<%s ORDER BY minute,event_type,source_service"""
+            parameters = (namespace, start, start + timedelta(days=1))
+            partitions = {"event_date": day, "table": table}
+            convert, time_column = lambda row: row, "minute"
+        else:
+            statement, parameters = business_query(table), (table, namespace, day)
+            partitions = {"cohort_date": day, "table": table}
+            convert, time_column = lambda row, t=table: business_row(row, t), "cohort_date"
+        _export(
+            pipeline,
+            tx,
+            statement,
+            parameters,
+            table,
+            partitions,
+            time_column,
+            convert,
+            files["gold"],
+            namespace,
+            snapshot_id,
+            generation,
+        )
+    return files
 
 
-def _commit(pipeline, tx, namespace, old, manifests, pending, facts):
+def activate(tx, namespace, old, manifests):
+    sink_lock(tx, namespace)
+    current = _active(tx, namespace)
+    if {k: m.generation for k, m in current.items()} != {k: m.generation for k, m in old.items()}:
+        raise PublicationConflict("STALE_MANIFEST: active generation changed")
+    for dataset, manifest in manifests.items():
+        tx.execute(
+            "INSERT INTO snapshot_manifests VALUES (%s,%s,%s,%s)",
+            (namespace, dataset, manifest.generation, Jsonb(manifest.model_dump(mode="json"))),
+        )
+        moved = tx.execute(
+            """INSERT INTO active_datasets VALUES (%s,%s,%s)
+            ON CONFLICT(namespace,dataset) DO UPDATE SET generation=EXCLUDED.generation
+            WHERE active_datasets.generation=%s RETURNING generation""",
+            (namespace, dataset, manifest.generation, old[dataset].generation if old else 0),
+        ).fetchone()
+        if moved is None:
+            raise PublicationConflict("STALE_MANIFEST: pointer compare-and-swap failed")
+
+
+def _commit(pipeline, tx, namespace, old, manifests):
+    jobs = []
     with tx.transaction():
-        sink_lock(tx, namespace)
-        current = _active(tx, namespace)
-        if {k: m.generation for k, m in current.items()} != {
-            k: m.generation for k, m in old.items()
-        }:
-            raise PublicationConflict("STALE_MANIFEST: active generation changed")
-        ids = [str(f["event_id"]) for f in facts]
-        new_visible = []
+        activate(tx, namespace, old, manifests)
         for dataset, manifest in manifests.items():
             tx.execute(
-                "INSERT INTO snapshot_manifests VALUES (%s,%s,%s,%s)",
-                (namespace, dataset, manifest.generation, Jsonb(manifest.model_dump(mode="json"))),
+                """INSERT INTO manifest_members SELECT %s,%s,%s,event_id FROM m08_members""",
+                (namespace, dataset, manifest.generation),
             )
-            moved = tx.execute(
-                """INSERT INTO active_datasets VALUES (%s,%s,%s)
-                ON CONFLICT(namespace,dataset) DO UPDATE SET generation=EXCLUDED.generation
-                WHERE active_datasets.generation=%s RETURNING generation""",
-                (namespace, dataset, manifest.generation, old[dataset].generation if old else 0),
-            ).fetchone()
-            if moved is None:
-                raise PublicationConflict("STALE_MANIFEST: pointer compare-and-swap failed")
-            for event_id in ids:
-                tx.execute(
-                    "INSERT INTO manifest_members VALUES (%s,%s,%s,%s)",
-                    (namespace, dataset, manifest.generation, event_id),
-                )
-        for event_id in ids:
-            inserted = tx.execute(
-                """INSERT INTO event_visibility(namespace,event_id,generation)
-                VALUES (%s,%s,%s) ON CONFLICT DO NOTHING RETURNING event_id""",
-                (namespace, event_id, manifests["gold"].generation),
-            ).fetchone()
-            if inserted:
-                new_visible.append(event_id)
         tx.execute(
-            "DELETE FROM export_pending WHERE namespace=%s AND event_id=ANY(%s::uuid[])",
-            (namespace, pending),
+            """CREATE TEMP TABLE m08_new_visible ON COMMIT DROP AS SELECT m.event_id
+            FROM m08_members m WHERE NOT EXISTS(SELECT 1 FROM event_visibility v
+            WHERE v.namespace=%s AND v.event_id=m.event_id)""",
+            (namespace,),
         )
-        job = enqueue_observation(tx, namespace, "gold", new_visible) if new_visible else None
-    return job
+        tx.execute(
+            """INSERT INTO event_visibility(namespace,event_id,generation)
+            SELECT %s,event_id,%s FROM m08_new_visible""",
+            (namespace, manifests["gold"].generation),
+        )
+        batch = []
+        for row in stream_rows(
+            tx, "SELECT event_id::text FROM m08_new_visible ORDER BY event_id", batch=512
+        ):
+            batch.append(row["event_id"])
+            if len(batch) == 512:
+                jobs.append(enqueue_observation(tx, namespace, "gold", batch))
+                batch = []
+        if batch:
+            jobs.append(enqueue_observation(tx, namespace, "gold", batch))
+        tx.execute(
+            """DELETE FROM export_pending e WHERE namespace=%s
+            AND EXISTS(SELECT 1 FROM m08_pending p WHERE p.event_id=e.event_id)""",
+            (namespace,),
+        )
+        boundary("before_manifest_swap")
+    return jobs
 
 
 def publish_snapshot(pipeline, namespace):
-    TypeAdapter(Namespace).validate_python(namespace)
-    pipeline.recover_observations(namespace)
     started = monotonic()
-    key = lock_key(namespace, "publisher")
-    with pipeline.connect() as tx:
-        if not tx.autocommit:
-            raise ValueError(
-                "Publisher connection must be autocommit outside explicit transactions"
-            )
-        if not one(tx, "SELECT pg_try_advisory_lock(%s) AS locked", (key,))["locked"]:
-            raise PublicationConflict("A publisher already owns this namespace")
-        try:
-            old, pending, facts, gold, sources = _freeze(tx, namespace)
-            if not pending:
+    with publisher_session(pipeline, namespace) as tx:
+        with tx.transaction():
+            tx.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+            tx.execute("SET LOCAL work_mem='4MB'")
+            old, frozen = _freeze(tx, namespace)
+            if not frozen.pending_count:
                 if not old:
                     raise LookupError("No accepted facts have been published")
                 return old["gold"]
             generation = old["gold"].generation + 1 if old else 1
             snapshot_id = str(uuid4())
-            lineage, source_ranges = _lineage(pipeline, namespace, facts, sources, snapshot_id)
-            files = _files(pipeline, namespace, old, pending, facts, gold, generation, snapshot_id)
+            lineage, ranges = _lineage(pipeline, tx, namespace, old, snapshot_id)
+            files = _files(pipeline, tx, namespace, old, frozen, generation, snapshot_id)
+            boundary("after_files_durable")
             manifests = {
                 dataset: DatasetManifest(
                     namespace=namespace,
                     dataset=dataset,
                     generation=generation,
                     parent_generation=generation - 1 if old else None,
-                    files=files[dataset],
-                    source_ranges=source_ranges,
+                    files=data,
+                    source_ranges=ranges,
                     transform_version=pipeline.transform_version,
                     code_commit=pipeline.code_commit,
                     input_manifest_ids=[lineage],
                     created_at=datetime.now(UTC),
                 )
-                for dataset in files
+                for dataset, data in files.items()
             }
-            job = _commit(pipeline, tx, namespace, old, manifests, pending, facts)
-            if job:
-                pipeline._observe(namespace, job)  # Pointer COMMIT has acknowledged first.
-            pending_count = one(
-                tx, "SELECT count(*) AS n FROM export_pending WHERE namespace=%s", (namespace,)
-            )["n"]
-            pipeline.telemetry.record("gold_pending_events", pending_count)
-            pipeline.telemetry.record("gold_generation", generation)
-            pipeline.telemetry.record("gold_publication_duration_seconds", monotonic() - started)
-            return manifests["gold"]
-        finally:
-            tx.execute("SELECT pg_advisory_unlock(%s)", (key,))
+        jobs = _commit(pipeline, tx, namespace, old, manifests)
+        boundary("after_manifest_swap")
+        for job in jobs:
+            pipeline._observe(namespace, job)
+        pending = one(
+            tx, "SELECT count(*) AS n FROM export_pending WHERE namespace=%s", (namespace,)
+        )["n"]
+        pipeline.telemetry.record("gold_pending_events", pending)
+        pipeline.telemetry.record("gold_generation", generation)
+        pipeline.telemetry.record("gold_publication_duration_seconds", monotonic() - started)
+        return manifests["gold"]

@@ -244,20 +244,17 @@ def test_frozen_business_state_keeps_concurrent_dirty_membership(vertical, monke
     assert scalar(vertical, "SELECT count(*) FROM gold_dirty_keys") == 0
 
 
-def test_business_snapshot_capacity_keeps_active_generation_and_pending(vertical, monkeypatch):
+def test_single_row_capacity_keeps_active_generation_and_pending(vertical, monkeypatch):
     deliver(vertical, fact(vertical, "ORDER_CREATED"))
     vertical.publish_snapshot(vertical.test_namespace)
     deliver(vertical, fact(vertical, "ORDER_CONFIRMED", 2))
-    monkeypatch.setattr(publication, "MAX_SNAPSHOT_ROWS", 2)
-    with pytest.raises(publication.SnapshotCapacityError, match="Business Gold"):
+    monkeypatch.setattr(publication, "ROW_MAX_BYTES", 1)
+    with pytest.raises(publication.SnapshotCapacityError, match="single projected row"):
         vertical.publish_snapshot(vertical.test_namespace)
     assert vertical.active_manifest(vertical.test_namespace, "gold").generation == 1
     assert query(vertical, "daily_conversion")[0]["pending_orders"] == 1
     assert scalar(vertical, "SELECT count(*) FROM export_pending") == 1
     assert scalar(vertical, "SELECT count(*) FROM gold_dirty_keys") == 3
-    with vertical.connect() as tx, tx.transaction():
-        with pytest.raises(publication.SnapshotCapacityError):
-            business.freeze_business(tx, vertical.test_namespace, 100, 1)
 
 
 def test_business_sql_failure_rolls_back_whole_sink_then_retries(vertical):
@@ -318,12 +315,13 @@ def test_migration_004_backfills_existing_silver_and_is_idempotent(vertical, mon
         tx.execute("""DROP TABLE gold_business_contributions,gold_partition_revisions,
                    gold_dirty_keys,order_fact,order_cohorts,payment_fact,funnel_stages,
                    pending_order_joins,inventory_failure_outcomes,search_fact""")
-        tx.execute("DELETE FROM analytics_schema_migrations WHERE version=4")
+        tx.execute("DROP INDEX source_receipts_event")
+        tx.execute("DELETE FROM analytics_schema_migrations WHERE version>=4")
     monkeypatch.setattr(business, "apply_business", actual)
     for _ in range(2):
         with vertical.connect() as tx, tx.transaction():
             migrate_analytics(tx)
-    assert scalar(vertical, "SELECT count(*) FROM analytics_schema_migrations") == 4
+    assert scalar(vertical, "SELECT count(*) FROM analytics_schema_migrations") == 5
     assert scalar(vertical, "SELECT count(*) FROM gold_business_contributions") == 2
     assert scalar(vertical, "SELECT sum(unique_events) FROM pipeline_minute") == 2
     vertical.publish_snapshot(vertical.test_namespace)
