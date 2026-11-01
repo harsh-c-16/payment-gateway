@@ -1,4 +1,4 @@
-"""M05 single-schema, B0 transactional Silver/Gold provider."""
+"""All-domain B0 transactional Silver and unique pipeline-minute contributions."""
 
 from dataclasses import replace
 from time import monotonic
@@ -12,10 +12,11 @@ from pipelines.ingestion import BronzeCapture, read_bronze
 from pipelines.ingestion.receipts import persist_capture
 from shared.contracts.analytics import BatchOutcome, DurableOffset
 from shared.contracts.common import Identifier, WireModel
-from shared.contracts.events import Namespace, ReasonCode, ValidationFailure
+from shared.contracts.events import EventEnvelope, Namespace, ReasonCode, ValidationFailure
 from shared.telemetry.metrics import Telemetry
 
 from .db import journal, one, sink_lock
+from .normalization import normalize_payload
 from .observations import enqueue_observation, observe, recover_observations
 from .quarantine import route_dlq
 
@@ -30,9 +31,7 @@ class BatchConfig(WireModel):
 
 
 class AnalyticsPipeline:
-    def __init__(
-        self, connect, store, codec, *, code_commit, transform_version="m05-conversation-v1"
-    ):
+    def __init__(self, connect, store, codec, *, code_commit, transform_version="m06-silver-v1"):
         if not callable(connect):
             raise TypeError("connect must create an autocommit analytics connection")
         self.connect, self.store, self.codec = connect, store, codec
@@ -133,8 +132,8 @@ class AnalyticsPipeline:
         event_id = None
         if failure is None:
             event = checked.envelope
-            if event.event_type != "CONVERSATION_TURN":
-                raise UnsupportedEvent("M05 supports CONVERSATION_TURN; other reducers are pending")
+            if not isinstance(event, EventEnvelope):
+                raise UnsupportedEvent("DLQ notices are not business Silver facts")
             event_id = event.event_id
             existing = one(
                 tx,
@@ -145,14 +144,13 @@ class AnalyticsPipeline:
                 tx,
                 """SELECT event_id FROM silver_events WHERE namespace=%s
                 AND source_service=%s AND aggregate_type=%s AND aggregate_id=%s
-                AND aggregate_version=%s AND event_type=%s""",
+                AND aggregate_version=%s""",
                 (
                     namespace,
                     event.source_service,
                     event.aggregate_type,
                     event.aggregate_id,
                     event.aggregate_version,
-                    event.event_type,
                 ),
             )
             if existing and existing["content_hash"] != checked.canonical_content_hash:
@@ -176,8 +174,8 @@ class AnalyticsPipeline:
                     """INSERT INTO silver_events
                     (namespace,event_id,content_hash,event_time,event_type,source_service,
                      aggregate_type,aggregate_id,aggregate_version,document,source_topic,
-                     source_partition,source_offset,raw_locator)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                     source_partition,source_offset,raw_locator,normalized_payload)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                     (
                         namespace,
                         event_id,
@@ -193,6 +191,7 @@ class AnalyticsPipeline:
                         record.partition,
                         record.offset,
                         stored["raw_locator"],
+                        Jsonb(normalize_payload(event)),
                     ),
                 )
                 aggregate_gold([event], tx, transform_version=self.transform_version)

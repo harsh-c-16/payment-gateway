@@ -10,7 +10,6 @@ import pytest
 
 import pipelines.storage.publication as publication
 import pipelines.storage.readers as readers
-from pipelines.curation import UnsupportedEvent
 from pipelines.ingestion.api import create_app
 from pipelines.storage.parquet import FileVerificationError, read_verified
 from pipelines.storage.publication import PublicationConflict, SnapshotCapacityError
@@ -159,7 +158,7 @@ def test_http_actual_manifest_gold_receipts_auth_and_readiness(vertical):
     asyncio.run(check())
 
 
-def test_other_event_type_backpressures_without_dirty_classification(vertical):
+def test_tool_event_is_now_supported_without_dirty_classification(vertical):
     other = vertical.codec.build_event(
         "TOOL_CALLED",
         {
@@ -181,11 +180,11 @@ def test_other_event_type_backpressures_without_dirty_classification(vertical):
         1,
         vertical.test_event_time,
     )
-    with pytest.raises(UnsupportedEvent):
-        curate(vertical, [record(vertical, other)])
-    assert count(vertical, "quarantine") == 0 and count(vertical, "silver_events") == 0
-    with vertical.connect() as tx:
-        assert tx.execute("SELECT disposition FROM source_receipts").fetchone()[0] is None
+    assert curate(vertical, [record(vertical, other)]).new_valid == 1
+    assert count(vertical, "quarantine") == 0 and count(vertical, "silver_events") == 1
+    vertical.publish_snapshot(vertical.test_namespace)
+    assert query(vertical).rows[0]["event_type"] == "TOOL_CALLED"
+    assert query(vertical).rows[0]["unique_events"] == 1
 
 
 def test_pointer_transaction_failure_rolls_back_both_datasets(vertical):

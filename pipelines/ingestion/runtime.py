@@ -14,7 +14,7 @@ from shared.event_transport.schemas import SchemaCache
 
 def pipeline_from_env():
     if os.environ.get("SINK_BATCH_MAX_ROWS", "1") != "1":
-        raise ValueError("M05 supports B0 sink rows=1; batching is a later checkpoint")
+        raise ValueError("B0 requires sink rows=1; batching is a later checkpoint")
     if os.environ.get("SINK_BATCH_MAX_WAIT_MS", "50") != "50":
         raise ValueError("The frozen sink wait is 50 ms")
     commit = os.environ["CODE_COMMIT"]

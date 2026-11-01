@@ -6,6 +6,53 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M06 — All-domain Silver provider, 1 November 2026
+
+Implemented all 24 registered business types, canonical-model normalization and
+typed all-domain Parquet. B0, original bytes/hashes, explicit nulls and caller-owned
+transaction/offset safety remain unchanged. Business Gold reducers are still M07.
+Full W-QUALITY/G0/G1/G4 are **NOT_RUN**, not inferred from the smaller quality smoke.
+See [M06 handoff](m06_silver_handoff.md) for exact limits and consumer coordination.
+
+Changed owned paths: analytics migration 003; curation provider/normalization;
+pipeline_minute; ingestion receipts/API/runtime/worker; Parquet/publication/readers;
+infra migration evidence and checker artifact mount; pipeline READMEs; owned fixture,
+Silver tests and the former unsupported-TOOL_CALLED regression; this handoff/progress.
+No public event/HTTP DTO, dictionary, registry asset, shared workflow, dependency,
+application lock or other owner's implementation changed.
+
+- Migration 003 backfills normalized payloads and makes aggregate versions unique
+  across event types within the producer/aggregate. Immutable migrations 001/002
+  and prior files remain unchanged. Older distinct versions are retained.
+- The worker subscribes to all five business domains; storage/connection/SQL
+  serialization/deadlock failures have three bounded retries with fresh consumer
+  groups. Permanent failures and missing outbox stop without dirty classification.
+- Fixed a real M05 quarantine API defect: required next_cursor was absent. Added
+  ordered nonempty/empty pagination coverage. Fixed shared mutable intent examples
+  at their owned fixture source; no assertion was weakened.
+- The existing wrong-money-type reason is INVALID_AMOUNT; Jaineel's independent
+  logical recipe expects INVALID_TYPE. Public behavior is preserved. This precise
+  reason handoff needs joint review before a full W-QUALITY reason-count claim.
+
+Development evidence (before the final source revision):
+
+| Command/check | Actual result | Evidence |
+|---|---|---|
+| Focused host normalization/Parquet/B0 | 35 passed, 1.85 seconds | artifacts/m06/unit-first.xml |
+| First full host pipelines/contracts/integration | 322 passed, 50 skipped, two failures caused by shared mutable intent fixture state | artifacts/m06/host-first.xml |
+| Host rerun after fixture isolation | **325 passed, 52 skipped**, 46.19 seconds | artifacts/m06/host-second.xml |
+| First Linux storage/vertical/Silver/native Kafka suite | 83 passed, one Windows-only skip, two failures exposed missing quarantine next_cursor; 151.44 seconds | artifacts/m06/linux-first.xml |
+| Linux rerun of all new Silver cases and publication/API regressions after cursor fix | **40 passed**, 142.75 seconds | artifacts/m06/linux-second.xml |
+| Existing low-memory streaming env up | CLI exit_code 0; real PostgreSQL/Kafka/registry mappings verified | artifacts/projectctl/a82d4fee-a41d-456f-8031-5e2413673772/ |
+| Public local analytics db migrate | Analytics versions **1,2,3 APPLIED**; expected global dependency exit_code 4 for other owners/outbox | artifacts/infra/analytics/checks/9e15fddc-e0ee-4a6b-85a7-5c215904843c/analytics-migration.json |
+| Ruff lint/format, generated schemas/OpenAPI and diff check | Passed; format check covered 45 files | Session |
+| Owned-path and exact project-credential delivery scan | Passed; 23 feature paths before progress update | artifacts/m06/source-audit.json |
+
+Final source-pinned results, delivery and runtime compatibility are recorded at
+the checkpoint below once executed. Development fixtures identify their base
+revision and are not reproducible performance evidence. Prior M05 raw facts were
+copied to artifacts/m06/prior-m05-facts/ before tests wrote fresh facts.
+
 ## M05 — First Silver/active-Gold provider, 1 November 2026
 
 Implemented within owned analytics, pipeline, infrastructure and test paths.

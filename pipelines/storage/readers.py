@@ -46,7 +46,7 @@ def query_gold(pipeline, namespace, table, date_from, date_to, currency=None):
     if table != "pipeline_minute":
         from pipelines.curation import UnsupportedEvent
 
-        raise UnsupportedEvent("This Gold table is not implemented in M05")
+        raise UnsupportedEvent("Business Gold tables are pending M07")
     if currency is not None:
         raise ValueError("pipeline_minute has no currency dimension")
     start = TypeAdapter(date).validate_python(date_from)
@@ -169,5 +169,6 @@ def quarantine(connect, namespace, cursor=None, limit=1000):
                 repair_reference=row["repair_reference"],
             )
             for row in found
-        ]
+        ],
+        next_cursor=str(found[-1]["quarantine_id"]) if found else None,
     )

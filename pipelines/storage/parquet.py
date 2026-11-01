@@ -1,4 +1,4 @@
-"""Stable M05 Parquet schemas; files are read through verified immutable descriptors."""
+"""Versioned Parquet schemas; old published files remain readable."""
 
 import hashlib
 
@@ -47,7 +47,99 @@ GOLD_SCHEMA = pa.schema(
         ("publication_generation", pa.int64()),
     ]
 )
-SCHEMAS = {"silver-conversation-turn": SILVER_SCHEMA, "pipeline_minute": GOLD_SCHEMA}
+INTENT_TYPE = pa.struct(
+    [
+        (name, pa.string())
+        for name in (
+            "query_text",
+            "category",
+            "brand",
+            "size",
+            "colour",
+            "material",
+            "occasion",
+            "currency",
+        )
+    ]
+    + [("max_price_minor", pa.int64()), ("category_path_prefix", pa.list_(pa.string()))]
+)
+PAYLOAD_TYPE = pa.struct(
+    [
+        (name, pa.string())
+        for name in (
+            "turn_id",
+            "mode",
+            "outcome",
+            "extractor_source",
+            "extractor_version",
+            "reason_code",
+            "restricted_content_reference",
+            "tool_call_id",
+            "tool_name",
+            "cart_id",
+            "sku",
+            "quote_id",
+            "order_id",
+            "confirmation_id",
+            "search_id",
+            "comparison_id",
+            "currency",
+            "order_status",
+            "user_id",
+            "session_id",
+            "failure_code",
+            "reservation_id",
+            "payment_id",
+            "reservation_request_id",
+            "status",
+            "debit_id",
+            "reversal_id",
+        )
+    ]
+    + [
+        (name, pa.int64())
+        for name in (
+            "llm_call_count",
+            "cart_version",
+            "quantity_after",
+            "returned_count",
+            "price_minor",
+            "catalog_version",
+            "total_amount_minor",
+            "on_hand",
+            "reserved",
+            "available",
+            "stock_version",
+            "attempt_number",
+            "amount_minor",
+        )
+    ]
+    + [(name, UTC) for name in ("created_at", "changed_at", "attempt_created_at")]
+    + [
+        ("duration_ms", pa.float64()),
+        ("intent", INTENT_TYPE),
+        ("skus", pa.list_(pa.string())),
+        ("field_names", pa.list_(pa.string())),
+    ]
+)
+# The first fifteen legacy columns are the unchanged envelope/provenance projection.
+SILVER_EVENTS_SCHEMA = pa.schema(
+    list(SILVER_SCHEMA)[:15]
+    + [
+        ("schema_version", pa.int32()),
+        ("payload", PAYLOAD_TYPE),
+        ("synthetic", pa.bool_()),
+        ("scenario_source", pa.string()),
+        ("metadata_json", pa.string()),
+        ("envelope_json", pa.string()),
+        ("raw_locator", pa.string()),
+    ]
+)
+SCHEMAS = {
+    "silver-conversation-turn": SILVER_SCHEMA,
+    "silver-events-v1": SILVER_EVENTS_SCHEMA,
+    "pipeline_minute": GOLD_SCHEMA,
+}
 
 
 class FileVerificationError(RuntimeError):

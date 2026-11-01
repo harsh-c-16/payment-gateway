@@ -44,3 +44,11 @@ See [M04 handoff](../../docs/vichitr/m04_capture_handoff.md) for real-volume che
 M05 publication/CAS and generation-pinned readers are in publication.py/readers.py;
 see the [M05 handoff](../../docs/vichitr/m05_vertical_handoff.md). Complete incremental
 publication and compactor admission remain M08.
+
+M06 exports `silver-events-v1`: common typed envelope/provenance fields and a typed
+payload struct covering all 24 registered business types, with UTC microsecond
+timestamps, int64 amounts/counts, string lists and nullable intent facets. Original
+envelope/metadata JSON preserves optional additions and supplied dictionary hashes.
+The legacy `silver-conversation-turn` schema remains registered for existing M05
+files; immutable files are never rewritten during migration. A current manifest
+may reference both schemas. See the [M06 handoff](../../docs/vichitr/m06_silver_handoff.md).

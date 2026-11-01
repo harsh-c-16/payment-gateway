@@ -37,7 +37,7 @@ def examples():
         },
         "INTENT_EXTRACTED": {
             "turn_id": uid(1),
-            "intent": INTENT,
+            "intent": dict(INTENT),
             "extractor_version": "rules-v1",
             "outcome": "valid",
         },
@@ -66,7 +66,7 @@ def examples():
             "order_id": uid(5),
             "confirmation_id": uid(6),
         },
-        "SEARCH_REQUESTED": {"search_id": uid(7), "intent": INTENT, "mode": "lexical"},
+        "SEARCH_REQUESTED": {"search_id": uid(7), "intent": dict(INTENT), "mode": "lexical"},
         "PRODUCT_RETRIEVED": {
             "search_id": uid(7),
             "skus": [],

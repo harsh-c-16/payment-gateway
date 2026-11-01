@@ -1,16 +1,17 @@
-"""M05's single exact pipeline_minute reducer; other business reducers follow M07."""
+"""Exact all-domain pipeline_minute counts; business reducers follow M07."""
 
 from pipelines.ingestion.receipts import _transaction
 from shared.contracts.analytics import DirtyPartitionSet
+from shared.contracts.events import EventEnvelope
 
 
-def aggregate_gold(new_facts, db_transaction, *, transform_version="m05-conversation-v1"):
+def aggregate_gold(new_facts, db_transaction, *, transform_version="m06-silver-v1"):
     _transaction(db_transaction)
     changed = []
     with db_transaction.transaction():
         for event in new_facts:
-            if event.event_type != "CONVERSATION_TURN":
-                raise ValueError("Other Gold reducers are not implemented in M05")
+            if not isinstance(event, EventEnvelope):
+                raise TypeError("Only business events contribute to pipeline_minute")
             inserted = db_transaction.execute(
                 """INSERT INTO reducer_contributions(namespace,event_id) VALUES (%s,%s)
                    ON CONFLICT DO NOTHING RETURNING event_id""",
@@ -23,7 +24,8 @@ def aggregate_gold(new_facts, db_transaction, *, transform_version="m05-conversa
                        VALUES (%s,%s,%s,%s,1,1,%s)
                        ON CONFLICT(namespace,minute,event_type,source_service) DO UPDATE SET
                        unique_events=pipeline_minute.unique_events+1,
-                       revision=pipeline_minute.revision+1""",
+                       revision=pipeline_minute.revision+1,
+                       transform_version=EXCLUDED.transform_version""",
                     (
                         event.namespace,
                         event.event_time.replace(second=0, microsecond=0),

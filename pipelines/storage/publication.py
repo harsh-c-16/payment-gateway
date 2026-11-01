@@ -127,22 +127,18 @@ def _silver_row(fact):
         event_time=fact["event_time"],
         produced_at=datetime.fromisoformat(doc["produced_at"].replace("Z", "+00:00")),
         dataset_revision=doc.get("metadata", {}).get("dataset_revision"),
+        schema_version=doc["schema_version"],
+        synthetic=doc.get("metadata", {}).get("synthetic"),
+        scenario_source=doc.get("metadata", {}).get("scenario_source"),
+        metadata_json=canonical_json(doc["metadata"]).decode(),
         envelope_json=canonical_json(doc).decode(),
         raw_locator=fact["raw_locator"],
     )
-    row.update(
-        {
-            key: doc["payload"][key]
-            for key in (
-                "turn_id",
-                "mode",
-                "outcome",
-                "duration_ms",
-                "llm_call_count",
-                "extractor_source",
-            )
-        }
-    )
+    payload = dict(fact["normalized_payload"])
+    for name in ("created_at", "changed_at", "attempt_created_at"):
+        if payload.get(name) is not None:
+            payload[name] = datetime.fromisoformat(payload[name].replace("Z", "+00:00"))
+    row["payload"] = payload
     return row
 
 
@@ -216,7 +212,7 @@ def _files(pipeline, namespace, old, pending, facts, gold, generation, snapshot_
                 pipeline.store,
                 path,
                 data,
-                "silver-conversation-turn",
+                "silver-events-v1",
                 {"event_date": date, "event_type": event_type},
                 [r["event_time"] for r in data],
             )

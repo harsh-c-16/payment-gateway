@@ -13,6 +13,7 @@ from .bronze import SourceCorruption, read_bronze
 
 MIGRATION = Path(__file__).resolve().parents[2] / "migrations/analytics/001_capture.sql"
 SLICE_MIGRATION = MIGRATION.with_name("002_vertical_slice.sql")
+SILVER_MIGRATION = MIGRATION.with_name("003_full_silver.sql")
 
 
 def _transaction(tx):
@@ -28,7 +29,7 @@ def migrate_analytics(tx):
         tx.execute("""CREATE TABLE IF NOT EXISTS analytics_schema_migrations (
             version integer PRIMARY KEY, sha256 char(64) NOT NULL,
             applied_at timestamptz NOT NULL DEFAULT clock_timestamp())""")
-        for version, path in ((1, MIGRATION), (2, SLICE_MIGRATION)):
+        for version, path in ((1, MIGRATION), (2, SLICE_MIGRATION), (3, SILVER_MIGRATION)):
             # Git checkouts may use CRLF; checksums agree across host OSes.
             data = path.read_text(encoding="utf-8").encode("utf-8")
             digest = hashlib.sha256(data).hexdigest()
