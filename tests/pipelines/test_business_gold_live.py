@@ -137,16 +137,23 @@ def test_order_latest_state_historical_stage_and_exact_money_http(vertical):
     assert query(vertical, "daily_conversion", "2026-11-01", "2026-11-02") == []
 
 
-def test_cohort_correction_rewrites_both_dates_and_zero_denominator(vertical):
-    deliver(vertical, fact(vertical, "ORDER_CREATED"))
+@pytest.mark.parametrize("newest_first", [False, True])
+def test_cohort_correction_rewrites_both_dates_and_zero_denominator(vertical, newest_first):
+    events = [
+        fact(vertical, "ORDER_CREATED"),
+        fact(vertical, "ORDER_CONFIRMED", 2, created_at=NEXT),
+    ]
+    if newest_first:
+        events.reverse()
+    deliver(vertical, events[0])
     vertical.publish_snapshot(vertical.test_namespace)
-    deliver(vertical, fact(vertical, "ORDER_CONFIRMED", 2, created_at=NEXT))
+    deliver(vertical, events[1])
     vertical.publish_snapshot(vertical.test_namespace)
     daily = {row["cohort_date"][:10]: row for row in query(vertical, "daily_conversion")}
     assert daily["2026-10-31"]["created_orders"] == 0
     assert daily["2026-10-31"]["conversion"] is None
     assert daily["2026-11-01"]["conversion"] == 1
-    assert daily["2026-10-31"]["revision"] == 2
+    assert daily["2026-10-31"]["revision"] == (1 if newest_first else 2)
     assert len(query(vertical, "order_fact")) == 1
     assert query(vertical, "order_fact")[0]["created_at"] == NEXT
 

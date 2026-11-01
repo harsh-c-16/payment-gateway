@@ -51,7 +51,9 @@ Older valid events remain in Silver/pipeline_minute. They cannot replace latest
 state, but can establish a historical funnel stage. Payment parent order identity
 is stable. Pending payment/inventory joins retain source event and order IDs;
 they attach to the order's cohort when any complete order snapshot arrives.
-No provisional/fake order date is assigned. A corrected order creation date
+No provisional/fake order date is assigned. Known cohorts include dates/currencies
+from all accepted order snapshots, including stale versions, so an empty cohort
+does not depend on delivery order. A corrected order creation date
 rewrites both old and new cohorts; an emptied known order cohort reports zero
 counts and null conversion. Payment/search/inventory partitions with no remaining
 facts disappear from the next active file set.

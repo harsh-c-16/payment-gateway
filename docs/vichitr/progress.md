@@ -55,8 +55,20 @@ events are explicit synthetic fixtures. Invalid notification tests use the expli
 SQL outbox double, not Aditya's absent production implementation. The smaller
 2,000-record quality smoke is regression coverage, not full W-QUALITY.
 
-Pending at this feature checkpoint: source-pinned final host/Linux checks, retained
-legacy-file verification, commit/push CI result and final skip inventory. Labels,
+Final review of the initial source commit 779c950 found one additional semantic
+defect: after a corrected creation date, an older order snapshot arriving last
+did not register its empty historical cohort. The new two-permutation regression
+reproduced it (1 passed, 1 failed; artifacts/m07/cohort-order-before-fix.xml).
+The reducer now registers known cohort dates/currencies from every accepted order
+snapshot, while only the newest version updates current state. Empty cohort rows
+therefore do not depend on delivery order. The raw failure remains retained.
+All **12 business cases passed** after the fix, 19.59 seconds:
+artifacts/m07/business-after-cohort-fix.xml. The initial source's final Windows
+suite passed 326/63 skipped; its complete Linux suite passed 234/7 skipped.
+These are retained as initial-source results, not final-source claims.
+
+Pending at this feature checkpoint: final source-pinned checks after that repair,
+commit/push CI result and final skip inventory. Labels,
 real operational integration, scale/performance and M08 candidate publication are
 outside this checkpoint; see the handoff for required owners and exact bounds.
 

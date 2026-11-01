@@ -107,12 +107,16 @@ def apply_business(event, tx, transform_version):
         payload.setdefault("reservation_id", None)
         payload.setdefault("payment_id", None)
         old, changed = _latest(tx, "order_fact", "order_id", event, payload)
+        cohort = payload["created_at"].date()
+        new_cohort = tx.execute(
+            """INSERT INTO order_cohorts VALUES (%s,%s,%s) ON CONFLICT DO NOTHING
+            RETURNING cohort_date""",
+            (event.namespace, cohort, payload["currency"]),
+        ).fetchone()
+        if new_cohort:
+            # Empty historical cohorts must be independent of delivery order.
+            dirty |= {(table, cohort) for table in ("daily_conversion", "checkout_funnel")}
         if changed:
-            cohort = payload["created_at"].date()
-            tx.execute(
-                "INSERT INTO order_cohorts VALUES (%s,%s,%s) ON CONFLICT DO NOTHING",
-                (event.namespace, cohort, payload["currency"]),
-            )
             dates = {cohort} | ({old["created_at"].date()} if old else set())
             dirty |= {
                 (table, date)
