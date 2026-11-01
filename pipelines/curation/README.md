@@ -1,4 +1,4 @@
-# Transactional Silver provider (M06)
+# Transactional Silver and event-time provider
 
 Owner: Vichitr. See [common §11](../../docs/specs/02_COMMON_SPEC.md) and the
 [M05 handoff](../../docs/vichitr/m05_vertical_handoff.md).
@@ -15,6 +15,12 @@ by common §7. Older distinct versions remain valid facts. M07 business reducers
 use latest versions for state and distinct historical stages for the funnel.
 Semantic Gold conflicts roll back the Silver/reducer savepoint before atomic
 quarantine and outbox append. Unexpected SQL errors leave the source unfinished.
+
+M09 tracks durable partition maxima, ten-second idleness and a non-regressing
+watermark with 120 seconds allowed lateness. Late facts keep their original
+content and revise Gold with `LATE_RECONCILIATION` lineage. See the
+[M09 handoff](../../docs/vichitr/m09_event_time_handoff.md) for timestamp flags,
+provisional windows and separate initial/late visibility inspection.
 
 route_dlq preserves the first raw locator/hash and uses Aditya's append_outbox in
 the same transaction. Missing outbox or append failure leaves the source unfinished

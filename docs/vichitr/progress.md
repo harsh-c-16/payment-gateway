@@ -6,6 +6,74 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M09 event time, late revisions and DLQ fault boundary — 1 November 2026
+
+Source revision: **b12dd0297125415a7cfb1662b34b5d914e61d158**. The owned provider
+is implemented; actual Aditya outbox adoption remains pending. See the
+[M09 handoff](m09_event_time_handoff.md) for timestamp semantics, SQL inspection,
+provisional finality, lineage, timing cohorts and the broker controller procedure.
+Next checkpoint: M10 isolated analytical replay.
+
+Changed owned paths: migration 006 and its loader/readiness/version evidence;
+curation partition clocks/watermarks/annotations; publication lineage and idle
+reevaluation; fixed worker cadence; checker M09 artifact mount; owned event-time,
+DLQ recovery and migration regression tests; owner documentation. Original event
+bytes, public event/HTTP/analytics schemas, Parquet schemas, dictionaries, locks,
+evaluation configs, shared workflow and other owners' code are unchanged.
+
+The transaction retains late Silver facts, updates the existing Gold revision,
+and records `LATE_RECONCILIATION`. A resumed idle partition cannot move a watermark
+backward. The new views separate initial visibility from late correction and keep
+missing/recovery timing honest. Quarantine still uses the required local outbox
+binding and stops without it. The fault test pauses the actual Kafka container;
+its SQL outbox/relay is an explicit test double, not Aditya's implementation.
+
+Commands below use the locked `.venv/Scripts/python.exe`. Docker and host pytest
+run outside the sandbox for the engine pipe and Windows scratch ACLs.
+
+| Development command/check | Actual result | Evidence |
+|---|---|---|
+| `PROJECTCTL_ADAPTER_MODULE=infra.analytics python -m projectctl env up --profile streaming-local` | Services started; initial verification returned dependency failure `ConnectionTimeout` during concurrent cold startup | artifacts/projectctl/0284070d-c7fe-4737-8676-cfb287bfb301/ |
+| Same adapter, `env verify --profile streaming-local` after readiness | Passed, exit 0, existing resource profile retained | artifacts/projectctl/283edef3-2141-483e-9b34-f37a4f7324c1/ |
+| `python -m pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m09/host-development.xml` | 327 passed, 103 skipped, 1 failed in 256.33 s; unchanged `test_http_client_uses_merged_schema_binding` hit `DependencyUnavailable` during concurrent Docker startup. Failure retained; no timeout/assertion weakened | artifacts/m09/host-development.xml |
+| Real Linux `test_event_time_live.py test_event_time.py` with `RUN_VERTICAL_LIVE_TESTS=1` | 6 passed in 19.67 s; initial five live cases plus worker cadence | artifacts/m09/event-time-development.xml |
+| Real broker pause/recovery, SQL outbox/relay double | 1 passed in 41.24 s | artifacts/m09/dlq-development.xml, dlq-recovery-development.json |
+
+Development fixture metadata records parent 35cd2f5 while executing the then-dirty
+worktree. It is not a claim of testing clean 35cd2f5. Final tests use clean b12dd02.
+
+| Source-pinned command/check | Actual result | Evidence |
+|---|---|---|
+| `RUN_VERTICAL_LIVE_TESTS=1 M09_BROKER_OUTAGE=1`, storage-check pytest `test_dlq_recovery_live.py` with host `docker pause/unpause group3-postgres-local-kafka-1` and marker acknowledgements | 1 passed, 36.06 s; pending=1 during unconfirmed send, pending=0 only after recovered broker acknowledgement; one invalid source, zero business facts | artifacts/m09/dlq-final.xml, dlq-recovery.json, dlq-ready.json |
+| Adapter `db migrate --namespace bench-m09` | Analytics migrations 1–6 applied. Global exit_code=4 remains truthful: other service/outbox providers absent | artifacts/infra/analytics/checks/6ceb274f-467b-4acc-a9ee-4d1580711019/analytics-migration.json |
+| Read-only public analytics inspection | Existing generation-one Silver/Gold checkpoints retained; migration versions 1–6; historical facts have no fabricated event-time annotations | artifacts/m09/public-database.json |
+| `ruff check pipelines infra/analytics.py tests/pipelines`; corresponding `ruff format --check` | Passed; 60 formatted files | Session transcript |
+| `python -m projectctl.schemas --check`; `python -m projectctl.conversation_contract --check` | Passed; generated contracts current, external owner review still pending | Session transcript |
+
+| Final source-pinned verification | Actual result | Evidence |
+|---|---|---|
+| Storage-check full `python -m pytest tests/pipelines -q --tb=short --junitxml=artifacts/m09/linux-final.xml`, `RUN_VERTICAL_LIVE_TESTS=1 RUN_STORAGE_LIVE_TESTS=1 M05_CODE_COMMIT=b12dd0297125415a7cfb1662b34b5d914e61d158` | **277 passed, 8 skipped**, 478.27 s; includes owned SQL/files/native Kafka, candidate/crash/large publication, quality smoke and seven new live event-time cases | artifacts/m09/linux-final.xml |
+| Final Windows `python -m pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m09/host-final.xml`, Docker stopped | **328 passed, 105 skipped**, 49.49 s; prior contract timeout passed unchanged | artifacts/m09/host-final.xml |
+| Skip reconciliation | **99 of 105 host skips passed in Linux**, including the separately controlled real-broker fault. Six older opt-in checks not rerun. Linux's other two skips are that separately passed fault and the Windows-only guard passed on host | artifacts/m09/skips.json, verification-final.json; [skip explanation](test_skips.md) |
+| Adapter `env down`, then `docker desktop stop` | Exit 0; volumes retained, zero Desktop/backend processes | artifacts/projectctl/f6778034-4e54-4547-804c-8bb577dfbb82/, artifacts/m09/shutdown.json |
+
+The unchanged contract test passed after Docker stopped; the initial failure
+coincided with cold-start resource contention, but that causal explanation is
+an inference. No test budget or assertion was changed. The complete Linux run
+and host rerun execute b12dd02 runtime/migrations/tests; subsequent changes are
+owner documentation only. The source-pinned broker test was a separate pass
+because it requires deliberate external pause/resume acknowledgements.
+
+Delivery uses the standing user authorization: commit the final owner evidence
+notes and push the source/documentation commits to `origin/vichitr`. Exact Actions
+status for the delivered HEAD is retained in artifacts/m09/github-actions.json.
+The three shared CI jobs do not replace the locally executed live M09 checks.
+
+Remaining: actual shared outbox/relay storage/retry, full 100,000-record W-QUALITY,
+integrated G0/G1/G3/G4/T-03/T-12, labelled quality imports and real Harsh compactor
+adoption are not established by this checkpoint. No performance result is claimed.
+No memory allocation was increased and no development volume/data was deleted.
+
 ## M08 incremental publication and candidate safety — 1 November 2026
 
 Implementation is ready for final source-pinned verification. See the

@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M08 incremental publication/candidate provider implemented; full source 560e905 and corrected candidate source dda52f8 verified. Labelled quality imports, real outbox/catalogue/compactor adoption, full W-QUALITY and integrated gates remain pending. Next: M09 late data/watermarks. See [progress](progress.md) and [M08 handoff](m08_publication_handoff.md).
+Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M09 event-time/watermark/late-revision provider implemented and live verified at b12dd02. Real broker notification recovery was tested with an explicit outbox/relay double. Labelled quality imports, actual outbox/catalogue/compactor adoption, full W-QUALITY and integrated gates remain pending. Next: M10 isolated analytical replay. See [progress](progress.md) and [M09 handoff](m09_event_time_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
@@ -110,6 +110,11 @@ M01 → M02 → M03 → M04 → M05 is the first working slice. M06–M10 comple
 - Publish provisional windows on the fixed 250-ms cadence; valid late events revise affected windows with `LATE_RECONCILIATION` lineage. Measure initial visibility and late correction separately.
 - Complete quarantine inspection, stable reasons, durable notification retry and restricted diagnostic references. Keep DLQ notices outside business topic ingestion and outside invalid-ingress arithmetic.
 - Check older-than-120-second facts, resumed idle partitions, future timestamps, DLQ broker outage/recovery and infrastructure failure classification. Never delay every new event by the lateness allowance.
+
+Checkpoint: the owned event-time provider and existing quarantine boundary are
+verified. Production notification retry still requires Aditya's real shared
+outbox/relay; the real-broker fault test explicitly doubles that dependency.
+See [M09 handoff](m09_event_time_handoff.md) for exact semantics and evidence limits.
 
 ### M10 — Replay and provenance
 

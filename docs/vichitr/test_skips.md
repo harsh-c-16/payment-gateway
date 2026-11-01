@@ -1,3 +1,27 @@
+# M09 skip update: 1 November 2026
+
+Source **b12dd02**: full Windows pipelines/contracts/integration **328 passed,
+105 skipped**; full Linux pipelines **277 passed, 8 skipped**. The additional
+real Kafka pause/recovery test passed separately, **1 passed**, because it needs
+an external pause/resume controller. **99 of the 105 host skips passed in Linux**.
+All seven new live event-time cases passed; the worker cadence test passed on
+both platforms. No failure was skipped or assertion weakened.
+
+The six host skips still not rerun are the same older opt-in infrastructure and
+transport cases listed below. They require their own explicit opt-ins, including
+container recreation/rebalance checks. Linux's two other skips are the externally
+controlled broker-fault case (passed separately) and the Windows-only filesystem
+guard (passed on Windows). Exact test names, reasons and final suite counts are
+in artifacts/m09/skips.json and verification-final.json.
+
+The first Windows run retained one unchanged client-contract timeout during cold
+Docker startup. It passed in the final full rerun with Docker stopped; no timeout
+or assertion was changed. Raw failure: artifacts/m09/host-development.xml.
+
+Aditya's real outbox/relay remains absent: notification persistence/recovery uses
+an explicitly labelled SQL/relay double with real PostgreSQL, Bronze and Kafka.
+Full W-QUALITY, owner handoffs and integrated/performance gates remain NOT_RUN.
+
 # M08 skip update: 1 November 2026
 
 Full Linux source **560e905**: **268 passed, 7 skipped**. Corrected candidate
