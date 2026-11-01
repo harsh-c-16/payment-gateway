@@ -1,3 +1,67 @@
+# M08 skip update: 1 November 2026
+
+Full Linux source **560e905**: **268 passed, 7 skipped**. Corrected candidate
+source **dda52f8**: **32 candidate/crash cases passed**, zero skips; full host
+suite **327 passed, 97 skipped**. The one runtime correction preserves the
+base transform in compaction lineage. The complete Linux suite was not rerun
+for that isolated metadata change; every affected case was rerun.
+
+**91 of the 97 host skips passed in Linux** across the full/focused runs.
+The six older opt-in cases below were not rerun. The seventh full Linux skip
+is the Windows-only filesystem rejection guard, passed on Windows. No skip
+marker hides a failure. Exact names/reasons/coverage: artifacts/m08/skips.json.
+Raw XML and source revisions are recorded in [progress](progress.md).
+
+The six still-unrerun opt-in checks are:
+
+- `tests.pipelines.test_event_contracts_live.test_registry_compatibility_and_all_domain_wire_examples`: Real Kafka/registry required; RUN_CONTRACTS_LIVE_TESTS=1
+- `tests.pipelines.test_postgres_live.test_real_isolation_and_persistence_across_container_recreation`: Real Docker required; opt in with RUN_POSTGRES_LIVE_TESTS=1
+- `tests.pipelines.test_streaming_live.test_plain_json_registry_groups_and_retained_volume_recreation`: Real Kafka/registry required; RUN_STREAMING_LIVE_TESTS=1
+- `tests.pipelines.test_transport_live.test_real_sdk_acknowledgement_manual_offsets_and_uncertain_retry`: Real Kafka/PostgreSQL required; RUN_TRANSPORT_LIVE_TESTS=1
+- `tests.pipelines.test_transport_live.test_real_caller_transaction_and_outbox_savepoint_rollback`: Real Kafka/PostgreSQL required; RUN_TRANSPORT_LIVE_TESTS=1
+- `tests.pipelines.test_transport_live.test_real_rebalance_fences_old_owner_and_redelivers_exact_source`: Real Kafka/PostgreSQL required; RUN_TRANSPORT_LIVE_TESTS=1
+
+New M08 host-skipped cases, all passed in real Linux SQL/files:
+
+- `test_kill_at_acknowledged_publication_boundary_is_recoverable[snapshot-before_rename]`
+- `test_kill_at_acknowledged_publication_boundary_is_recoverable[snapshot-after_files_durable]`
+- `test_kill_at_acknowledged_publication_boundary_is_recoverable[snapshot-before_manifest_swap]`
+- `test_kill_at_acknowledged_publication_boundary_is_recoverable[snapshot-after_manifest_swap]`
+- `test_kill_at_acknowledged_publication_boundary_is_recoverable[candidate-after_files_durable]`
+- `test_kill_at_acknowledged_publication_boundary_is_recoverable[candidate-before_manifest_swap]`
+- `test_kill_at_acknowledged_publication_boundary_is_recoverable[candidate-after_manifest_swap]`
+- `test_incremental_chunks_preserve_gapped_membership_and_reuse_silver`
+- `test_candidate_reorders_rows_and_preserves_paired_generations_visibility_and_old_files[silver]`
+- `test_candidate_reorders_rows_and_preserves_paired_generations_visibility_and_old_files[gold]`
+- `test_bad_candidates_never_change_active_state[changed_row]`
+- `test_bad_candidates_never_change_active_state[duplicate]`
+- `test_bad_candidates_never_change_active_state[namespace]`
+- `test_bad_candidates_never_change_active_state[count]`
+- `test_bad_candidates_never_change_active_state[digest]`
+- `test_bad_candidates_never_change_active_state[money]`
+- `test_bad_candidates_never_change_active_state[bounds]`
+- `test_bad_candidates_never_change_active_state[checksum]`
+- `test_bad_candidates_never_change_active_state[schema]`
+- `test_bad_candidates_never_change_active_state[partition]`
+- `test_bad_candidates_never_change_active_state[reuse]`
+- `test_bad_candidates_never_change_active_state[transform]`
+- `test_bad_candidates_never_change_active_state[lineage]`
+- `test_bad_candidates_never_change_active_state[parent]`
+- `test_stale_candidate_is_rejected_before_reading_files`
+- `test_candidate_uses_published_rows_and_retains_new_ingress`
+- `test_exact_money_and_int64_candidate_contract_are_not_coerced`
+- `test_candidate_pointer_failure_rolls_back_both_generations`
+- `test_candidate_rechecks_generation_at_actual_pointer_transaction`
+- `test_candidate_physical_file_guards[codec]`
+- `test_candidate_physical_file_guards[row_group]`
+- `test_compaction_lineage_retains_historical_transform`
+- `test_more_than_ten_thousand_facts_and_eight_mib_publish_in_bounded_files`
+
+Candidate construction uses an explicit small compactor double. The large
+10,001-row fixture uses real Bronze/receipts and bulk accepted SQL staging;
+it is a publisher-only check. Actual Harsh compaction, real outbox integration,
+full W-QUALITY, labelled evaluation imports and performance remain NOT_RUN.
+
 # M07 skip update: 1 November 2026
 
 Verified source **8abde27**. Final host suite: **326 passed, 64 skipped**.

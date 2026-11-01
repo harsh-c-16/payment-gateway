@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M08 incremental publication/candidate provider implemented; final source verification in progress. Labelled quality imports, real outbox/catalogue/compactor adoption, full W-QUALITY and integrated gates remain pending. Next: M09 late data/watermarks. See [progress](progress.md) and [M08 handoff](m08_publication_handoff.md).
+Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M08 incremental publication/candidate provider implemented; full source 560e905 and corrected candidate source dda52f8 verified. Labelled quality imports, real outbox/catalogue/compactor adoption, full W-QUALITY and integrated gates remain pending. Next: M09 late data/watermarks. See [progress](progress.md) and [M08 handoff](m08_publication_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 

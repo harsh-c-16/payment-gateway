@@ -84,6 +84,57 @@ complete suite began on 560e905, and its candidate/crash cases had finished befo
 this one-field correction. All candidate/crash cases and the complete host suite
 are rerun on the corrected source. Publisher/export code is unchanged by this fix.
 
+### Final M08 verification and delivery
+
+Full-suite source: **560e90591bbdf32a12d74b0755e5df7706f8a6a4**. Corrected
+candidate source: **dda52f8804545d5b86c94d3ecc3a7cdbfcebba95**. The only runtime
+change between them is the compaction lineage transform label; all affected
+candidate/crash cases and the complete host suite passed again. The complete
+Linux suite was not repeated for that isolated metadata correction. Both source
+snapshots and development/final crash/large-fixture facts remain retained.
+
+| Final check | Actual result | Evidence |
+|---|---|---|
+| Complete host pipelines/contracts/integration, corrected source | **327 passed, 97 skipped**, 68.80 s; zero failures/errors | artifacts/m08/host-corrected.xml |
+| Complete Linux pipeline suite, full-suite source | **268 passed, 7 skipped**, 616.58 s; real Kafka/PostgreSQL/files, large fixture and process kills | artifacts/m08/linux-final.xml |
+| All affected candidate/crash tests, corrected source | **32 passed, zero skipped**, 98.04 s; includes historical-transform regression | artifacts/m08/legacy-transform-corrected.xml |
+| Large publisher-only fixture in the complete suite | 10,001 unique IDs, **18,920,787 document-text bytes**, 20 Silver files with at most 512 rows, Gold count 10,001; zero pending/unobserved visibility | artifacts/m08/large-publisher-fixture.json |
+| Event-identity lookup plan after actual fixture ANALYZE | EXPLAIN selects Index Scan on source_receipts_event; no throughput claim | artifacts/m08/visibility-query-plan.json |
+| Retained original M05 dataset | Versions 1–5, idempotent migration, unchanged canonical hash and readable legacy Silver; generation 1 / Gold count 1 retained | artifacts/m08/upgrade.json |
+| Final lint/format, generated schema/OpenAPI, diff, source hash, owned-path/credential and local-link checks | Passed; no public contract or other owner's implementation change | Session transcript; artifacts/m08/source-snapshot*.json |
+| Exact skip reconciliation | **91 of 97 host skips passed in Linux** across full/focused runs; six older opt-in checks not rerun. Linux's seventh skip is the Windows-only guard, passed on Windows | artifacts/m08/{verification-final,skips}.json; [skip report](test_skips.md) |
+
+Exact final commands from the repository root:
+
+```powershell
+.venv/Scripts/python.exe -m pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m08/host-corrected.xml
+$env:POSTGRES_SECRETS_DIR=(Resolve-Path artifacts/infra/postgres-local/secrets).Path
+$taskCommit=git rev-parse HEAD
+docker compose -p group3-postgres-local -f infra/compose.yaml -f infra/compose.streaming.yaml -f infra/compose.storage.yaml --profile storage-check run --rm --no-deps -e RUN_VERTICAL_LIVE_TESTS=1 -e RUN_STORAGE_LIVE_TESTS=1 -e M05_CODE_COMMIT=$taskCommit storage-check python -m pytest tests/pipelines -q --tb=short --junitxml=artifacts/m08/linux-final.xml
+docker compose -p group3-postgres-local -f infra/compose.yaml -f infra/compose.streaming.yaml -f infra/compose.storage.yaml --profile storage-check run --rm --no-deps -e RUN_VERTICAL_LIVE_TESTS=1 -e M05_CODE_COMMIT=$taskCommit storage-check python -m pytest tests/pipelines/test_publication_live.py tests/pipelines/test_publication_crash_live.py -q --tb=short --junitxml=artifacts/m08/legacy-transform-corrected.xml
+```
+
+Use 560e905 for the recorded complete Linux run and dda52f8 for the corrected
+host/focused runs; do not rewrite their metadata to a later documentation commit.
+The checker now mounts services/configs read-only, so earlier M07 collection/input
+mount omissions do not recur. The retained-file helper used CODE_COMMIT, PYTHONPATH=/app
+and EVENT_SCHEMA_CACHE_PATH=/app/schema-cache.json, as at M07.
+
+This provider checkpoint is delivered to `vichitr` under the standing push policy.
+The final delivery changes owner documentation only after the verified source.
+The existing three-job GitHub workflow runs P5/P6/integration checks; new real
+pipeline cases run locally. Current-HEAD remote status is retained in
+artifacts/m08/github-actions.json. Actual Harsh compaction/T-04, full W-QUALITY,
+real outbox/catalogue integration, labelled quality and performance remain NOT_RUN.
+The int64 aggregate-total contract limit and row/row-group guards remain explicit.
+Next implementation checkpoint: M09 late data and watermarking.
+
+After verification, env down completed with every volume retained:
+artifacts/projectctl/f63a2170-8ab3-48b5-874d-f552a2ca86d1/. Docker Desktop stop
+completed and zero Desktop/backend processes remained; artifacts/m08/shutdown.json
+records the state. Docker RAM allocation was not increased. Restart the documented
+streaming-local profile before further live work.
+
 ## M07 business Gold provider — 1 November 2026
 
 M07's business provider is implemented: latest order/payment/search facts, current
