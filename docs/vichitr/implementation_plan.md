@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M01–M06 provider checkpoints verified, including all 24 domain types in typed Silver and active pipeline_minute files. Full W-QUALITY, real outbox/catalogue adoption and G0/G1/G4 remain pending. Next is M07 business Gold reducers. See [progress](progress.md) and [M06 handoff](m06_silver_handoff.md).
+Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M01–M07 business provider checkpoints implemented. Source-pinned M07 verification is in progress. Labelled quality imports, full W-QUALITY, real outbox/catalogue adoption and G0/G1/G3/G4 remain pending. Next is M08 publication/candidate safety. See [progress](progress.md) and [M07 handoff](m07_business_gold_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
@@ -157,7 +157,7 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **M06 all-domain Silver provider verified**. All 24 registered business types reach typed Silver and active pipeline_minute files. Source/event/version conflicts, native five-topic offsets, canonical null/provenance preservation and legacy-file compatibility are tested. The 2,000-record quality smoke produces 1,970 new valid +20 duplicates +10 invalid; notification atomicity uses an explicit SQL outbox double. Full 100,000-record W-QUALITY is NOT_RUN: real outbox/catalogue handoffs, reason-code review and incremental publication remain pending. Business reducers are M07; complete publication/compaction is M08. G0/G1/G4 remain pending. The earlier Windows P5 failures were traced to HTTP-client cold setup inside the scrape deadline; the user-requested test-only repair and production lifecycle handoff are documented in [progress](progress.md).
+Current checkpoint: **M07 business Gold provider**. Latest business facts, daily conversion, distinct funnel/failures, exact money/duration observations, late-parent joins and active-file readers are implemented. Actual labelled evaluation artifacts/import handoff remain absent. Full 100,000-record W-QUALITY requires real outbox/catalogue handoffs, reason-code review and M08 incremental publication. G0/G1/G3/G4 remain pending; see [progress](progress.md).
 
 ## Source documents
 

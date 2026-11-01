@@ -1,10 +1,12 @@
 """Generation-pinned reads and committed, namespace-ordered source observations."""
 
 from datetime import UTC, date, datetime
+from decimal import Decimal
 
 from pydantic import TypeAdapter
 
 from pipelines.curation.db import one, rows
+from pipelines.gold.business import TABLES
 from shared.contracts.analytics import (
     DatasetManifest,
     GoldQueryResult,
@@ -43,12 +45,17 @@ def active_manifest(connect, namespace, dataset):
 
 
 def query_gold(pipeline, namespace, table, date_from, date_to, currency=None):
-    if table != "pipeline_minute":
+    if table not in ("pipeline_minute", *TABLES):
         from pipelines.curation import UnsupportedEvent
 
-        raise UnsupportedEvent("Business Gold tables are pending M07")
-    if currency is not None:
-        raise ValueError("pipeline_minute has no currency dimension")
+        raise UnsupportedEvent("Labelled evaluation artifact/provider required for this Gold table")
+    if currency is not None and table not in {
+        "order_fact",
+        "daily_conversion",
+        "checkout_funnel",
+        "payment_failures",
+    }:
+        raise ValueError("This Gold table has no currency dimension")
     start = TypeAdapter(date).validate_python(date_from)
     end = TypeAdapter(date).validate_python(date_to)
     if end <= start:
@@ -61,11 +68,26 @@ def query_gold(pipeline, namespace, table, date_from, date_to, currency=None):
         for row in read_verified(pipeline.store, descriptor).to_pylist():
             if row["namespace"] != namespace:
                 raise ValueError("Published row namespace mismatch")
-            if start <= row["minute"].date() < end:
-                result.append({**row, "minute": row["minute"].isoformat().replace("+00:00", "Z")})
+            timestamp = row["minute"] if table == "pipeline_minute" else row["cohort_date"]
+            if start <= timestamp.date() < end and (
+                currency is None or row["currency"] == currency
+            ):
+                result.append(_wire(row))
     return GoldQueryResult(
         generation=manifest.generation, rows=result, queried_at=datetime.now(UTC)
     )
+
+
+def _wire(value):
+    if isinstance(value, datetime):
+        return value.isoformat().replace("+00:00", "Z")
+    if isinstance(value, Decimal):
+        return int(value) if value == value.to_integral_value() else str(value)
+    if isinstance(value, dict):
+        return {key: _wire(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_wire(item) for item in value]
+    return value
 
 
 def _limit(limit):

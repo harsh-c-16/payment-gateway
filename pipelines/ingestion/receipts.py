@@ -14,6 +14,7 @@ from .bronze import SourceCorruption, read_bronze
 MIGRATION = Path(__file__).resolve().parents[2] / "migrations/analytics/001_capture.sql"
 SLICE_MIGRATION = MIGRATION.with_name("002_vertical_slice.sql")
 SILVER_MIGRATION = MIGRATION.with_name("003_full_silver.sql")
+GOLD_MIGRATION = MIGRATION.with_name("004_business_gold.sql")
 
 
 def _transaction(tx):
@@ -29,7 +30,12 @@ def migrate_analytics(tx):
         tx.execute("""CREATE TABLE IF NOT EXISTS analytics_schema_migrations (
             version integer PRIMARY KEY, sha256 char(64) NOT NULL,
             applied_at timestamptz NOT NULL DEFAULT clock_timestamp())""")
-        for version, path in ((1, MIGRATION), (2, SLICE_MIGRATION), (3, SILVER_MIGRATION)):
+        for version, path in (
+            (1, MIGRATION),
+            (2, SLICE_MIGRATION),
+            (3, SILVER_MIGRATION),
+            (4, GOLD_MIGRATION),
+        ):
             # Git checkouts may use CRLF; checksums agree across host OSes.
             data = path.read_text(encoding="utf-8").encode("utf-8")
             digest = hashlib.sha256(data).hexdigest()
@@ -41,6 +47,10 @@ def migrate_analytics(tx):
                     raise SourceCorruption("Applied analytics migration checksum changed")
                 continue
             tx.execute(data.decode("utf-8"))
+            if version == 4:
+                from pipelines.gold.business import backfill_business
+
+                backfill_business(tx)
             tx.execute(
                 "INSERT INTO analytics_schema_migrations(version,sha256) VALUES (%s,%s)",
                 (version, digest),

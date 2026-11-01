@@ -140,6 +140,97 @@ SCHEMAS = {
     "silver-events-v1": SILVER_EVENTS_SCHEMA,
     "pipeline_minute": GOLD_SCHEMA,
 }
+BUSINESS_META = [
+    ("namespace", pa.string()),
+    ("cohort_date", UTC),
+    ("transform_version", pa.string()),
+    ("revision", pa.int64()),
+    ("publication_generation", pa.int64()),
+]
+MONEY_SUM = pa.decimal128(38, 0)
+SCHEMAS.update(
+    {
+        "order_fact": pa.schema(
+            BUSINESS_META
+            + [
+                ("order_id", pa.string()),
+                ("order_version", pa.int64()),
+                ("event_id", pa.string()),
+                ("order_status", pa.string()),
+                ("total_amount_minor", pa.int64()),
+                ("currency", pa.string()),
+                ("created_at", UTC),
+                ("user_id", pa.string()),
+                ("session_id", pa.string()),
+                ("quote_id", pa.string()),
+                ("failure_code", pa.string()),
+                ("reservation_id", pa.string()),
+                ("payment_id", pa.string()),
+            ]
+        ),
+        "daily_conversion": pa.schema(
+            BUSINESS_META
+            + [("currency", pa.string())]
+            + [
+                (name, pa.int64())
+                for name in (
+                    "created_orders",
+                    "confirmed_orders",
+                    "cancelled_orders",
+                    "pending_orders",
+                )
+            ]
+            + [("conversion", pa.float64())]
+            + [
+                (name + "_amount_minor", MONEY_SUM)
+                for name in ("created", "confirmed", "cancelled", "pending")
+            ]
+        ),
+        "checkout_funnel": pa.schema(
+            BUSINESS_META
+            + [("currency", pa.string())]
+            + [
+                (name + "_orders", pa.int64())
+                for name in (
+                    "created",
+                    "reserved",
+                    "payment_success",
+                    "inventory_committed",
+                    "confirmed",
+                )
+            ]
+        ),
+        "payment_failures": pa.schema(
+            BUSINESS_META
+            + [("currency", pa.string()), ("failure_code", pa.string())]
+            + [
+                (name + "_attempts", pa.int64())
+                for name in ("failed", "successful", "reversed", "pending", "cancelled")
+            ]
+            + [
+                (name + "_amount_minor", MONEY_SUM)
+                for name in ("failed", "successful", "reversed", "pending", "cancelled")
+            ]
+        ),
+        "inventory_failures": pa.schema(
+            BUSINESS_META + [("reason_code", pa.string()), ("failed_reservations", pa.int64())]
+        ),
+        "search_performance": pa.schema(
+            BUSINESS_META
+            + [
+                ("mode", pa.string()),
+                ("unique_searches", pa.int64()),
+                ("empty_results", pa.int64()),
+                ("duration_sum_ms", pa.string()),
+                ("duration_count", pa.int64()),
+                (
+                    "duration_references",
+                    pa.list_(pa.struct([("event_id", pa.string()), ("duration_ms", pa.string())])),
+                ),
+            ]
+        ),
+    }
+)
 
 
 class FileVerificationError(RuntimeError):

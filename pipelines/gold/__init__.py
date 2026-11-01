@@ -1,17 +1,23 @@
-"""Exact all-domain pipeline_minute counts; business reducers follow M07."""
+"""Unique contributions, latest business facts and reached-stage sets in one transaction."""
 
 from pipelines.ingestion.receipts import _transaction
 from shared.contracts.analytics import DirtyPartitionSet
 from shared.contracts.events import EventEnvelope
 
 
-def aggregate_gold(new_facts, db_transaction, *, transform_version="m06-silver-v1"):
+def aggregate_gold(new_facts, db_transaction, *, transform_version="m07-business-v1"):
     _transaction(db_transaction)
+    from pipelines.curation.db import sink_lock
+
+    from .business import apply_business
+
     changed = []
+    dirty = set()
     with db_transaction.transaction():
         for event in new_facts:
             if not isinstance(event, EventEnvelope):
                 raise TypeError("Only business events contribute to pipeline_minute")
+            sink_lock(db_transaction, event.namespace)
             inserted = db_transaction.execute(
                 """INSERT INTO reducer_contributions(namespace,event_id) VALUES (%s,%s)
                    ON CONFLICT DO NOTHING RETURNING event_id""",
@@ -39,11 +45,11 @@ def aggregate_gold(new_facts, db_transaction, *, transform_version="m06-silver-v
                     (event.namespace, event.event_id),
                 )
                 changed.append(event)
+                dirty |= apply_business(event, db_transaction, transform_version)
+    dirty |= {("pipeline_minute", e.event_time.date()) for e in changed}
     return DirtyPartitionSet(
-        logical_keys=sorted(
-            {"pipeline_minute:" + e.event_time.date().isoformat() for e in changed}
-        ),
+        logical_keys=sorted(table + ":" + date.isoformat() for table, date in dirty),
         new_event_ids=[e.event_id for e in changed],
-        affected_tables=["pipeline_minute"] if changed else [],
+        affected_tables=sorted({table for table, _ in dirty}),
         minimum_event_time=min(e.event_time for e in changed) if changed else None,
     )

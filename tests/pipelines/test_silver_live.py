@@ -90,7 +90,7 @@ def test_all_24_domains_unique_duplicate_redelivery_and_active_files(vertical):
         assert tx.execute("SELECT count(*) FROM export_pending").fetchone()[0] == 0
         assert {
             row[0] for row in tx.execute("SELECT version FROM analytics_schema_migrations")
-        } == {1, 2, 3}
+        } == {1, 2, 3, 4}
     Path("artifacts/m06/all-domains.json").write_text(
         json.dumps(
             {

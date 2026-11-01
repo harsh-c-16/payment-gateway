@@ -6,12 +6,15 @@ Owner: Vichitr. See [common §11](../../docs/specs/02_COMMON_SPEC.md) and the
 AnalyticsPipeline.curate_silver(raw_receipt, batch_config) accepts all 24 registered
 business event types. It verifies Bronze, validates registered wire content,
 deduplicates source/event/aggregate identity, inserts Silver, applies the unique
-pipeline_minute contribution, marks export pending and commits source disposition
+pipeline_minute/business contributions, marks export pending and commits source disposition
 atomically. B0 requires one row per sink transaction; booleans/coercions and O1
 batch sizes are rejected. Normalized payloads use the existing canonical payload
 models, preserve explicit optional nulls and retain the original document/hash.
 Versions are unique across event types within a producer/aggregate, as required
-by common §7. Older distinct versions remain valid facts. Business reducers are M07.
+by common §7. Older distinct versions remain valid facts. M07 business reducers
+use latest versions for state and distinct historical stages for the funnel.
+Semantic Gold conflicts roll back the Silver/reducer savepoint before atomic
+quarantine and outbox append. Unexpected SQL errors leave the source unfinished.
 
 route_dlq preserves the first raw locator/hash and uses Aditya's append_outbox in
 the same transaction. Missing outbox or append failure leaves the source unfinished

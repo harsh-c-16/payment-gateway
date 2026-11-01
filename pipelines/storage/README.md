@@ -52,3 +52,13 @@ envelope/metadata JSON preserves optional additions and supplied dictionary hash
 The legacy `silver-conversation-turn` schema remains registered for existing M05
 files; immutable files are never rewritten during migration. A current manifest
 may reference both schemas. See the [M06 handoff](../../docs/vichitr/m06_silver_handoff.md).
+
+M07 adds typed business Gold files with UTC cohort_date, transform_version,
+partition revision and publication_generation. Exact integer money sums use
+decimal128(38,0); JSON returns integers. Search duration sums/references remain
+decimal strings. Generation-pinned queries use half-open cohort date ranges;
+currency applies only to monetary tables and the currency-scoped checkout funnel.
+Per-event dirty keys survive arrivals after a frozen snapshot. Migration 004
+backfills existing Silver without changing its hashes or pipeline counts; see
+the [M07 handoff](../../docs/vichitr/m07_business_gold_handoff.md). Incremental
+publication, candidate admission and compaction remain M08.

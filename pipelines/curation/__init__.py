@@ -8,6 +8,7 @@ from psycopg.types.json import Jsonb
 from pydantic import Field, TypeAdapter
 
 from pipelines.gold import aggregate_gold
+from pipelines.gold.business import GoldConflict
 from pipelines.ingestion import BronzeCapture, read_bronze
 from pipelines.ingestion.receipts import persist_capture
 from shared.contracts.analytics import BatchOutcome, DurableOffset
@@ -31,7 +32,7 @@ class BatchConfig(WireModel):
 
 
 class AnalyticsPipeline:
-    def __init__(self, connect, store, codec, *, code_commit, transform_version="m06-silver-v1"):
+    def __init__(self, connect, store, codec, *, code_commit, transform_version="m07-business-v1"):
         if not callable(connect):
             raise TypeError("connect must create an autocommit analytics connection")
         self.connect, self.store, self.codec = connect, store, codec
@@ -170,32 +171,18 @@ class AnalyticsPipeline:
                     original_content_hash=record.raw_sha256,
                 )
             else:
-                tx.execute(
-                    """INSERT INTO silver_events
-                    (namespace,event_id,content_hash,event_time,event_type,source_service,
-                     aggregate_type,aggregate_id,aggregate_version,document,source_topic,
-                     source_partition,source_offset,raw_locator,normalized_payload)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                    (
-                        namespace,
-                        event_id,
-                        checked.canonical_content_hash,
-                        event.event_time,
-                        event.event_type,
-                        event.source_service,
-                        event.aggregate_type,
-                        event.aggregate_id,
-                        event.aggregate_version,
-                        Jsonb(checked.document),
-                        record.topic,
-                        record.partition,
-                        record.offset,
-                        stored["raw_locator"],
-                        Jsonb(normalize_payload(event)),
-                    ),
-                )
-                aggregate_gold([event], tx, transform_version=self.transform_version)
-                disposition = "new_valid"
+                try:
+                    with tx.transaction():
+                        self._insert_valid(tx, checked, record, stored)
+                except GoldConflict as exc:
+                    failure = ValidationFailure(
+                        reason_code=exc.reason,
+                        field_path="payload",
+                        diagnostic_message=str(exc),
+                        original_content_hash=record.raw_sha256,
+                    )
+                else:
+                    disposition = "new_valid"
         if failure is not None:
             route_dlq(
                 record, failure, tx, run_id=config.run_id, transform_version=self.transform_version
@@ -246,6 +233,34 @@ class AnalyticsPipeline:
                 }
             ],
         )
+
+    def _insert_valid(self, tx, checked, record, stored):
+        event = checked.envelope
+        tx.execute(
+            """INSERT INTO silver_events
+                    (namespace,event_id,content_hash,event_time,event_type,source_service,
+                     aggregate_type,aggregate_id,aggregate_version,document,source_topic,
+                     source_partition,source_offset,raw_locator,normalized_payload)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+            (
+                record.source_namespace,
+                event.event_id,
+                checked.canonical_content_hash,
+                event.event_time,
+                event.event_type,
+                event.source_service,
+                event.aggregate_type,
+                event.aggregate_id,
+                event.aggregate_version,
+                Jsonb(checked.document),
+                record.topic,
+                record.partition,
+                record.offset,
+                stored["raw_locator"],
+                Jsonb(normalize_payload(event)),
+            ),
+        )
+        aggregate_gold([event], tx, transform_version=self.transform_version)
 
     def ingest_once(self, group, *, run_id, max_records=100):
         records = group.consume_records(group.topics, max_records, 50)

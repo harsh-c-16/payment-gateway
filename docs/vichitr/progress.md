@@ -6,6 +6,60 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M07 business Gold provider — 1 November 2026
+
+M07's business provider is implemented: latest order/payment/search facts, current
+daily checkout conversion, distinct historical funnel stages, distinct reservation
+failures and exact search duration references. Labelled evaluation imports remain
+blocked on actual Jaineel/Harsh artifacts and a reviewed import contract. Full
+G3/end-to-end commerce is not claimed. See [M07 handoff](m07_business_gold_handoff.md).
+
+Changed owned paths: migration 004; gold/business.py and reducer entry point;
+curation savepoint/conflict handling; migration loader/readiness/version evidence;
+business Parquet schemas, frozen publication/dirty partitions and pinned readers;
+checker artifact mount; pipeline READMEs; M07 tests, migration-version assertion
+and owner docs. Existing migrations 001–003, public schemas/DTOs, dependencies,
+application lock, workflow and other owners' code remain unchanged.
+
+The additional reducer contribution key supports migration-time backfill without
+recounting pipeline_minute. Latest facts project through SQL views so old categories
+are replaced atomically. Per-event dirty membership protects concurrent arrivals
+when frozen IDs are published. Business conflicts roll back Silver and reducer
+effects before transactional quarantine. Unexpected database errors retain the
+captured unfinished source for retry. Exact integer sums survive Parquet and JSON,
+including a sum above int64. Existing 10,000-fact/8-MiB safety limits remain; M08
+incremental loading is next. No synthetic performance numbers are reported.
+
+Development commands use `.venv/Scripts/python.exe` from the repository root.
+Pytest/Docker calls required execution outside the sandbox for Windows scratch
+ACLs and the Docker engine pipe. Live source metadata identifies base revision
+4616805 while the working changes were under development; final source-pinned
+verification will be recorded below after the feature commit.
+
+| Command/check | Actual result | Evidence |
+|---|---|---|
+| `PROJECTCTL_ADAPTER_MODULE=infra.analytics python -m projectctl env up --profile streaming-local` | Existing low-memory PostgreSQL/Kafka/registry verified, exit 0 | artifacts/projectctl/f7e5dbaf-5801-46dc-9217-465336e80fc6/ |
+| `pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m07/host-development.xml` | 325 passed, 61 skipped; before final unit/capacity/upgrade cases | artifacts/m07/host-development.xml |
+| First real business suite | 8 passed, 1 failed: new test incorrectly expected captured source deletion on sink failure | artifacts/m07/linux-business-development.xml |
+| Corrected test + capacity/actual migration upgrade cases | **11 passed**, 16.52 s; unfinished receipt, zero reducer effects, successful retry asserted | artifacts/m07/linux-business-development-fixed.xml |
+| Affected Linux storage/vertical/Silver/Kafka and business suite | **85 passed, 1 Windows-only skip**, 189.40 s; before final capacity case | artifacts/m07/linux-regressions-development.xml |
+| `pytest tests/pipelines/test_business_gold.py -q --tb=short --junitxml=artifacts/m07/unit-exact-representation.xml` | 1 passed | artifacts/m07/unit-exact-representation.xml |
+| `PROJECTCTL_ADAPTER_MODULE=infra.analytics python -m projectctl db migrate --namespace bench-m07` | Analytics versions **1–4 APPLIED**. Expected global dependency exit 4 for other service/outbox composition | artifacts/infra/analytics/checks/fd0806b1-1536-4aeb-b393-be63739d53ff/analytics-migration.json |
+| Ruff check/format; projectctl.schemas `--check`; projectctl.conversation_contract `--check`; diff check | Passed. Initial generated-check invocation used unsupported positional `check`; rerun with documented `--check` passed | Session transcript |
+
+The real tests cover late parents, stale versions, historical milestones after
+cancellation/reversal, multi-SKU reservation identity, conflicting reasons/outbox
+atomicity, corrected cohorts/zero denominators, exact money/durations, HTTP JSON,
+concurrent arrival, source retry and idempotent actual 003-to-004 upgrade. Producer
+events are explicit synthetic fixtures. Invalid notification tests use the explicit
+SQL outbox double, not Aditya's absent production implementation. The smaller
+2,000-record quality smoke is regression coverage, not full W-QUALITY.
+
+Pending at this feature checkpoint: source-pinned final host/Linux checks, retained
+legacy-file verification, commit/push CI result and final skip inventory. Labels,
+real operational integration, scale/performance and M08 candidate publication are
+outside this checkpoint; see the handoff for required owners and exact bounds.
+
 ## CI follow-up — HTTP metric tests, 1 November 2026
 
 The user explicitly authorized reading the failed GitHub evidence, then requested

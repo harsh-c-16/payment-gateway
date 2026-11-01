@@ -12,6 +12,7 @@ from pydantic import TypeAdapter
 
 from pipelines.curation.db import lock_key, one, rows, sink_lock
 from pipelines.curation.observations import enqueue_observation
+from pipelines.gold.business import TABLES, freeze_business
 from shared.contracts.analytics import DatasetManifest, SourceRange
 from shared.contracts.events import Namespace
 from shared.event_transport.schemas import canonical_json
@@ -86,12 +87,23 @@ def _freeze(tx, namespace):
         facts = rows(
             tx, "SELECT * FROM silver_events WHERE namespace=%s ORDER BY event_id", (namespace,)
         )
-        gold = rows(
-            tx,
-            """SELECT * FROM pipeline_minute WHERE namespace=%s
+        gold = {
+            "pipeline_minute": rows(
+                tx,
+                """SELECT * FROM pipeline_minute WHERE namespace=%s
                            ORDER BY minute,event_type,source_service""",
-            (namespace,),
-        )
+                (namespace,),
+            )
+        }
+        gold.update(freeze_business(tx, namespace, MAX_SNAPSHOT_ROWS, MAX_SNAPSHOT_BYTES))
+        gold["_dirty_keys"] = {
+            (row["table_name"], row["cohort_date"].isoformat())
+            for row in rows(
+                tx,
+                "SELECT table_name,cohort_date FROM gold_dirty_keys WHERE namespace=%s",
+                (namespace,),
+            )
+        }
         sources = rows(
             tx,
             """SELECT s.topic,s.partition,s.offset_number,s.raw_locator,s.raw_sha256,
@@ -184,14 +196,17 @@ def _files(pipeline, namespace, old, pending, facts, gold, generation, snapshot_
         if str(f["event_id"]) in fresh
     }
     dirty_dates = {date for date, _ in dirty_silver}
+    business_dirty = gold["_dirty_keys"]
     result = {"silver": [], "gold": []}
     for dataset, manifest in old.items():
         for file in manifest.files:
-            date = file.partition_values["event_date"]
+            date = file.partition_values.get("event_date", file.partition_values.get("cohort_date"))
             dirty = (
                 (date, file.partition_values["event_type"]) in dirty_silver
                 if dataset == "silver"
                 else date in dirty_dates
+                if file.schema_name == "pipeline_minute"
+                else (file.schema_name, date) in business_dirty
             )
             if not dirty:
                 read_verified(pipeline.store, file)
@@ -201,7 +216,7 @@ def _files(pipeline, namespace, old, pending, facts, gold, generation, snapshot_
         key = (fact["event_time"].date().isoformat(), fact["event_type"])
         if key in dirty_silver:
             silver_groups[key].append(_silver_row(fact))
-    for row in gold:
+    for row in gold["pipeline_minute"]:
         date = row["minute"].date().isoformat()
         if date in dirty_dates:
             gold_groups[date].append({**row, "publication_generation": generation})
@@ -229,6 +244,24 @@ def _files(pipeline, namespace, old, pending, facts, gold, generation, snapshot_
                 [r["minute"] for r in data],
             )
         )
+    for table in TABLES:
+        groups = defaultdict(list)
+        for row in gold[table]:
+            date = row["cohort_date"].date().isoformat()
+            if (table, date) in business_dirty:
+                groups[date].append({**row, "publication_generation": generation})
+        for date, data in sorted(groups.items()):
+            path = f"gold/{namespace}/{snapshot_id}-{len(result['gold'])}.parquet"
+            result["gold"].append(
+                write_parquet(
+                    pipeline.store,
+                    path,
+                    data,
+                    table,
+                    {"cohort_date": date, "table": table},
+                    [r["cohort_date"] for r in data],
+                )
+            )
     return result
 
 
