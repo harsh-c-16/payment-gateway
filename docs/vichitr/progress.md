@@ -75,6 +75,15 @@ The slow run is a test duration, not benchmark evidence. Lint/format feedback an
 one patch-context mismatch were corrected without relaxing assertions. Raw failed
 and successful XML is retained. Final verification/delivery results follow below.
 
+Final legacy review reproduced one lineage defect: compacting a snapshot with an
+older transform retained the manifest/row version but labelled the new lineage
+root with the current pipeline default. artifacts/m08/legacy-transform-before.xml
+retains the failing real SQL/file probe. Candidate roots now explicitly inherit
+the pinned base transform; the regression is in test_publication_live.py. The
+complete suite began on 560e905, and its candidate/crash cases had finished before
+this one-field correction. All candidate/crash cases and the complete host suite
+are rerun on the corrected source. Publisher/export code is unchanged by this fix.
+
 ## M07 business Gold provider — 1 November 2026
 
 M07's business provider is implemented: latest order/payment/search facts, current

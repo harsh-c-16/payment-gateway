@@ -206,6 +206,7 @@ def publish_candidate(pipeline, candidate):
             snapshot_id,
             {
                 **publication.provenance(pipeline, namespace),
+                "transform_version": base.transform_version,
                 "membership_files": [],
                 "parent_input_manifest_ids": base.input_manifest_ids,
                 "compaction": candidate.model_dump(mode="json"),

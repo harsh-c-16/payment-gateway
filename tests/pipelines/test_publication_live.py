@@ -363,3 +363,16 @@ def test_candidate_physical_file_guards(vertical, kind):
     with pytest.raises((CandidateRejected, FileVerificationError)):
         vertical.publish_candidate(candidate)
     assert query(vertical).generation == 1
+
+
+def test_compaction_lineage_retains_historical_transform(vertical):
+    current = vertical.transform_version
+    vertical.transform_version = "historical-transform"
+    curate(vertical, [record(vertical, event(vertical))])
+    vertical.publish_snapshot(vertical.test_namespace)
+    vertical.transform_version = current
+    candidate = candidate_double(vertical)
+    active = vertical.publish_candidate(candidate)
+    lineage = json.loads(vertical.store.read(active.input_manifest_ids[0]))
+    assert active.transform_version == "historical-transform"
+    assert lineage["transform_version"] == active.transform_version
