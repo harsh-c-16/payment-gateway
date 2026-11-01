@@ -87,9 +87,27 @@ All 39 platform/M04/M05 host skips passed separately in Linux. The six older liv
 cases were not rerun. Full G0/G1, actual production-outbox notifications, other
 domain reducers, replay/compactor admission and performance are **NOT_RUN**. Runtime
 worker fail-closed behavior is a verified dependency boundary, not a successful
-invalid-source processing claim. Shared GitHub workflow results are retained in
-artifacts/m05/github-actions.json after branch delivery; no local P5/P6 rerun is
-claimed for this module.
+invalid-source processing claim.
+
+### Shared workflow follow-up
+
+Feature commit 06cd9d1 and verification notes 58b7b67 were pushed to vichitr.
+[GitHub Actions run 41282911833](https://github.com/harsh-c-16/payment-gateway/actions/runs/41282911833)
+passed Ubuntu offline and conversation-postgres, but Windows failed at
+`uv run --locked python benchmarks/manual/verify_p5.py`. The cause is **unknown**;
+the public job annotation reports only exit 1. The failure is retained in
+artifacts/m05/github-actions.json and is not treated as a passing checkpoint.
+
+A subsequent local Windows `.venv/Scripts/python.exe benchmarks/manual/verify_p5.py`
+passed all eleven checks, including **626 tests in 117.54 seconds**. Exact commands,
+stdout, stderr and expected exits are in
+artifacts/p5/c147c87c-cf02-4c30-8f62-abc97b3da446/checks.json. No P6 local rerun is
+claimed. This successful local run does not explain or supersede the CI failure.
+Anonymous GitHub log access returned HTTP 403; automatic approval review rejected
+access to the saved GitHub credential without explicit authorization. No credential
+was accessed. Log inspection remains pending that authorization or a user-provided
+failure log; no assertion, shared harness or workflow was changed.
+
 Docker Desktop is stopped (zero Desktop/backend processes after shutdown), with
 all project volumes retained. The six older live skip reasons and the twelve new
 M05 case names are recorded in [test_skips.md](test_skips.md).
