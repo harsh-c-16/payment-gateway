@@ -48,10 +48,51 @@ Development evidence (before the final source revision):
 | Ruff lint/format, generated schemas/OpenAPI and diff check | Passed; format check covered 45 files | Session |
 | Owned-path and exact project-credential delivery scan | Passed; 23 feature paths before progress update | artifacts/m06/source-audit.json |
 
-Final source-pinned results, delivery and runtime compatibility are recorded at
-the checkpoint below once executed. Development fixtures identify their base
-revision and are not reproducible performance evidence. Prior M05 raw facts were
-copied to artifacts/m06/prior-m05-facts/ before tests wrote fresh facts.
+### Source-pinned checkpoint
+
+Implementation commit **54c5238de9b310ffa9642217d8be07b65e7a9f42**. Its 18 non-Markdown
+delivery file hashes are in artifacts/m06/source-snapshot.json. Final test facts
+identify this source revision. Earlier development facts are in development/;
+prior M05 facts were copied to prior-m05-facts/ before fresh tests overwrote them.
+Development fixtures are not reproducible performance evidence.
+
+| Command/check | Actual result | Evidence |
+|---|---|---|
+| `.venv/Scripts/python.exe -m pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m06/host-final.xml` | **325 passed, 52 skipped**, 41.88 seconds | artifacts/m06/host-final.xml |
+| Existing 512-MiB checker, RUN_VERTICAL_LIVE_TESTS=1, RUN_STORAGE_LIVE_TESTS=1, M05_CODE_COMMIT=54c5238 full revision; ten exact test files listed below | **85 passed, 1 skipped**, 167.89 seconds | artifacts/m06/linux-final.xml |
+| All-domain SQL/active Parquet | 24 new valid +24 duplicate deliveries +24 redelivery no-ops; 48 source dispositions; all 24 types in active files | artifacts/m06/all-domains.json |
+| Native Kafka on all five domain topics | Five new valid +five duplicates; committed next offset 2 on every partition; Gold count one per event type | artifacts/m06/kafka-domains.json |
+| Real SQL/file quality smoke, explicit SQL outbox double | Exactly **1,970 new valid +20 duplicate +10 invalid =2,000 source dispositions**; ten raw recoveries, ten notices and active Gold count 1,970 | artifacts/m06/quality-smoke.json |
+| Fresh Linux checker `python -m artifacts.m06.verify_upgrade` with CODE_COMMIT pinned | **PASS**: migration versions 1/2/3/idempotence, normalized backfill, unchanged original hash, existing M05 Silver schema/files and Gold generation/count 1 | artifacts/m06/upgrade.json |
+| `.venv/Scripts/python.exe benchmarks/manual/verify_p5.py` | **All 11 checks passed**, including **626 tests**, 135.75 seconds; no real SUT/performance claim | artifacts/p5/bc09684f-0b9f-4c63-8021-4b9a27b14195/checks.json |
+| `PROJECTCTL_ADAPTER_MODULE=infra.analytics`, `python -m projectctl env down` | CLI exit_code **0**, all volumes retained | artifacts/projectctl/7fef28bb-297a-4918-8539-62965f89a619/ |
+
+The Linux command is `python -m pytest` followed by these exact paths under
+tests/pipelines/: test_storage.py, test_storage_live.py, test_analytics_adapter.py,
+test_vertical.py, test_vertical_live.py, test_vertical_publication_live.py,
+test_vertical_kafka_live.py, test_silver.py, test_silver_live.py and
+test_silver_kafka_live.py; then `-q --tb=short --junitxml=artifacts/m06/linux-final.xml`.
+The existing Compose storage-check service supplies the named volume, analytics
+secret and verified schema cache. No application image/dependency rebuild or RAM
+increase was needed. All 46 relevant host skips passed in Linux; six unchanged
+older live checks were not rerun. See [test_skips.md](test_skips.md).
+
+The first ignored compatibility-helper invocation by script path lacked the
+repository import path; the identical assertions passed through Python's module
+entrypoint. The first env-down invocation mistakenly supplied unsupported
+`--profile streaming-local`, returned CLI input exit_code 2 and changed nothing;
+its evidence is artifacts/projectctl/eed4c7a1-d783-462a-9bb7-b2f478334605/. The
+supported invocation above then stopped the stack. No test/assertion was weakened.
+`docker desktop stop` also completed; no Docker Desktop/backend processes remained.
+All data volumes and credential files were retained.
+
+Full W-QUALITY, real shared-outbox notifications, real catalogue/dictionary/SKU
+reconciliation, independent G0/G1/G4, business Gold reducers, full publication and
+performance remain **NOT_RUN**. Existing GitHub Windows P5 failure investigation
+still awaits its authenticated log/explicit credential-access authorization; a
+passing local P5 run does not establish that remote failure's cause. Final GitHub
+branch status is retained separately in artifacts/m06/github-actions.json after
+delivery. Next checkpoint: M07 business Gold and parent-late reconciliation.
 
 ## M05 — First Silver/active-Gold provider, 1 November 2026
 

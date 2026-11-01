@@ -1,3 +1,34 @@
+# M06 skip update: 1 November 2026
+
+Source commit **54c5238**. Final host suite: **325 passed, 52 skipped**. Separate
+Linux suite: **85 passed, 1 skipped**. **46 host skips passed in Linux**: 24 POSIX
+filesystem cases, three M04 live cases, twelve M05 live cases and seven M06 live
+cases. The six older infrastructure/transport live cases below were not rerun;
+their earlier evidence is historical, not a current pass.
+
+The Linux skip is the Windows-only directory-fsync rejection guard, which passed
+on Windows. No skip marker hides a failure. Raw evidence is
+artifacts/m06/{host-final,linux-final}.xml; every exact host skip, reason and Linux
+coverage flag is recorded in artifacts/m06/skips.json. Notifications in the new
+invalid-source tests use the explicit SQL outbox double. The full 100,000-record
+W-QUALITY fixture, real shared outbox, catalogue verification and performance are
+NOT_RUN, beyond these individual test skips.
+
+New M06 host-skipped cases, all passed in Linux:
+
+- tests.pipelines.test_silver_kafka_live.test_all_five_topics_have_durable_prefixes_and_one_effect_per_event
+- tests.pipelines.test_silver_live.test_all_24_domains_unique_duplicate_redelivery_and_active_files
+- tests.pipelines.test_silver_live.test_cross_type_versions_conflicts_and_out_of_order_valid_facts
+- tests.pipelines.test_silver_live.test_sink_failure_rolls_back_only_failed_b0_record_and_can_resume
+- tests.pipelines.test_silver_live.test_dead_letter_notices_never_enter_business_silver
+- tests.pipelines.test_silver_live.test_utc_day_boundaries_and_canonical_facets_are_preserved
+- tests.pipelines.test_silver_live.test_quality_ratio_smoke_with_all_ten_invalid_subcases
+
+M05's formerly unsupported-TOOL_CALLED case is now named
+test_tool_event_is_now_supported_without_dirty_classification and verifies its
+accepted source, unique Silver row and active Gold count. The old case name below
+belongs to the historical M05 checkpoint.
+
 # M05 skip update: 1 November 2026
 
 Final host suite: **298 passed, 45 skipped**. Separate source-pinned Linux suite: **51 passed, 1 skipped**. Of the host skips, **39 passed in Linux**: 24 filesystem cases, three M04 live cases and twelve M05 live cases. The remaining six older live cases were not rerun; their names/reasons and earlier real evidence remain in the historical report below.

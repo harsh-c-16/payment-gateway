@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M01–M05 provider checkpoints verified, including the real CONVERSATION_TURN Silver/active-Gold slice. Real outbox adoption, all-domain processing and full G0/G1 remain pending. Next is M06 complete Silver/quality accounting. See [progress](progress.md) and [M05 handoff](m05_vertical_handoff.md).
+Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M01–M06 provider checkpoints verified, including all 24 domain types in typed Silver and active pipeline_minute files. Full W-QUALITY, real outbox/catalogue adoption and G0/G1/G4 remain pending. Next is M07 business Gold reducers. See [progress](progress.md) and [M06 handoff](m06_silver_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
@@ -157,7 +157,7 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **M05 provider and real supported valid-event path verified**. CONVERSATION_TURN reaches unique Silver, pipeline_minute and generation-pinned active Gold Parquet; duplicates/redeliveries retain one effect. Real worker offsets, HTTP auth/querying and retained PostgreSQL/worker recovery pass. Invalid sources fail closed while Aditya's outbox is absent; notification atomicity is tested with explicit SQL doubles, not claimed as real integration. Other schemas/reducers, complete publication/compaction and G0/G1 harness adoption remain pending. Next is M06. Evidence is in [progress](progress.md).
+Current checkpoint: **M06 all-domain Silver provider verified**. All 24 registered business types reach typed Silver and active pipeline_minute files. Source/event/version conflicts, native five-topic offsets, canonical null/provenance preservation and legacy-file compatibility are tested. The 2,000-record quality smoke produces 1,970 new valid +20 duplicates +10 invalid; notification atomicity uses an explicit SQL outbox double. Full 100,000-record W-QUALITY is NOT_RUN: real outbox/catalogue handoffs, reason-code review and incremental publication remain pending. Business reducers are M07; complete publication/compaction is M08. G0/G1/G4 and the existing GitHub Windows P5 failure remain unresolved. Evidence is in [progress](progress.md).
 
 ## Source documents
 

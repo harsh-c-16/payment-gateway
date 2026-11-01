@@ -10,6 +10,9 @@ the [M01b streaming-local instructions](STREAMING.md). M02/M03 supply event cont
 and transport; [M04](../docs/vichitr/m04_capture_handoff.md) supplies Linux-volume
 FileStore, Bronze and capture-ledger foundations. [M05](../docs/vichitr/m05_vertical_handoff.md)
 adds the opt-in analytics API/B0 worker and one supported Silver/Gold slice.
+[M06](../docs/vichitr/m06_silver_handoff.md) extends the worker/Silver files to all
+24 registered business types and adds immutable analytics migration 003. Apply it
+through the existing analytics adapter before starting the updated API/worker.
 Other owners' services, the real outbox and benchmark readiness remain pending.
 
 ## Start and verify
