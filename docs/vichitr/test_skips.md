@@ -1,3 +1,45 @@
+# M07 skip update: 1 November 2026
+
+Verified source **8abde27**. Final host suite: **326 passed, 64 skipped**.
+Complete Linux pipeline suite: **235 passed, 7 skipped**. **58 host-skipped
+cases passed in Linux**, including all twelve M07 business cases. The six
+older infrastructure/transport live checks below were not rerun; prior
+evidence remains historical. No failure was hidden by a new skip marker.
+
+The seventh Linux skip is the Windows-only unsupported-filesystem guard,
+which passed on Windows. Exact host test names, reasons and Linux coverage
+are retained in artifacts/m07/skips.json; raw final XML is
+artifacts/m07/{host-final-corrected,linux-final-corrected}.xml.
+
+The six still-unrerun opt-in checks are:
+
+- `tests.pipelines.test_event_contracts_live.test_registry_compatibility_and_all_domain_wire_examples`: Real Kafka/registry required; RUN_CONTRACTS_LIVE_TESTS=1
+- `tests.pipelines.test_postgres_live.test_real_isolation_and_persistence_across_container_recreation`: Real Docker required; opt in with RUN_POSTGRES_LIVE_TESTS=1
+- `tests.pipelines.test_streaming_live.test_plain_json_registry_groups_and_retained_volume_recreation`: Real Kafka/registry required; RUN_STREAMING_LIVE_TESTS=1
+- `tests.pipelines.test_transport_live.test_real_sdk_acknowledgement_manual_offsets_and_uncertain_retry`: Real Kafka/PostgreSQL required; RUN_TRANSPORT_LIVE_TESTS=1
+- `tests.pipelines.test_transport_live.test_real_caller_transaction_and_outbox_savepoint_rollback`: Real Kafka/PostgreSQL required; RUN_TRANSPORT_LIVE_TESTS=1
+- `tests.pipelines.test_transport_live.test_real_rebalance_fences_old_owner_and_redelivers_exact_source`: Real Kafka/PostgreSQL required; RUN_TRANSPORT_LIVE_TESTS=1
+
+New M07 host-skipped cases, all passed in real Linux SQL/files:
+
+- `test_late_parent_resolves_distinct_funnel_and_preserves_lineage`
+- `test_order_latest_state_historical_stage_and_exact_money_http`
+- `test_cohort_correction_rewrites_both_dates_and_zero_denominator[False]`
+- `test_cohort_correction_rewrites_both_dates_and_zero_denominator[True]`
+- `test_payment_attempts_latest_outcomes_not_transition_counts`
+- `test_inventory_operation_dedup_utc_and_conflict_quarantine`
+- `test_search_unique_completions_exact_duration_references_and_quality_unavailable`
+- `test_frozen_business_state_keeps_concurrent_dirty_membership`
+- `test_business_snapshot_capacity_keeps_active_generation_and_pending`
+- `test_business_sql_failure_rolls_back_whole_sink_then_retries`
+- `test_legacy_backfill_adds_business_once_without_recounting_pipeline`
+- `test_migration_004_backfills_existing_silver_and_is_idempotent`
+
+Notifications in conflict tests use the explicit SQL outbox double. Actual
+shared-outbox integration, labelled intent/retrieval imports, full
+100,000-record W-QUALITY and performance runs remain NOT_RUN. These are
+provider/evaluation gaps beyond individual pytest skips.
+
 # M06 skip update: 1 November 2026
 
 Source commit **54c5238**. Final host suite: **325 passed, 52 skipped**. Separate

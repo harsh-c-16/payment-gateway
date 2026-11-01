@@ -67,10 +67,59 @@ artifacts/m07/business-after-cohort-fix.xml. The initial source's final Windows
 suite passed 326/63 skipped; its complete Linux suite passed 234/7 skipped.
 These are retained as initial-source results, not final-source claims.
 
-Pending at this feature checkpoint: final source-pinned checks after that repair,
-commit/push CI result and final skip inventory. Labels,
-real operational integration, scale/performance and M08 candidate publication are
-outside this checkpoint; see the handoff for required owners and exact bounds.
+### Final source verification and delivery
+
+Initial feature: **779c950ed5b2730dbf9cbd3abbc829bf448f236b**. Corrected and
+final verified implementation: **8abde279da5574d5be9263e52c7a7319c3f77881**.
+artifacts/m07/source-snapshot.json records physical/Git hashes for all 20 changed
+paths; source-snapshot-initial.json retains the initial checkpoint.
+
+| Final source-pinned check | Actual result | Evidence |
+|---|---|---|
+| `pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m07/host-final-corrected.xml` | **326 passed, 64 skipped**, 38.61 s; zero failures/errors | artifacts/m07/host-final-corrected.xml |
+| Complete Linux `pytest tests/pipelines -q --tb=short --junitxml=artifacts/m07/linux-final-corrected.xml` | **235 passed, 7 skipped**, 219.55 s; zero failures/errors | artifacts/m07/linux-final-corrected.xml |
+| Retained original M05 dataset/file verification | Versions 1–4; idempotent migration; original content hash, legacy silver-conversation-turn files, generation 1 and Gold count 1 retained | artifacts/m07/upgrade.json |
+| Final lint/format and generated schema/OpenAPI checks | Passed; no generated contract change | Session transcript |
+| JUnit reconciliation and exact skip inventory | 58 of the 64 host skips passed in Linux; six older opt-in checks remain unrerun. Linux's seventh skip is the Windows guard, which passed on Windows | artifacts/m07/{verification-final,skips}.json; [skip report](test_skips.md) |
+
+The Linux command used the existing storage-check image/profile and real retained
+services. Exact PowerShell setup from the repository root:
+
+```powershell
+$env:POSTGRES_SECRETS_DIR=(Resolve-Path artifacts/infra/postgres-local/secrets).Path
+$taskCommit=git rev-parse HEAD
+$taskServicesMount=(Resolve-Path services).Path + ':/app/services:ro'
+$taskConfigMount=(Resolve-Path configs).Path + ':/app/configs:ro'
+docker compose -p group3-postgres-local -f infra/compose.yaml -f infra/compose.streaming.yaml -f infra/compose.storage.yaml --profile storage-check run --rm --no-deps --volume $taskServicesMount --volume $taskConfigMount -e RUN_VERTICAL_LIVE_TESTS=1 -e RUN_STORAGE_LIVE_TESTS=1 -e M05_CODE_COMMIT=$taskCommit storage-check python -m pytest tests/pipelines -q --tb=short --junitxml=artifacts/m07/linux-final-corrected.xml
+```
+
+Broader-test environment failures were preserved and resolved through test input
+mounts, without changing assertions or production code: the first expanded run
+could not import services (artifacts/m07/linux-final.xml, one collection error);
+the next had 231 passes/7 skips/3 missing-config failures
+(linux-final-verified.xml). Read-only services/ and configs/ mounts resolved both.
+The config diagnostic passed all three cases, the initial source then passed
+234/7 skipped (linux-final-complete.xml), and the corrected source passed the
+complete final suite above. The standalone retained-file helper also initially
+needed PYTHONPATH=/app; its corrected command passed with CODE_COMMIT set to the
+verified revision and EVENT_SCHEMA_CACHE_PATH=/app/schema-cache.json.
+
+This checkpoint is delivered to `vichitr` under the standing module push policy.
+The final delivery changes only owner documentation after the verified source.
+The existing three-job GitHub workflow runs P5/P6 and integration checks; it does
+not run these new live pipeline tests. Its current-HEAD result is tracked in
+artifacts/m07/github-actions.json and the repository's Actions page; local real
+provider evidence remains the basis for M07 verification. No new shared workflow
+or other owner's test implementation was changed.
+
+After verification, `PROJECTCTL_ADAPTER_MODULE=infra.analytics python -m projectctl
+env down` passed (artifacts/projectctl/31e9b2c8-1ab1-49b2-9065-5e476019feba/),
+retaining every volume. `docker desktop stop` completed; zero Desktop/backend
+processes remained. Evidence: artifacts/m07/shutdown.json. Docker RAM allocation
+was not increased. Restart the documented profile before further live work.
+
+Labels, real operational integration, full W-QUALITY, scale/performance and M08
+candidate publication remain pending; see the handoff for owners and exact bounds.
 
 ## CI follow-up — HTTP metric tests, 1 November 2026
 

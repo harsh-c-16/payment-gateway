@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M01–M07 business provider checkpoints implemented. Source-pinned M07 verification is in progress. Labelled quality imports, full W-QUALITY, real outbox/catalogue adoption and G0/G1/G3/G4 remain pending. Next is M08 publication/candidate safety. See [progress](progress.md) and [M07 handoff](m07_business_gold_handoff.md).
+Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M01–M07 business provider checkpoints implemented. M07 source 8abde27 passed final host and real Linux checks. Labelled quality imports, full W-QUALITY, real outbox/catalogue adoption and G0/G1/G3/G4 remain pending. Next is M08 publication/candidate safety. See [progress](progress.md) and [M07 handoff](m07_business_gold_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
