@@ -6,6 +6,54 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## CI follow-up — HTTP metric tests, 1 November 2026
+
+The user explicitly authorized reading the failed GitHub evidence, then requested
+the test fix. This authorizes the narrow edit to Jaineel's
+tests/telemetry/test_collectors.py; no production collector/harness code changed.
+
+Both Windows failures (runs 41282911833 and 41283612895, commits 58b7b67 and 2c4cdb5)
+had **625 passed, one failed**: test_actual_http_metrics_scrape_does_not_invent_absent_metrics.
+The 500-ms asyncio deadline starts before constructing httpx.AsyncClient. An
+unmodified local diagnostic reproduced the failure: first client construction
+**576.72 ms**, no request reached the already-ready local server; later scrapes
+took **28.16/26.97 ms**. Explicit slow-setup controls confirmed the timer placement.
+Raw evidence: artifacts/m06/ci-investigation/{41282911833,41283612895}/{checks.json,pytest.xml}
+and scrape-startup-probe.json. The saved GitHub credential was used only in memory
+for GitHub API authentication; it was not displayed or saved with evidence.
+
+The two real-HTTP metric semantics tests now receive a preinitialized real client
+through an explicit test-only constructor seam. They still use a real localhost
+server/transport, the default 500-ms scrape budget, unchanged TLS defaults and
+the original missing-metric/stale-sample assertions. A new withheld-response case
+proves that an actual request reaches the server and still times out. The client
+is closed after each case, including failure cleanup. No fake HTTP response,
+larger deadline, production change or skipped test was introduced.
+
+Commands and evidence:
+
+- `.venv/Scripts/python.exe -m pytest tests/telemetry/test_collectors.py -q --tb=short
+  --junitxml=artifacts/ci-metrics-test-fix/collectors.xml`: **14 passed**, 4.34 seconds.
+- Three fresh Python processes each ran the missing-metric, stale-sample and
+  withheld-response cases by full pytest node ID: **3 passed** in each,
+  2.46/2.49/2.43 seconds. XML: artifacts/ci-metrics-test-fix/cold-{1,2,3}.xml.
+- Those three exact node IDs are tests/telemetry/test_collectors.py:: followed by
+  test_actual_http_metrics_scrape_does_not_invent_absent_metrics,
+  test_http_scrape_rejects_explicit_stale_sample_timestamp and
+  test_http_scrape_still_times_out_waiting_for_response. Each invocation used
+  `-q --tb=short --junitxml=artifacts/ci-metrics-test-fix/cold-<trial>.xml`.
+- `.venv/Scripts/python.exe benchmarks/manual/verify_p5.py`: **11/11 checks passed**,
+  including **627 tests**, 120.99 seconds. Evidence:
+  artifacts/p5/6a2f291a-f647-4649-92da-f62cc76b1a7c/checks.json and pytest.xml.
+- Ruff lint/format and diff checks passed. This follow-up is delivered to vichitr;
+  remote workflow evidence is retained in artifacts/ci-metrics-test-fix/github-actions.json.
+
+This is the requested **test-only** repair. Production PrometheusReader still
+constructs a client inside each scrape deadline. Jaineel's production follow-up
+is to prepare/reuse/close its client outside timed observation startup, with the
+network deadline and missing-data semantics preserved. CI passing does not
+establish that this production cold-start limitation has been repaired.
+
 ## M06 — All-domain Silver provider, 1 November 2026
 
 Implemented all 24 registered business types, canonical-model normalization and
@@ -88,9 +136,9 @@ All data volumes and credential files were retained.
 
 Full W-QUALITY, real shared-outbox notifications, real catalogue/dictionary/SKU
 reconciliation, independent G0/G1/G4, business Gold reducers, full publication and
-performance remain **NOT_RUN**. Existing GitHub Windows P5 failure investigation
-still awaits its authenticated log/explicit credential-access authorization; a
-passing local P5 run does not establish that remote failure's cause. Final GitHub
+performance remain **NOT_RUN**. The historical GitHub Windows P5 failures are now
+diagnosed; see the CI follow-up above for authorized log access and the test-only
+repair. Final GitHub
 branch status is retained separately in artifacts/m06/github-actions.json after
 delivery. Next checkpoint: M07 business Gold and parent-late reconciliation.
 

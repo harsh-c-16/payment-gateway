@@ -5,6 +5,7 @@ from concurrent.futures import Future
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 
+import httpx
 import pytest
 
 from benchmarks.collectors import (
@@ -19,7 +20,24 @@ from benchmarks.observation import ObservationConfig, ObservationSession, Series
 from benchmarks.observation_summary import rebuild
 
 
-def test_actual_http_metrics_scrape_does_not_invent_absent_metrics():
+@pytest.fixture
+def prepared_metrics_http_client(monkeypatch):
+    """Keep cold client setup outside these real-HTTP metric semantics tests."""
+    client = httpx.AsyncClient(trust_env=False, follow_redirects=False)
+
+    def prepared_client(**kwargs):
+        assert kwargs == {"trust_env": False, "follow_redirects": False}
+        return client
+
+    monkeypatch.setattr("benchmarks.collectors.httpx.AsyncClient", prepared_client)
+    try:
+        yield client
+    finally:
+        if not client.is_closed:
+            asyncio.run(client.aclose())
+
+
+def test_actual_http_metrics_scrape_does_not_invent_absent_metrics(prepared_metrics_http_client):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -46,7 +64,7 @@ def test_actual_http_metrics_scrape_does_not_invent_absent_metrics():
         thread.join()
 
 
-def test_http_scrape_rejects_explicit_stale_sample_timestamp():
+def test_http_scrape_rejects_explicit_stale_sample_timestamp(prepared_metrics_http_client):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
@@ -65,6 +83,34 @@ def test_http_scrape_rejects_explicit_stale_sample_timestamp():
         result = asyncio.run(reader(0))
         assert series.key not in result
     finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+def test_http_scrape_still_times_out_waiting_for_response(prepared_metrics_http_client):
+    arrived, release = threading.Event(), threading.Event()
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            arrived.set()
+            release.wait(timeout=5)
+            self.close_connection = True
+
+        def log_message(self, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    series = Series("outbox_pending", "orders", "rows", (("service", "orders"),))
+    try:
+        reader = PrometheusReader(f"http://127.0.0.1:{server.server_port}/metrics", (series,))
+        with pytest.raises((TimeoutError, httpx.TimeoutException)):
+            asyncio.run(reader(0))
+        assert arrived.is_set()
+    finally:
+        release.set()
         server.shutdown()
         server.server_close()
         thread.join()
