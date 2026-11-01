@@ -54,6 +54,10 @@ pipeline = AnalyticsPipeline(
 )
 if operation == "snapshot":
     pipeline.publish_snapshot(namespace)
+elif operation == "replay":
+    from pipelines.replay.jobs import run_replay
+
+    run_replay(pipeline, candidate_path)
 else:
     document = pipeline.store.read(candidate_path)
     pipeline.publish_candidate(json.loads(document))

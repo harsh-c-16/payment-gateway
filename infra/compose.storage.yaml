@@ -25,6 +25,7 @@ services:
       - ../artifacts/m07:/app/artifacts/m07
       - ../artifacts/m08:/app/artifacts/m08
       - ../artifacts/m09:/app/artifacts/m09
+      - ../artifacts/m10:/app/artifacts/m10
       - ../artifacts/infra/streaming-local/registry-manifest.json:/app/schema-cache.json:ro
     secrets: [analytics_password]
     cpus: 0.5

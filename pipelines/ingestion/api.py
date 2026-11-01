@@ -4,12 +4,11 @@ from datetime import date
 from secrets import compare_digest
 from typing import Annotated, Literal
 
-from fastapi import Depends, FastAPI, Query, Request
+from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from pydantic import TypeAdapter, ValidationError
 
-from pipelines.curation import UnsupportedEvent
 from pipelines.curation.quarantine import outbox_binding
 from pipelines.storage import sync_directory
 from pipelines.storage.readers import quarantine, receipts
@@ -18,9 +17,18 @@ from shared.contracts.analytics import (
     GoldQueryResult,
     QuarantinePage,
     ReceiptPage,
+    ReplayAccepted,
     ReplayRequest,
+    ReplayStatus,
 )
-from shared.contracts.common import ErrorBody, ErrorCode, ErrorResponse, Identifier
+from shared.contracts.common import (
+    ErrorBody,
+    ErrorCode,
+    ErrorResponse,
+    IdempotencyKey,
+    Identifier,
+    UUIDText,
+)
 from shared.contracts.events import Namespace
 from shared.local_diagnostics import OutboxUnavailable
 
@@ -51,6 +59,10 @@ def create_app(pipeline, *, internal_token, metrics_namespace=None):
 
     @app.exception_handler(Exception)
     async def unavailable(request, exc):
+        from pipelines.replay.jobs import ReplayConflict
+
+        if isinstance(exc, ReplayConflict):
+            return failure(request, 409, ErrorCode.IDEMPOTENCY_CONFLICT, str(exc))
         if isinstance(exc, (ValueError, ValidationError)):
             return failure(
                 request,
@@ -94,7 +106,7 @@ def create_app(pipeline, *, internal_token, metrics_namespace=None):
                         "SELECT version FROM analytics_schema_migrations"
                     ).fetchall()
                 }
-            if not {1, 2, 3, 4, 5, 6}.issubset(applied):
+            if not {1, 2, 3, 4, 5, 6, 7}.issubset(applied):
                 raise RuntimeError("Migration missing")
             outbox_binding()
         except OutboxUnavailable:
@@ -160,12 +172,33 @@ def create_app(pipeline, *, internal_token, metrics_namespace=None):
     ):
         return quarantine(pipeline.connect, namespace, cursor, limit)
 
-    @app.post("/internal/v1/analytics/replays", dependencies=[Depends(internal)])
-    def replay(body: ReplayRequest):
-        raise UnsupportedEvent("Replay is pending M10")
+    @app.post(
+        "/internal/v1/analytics/replays",
+        dependencies=[Depends(internal)],
+        response_model=ReplayAccepted,
+        status_code=202,
+    )
+    def replay(
+        body: ReplayRequest,
+        x_namespace: Annotated[Namespace, Header(alias="X-Namespace")],
+        x_run_id: Annotated[Identifier, Header(alias="X-Run-ID")],
+        x_correlation_id: Annotated[Identifier, Header(alias="X-Correlation-ID")],
+        idempotency_key: Annotated[IdempotencyKey, Header(alias="Idempotency-Key")],
+    ):
+        from pipelines.replay.jobs import create_replay
 
-    @app.get("/internal/v1/analytics/replays/{replay_id}", dependencies=[Depends(internal)])
-    def replay_status(replay_id: str):
-        raise UnsupportedEvent("Replay is pending M10")
+        if x_namespace != body.target_namespace:
+            raise ValueError("X-Namespace must match the isolated replay target")
+        return create_replay(pipeline, body, idempotency_key=idempotency_key)
+
+    @app.get(
+        "/internal/v1/analytics/replays/{replay_id}",
+        dependencies=[Depends(internal)],
+        response_model=ReplayStatus,
+    )
+    def replay_status(replay_id: UUIDText):
+        from pipelines.replay.jobs import get_status
+
+        return get_status(pipeline, replay_id)
 
     return app

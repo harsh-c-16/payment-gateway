@@ -11,7 +11,7 @@ from pipelines.gold import aggregate_gold
 from pipelines.gold.business import GoldConflict
 from pipelines.ingestion import BronzeCapture, read_bronze
 from pipelines.ingestion.receipts import persist_capture
-from shared.contracts.analytics import BatchOutcome, DurableOffset
+from shared.contracts.analytics import BatchOutcome, DurableOffset, RawBatchReceipt
 from shared.contracts.common import Identifier, WireModel
 from shared.contracts.events import EventEnvelope, Namespace, ReasonCode, ValidationFailure
 from shared.telemetry.metrics import Telemetry
@@ -54,17 +54,38 @@ class AnalyticsPipeline:
         TypeAdapter(Namespace).validate_python(namespace)
         return recover_observations(self.connect, namespace)
 
-    def curate_silver(self, raw_receipt, batch_config):
+    def curate_silver(self, raw_receipt, batch_config, *, replay_id=None):
         config = BatchConfig.model_validate(batch_config)
+        raw_receipt = RawBatchReceipt.model_validate(raw_receipt)
         records = read_bronze(self.store, raw_receipt)
         if not records:
             raise ValueError("A nonempty Bronze capture is required")
         namespace = records[0].source_namespace
+        from pipelines.replay.jobs import capture_scope
+
+        with self.connect() as tx:
+            namespace, locators = capture_scope(tx, self, raw_receipt, replay_id)
+        if locators is not None:
+            records = [
+                r
+                for r, captured in zip(records, raw_receipt.records, strict=True)
+                if captured.source.raw_locator in locators
+            ]
+            if not records:
+                raise ValueError("Replay capture has no selected records")
         self.recover_observations(namespace)
         # Captured rows remain non-final until each B0 sink transaction below commits.
         with self.connect() as tx, tx.transaction():
             sink_lock(tx, namespace)
-            persist_capture(tx, raw_receipt, self.store)
+            # Hold the namespace lock while checking that live ingestion cannot claim a replay.
+            capture_scope(tx, self, raw_receipt, replay_id)
+            persist_capture(
+                tx,
+                raw_receipt,
+                self.store,
+                effective_namespace=namespace if replay_id is not None else None,
+                locators=locators,
+            )
         counts = dict.fromkeys(("new_valid", "duplicate_delivery", "invalid", "redelivery_noop"), 0)
         for record in records:
             started = monotonic()
@@ -87,6 +108,10 @@ class AnalyticsPipeline:
                         record.key_bytes,
                         source_record=record,
                     )
+                    if replay_id is not None and not isinstance(checked, ValidationFailure):
+                        from pipelines.replay.repairs import repair_failure
+
+                        checked = repair_failure(checked, record.raw_sha256, tx) or checked
                     disposition, job = self._finalize(tx, stored, record, checked, config)
             if job is not None:
                 self._observe(namespace, job)  # Only after the sink COMMIT acknowledgement.
@@ -130,7 +155,7 @@ class AnalyticsPipeline:
 
     def _finalize(self, tx, stored, record, checked, config):
         failure = checked if isinstance(checked, ValidationFailure) else None
-        namespace = record.source_namespace
+        namespace = stored["namespace"]
         event_id = None
         if failure is None:
             event = checked.envelope
@@ -164,7 +189,7 @@ class AnalyticsPipeline:
                 )
             elif existing:
                 disposition = "duplicate_delivery"
-                track_event_time(tx, record, event, new_fact=False)
+                track_event_time(tx, record, event, new_fact=False, namespace=namespace)
             elif version:
                 failure = ValidationFailure(
                     reason_code=ReasonCode.AGGREGATE_VERSION_CONFLICT,
@@ -187,7 +212,12 @@ class AnalyticsPipeline:
                     disposition = "new_valid"
         if failure is not None:
             route_dlq(
-                record, failure, tx, run_id=config.run_id, transform_version=self.transform_version
+                record,
+                failure,
+                tx,
+                run_id=config.run_id,
+                transform_version=self.transform_version,
+                effective_namespace=namespace,
             )
             disposition, event_id = "invalid", None
         visible = (
@@ -245,7 +275,7 @@ class AnalyticsPipeline:
                      source_partition,source_offset,raw_locator,normalized_payload)
                     VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
             (
-                record.source_namespace,
+                stored["namespace"],
                 event.event_id,
                 checked.canonical_content_hash,
                 event.event_time,
@@ -262,8 +292,13 @@ class AnalyticsPipeline:
                 Jsonb(normalize_payload(event)),
             ),
         )
-        aggregate_gold([event], tx, transform_version=self.transform_version)
-        track_event_time(tx, record, event, new_fact=True)
+        aggregate_gold(
+            [event],
+            tx,
+            transform_version=self.transform_version,
+            effective_namespace=stored["namespace"],
+        )
+        track_event_time(tx, record, event, new_fact=True, namespace=stored["namespace"])
 
     def ingest_once(self, group, *, run_id, max_records=100):
         records = group.consume_records(group.topics, max_records, 50)
@@ -292,6 +327,12 @@ class AnalyticsPipeline:
         from pipelines.storage.candidates import publish_candidate
 
         return publish_candidate(self, candidate)
+
+    def replay_bronze(self, request):
+        from pipelines.replay.jobs import create_replay, run_replay
+
+        accepted = create_replay(self, request)
+        return run_replay(self, accepted.replay_id)
 
     def query_gold(self, namespace, table, date_from, date_to, currency=None):
         from pipelines.storage.readers import query_gold

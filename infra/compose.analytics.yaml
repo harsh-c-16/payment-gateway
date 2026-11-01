@@ -42,3 +42,7 @@ services:
     <<: *analytics
     profiles: [analytics-worker]
     command: [python, -m, pipelines.ingestion.worker]
+  analytics-replay:
+    <<: *analytics
+    profiles: [analytics-replay]
+    command: [python, -m, pipelines.replay.worker]

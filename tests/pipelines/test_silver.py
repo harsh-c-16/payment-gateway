@@ -26,6 +26,7 @@ def test_all_registered_payloads_round_trip_typed_silver(name):
     row = _silver_row(
         {
             "document": document,
+            "namespace": event.namespace,
             "event_time": event.event_time,
             "content_hash": hashlib.sha256(canonical_json(document)).hexdigest(),
             "normalized_payload": normalized,

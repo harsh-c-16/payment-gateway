@@ -14,10 +14,18 @@ POLICY = {
 }
 
 
+def processing_clock(tx, namespace):
+    return tx.execute(
+        """SELECT coalesce((SELECT clock_at FROM replay_jobs WHERE target_namespace=%s),
+                           clock_timestamp())""",
+        (namespace,),
+    ).fetchone()[0]
+
+
 def advance_watermark(tx, namespace, now=None):
     sink_lock(tx, namespace)
     if now is None:
-        now = tx.execute("SELECT clock_timestamp()").fetchone()[0]
+        now = processing_clock(tx, namespace)
     return one(
         tx,
         """INSERT INTO event_time_watermarks(namespace,watermark,evaluated_at,active_partitions)
@@ -32,9 +40,9 @@ def advance_watermark(tx, namespace, now=None):
     )
 
 
-def track_event_time(tx, record, event, *, new_fact):
-    namespace = record.source_namespace
-    now = tx.execute("SELECT clock_timestamp()").fetchone()[0]
+def track_event_time(tx, record, event, *, new_fact, namespace=None):
+    namespace = namespace or record.source_namespace
+    now = processing_clock(tx, namespace)
     before = advance_watermark(tx, namespace, now)["watermark"]
     previous = one(
         tx,

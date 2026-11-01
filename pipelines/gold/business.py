@@ -224,12 +224,15 @@ def backfill_business(tx):
     # A server cursor bounds upgrade memory; migration 004 holds the Silver write lock.
     with tx.cursor(name="analytics_business_backfill") as cursor:
         cursor.execute(
-            """SELECT document FROM silver_events WHERE event_type=ANY(%s)
+            """SELECT namespace,document FROM silver_events WHERE event_type=ANY(%s)
             ORDER BY namespace,source_service,aggregate_type,aggregate_id,aggregate_version""",
             (sorted(BUSINESS_EVENTS),),
         )
-        for (document,) in cursor:
-            apply_business(EventEnvelope.model_validate(document), tx, "m07-business-v1")
+        for namespace, document in cursor:
+            event = EventEnvelope.model_validate(document).model_copy(
+                update={"namespace": namespace}
+            )
+            apply_business(event, tx, "m07-business-v1")
 
 
 def business_query(table):

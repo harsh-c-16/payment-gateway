@@ -1,8 +1,16 @@
-# Topic Replay & DLQ Recovery (M4)
+# Isolated analytical replay (M10)
 
-**Owner:** Vichitr Arora (B24CM1067)  
-**Specification Brief:** [07_VICHITR_ARORA.md](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/07_VICHITR_ARORA.md)  
-**Runbook Commands:** [09_EVALUATION_RUNBOOK.md §4](file:///c:/Users/voraj/OneDrive/Desktop/Studies/Sem5/DE/DE%20Project/payment-gateway/docs/specs/09_EVALUATION_RUNBOOK.md)  
+Owner: Vichitr. See [common §12](../../docs/specs/02_COMMON_SPEC.md) and the
+[M10 handoff](../../docs/vichitr/m10_replay_handoff.md).
 
-## Scope
-Provides utilities for offset resetting, point-in-time topic replay, and re-processing of dead-letter queue records without violating event immutability.
+`AnalyticsPipeline.replay_bronze(request)` reuses validated original Bronze
+records in an initially empty, durably claimed analytical namespace. The canonical
+HTTP creation/status endpoints use the same job provider. A separate
+`python -m pipelines.replay.worker` process resumes durable queued/running jobs.
+
+Publication lineage IDs pin exact Silver/Gold membership and enable semantic
+snapshot comparison. Capture IDs also support duplicate/invalid input; without
+a pinned published reference their reconciliation is explicitly null. No live
+Kafka offsets, operational APIs, source event IDs/content or source pointers are
+modified. See the handoff for retries, isolated clocks, source-ID bindings,
+repair guards, evidence limitations and the optional Compose worker profile.

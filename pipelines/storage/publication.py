@@ -144,6 +144,7 @@ def _silver_row(fact):
         )
     }
     row.update(
+        namespace=fact["namespace"],
         content_hash=fact["content_hash"],
         event_time=fact["event_time"],
         produced_at=datetime.fromisoformat(doc["produced_at"].replace("Z", "+00:00")),
@@ -199,10 +200,12 @@ def _lineage(pipeline, tx, namespace, old, snapshot_id):
         tx,
         """SELECT e.event_id::text,s.topic,s.partition,s.offset_number,
         s.raw_locator,s.raw_sha256,s.capture_id::text,
-        t.watermark_before,t.timestamp_quality,t.revision,t.reason FROM silver_events e
+        t.watermark_before,t.timestamp_quality,t.revision,t.reason,
+        b.namespace AS origin_namespace FROM silver_events e
         JOIN m08_pending p USING(event_id) JOIN source_receipts s ON s.namespace=e.namespace
         AND s.topic=e.source_topic AND s.partition=e.source_partition
         AND s.offset_number=e.source_offset
+        JOIN bronze_captures b ON b.capture_id=s.capture_id
         LEFT JOIN event_time_observations t ON t.namespace=e.namespace AND t.event_id=e.event_id
         WHERE e.namespace=%s ORDER BY e.event_id""",
         (namespace,),
@@ -214,9 +217,17 @@ def _lineage(pipeline, tx, namespace, old, snapshot_id):
             flush()
     if batch:
         flush()
+    replay = one(
+        tx,
+        """SELECT replay_id::text,request,clock_at,provider_sha256,
+        'fixed original ingress ceiling; validation uses original ingress' AS clock_policy
+        FROM replay_jobs WHERE target_namespace=%s""",
+        (namespace,),
+    )
     document = {
         **provenance(pipeline, namespace),
-        "event_time_policy": POLICY,
+        "event_time_policy": {**POLICY, "clock": replay["clock_policy"]} if replay else POLICY,
+        "replay": _wire(replay),
         "event_time_status": _wire(
             one(tx, "SELECT * FROM event_time_watermarks WHERE namespace=%s", (namespace,))
         ),

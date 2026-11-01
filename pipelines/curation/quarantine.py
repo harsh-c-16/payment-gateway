@@ -28,15 +28,17 @@ def route_dlq(
     *,
     run_id,
     transform_version="m05-conversation-v1",
+    effective_namespace=None,
 ):
     if db_transaction.info.transaction_status != TransactionStatus.INTRANS:
         raise ValueError("An active analytics transaction is required")
     append = outbox_binding()
     source = source_record
+    namespace = effective_namespace or source.source_namespace
     stored = db_transaction.execute(
         """SELECT raw_locator,raw_sha256 FROM source_receipts
            WHERE namespace=%s AND topic=%s AND partition=%s AND offset_number=%s""",
-        (source.source_namespace, source.topic, source.partition, source.offset),
+        (namespace, source.topic, source.partition, source.offset),
     ).fetchone()
     if stored is None or stored[1] != source.raw_sha256:
         raise SourceCorruption("Quarantine source is not the durable captured source")
@@ -44,8 +46,7 @@ def route_dlq(
     diagnostic_id = str(
         uuid5(
             NAMESPACE_URL,
-            f"{source.source_namespace}:{source.topic}:"
-            f"{source.partition}:{source.offset}:{source.raw_sha256}",
+            f"{namespace}:{source.topic}:{source.partition}:{source.offset}:{source.raw_sha256}",
         )
     )
     locator = SourceLocator(
@@ -57,7 +58,7 @@ def route_dlq(
     now = datetime.now(UTC)
     diagnostic = LocalDiagnostic(
         diagnostic_id=diagnostic_id,
-        namespace=source.source_namespace,
+        namespace=namespace,
         run_id=run_id,
         source_service="analytics",
         reason_code=validation_failure.reason_code,
@@ -76,7 +77,7 @@ def route_dlq(
                ON CONFLICT(quarantine_id) DO NOTHING RETURNING quarantine_id""",
             (
                 diagnostic_id,
-                source.source_namespace,
+                namespace,
                 source.topic,
                 source.partition,
                 source.offset,

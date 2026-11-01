@@ -5,7 +5,9 @@ from shared.contracts.analytics import DirtyPartitionSet
 from shared.contracts.events import EventEnvelope
 
 
-def aggregate_gold(new_facts, db_transaction, *, transform_version="m07-business-v1"):
+def aggregate_gold(
+    new_facts, db_transaction, *, transform_version="m07-business-v1", effective_namespace=None
+):
     _transaction(db_transaction)
     from pipelines.curation.db import sink_lock
 
@@ -17,6 +19,13 @@ def aggregate_gold(new_facts, db_transaction, *, transform_version="m07-business
         for event in new_facts:
             if not isinstance(event, EventEnvelope):
                 raise TypeError("Only business events contribute to pipeline_minute")
+            if effective_namespace is not None:
+                from pydantic import TypeAdapter
+
+                from shared.contracts.events import Namespace
+
+                namespace = TypeAdapter(Namespace).validate_python(effective_namespace)
+                event = event.model_copy(update={"namespace": namespace})
             sink_lock(db_transaction, event.namespace)
             inserted = db_transaction.execute(
                 """INSERT INTO reducer_contributions(namespace,event_id) VALUES (%s,%s)

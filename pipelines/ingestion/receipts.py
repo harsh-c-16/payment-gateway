@@ -17,6 +17,7 @@ SILVER_MIGRATION = MIGRATION.with_name("003_full_silver.sql")
 GOLD_MIGRATION = MIGRATION.with_name("004_business_gold.sql")
 PUBLICATION_MIGRATION = MIGRATION.with_name("005_visibility_lookup.sql")
 EVENT_TIME_MIGRATION = MIGRATION.with_name("006_event_time.sql")
+REPLAY_MIGRATION = MIGRATION.with_name("007_replay.sql")
 
 
 def _transaction(tx):
@@ -39,6 +40,7 @@ def migrate_analytics(tx):
             (4, GOLD_MIGRATION),
             (5, PUBLICATION_MIGRATION),
             (6, EVENT_TIME_MIGRATION),
+            (7, REPLAY_MIGRATION),
         ):
             # Git checkouts may use CRLF; checksums agree across host OSes.
             data = path.read_text(encoding="utf-8").encode("utf-8")
@@ -67,23 +69,35 @@ class CapturePersistence:
     redelivery_noop: int
 
 
-def persist_capture(tx, receipt, store):
+def persist_capture(tx, receipt, store, *, effective_namespace=None, locators=None):
     """Verify bytes before SQL, preserve first locators, never mark worker durability."""
     _transaction(tx)
     receipt = RawBatchReceipt.model_validate(receipt)
     read_bronze(store, receipt)
     if not receipt.records:
         raise ValueError("Cannot persist an empty capture")
-    namespace = receipt.records[0].namespace
-    if any(row.namespace != namespace for row in receipt.records):
+    origin_namespace = receipt.records[0].namespace
+    if any(row.namespace != origin_namespace for row in receipt.records):
         raise ValueError("Capture spans namespaces")
+    namespace = origin_namespace
+    if effective_namespace is not None:
+        from pydantic import TypeAdapter
+
+        from shared.contracts.events import IsolatedNamespace
+
+        namespace = TypeAdapter(IsolatedNamespace).validate_python(effective_namespace)
+    selected = receipt.records
+    if locators is not None:
+        selected = [r for r in selected if r.source.raw_locator in locators]
+        if {r.source.raw_locator for r in selected} != set(locators):
+            raise SourceCorruption("Replay selection is outside the original capture")
     document = receipt.model_dump(mode="json")
     fresh, redelivery = 0, 0
     with tx.transaction():
         tx.execute(
             """INSERT INTO bronze_captures(capture_id,namespace,captured_at,receipt)
                VALUES (%s,%s,%s,%s) ON CONFLICT (capture_id) DO NOTHING""",
-            (receipt.capture_id, namespace, receipt.captured_at, Jsonb(document)),
+            (receipt.capture_id, origin_namespace, receipt.captured_at, Jsonb(document)),
         )
         previous = tx.execute(
             "SELECT receipt FROM bronze_captures WHERE capture_id=%s", (receipt.capture_id,)
@@ -92,7 +106,7 @@ def persist_capture(tx, receipt, store):
             raise SourceCorruption("Capture identity was reused with changed content")
         # A stable lock order avoids reversed-partition source retry deadlocks.
         for row in sorted(
-            receipt.records, key=lambda r: (r.source.topic, r.source.partition, r.source.offset)
+            selected, key=lambda r: (r.source.topic, r.source.partition, r.source.offset)
         ):
             source = row.source
             inserted = tx.execute(
