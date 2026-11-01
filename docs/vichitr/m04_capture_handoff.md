@@ -31,7 +31,8 @@ python -m projectctl db migrate --namespace bench-smoke
 ```
 
 It uses ANALYTICS_DATABASE_URL if explicitly supplied, otherwise the retained local
-analytics credential. It applies only analytics/001_capture.sql. Global db migrate
+analytics credential. At M04 it applied analytics/001_capture.sql; the M05 driver
+also applies immutable 002_vertical_slice.sql (001 unchanged). Global db migrate
 returns dependency exit 4 until the other service/outbox owners compose their
 providers; its reason/evidence explicitly confirms the analytics portion applied.
 No namespace data reset or cross-service migration occurs. The callable

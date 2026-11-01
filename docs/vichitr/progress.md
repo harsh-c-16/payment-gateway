@@ -11,7 +11,7 @@ notes below describe those checkpoints before this standing authorization.
 Implemented within owned analytics, pipeline, infrastructure and test paths.
 Full G1 is **not claimed**: Aditya's real outbox is absent in this checkout and
 Jaineel's independent G1 provider adoption remains pending. See
-[M05 handoff](m05_vertical_handoff.md). Final source-pinned verification follows.
+[M05 handoff](m05_vertical_handoff.md). Source-pinned verification is recorded below.
 
 - New immutable analytics migration 002 (001 unchanged) adds Silver/contribution
   keys, pipeline_minute staging, pending IDs, paired manifest pointers, exact event
@@ -49,9 +49,50 @@ The host skips comprise 24 POSIX filesystem cases, three M04 live cases, six old
 infrastructure/transport cases and twelve new M05 live cases. New M05 live cases
 run separately in Docker; no host skip is presented as an integration pass. The
 six older unchanged live checks were not rerun for this checkpoint. Source-pinned
-final runs and runtime/restart smoke will be recorded below before branch delivery.
+final runs and runtime/restart smoke are recorded below.
 Development fixtures used the previous base commit identifier while working code
 was uncommitted; they are diagnostic tests, not reproducible performance evidence.
+
+### Source-pinned final verification
+
+Implementation commit **06cd9d1**. All 29 feature delivery paths passed ownership
+and exact local credential scans; raw data, secrets and generated artifacts remain
+ignored. Code hashes (22 paths) are in artifacts/m05/source-snapshot.json. No
+application dependency, canonical event schema, other owner's implementation or
+shared workflow was changed.
+
+| Command/check | Actual final result | Evidence |
+|---|---|---|
+| Host `python -m pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m05/host-final.xml` | **298 passed, 45 skipped**, 36.11 seconds | artifacts/m05/host-final.xml |
+| Existing 512-MiB checker, RUN_VERTICAL_LIVE_TESTS=1 and RUN_STORAGE_LIVE_TESTS=1; storage, adapter and all vertical test files | **51 passed, 1 skipped**, 25.02 seconds; skip is Windows-only and passed on host | artifacts/m05/linux-final.xml |
+| Owned Ruff lint/format, generated schema/API checks and git diff check | Passed; final format check covered 44 files, generated outputs current | Session |
+| `PROJECTCTL_ADAPTER_MODULE=infra.analytics`, existing `db migrate --namespace bench-m05` | Expected global dependency exit **4**; analytics versions **1 and 2 applied**, other owners/outbox still NOT_RUN | artifacts/projectctl/70dc9471-3c7a-4b62-9f21-673f84152e95/ and matching artifacts/infra/analytics/checks/ directory |
+| Persistent `python -m tests.pipelines.vertical_checkpoint` | Real public analytics tables and lakehouse files, valid event reaches active generation 1 | artifacts/m05/checkpoint-slice.json |
+| Actual Uvicorn/localhost:8006 API, then retained PostgreSQL restart and fresh-process `--resume` | **PASS**: same generation/count/files recovered, internal missing-token request 401 and authenticated receipts 200. Readiness intentionally 503 for absent real outbox | artifacts/m05/api-runtime.json |
+| Actual analytics-worker entrypoint through native Kafka and HTTP Gold query | **PASS**: one unique event reaches active Gold; broker next offset 1. Deliberate malformed source at offset 1 causes expected worker exit 1, leaves committed offset 1 and preserves prior Gold | artifacts/m05/worker-runtime.json |
+| Post-restart env verify with existing adapter | Exit **0**, real storage/schema mappings retained | artifacts/projectctl/6e1865d5-5fca-4f4d-a1c1-5b53681ac17c/ |
+| Env down | Exit **0**, all volumes retained; temporary API/worker containers already stopped and removed | artifacts/projectctl/47fd37b3-381e-45c9-853e-f7ed527fa8f0/ |
+
+Final valid/source/offset facts are artifacts/m05/{valid-slice,kafka-offsets}.json.
+Earlier development copies and previous M04 facts are archived under development/
+and prior-m04-facts/. The ignored host worker-smoke helper initially needed its
+repository import path added; no application behavior or assertion was weakened.
+Source-pinned checkpoint namespace is bench-m05-check-1554c98df84f4965afa003e9912b3534;
+actual entrypoint namespace is bench-m05-worker-32b64150efbc44ae93178f19995224d3.
+These are explicitly synthetic fixtures. API/worker each use 384 MiB and 0.5 CPU;
+the existing stack was not given more RAM. Ephemeral service tokens stayed in
+process memory and removed container environments, never in Git/evidence output.
+
+All 39 platform/M04/M05 host skips passed separately in Linux. The six older live
+cases were not rerun. Full G0/G1, actual production-outbox notifications, other
+domain reducers, replay/compactor admission and performance are **NOT_RUN**. Runtime
+worker fail-closed behavior is a verified dependency boundary, not a successful
+invalid-source processing claim. Shared GitHub workflow results are retained in
+artifacts/m05/github-actions.json after branch delivery; no local P5/P6 rerun is
+claimed for this module.
+Docker Desktop is stopped (zero Desktop/backend processes after shutdown), with
+all project volumes retained. The six older live skip reasons and the twelve new
+M05 case names are recorded in [test_skips.md](test_skips.md).
 
 ## M04 follow-up — User-approved 2-MiB cap and exact skips, 31 October 2026
 

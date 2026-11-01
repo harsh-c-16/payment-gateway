@@ -1,3 +1,27 @@
+# M05 skip update: 1 November 2026
+
+Final host suite: **298 passed, 45 skipped**. Separate source-pinned Linux suite: **51 passed, 1 skipped**. Of the host skips, **39 passed in Linux**: 24 filesystem cases, three M04 live cases and twelve M05 live cases. The remaining six older live cases were not rerun; their names/reasons and earlier real evidence remain in the historical report below.
+
+The single Linux skip is the Windows-only directory-fsync rejection guard, which passed on Windows. No skip marker was added to hide a failure. Raw evidence: artifacts/m05/{host-final,linux-final}.xml and skips.json.
+
+## New M05 host-skipped cases, all passed in Linux
+
+- `tests.pipelines.test_vertical_kafka_live.test_native_sink_commit_before_offset_restart_and_invalid_backpressure`
+- `tests.pipelines.test_vertical_live.test_real_valid_duplicate_redelivery_and_active_gold`
+- `tests.pipelines.test_vertical_live.test_real_missing_outbox_leaves_invalid_source_pending`
+- `tests.pipelines.test_vertical_live.test_real_quarantine_rollback_and_duplicate_identity_conflicts`
+- `tests.pipelines.test_vertical_live.test_real_publication_disk_failure_preserves_pointer_and_pending`
+- `tests.pipelines.test_vertical_live.test_real_postcommit_observation_failure_recovers_as_upper_bound`
+- `tests.pipelines.test_vertical_publication_live.test_concurrent_arrival_survives_frozen_membership_and_stale_cas`
+- `tests.pipelines.test_vertical_publication_live.test_single_publisher_and_bounded_snapshot`
+- `tests.pipelines.test_vertical_publication_live.test_reader_pins_generation_reuses_untouched_files_and_checks_corruption`
+- `tests.pipelines.test_vertical_publication_live.test_http_actual_manifest_gold_receipts_auth_and_readiness`
+- `tests.pipelines.test_vertical_publication_live.test_other_event_type_backpressures_without_dirty_classification`
+- `tests.pipelines.test_vertical_publication_live.test_pointer_transaction_failure_rolls_back_both_datasets`
+
+Real SQL notification atomicity uses an explicitly labelled transactional outbox double. The separate missing-outbox and actual worker-runtime checks prove that absent Aditya code blocks malformed sources without advancing offsets. They do not prove real outbox integration or full G1. The M05 suite runs locally in Docker; it is not silently added to the shared GitHub workflow.
+
+## Historical 2-MiB change report
 # Exact test skips: 2-MiB Bronze change
 
 31 October 2026. No skip markers or assertions were disabled for this change.
@@ -86,6 +110,6 @@ Count: 3; passed separately in Linux: 0.
 
 ## Checks not claimed
 
-Full Silver/Gold, actual shared-outbox integration, end-to-end G0/G1 and performance are not implemented/verified yet. These are pending module/provider work, not passing tests and not hidden pytest skips. Successful fsync/process-restart tests do not prove hardware power-loss or volume-loss durability.
+All-domain Silver/Gold, actual shared-outbox integration, end-to-end G0/G1 and performance remain pending; M05 verifies one supported real valid-event slice. These are pending module/provider work, not passing tests and not hidden pytest skips. Successful fsync/process-restart tests do not prove hardware power-loss or volume-loss durability.
 
 The shared GitHub workflow runs its existing Ubuntu/Windows/PostgreSQL checks. The new M04 capture suite was run locally in Docker; this report does not claim it is already wired into that shared workflow.

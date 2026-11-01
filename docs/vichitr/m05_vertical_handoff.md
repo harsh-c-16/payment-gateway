@@ -92,6 +92,8 @@ CODE_COMMIT (actual 40-character revision), LAKEHOUSE_ROOT, EVENT_SCHEMA_CACHE_P
 INTERNAL_API_TOKEN, RUN_NAMESPACE (dev or isolated bench/replay), RUN_ID and an
 analytics URL or analytics password-file binding. .env is not loaded implicitly.
 The B0 worker rejects unsupported batch controls instead of silently running O1.
+Override the older shared template's local-dev namespace with dev or an isolated
+namespace; local-dev does not satisfy the common contract.
 It subscribes only to the conversation topic and stops on other conversation types
 until M06. Publication is scheduled at 250 ms; slow I/O is not claimed to meet a
 hard wall-clock deadline.
