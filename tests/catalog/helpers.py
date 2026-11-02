@@ -2,6 +2,7 @@
 
 import csv
 
+from pipelines.catalog.adapter import run_import
 from pipelines.catalog.normalize import load_dictionary
 
 HEADER = load_dictionary()["source_header"]
@@ -39,3 +40,15 @@ def write_csv(path, rows):
         writer.writeheader()
         writer.writerows(rows)
     return path
+
+
+def import_rows(tmp_path, url, namespace, rows, load_mode="copy", **kwargs):
+    source = write_csv(tmp_path / f"{namespace}.csv", rows)
+    return run_import(
+        source,
+        load_mode=load_mode,
+        namespace=namespace,
+        out=tmp_path / namespace,
+        url=url,
+        **kwargs,
+    )
