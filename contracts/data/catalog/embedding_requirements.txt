@@ -135,7 +135,7 @@ numpy==2.4.6 \
     --hash=sha256:f407cb6b8e9d6d8c626bc73c945db1706035af8fd632295547bf1c9e46d092d6 \
     --hash=sha256:f74a575920ab21fe304421a3fc28793d82e299cae9eccb37084e9fc7f3617c20
     # via
-    #   -r /tmp/claude-1000/-home-harsh-chaudhari-Dev-Group-3-Coding-Pack--1-/c6e40848-def0-4f27-a0e7-41d8a8ee6ece/scratchpad/embed.in
+    #   direct requirement
     #   onnxruntime
 onnxruntime==1.31.1 \
     --hash=sha256:0558f29d5f6ac09957390c9c5495931485ee8ae7f0ce781ccee86a0ae5c2348b \
@@ -162,7 +162,7 @@ onnxruntime==1.31.1 \
     --hash=sha256:e4ad067d36e2220218e085d7223283b2ee1bc73d887e811fd14d21cf901a11ee \
     --hash=sha256:fc01b4e7c0a81778fb741bcf5c16b7871d196275f6240720a8b8bfd9f0c0af14 \
     --hash=sha256:fe8b9ac1ae8e894e12c47ee82e4f6dfc1835768133687257866469fda80d0bf1
-    # via -r /tmp/claude-1000/-home-harsh-chaudhari-Dev-Group-3-Coding-Pack--1-/c6e40848-def0-4f27-a0e7-41d8a8ee6ece/scratchpad/embed.in
+    # via direct requirement
 packaging==26.3 \
     --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
     --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
@@ -279,7 +279,7 @@ tokenizers==0.23.3 \
     --hash=sha256:e88646b8580c5ad7f4361477f1298e9cc01771a1ee9aecfe32c47b8ff614cc38 \
     --hash=sha256:ec82e80e65a862275b97c3d90b7a523df8d9519ee48aeb4e9625b2cc909274e0 \
     --hash=sha256:efa3d7318406b4d115dce61ad5061953f1f44b128e79c020ce4615d763e23b6e
-    # via -r /tmp/claude-1000/-home-harsh-chaudhari-Dev-Group-3-Coding-Pack--1-/c6e40848-def0-4f27-a0e7-41d8a8ee6ece/scratchpad/embed.in
+    # via direct requirement
 tqdm==4.70.1 \
     --hash=sha256:c293e525e6fef9c20e8728fd4612df02a0aa31bb5fe91ecd93e123b1b7bffa73 \
     --hash=sha256:cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4

@@ -4,7 +4,7 @@
 **Role:** M2: catalogue, retrieval, quotes, stock read model, Parquet compaction and query benchmarks
 **Brief:** [05_HARSH_CHAUDHARI.md](../specs/05_HARSH_CHAUDHARI.md)
 **Status date:** 2 November 2026
-**Branch:** `harsh`, local until reviewed
+**Branch:** merged to `main` in PR #3
 
 Results: [experiments.md](experiments.md). What teammates need: [handoff.md](handoff.md). How the
 relevance labels were made: [relevance_labels.md](relevance_labels.md).

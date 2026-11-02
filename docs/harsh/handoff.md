@@ -1,6 +1,6 @@
 # M2 handoff
 
-What each teammate needs from the catalogue module. Everything below is on branch `harsh`.
+What each teammate needs from the catalogue module. Everything below is on `main`.
 
 ## Jaineel
 
