@@ -1,0 +1,904 @@
+query_id,sku,label,label_source,label_reason
+B01,FK-TSHE3HHZZMUH2HHA,1,rules-v2:08bb09d87efd,related: t-shirt
+B01,FK-BRAE3TSHXQXHZFZH,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-SHTEGQ6KKZAANJVZ,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-BRAE3TSHYZHBYFBU,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-SHTEGQCHDMCA3TFD,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-TSHE2MAEJSYE7ZQN,1,rules-v2:08bb09d87efd,related: t-shirt
+B01,FK-BRAE3TSHYZTHHE2F,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-SHTEGZZCHCEYJJ2J,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-SHTEGZB8HYN9BCZK,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-SHTEJWHZKQGRNFG7,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-SHTEJT4DCZAKK3YW,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-BRAE3TSHYTS4FCU4,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-SHTEGQCHMHPU9XFX,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-BRAE3TSHVWYHGGWH,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-SHTEGQCHG5TRFMBC,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-BRAE3TSHUSJJYKM7,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-SHTEGQCHBEWQBVBT,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-BRAE3TSHXZFRYAZQ,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-BRAE3TSHRTGMZA44,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-BRAE3TSHVMCW7NDZ,0,rules-v2:08bb09d87efd,excluded: bra
+B01,FK-SHTEGQCH3BTXUHAH,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-SHTEEV5FXESXZC6C,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B01,FK-TSHEJQ2FHCZZMUZB,1,rules-v2:08bb09d87efd,related: t-shirt
+B01,FK-SHTEJGESKVEMGRYR,2,rules-v2:08bb09d87efd,"product, but missing: cotton"
+B01,FK-TSHEGNVDSSTAG8C3,1,rules-v2:08bb09d87efd,related: t-shirt
+B01,FK-BRAE3TSHZ6KZBBZH,0,rules-v2:08bb09d87efd,excluded: bra
+B02,FK-BRAE3TSHXQXHZFZH,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-KTAEJJCHNHBQ9YFN,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-BRAE3TSHVMCW7NDZ,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-KTAEGYZZNB6CDSEH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-BRAE3TSHRTGMZA44,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-BRAE3TSHVWYHGGWH,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-KTAEJM2HDVVMKKSD,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-BRAE3TSHYZHBYFBU,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-KTAEGPBZAGHZJ9AG,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-KTAEJM2HBGVBURPX,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-KTAEGPBZFPCGGFKZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-KTAEJJCGNBEVSDFZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-BRAE3TSHZ6KZBBZH,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-KTAEGPBZ6XEZTRWV,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-BRAE3TSHYTS4FCU4,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-BRAE3TSHUSJJYKM7,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-KTAEGZBRBFRH3MTF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-KTAEGYZZWT9ZYDQW,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-KTAEGP95ZGVHWHT3,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-BRAE3TSHXZFRYAZQ,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-KTAEGYZPAWSNTKGM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-KTAEGXWFWAUJTGWR,3,rules-v2:08bb09d87efd,product and all attributes in title
+B02,FK-BRAE3TSHYZTHHE2F,0,rules-v2:08bb09d87efd,wanted product not in title
+B02,FK-KTAEJJCMAW9AZGZY,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCEBKWHGV6VDZBS,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCEASN6TXJGHZUE,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCE2F5HXGKRMKYZ,2,rules-v2:08bb09d87efd,"product, but missing: gold plated"
+B03,FK-NKCEAPCWHHHAJHMT,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCEB3GZSB8GTXCT,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCEBUSTZRTHWKNB,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCE69P8PMETSMRH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCE9W4ZNQGHCENM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCEBHGBYC9ZH3ZX,2,rules-v2:08bb09d87efd,"product, but missing: gold plated"
+B03,FK-NKCEBKWHJE7TWABZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCE5H4XW2PH6KFH,2,rules-v2:08bb09d87efd,"product, but missing: gold plated"
+B03,FK-NKCEC9FM5A8PJSHZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCEBVGGUEZCJZZR,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCECGVBKYNJGZZQ,1,rules-v2:08bb09d87efd,"product, but conflicts: silver plated"
+B03,FK-BBAE73VF6GBYSXQN,0,rules-v2:08bb09d87efd,wanted product not in title
+B03,FK-BCHEGTZFDWMDGEJB,0,rules-v2:08bb09d87efd,wanted product not in title
+B03,FK-NKCEC9FMCGECBZZT,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCEGNP35GW3UKNY,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-BBAEAX9RJMZKFY3H,0,rules-v2:08bb09d87efd,wanted product not in title
+B03,FK-NKCEBKWHPFP3FDUS,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCEBG9BWANRRRS2,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCED842FSG9PEQN,2,rules-v2:08bb09d87efd,"product, but missing: gold plated"
+B03,FK-NKCEB3PRFEV5BERA,3,rules-v2:08bb09d87efd,product and all attributes in title
+B03,FK-NKCDYSR9YGEZHE9D,2,rules-v2:08bb09d87efd,"product, but missing: gold plated"
+B03,FK-NKCE7Y2Y4BFFU9A4,2,rules-v2:08bb09d87efd,"product, but missing: gold plated"
+B03,FK-BBAECPQAHY5U8C9D,0,rules-v2:08bb09d87efd,wanted product not in title
+B03,FK-NKCE8JUJEUE3HR4H,2,rules-v2:08bb09d87efd,"product, but missing: gold plated"
+B04,FK-SHOEGDT7PZMGHKQF,1,rules-v2:08bb09d87efd,related: shoe
+B04,FK-SFFEHQVA8DK4UJYH,0,rules-v2:08bb09d87efd,wanted product not in title
+B04,FK-SFFEGJHUECHGZMZS,0,rules-v2:08bb09d87efd,wanted product not in title
+B04,FK-SHOEHFH8RH7WHMZW,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SHOEH76627H5HRHM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SFFEHTGHZGMHTZA7,0,rules-v2:08bb09d87efd,wanted product not in title
+B04,FK-SHOEHGYNUNVJZYMZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SNDDYE2M83GSMVEJ,0,rules-v2:08bb09d87efd,wanted product not in title
+B04,FK-SHOEGRUNZPJDGG2Y,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SHOEJ5YSJMX2HXRF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SHOEH7SY8PZPF9NE,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SHOEBG6ZUGTSDGBU,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SHOEBYXXAZQYTHPG,1,rules-v2:08bb09d87efd,related: shoe
+B04,FK-SHOEH7622HVGTZUF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SFFEGJCHXGHYYYZG,0,rules-v2:08bb09d87efd,wanted product not in title
+B04,FK-SFFEHQVASF8FGSD7,0,rules-v2:08bb09d87efd,wanted product not in title
+B04,FK-SHOEBG6ZDGSSUTHP,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SFFEGJHS8Z7DSTH3,0,rules-v2:08bb09d87efd,wanted product not in title
+B04,FK-SHOEGEV4PTVSQTER,3,rules-v2:08bb09d87efd,product and all attributes in title
+B04,FK-SHOEHZMMPFYUGBGD,2,rules-v2:08bb09d87efd,close match only: school shoe
+B04,FK-SFFEGWP99ZYHSHFM,0,rules-v2:08bb09d87efd,wanted product not in title
+B04,FK-SHOEG7FXJFJDFPBD,3,rules-v2:08bb09d87efd,product and all attributes in title
+B05,FK-ACCE6DZC4YWVGMZH,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCE24MCBZCRCNBH,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCE2V5AZJ6UHPFW,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCEJUD8SHZPSDWQ,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCE4WJKQGGVYGT4,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCE6DZCHNHYHZZJ,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCEJUD92GWTPCN2,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCDCYB8NCGPEYEU,1,rules-v2:08bb09d87efd,related: case
+B05,FK-ECOEH4BXGVMBYEMG,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCEABW85UJZ7BMZ,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCE6DZC4SANU636,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCE6DZCAGSQEW3B,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCE6DZC3FYVKWHK,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCEABW8QWGJANDU,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-SADEGYY4GFWHB68N,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCEABVYXNHCT8UE,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCE6DZCFX6JK8ZJ,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCEYWF8SHVQDXP4,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCE6DZC6Y5ZYCZ7,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B05,FK-ACCEYYFYNFKKTZSZ,0,rules-v2:08bb09d87efd,wanted product not in title
+B05,FK-ACCE6CRF92JBR2HT,3,rules-v2:08bb09d87efd,product and all attributes in title
+B05,FK-ACCEABW8VUK4NHQS,1,rules-v2:08bb09d87efd,"product, but conflicts: ipad"
+B06,FK-HLKEG2G4ZVHE7M9M,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-ACCEA66TZQRT23RN,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-ACCE74HCM54BZFAX,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-CCVEFV4RRNH9FAHH,1,rules-v2:08bb09d87efd,related: car cover
+B06,FK-COVEJVF7ENJZTYCJ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B06,FK-CCVEFV4XN2TQDQJZ,1,rules-v2:08bb09d87efd,related: car cover
+B06,FK-CCVE6FQUJHNHQVNQ,1,rules-v2:08bb09d87efd,related: car cover
+B06,FK-CCVEFX3Y9DFJVJUU,1,rules-v2:08bb09d87efd,related: car cover
+B06,FK-CGCEG28UCFAFNXBH,1,rules-v2:08bb09d87efd,related: grill cover
+B06,FK-ACCE6J23PMCFS9ST,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-CCVEFVXGHKNCVZ5A,1,rules-v2:08bb09d87efd,related: car cover
+B06,FK-CSOE94WXZHYY9AYH,1,rules-v2:08bb09d87efd,related: steering cover
+B06,FK-CCVEG4ENZJCWD3C6,1,rules-v2:08bb09d87efd,related: car cover
+B06,FK-VAREJGRDFHF3QNRK,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-TWCEBZZUUZS54TFU,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-ACCEBEZZEQZ3SSAZ,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-VAREJGRFHDKSGZT9,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-CCVEFX3WAZFJA92K,1,rules-v2:08bb09d87efd,related: car cover
+B06,FK-CCVEFX3XNKFEF843,1,rules-v2:08bb09d87efd,related: car cover
+B06,FK-TWCEA96ED9EZN9UW,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-ACCE73VFWU9JYKEF,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-ACCE93ZDRDSJD3RG,0,rules-v2:08bb09d87efd,wanted product not in title
+B06,FK-CCVEFX5JZHYKHHHF,1,rules-v2:08bb09d87efd,related: car cover
+B07,FK-SHIE9J6PUWBGKCAJ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B07,FK-STIEAE2Z8QXAZSD7,1,rules-v2:08bb09d87efd,related: wall sticker
+B07,FK-RCLEE2NJGGZXXA3Q,0,rules-v2:08bb09d87efd,wanted product not in title
+B07,FK-STIE78RVZS6NH3SW,1,rules-v2:08bb09d87efd,related: wall sticker
+B07,FK-SHIEA47THGAJETFH,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B07,FK-SHIEGRYVSHD9HAF2,2,rules-v2:08bb09d87efd,"product, but missing: wall"
+B07,FK-SHIEBCQZFENB4BGC,2,rules-v2:08bb09d87efd,"product, but missing: wall"
+B07,FK-STIEGGF6DZHYPYK4,1,rules-v2:08bb09d87efd,related: sticker
+B07,FK-SHIEGFC2FMKUGNZZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B07,FK-SHIEGSDVTESTQFAQ,2,rules-v2:08bb09d87efd,"product, but missing: wall"
+B07,FK-SHIE9J6PRGFHJHRY,2,rules-v2:08bb09d87efd,"product, but missing: wall"
+B07,FK-WLPEGHDFJ4UKCRMY,1,rules-v2:08bb09d87efd,related: wallpaper
+B07,FK-SHIE9J6QKG4SD5WG,3,rules-v2:08bb09d87efd,product and all attributes in title
+B07,FK-SHIDYPABZUZ7PZVW,3,rules-v2:08bb09d87efd,product and all attributes in title
+B07,FK-SHIE5HBGWKWJWFRA,3,rules-v2:08bb09d87efd,product and all attributes in title
+B07,FK-STIE34TGNPF6MC8K,1,rules-v2:08bb09d87efd,related: wall sticker
+B07,FK-SHIE9J6PFGP9DZAH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B07,FK-STIE67GJZUHZG9C6,1,rules-v2:08bb09d87efd,related: wall sticker
+B07,FK-RCLEYW4PKHPWGSDV,0,rules-v2:08bb09d87efd,wanted product not in title
+B07,FK-RCLEYW4P9GHDHBFR,0,rules-v2:08bb09d87efd,wanted product not in title
+B07,FK-SHIE9J6PH5ZKV7YX,2,rules-v2:08bb09d87efd,"product, but missing: wall"
+B07,FK-RCLEYW4PFFSAFZKT,0,rules-v2:08bb09d87efd,wanted product not in title
+B07,FK-SHIE954FZSSHYFGG,3,rules-v2:08bb09d87efd,product and all attributes in title
+B07,FK-SHIE5HBGDYSHVA5R,3,rules-v2:08bb09d87efd,product and all attributes in title
+B07,FK-RCLEYW4QUXFKRMGU,0,rules-v2:08bb09d87efd,wanted product not in title
+B07,FK-STIE7VYZRDVMCHFH,1,rules-v2:08bb09d87efd,related: wall sticker
+B07,FK-RCLEYW4PFKNHDUHX,0,rules-v2:08bb09d87efd,wanted product not in title
+B08,FK-CBKEAHJXG8EJYDY6,2,rules-v2:08bb09d87efd,close match only: facial kit
+B08,FK-CBKEGSG7XXSCTME7,3,rules-v2:08bb09d87efd,product and all attributes in title
+B08,FK-CBKEAHJXG59ZQPH4,2,rules-v2:08bb09d87efd,close match only: face pack
+B08,FK-SNREBR5MZHSPP6SQ,1,rules-v2:08bb09d87efd,related: sun care
+B08,FK-CBKEAHJXYZ5EHUFX,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B08,FK-LPBEGAKKCYHXZKJH,0,rules-v2:08bb09d87efd,excluded: lip
+B08,FK-CBKEBFJWZX38FQSK,2,rules-v2:08bb09d87efd,close match only: face wash
+B08,FK-CBKEHGUY3GEHDSFY,2,rules-v2:08bb09d87efd,close match only: face wash
+B08,FK-CBKEAHJXUF3XZVC2,2,rules-v2:08bb09d87efd,close match only: face pack
+B08,FK-CBKE9WKTKZDY7GGH,2,rules-v2:08bb09d87efd,close match only: face wash
+B08,FK-LSKE9HQNUZMHBSDJ,0,rules-v2:08bb09d87efd,wanted product not in title
+B08,FK-CBKEAHJXBZEJJ8JN,3,rules-v2:08bb09d87efd,product and all attributes in title
+B08,FK-SNRE6DNNHRCCZ6VK,1,rules-v2:08bb09d87efd,related: sunscreen
+B08,FK-CBKEBFJWFQZZ2KGZ,2,rules-v2:08bb09d87efd,close match only: face wash
+B08,FK-MNKE8ZWFT44GRURB,0,rules-v2:08bb09d87efd,wanted product not in title
+B08,FK-SMPEJWCKPNNPDVKG,0,rules-v2:08bb09d87efd,excluded: beard
+B08,FK-LSKE5U4JKDMDSVF5,0,rules-v2:08bb09d87efd,wanted product not in title
+B08,FK-CAGDYPBWA7RBUBYT,0,rules-v2:08bb09d87efd,wanted product not in title
+B08,FK-SOPDFZRFNPZKTDG8,0,rules-v2:08bb09d87efd,wanted product not in title
+B08,FK-CBKEAHJXYMKYBFJC,3,rules-v2:08bb09d87efd,product and all attributes in title
+B08,FK-CBKEBFJWGCTVNSVJ,2,rules-v2:08bb09d87efd,close match only: face wash
+B08,FK-CBKEAHJXYGJHFCBT,2,rules-v2:08bb09d87efd,close match only: facial kit
+B08,FK-LPBEG9CUAWK3TF33,0,rules-v2:08bb09d87efd,excluded: lip
+B09,FK-CPCEFH9YCGUDCXYH,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-BTWEBTHDXYWMTHZY,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-CPCEJCCPYGHSTWTF,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-CPCDZT9ZRGTKANYZ,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-BDSE7WQ37UVSX7SK,3,rules-v2:08bb09d87efd,product and all attributes in title
+B09,FK-BDSEJT9UQWHDUBH4,3,rules-v2:08bb09d87efd,product and all attributes in title
+B09,FK-CPCEJCCPQKBGD2NH,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-CPCE6RHH7EKSBV5X,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-CPCECTDWUSGCYB7B,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-BLAEEHE5PXHBZ5MB,1,rules-v2:08bb09d87efd,related: blanket
+B09,FK-BLAEFNYCRGTHXXEX,2,rules-v2:08bb09d87efd,close match only: top sheet
+B09,FK-BDSE7FQ52B4P2Y6G,3,rules-v2:08bb09d87efd,product and all attributes in title
+B09,FK-BDSEJTHGGZH3HSJF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B09,FK-BDSEJSEZYPCYRTHS,3,rules-v2:08bb09d87efd,product and all attributes in title
+B09,FK-CPCE49C9W7EFFSSS,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-BTWDYMY2AY556WZV,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-BDSEGGFARZSB4SHY,3,rules-v2:08bb09d87efd,product and all attributes in title
+B09,FK-BLAEFNYCWVERCSRX,2,rules-v2:08bb09d87efd,close match only: top sheet
+B09,FK-BDSEJTHQJSEAEEJZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B09,FK-BDSEJJCKFGYZR4GS,3,rules-v2:08bb09d87efd,product and all attributes in title
+B09,FK-CPCE5YKSD8HVN6NG,0,rules-v2:08bb09d87efd,wanted product not in title
+B09,FK-BDSEJTHNGWVGWWQU,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGE5HG8VVGMBN5M,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGE92Z4SGPZP3JJ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-PACE7QHJGYKXGM5W,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-PACEY7PZX958DH5S,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-PACED7HVHJQHDZQC,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-PACE3P9ASGJSV5KW,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-MUGE6S9YZ25CHZRN,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGE6SYUDDPPJDKT,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGE7DUFGUZDQMTQ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-PACE7RRFT47PZGPU,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-MUGEB7J7GMQTWDP6,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGEB7J7SPWJTRDC,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGECEVFKB5RER6P,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-BMBEHPAGGDSSYMUZ,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-PACE5P38T4FEUHZC,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-MUGE75ZZ2ZYSR3TR,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-PACEBQ5THBFZZYUX,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-MUGEYYXFNGQ6A3FP,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGEJWBRFZJHGSBG,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGE7DUFB3MZZN79,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGE6ZDZRKBKEHPF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-PACEBHCUHAYSM8PF,0,rules-v2:08bb09d87efd,wanted product not in title
+B10,FK-MUGECEVFKZHBDRWM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGECEVF6QB99RWA,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGE7DUFEC3VUZMF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B10,FK-MUGE8DAUVTATCUYH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-USGEDSGQDG8VUQWT,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-LACEGEZAFNV6YHHF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-USGEDPZZN22CNEUT,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-USGE9BCMJNVX6ZGV,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-LACEGEZDGBBEJGZ6,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-USGEBZZ3Y567FZKP,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-LACEGEZDXJMYZFMA,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-LACEGEZBC67ZS5NR,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-USGEDSGQYHMHBZGH,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-USGEBHHGHGUYVCZ8,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-LACEGEZDGRYHKZWT,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-LACEGEZBUKFAFH2E,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-USGEDSGQRARFSKZC,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-LACEGEZDFYZYZQ7B,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-LACEGEZBYUAA7ZWB,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-LACEGEZA6MYSFYHT,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-USGE8R7KG4TYZPV5,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-LACEGEZD7WRGFAAG,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-USGEDSGQ9W2FYVYT,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-USGEDSGQPYKN9YKU,0,rules-v2:08bb09d87efd,wanted product not in title
+B11,FK-LACEGEZANRT84UMY,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-LACEGF4N3CAXZDKH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-LACEGEZDCYHQM2WG,3,rules-v2:08bb09d87efd,product and all attributes in title
+B11,FK-LACEGEZGTVHNGAF2,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEHYHNCANKP5VZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATE5ZJZCGQUNQYF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATD9H76PGK9R3E2,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEHYVPGMHURTKG,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEHYHPZSDEGFBT,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEBGPF2YN8ZRHN,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WTBEJ6ZNMSWNYHEU,0,rules-v2:08bb09d87efd,wanted product not in title
+B12,FK-WATEHYVPYJFYVTYE,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEAYZJBFJXB4FZ,1,rules-v2:08bb09d87efd,"product, but conflicts: digital"
+B12,FK-WATECZKY7QX38DNH,1,rules-v2:08bb09d87efd,"product, but conflicts: digital"
+B12,FK-WATEHYJBSKK8HHKC,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATE9R7HUBNEKXRQ,1,rules-v2:08bb09d87efd,"product, but conflicts: digital"
+B12,FK-WATEHYUDCRJMEMQC,1,rules-v2:08bb09d87efd,"product, but conflicts: digital"
+B12,FK-WATE6GAQSZYB3FKY,1,rules-v2:08bb09d87efd,"product, but conflicts: digital"
+B12,FK-WTBEJ9RTQQMB9VYE,0,rules-v2:08bb09d87efd,wanted product not in title
+B12,FK-WATDDXF3D4SGXCW8,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEEGTHCNRZFZ5Y,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATD9H76YMYPCMCK,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATE7QKBJMGNXQRQ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATD9H76GF3QFV22,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATD9H76UHVYGDPA,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEHYJS3XNCZUSE,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATE7QKBYZGYYF43,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEDZ9FUHPEQQZF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATD9H766HFJKMBM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B12,FK-WATEAUABHVPGRBAS,1,rules-v2:08bb09d87efd,"product, but conflicts: digital"
+B12,FK-WATEHYU2ZR3UTGRK,1,rules-v2:08bb09d87efd,"product, but conflicts: digital"
+B12,FK-WATEYAP3K2QQQWDH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-SRTEEYREHHHZZGGG,1,rules-v2:08bb09d87efd,related: shorts
+B13,FK-DRPEHYHG9YYHD2HH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-FDUE6ZHHR9AAKU2B,0,rules-v2:08bb09d87efd,wanted product not in title
+B13,FK-DRPEHYHETEJFKK94,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-BOLEGTGHZXZM3HHG,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-FDUE6ZHHEEHEHRQD,0,rules-v2:08bb09d87efd,wanted product not in title
+B13,FK-DRPEGXZSYEBPKP46,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-DRPEGXZUPDVVDCZV,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-PHFDWUHW25WAWXHY,0,rules-v2:08bb09d87efd,wanted product not in title
+B13,FK-DRPEHS7GGAEJHWGH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-SRTEEYRERRHA543N,1,rules-v2:08bb09d87efd,related: shorts
+B13,FK-BTWEHQVQ5VBYE54K,0,rules-v2:08bb09d87efd,wanted product not in title
+B13,FK-DRPEGXZTUFCYFU6J,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-DRPEHYHE9ZXNVZFD,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-TSHECNFS9HYANZZP,1,rules-v2:08bb09d87efd,related: t-shirt
+B13,FK-SRTEEYRFQD9V9YBT,1,rules-v2:08bb09d87efd,related: shorts
+B13,FK-DRPEHZABCC2H27FM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-JUMECNJURHHGKSXR,2,rules-v2:08bb09d87efd,close match only: jumpsuit
+B13,FK-DRPEHYHFQ8KHHZHW,3,rules-v2:08bb09d87efd,product and all attributes in title
+B13,FK-SRTEEYREBSQJ9XEG,1,rules-v2:08bb09d87efd,related: shorts
+B14,FK-PCSE4SFFJSWJZVH4,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-PCSED7G5QSRGNGTW,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-CUTDTXFGNGUGSKXH,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-SHMECRRMZRZKQEHM,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-PCSEAYRTWFFHXZF7,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-SHMECRHENT38D2TD,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-SBSDUTY7VSABNSCK,1,rules-v2:08bb09d87efd,related: bit set
+B14,FK-KBHEGN9ZV9CGHHBP,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-SBSDUTY7VBTVKMFF,1,rules-v2:08bb09d87efd,related: bit set
+B14,FK-PCSEBDFUMFZZQDJW,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-KBHEGPKX86TJTTFY,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-SHMECQWKZVRQJVY7,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-SBSDUTY7AZYZWSQS,1,rules-v2:08bb09d87efd,related: bit set
+B14,FK-SBSDUTY7HTCTHD5V,1,rules-v2:08bb09d87efd,related: bit set
+B14,FK-SHMECRRNMKDPFVNF,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-SBSDUTY7JJXG2ZNK,1,rules-v2:08bb09d87efd,related: bit set
+B14,FK-SBSDUTY7DB4PDJJS,1,rules-v2:08bb09d87efd,related: bit set
+B14,FK-PCSEBD5MCK4SUCHD,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-PCSDY5AFFQG43YQW,0,rules-v2:08bb09d87efd,wanted product not in title
+B14,FK-SBSDWUCHYMHGG4NT,1,rules-v2:08bb09d87efd,related: bit set
+B15,FK-PBXE4Q7YF5KUYJYW,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-STFE9EQ8NNHPV9TC,3,rules-v2:08bb09d87efd,product and all attributes in title
+B15,FK-ETYEGW59FFDEFGMU,1,rules-v2:08bb09d87efd,related: toy
+B15,FK-PBXE4Q7YW6GNMRTE,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-PBXE4Q7YJFDBEHFH,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-PBXE9242JZFTYT28,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-PBXE6ZHNEV6RHNYG,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-PBXE4Q7YQTAVQEFG,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-RCTECNPQGGB4ZGAZ,1,rules-v2:08bb09d87efd,related: toy
+B15,FK-ETYEGYDFUSD2HGAU,1,rules-v2:08bb09d87efd,related: toy
+B15,FK-ETYEFUYSEGFP6E3T,1,rules-v2:08bb09d87efd,related: toy
+B15,FK-MTYEJKESAJVRTGSS,3,rules-v2:08bb09d87efd,product and all attributes in title
+B15,FK-PBXE4Q7YBMXJ53ZG,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-MTYEJK8YQWJQUFY5,1,rules-v2:08bb09d87efd,related: musical
+B15,FK-PBXE8GCDESXMGVNM,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-PBXE6ZHNGZREWWHR,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-PBXE6P4FHJJCQZXZ,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-RCTDWTG6YVYEMHEA,1,rules-v2:08bb09d87efd,related: toy
+B15,FK-PBXE5SUCMQSQA7G8,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-PBXE9WEVHF3ZBQHW,0,rules-v2:08bb09d87efd,excluded: pencil box
+B15,FK-STFDTGQZGEVP2HAM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B15,FK-STFEEDTY2ZGNZFTH,3,rules-v2:08bb09d87efd,product and all attributes in title
+B15,FK-STFE9EQ8MZRNQMJF,3,rules-v2:08bb09d87efd,product and all attributes in title
+B15,FK-TWPEJY2GE44RBSEC,1,rules-v2:08bb09d87efd,related: toy
+B15,FK-AFGEFM63YQH4WHRH,1,rules-v2:08bb09d87efd,related: toy
+B16,FK-TOPEHZNZ9YZYYAPU,1,rules-v2:08bb09d87efd,related: top
+B16,FK-BMBEHPAGGDSSYMUZ,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-DREEFJ44SMEHZZFV,2,rules-v2:08bb09d87efd,"product, but missing: party"
+B16,FK-FAFEGBUQHQCSNJZK,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-RLRDY36SXZNHEQWA,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-SHOE6ZEBTRHQ4DDG,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-SHOE6ZEBZXH2KMGN,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-PBXE4Q7YBMXJ53ZG,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-DREEDVHXSAAZSBTZ,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B16,FK-TOPEBUTMCXPBY7FK,1,rules-v2:08bb09d87efd,related: top
+B16,FK-SHOEGSNVQN4HAGV2,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-TOPEHZNP4QZHVTDW,1,rules-v2:08bb09d87efd,related: top
+B16,FK-PBXE4Q7YW6GNMRTE,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-SHOE9YD3REFDCPBR,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-SHODX6XFHPZUHNDX,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-PBXE4Q7YJFDBEHFH,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-SHOE3EZFRNXJHVDP,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-DREEFJ44EBBUEKKY,2,rules-v2:08bb09d87efd,"product, but missing: party"
+B16,FK-DREEBZB5XEMEEF3Z,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B16,FK-DREEEYGRYGXYB9BU,2,rules-v2:08bb09d87efd,"product, but missing: party"
+B16,FK-PACED7HVHJQHDZQC,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-PBXE9WEVHF3ZBQHW,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-DREEDVHXDYJCAEBP,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B16,FK-PBXE4Q7YF5KUYJYW,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-SCHE3Z7QSZFDN5HA,0,rules-v2:08bb09d87efd,wanted product not in title
+B16,FK-DREEDVHXJGJWQHVE,3,rules-v2:08bb09d87efd,"product in title, attributes in title or description"
+B16,FK-KRTEJHFEDSHWJXKA,1,rules-v2:08bb09d87efd,related: kurti
+B17,FK-PACED7HVHJQHDZQC,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-FAFEGBUQHQCSNJZK,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-CLTEGE4SGRTVHXAW,1,rules-v2:08bb09d87efd,related: clutch
+B17,FK-BBAE9K7BXFUTDNBK,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-PBXE9WEVHF3ZBQHW,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-BELEG68SBMZFFN5Z,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-CLTEJ5ZZ4NDQF2MV,1,rules-v2:08bb09d87efd,related: clutch
+B17,FK-PBXE4Q7YBMXJ53ZG,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-FAFEGERRHKYQWVKE,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-PBXE4Q7YJFDBEHFH,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-CLTEJ5ZZMTBYXWZQ,1,rules-v2:08bb09d87efd,related: clutch
+B17,FK-RLRDY36SXZNHEQWA,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-BKPEHTGBH5GGWENP,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-PBXE4Q7YW6GNMRTE,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-SFFEGF6KZ9PPM4SN,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-PBXE4Q7YF5KUYJYW,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-ACCEJR2FXPFFX5H3,0,rules-v2:08bb09d87efd,excluded: case cover
+B17,FK-SOFEE7ACBVAGKYUV,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-CLTEJ5ZZGWBAZUWR,1,rules-v2:08bb09d87efd,related: clutch
+B17,FK-CLTEJ5ZZUZKHHYDK,1,rules-v2:08bb09d87efd,related: clutch
+B17,FK-SHOEJKQNFKGHKDWS,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-SCHE3Z7QSZFDN5HA,0,rules-v2:08bb09d87efd,wanted product not in title
+B17,FK-CLTEJ5ZZGBP4JGGE,1,rules-v2:08bb09d87efd,related: clutch
+B17,FK-BMBEHPAGGDSSYMUZ,0,rules-v2:08bb09d87efd,wanted product not in title
+B18,FK-BRAE3TSHVMCW7NDZ,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA4498A9CBFRX,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHYZHBYFBU,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHZ6KZBBZH,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA449GB89ADNG,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA449EDYHB9ZA,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA4496CMCQZCU,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ABQEJ7YQTNQGMXZV,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA4495H4WS89A,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHXZFRYAZQ,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHVWYHGGWH,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHRTGMZA44,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA4494GNXG3TZ,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA449AW9GBEUE,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA4496TX8ZZV4,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHUSJJYKM7,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-ACBEA4498TDPW6JP,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHYZTHHE2F,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHYTS4FCU4,,rules-v2:08bb09d87efd,no query text: unjudged
+B18,FK-BRAE3TSHXQXHZFZH,,rules-v2:08bb09d87efd,no query text: unjudged
+B19,FK-RNGEH3ESHHQAGGTP,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEAY8GRWYMYSAK,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEBD45KWPUJG3F,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3ESCEYFDG6V,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEB8AG2HHBGBH5,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3ESYHZF3GHM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3EV5SBNBHCC,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3EVAD3HVPPR,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEB84Z6NCDPEVN,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3EVGJ9YGYHX,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3EUZSMGYMU2,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGE9B79KRZG5UWK,1,rules-v2:08bb09d87efd,"product, but conflicts: gold"
+B19,FK-RNGECQP4BZZ8HYBA,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEFKBYME7B3AVK,1,rules-v2:08bb09d87efd,"product, but conflicts: gold"
+B19,FK-RNGEJUGGQYXFWMET,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3ESGH2PTCHE,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3ERFUQUV3UN,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEAY8GGPJTHDVB,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3ESZASB7FHM,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3ERSQJC6JVQ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEAY8GWSHGGMQ6,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGED5YAZMEZYGGB,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGEH3EUYRBNXK9N,3,rules-v2:08bb09d87efd,product and all attributes in title
+B19,FK-RNGE7KFY3XZNZS48,3,rules-v2:08bb09d87efd,product and all attributes in title
+B20,FK-SHOEBG6ZDGSSUTHP,3,rules-v2:08bb09d87efd,product and all attributes in title
+B20,FK-SHOEEPF8KWHTJ9A7,3,rules-v2:08bb09d87efd,product and all attributes in title
+B20,FK-SNDEBDGSBAGMVRBE,0,rules-v2:08bb09d87efd,wanted product not in title
+B20,FK-SHOEGJK85Z3TSXZE,2,rules-v2:08bb09d87efd,close match only: sneaker
+B20,FK-SFFEHK9JZTUFV3HN,0,rules-v2:08bb09d87efd,wanted product not in title
+B20,FK-SFFEJUBUUFGT6TYA,0,rules-v2:08bb09d87efd,wanted product not in title
+B20,FK-SHOE58EKXSEYAYX6,3,rules-v2:08bb09d87efd,product and all attributes in title
+B20,FK-SHOECKEYFVTA6E8S,2,rules-v2:08bb09d87efd,close match only: sneaker
+B20,FK-SHOEGVQCT2ZSGUHY,1,rules-v2:08bb09d87efd,related: shoe
+B20,FK-SHOEGPFVFYEUEA5F,1,rules-v2:08bb09d87efd,related: shoe
+B20,FK-SNDEJMK8J2ZEZJKX,0,rules-v2:08bb09d87efd,wanted product not in title
+B20,FK-SHODZ5YHTEHZTR3V,1,rules-v2:08bb09d87efd,related: shoe
+B20,FK-SHOEJTNN3EATFHFG,1,rules-v2:08bb09d87efd,related: shoe
+B20,FK-SNDDYE2M83GSMVEJ,0,rules-v2:08bb09d87efd,wanted product not in title
+B20,FK-SHOEGVPQHZ5VUGAB,1,rules-v2:08bb09d87efd,related: shoe
+B20,FK-SHOEBG6ZUGTSDGBU,3,rules-v2:08bb09d87efd,product and all attributes in title
+B20,FK-SHOEJRF2TEXACAKZ,1,rules-v2:08bb09d87efd,related: shoe
+B20,FK-SNDE3SNFMHARS463,1,rules-v2:08bb09d87efd,related: sports sandal
+B20,FK-SNDEBDGSABAC5MMV,0,rules-v2:08bb09d87efd,wanted product not in title
+B20,FK-SNDE8AVMTGHYSJZH,0,rules-v2:08bb09d87efd,wanted product not in title
+B20,FK-SHOEHDF4PSUGJXAQ,3,rules-v2:08bb09d87efd,product and all attributes in title
+B20,FK-SNDEJMK8HWAQEPQY,0,rules-v2:08bb09d87efd,wanted product not in title
+B20,FK-SNDEBDGSCHSVQYYE,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-BRAEGG4P8HYHRAC9,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-FABEGPFVMDQBDMBY,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-FABEGPFVF5CEHHDV,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-BRAEAM6P8NGS3EYZ,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-BRAEB2ZTMFRTJDDF,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-FABE92NVJWFVRWTZ,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-FABE9TBEMXEJWZYG,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-BRAE6YVWFYHZRV5Z,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-BRAEB2ZTTWEGF3DD,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-BRAEB2ZTYW2ZVNAZ,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-BRAE3TSHYZTHHE2F,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-BRAEBBMQZHSZNF4N,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-BRAE2NF6QBUFMJTU,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-BRAECGQ4GW73HJFV,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-BRAE3TSHVMCW7NDZ,0,rules-v2:08bb09d87efd,excluded: bra
+S01,FK-FABE9336YZVWPEZ3,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-FABEGPFVBJGCF5GD,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-FABE93H9AGWMNDJR,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-FABEH2JKYTARAYRD,0,rules-v2:08bb09d87efd,wanted product not in title
+S01,FK-BRAE8GDGSKTVFQZE,0,rules-v2:08bb09d87efd,excluded: bra
+S02,FK-FABEHAEDAWVHTXB2,1,rules-v2:08bb09d87efd,related: kurta
+S02,FK-KRTECQSNY3GFESAZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-BRAE3TSHXZFRYAZQ,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-BRAE3TSHVWYHGGWH,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-KRTEEGTKC6PZZAHG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-BRAE3TSHUSJJYKM7,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-BRAE3TSHYZHBYFBU,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-KRTECTVAEGPYJBHB,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-BRAE3TSHZ6KZBBZH,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-KRTEJNZSXUR2ZZWY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-BRAE3TSHYZTHHE2F,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-SWDEGP9AHSFHRSUF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-SWDEGP9ASG5Z5WAR,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-BRAE3TSHYTS4FCU4,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-BRAE3TSHRTGMZA44,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-FABEHAED9RGAMGHN,1,rules-v2:08bb09d87efd,related: kurta
+S02,FK-KRTECQSNFQVPNEND,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-KRTEEGTKS9KZFGXD,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-KRTECEGGYURK73ZK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-BRAE3TSHVMCW7NDZ,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-KRTEDCPG285BD4SY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-BRAE3TSHXQXHZFZH,0,rules-v2:08bb09d87efd,wanted product not in title
+S02,FK-KRTEDCQBYWN4CVXM,3,rules-v2:08bb09d87efd,product and all attributes in title
+S02,FK-KRTECTF4GCCTTX3H,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-BBAE96RPUGWMTDFM,0,rules-v2:08bb09d87efd,wanted product not in title
+S03,FK-NKCECYGG2EHHKG4D,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCE57RNNPHXZ6U8,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEBHGBYC9ZH3ZX,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEB3GZSB8GTXCT,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEAPCWHHHAJHMT,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEA5FHTTNBHR2J,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEGE6VY83SUHQ9,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCE57RNP2CDWTGE,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCDSCF3QD5EGFJ2,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-BBAE73VF6GBYSXQN,0,rules-v2:08bb09d87efd,wanted product not in title
+S03,FK-NKCDXHWZGDPDJG7X,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEGG487BXDYHGW,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCE57RNFHJADNTG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEB6ZB8NS8GAFG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCE5GJ3YZQ8UFUR,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEB3PRFEV5BERA,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEFGFURYNWH2DR,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCE3H9SBZDGNHCX,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCE57RNSUMMAQCT,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEGE6V8DZ9PHBV,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCE5GJ3HYMV7BBP,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCE9YX2PG9ZNCP2,3,rules-v2:08bb09d87efd,product and all attributes in title
+S03,FK-NKCEGG4FGCXYTFPC,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SNDEG7DRWSX8HFXZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SNDEG7MZHHKZ58D2,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SNDEJCWXXFWQRCJU,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SFFEHTGHZGMHTZA7,1,rules-v2:08bb09d87efd,related: slipper
+S04,FK-SNDEJGYFP2AT3FMH,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SFFEHQVASF8FGSD7,1,rules-v2:08bb09d87efd,related: slipper
+S04,FK-SNDEHFQA8YU6WANZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SNDEGAJFFK2KKKRF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SNDDYE2M83GSMVEJ,1,rules-v2:08bb09d87efd,related: flat
+S04,FK-SNDEAF3Y34EZRCMT,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SFFEHQVA8DK4UJYH,1,rules-v2:08bb09d87efd,related: slipper
+S04,FK-SFFEGWP99ZYHSHFM,1,rules-v2:08bb09d87efd,related: flip flop
+S04,FK-SNDE7BYJPKRZEZER,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SHOEGDT7PZMGHKQF,0,rules-v2:08bb09d87efd,wanted product not in title
+S04,FK-SFFEGJHUECHGZMZS,1,rules-v2:08bb09d87efd,related: slipper
+S04,FK-SHOEBYXXAZQYTHPG,0,rules-v2:08bb09d87efd,wanted product not in title
+S04,FK-SFFEGJCHXGHYYYZG,1,rules-v2:08bb09d87efd,related: flip flop
+S04,FK-SNDEHW9GP5PQGYKH,1,rules-v2:08bb09d87efd,related: flat
+S04,FK-SNDEJCVWQNZUSVFY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SFFEGJHS8Z7DSTH3,1,rules-v2:08bb09d87efd,related: slipper
+S04,FK-SNDEJHKUWVDHMGQY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SNDEAF3YBRGZAFYK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S04,FK-SNDEH2EHSJXVGZRR,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEAZCV9DGDZDDD,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEAZCVBHKKDVMZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ECOEH3DPYUSTWUE6,0,rules-v2:08bb09d87efd,wanted product not in title
+S05,FK-ACCE9E2RYP2JXVBY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEAZCVGDCYTVYA,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEAZCVDZH4YF57,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEAZCVGHVNJ5YX,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEAZCVK24U8KVZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCE9E2RT56M3GSU,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-MBPEJMV5GAY9SZX5,1,rules-v2:08bb09d87efd,related: back panel
+S05,FK-MBPEFHRT4Q8EVGNU,1,rules-v2:08bb09d87efd,related: back panel
+S05,FK-MBPEJMV6ADZK33SF,1,rules-v2:08bb09d87efd,related: back panel
+S05,FK-MBPEJMV6CHZHHHKM,1,rules-v2:08bb09d87efd,related: back panel
+S05,FK-MBPEJMV8TZQRBF9N,1,rules-v2:08bb09d87efd,related: back panel
+S05,FK-ACCEAZCVEKWMNSEY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEDNXYRZWBPFDF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEDCYTFNHAVRKN,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ECOEHBYZSUAHXEA8,0,rules-v2:08bb09d87efd,wanted product not in title
+S05,FK-ACCEAZCV5BHHDHFK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-MBPEJMV862YUENUP,1,rules-v2:08bb09d87efd,related: back panel
+S05,FK-ACCEAZCVGGGWZGKU,3,rules-v2:08bb09d87efd,product and all attributes in title
+S05,FK-ACCEAZCVAMFHDPY7,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-BHGEGTAVWRZQTU6T,0,rules-v2:08bb09d87efd,wanted product not in title
+S06,FK-BHGEJQY4GJ9PEZX5,0,rules-v2:08bb09d87efd,wanted product not in title
+S06,FK-CRTECN2QS6YHKQ3G,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-BHGEGTAU6PQYT9HY,0,rules-v2:08bb09d87efd,wanted product not in title
+S06,FK-CRTEJQ9XTZWDFSTX,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QSVZAXMVG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QS6UTHZJG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QS7YHAKV2,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTEJQ9X2ZWJG2HW,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QSARKNGNV,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QS6ZFWPEY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QTHZGY88Z,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-BHGEGTAVSWG4ZTGH,0,rules-v2:08bb09d87efd,wanted product not in title
+S06,FK-CRTECN2QSDTHGBEH,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QSXEHJHR5,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QSDV5BZ8T,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QS5JJAFVP,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTE8389ZZJS6W9E,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QSGCA6CSF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTEJQ9W3VZRQKCY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QSEMZDCCH,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-CRTECN2QUCD97JY3,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-BHGEGTAV2TMUKR9J,0,rules-v2:08bb09d87efd,wanted product not in title
+S06,FK-CRTECN2QS6EBXAGP,3,rules-v2:08bb09d87efd,product and all attributes in title
+S06,FK-BHGEGTAVV8YFRFGZ,0,rules-v2:08bb09d87efd,wanted product not in title
+S07,FK-MUGE6A5HZQ564AWG,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE5HG8G63YKHFB,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE5PZ6NQHW7GZY,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE9WYRNRCC5W65,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE6A5HVZYHMHKW,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE6A5HP6TG9YCQ,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE5PZ6HEKU5YN8,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE6A5HYZZVG5Y3,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE5HG8VVGMBN5M,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE5HG8AZTFDZ4T,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE4PXNXSEFGFZU,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE6A5HZUJ924WH,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-MUGE5HG8FG7YJHMD,,rules-v2:08bb09d87efd,no query text: unjudged
+S07,FK-CDSEG6ANKKXHFEVX,,rules-v2:08bb09d87efd,no query text: unjudged
+S08,FK-WATE7H4UYKQP363Z,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEHYVPYJFYVTYE,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEHYVPGMHURTKG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATE6GAQSZYB3FKY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATE5ZJZCGQUNQYF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WTBEJ6ZNMSWNYHEU,0,rules-v2:08bb09d87efd,wanted product not in title
+S08,FK-WATECZKY7QX38DNH,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATE9MVXDEVHGHAU,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATED3ZJHMGJQ8EY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEJAE8DFSKJDQE,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEHYU2ZR3UTGRK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEAUABHVPGRBAS,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEDZ9FUHPEQQZF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATECGPSDSFRHUSY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATE9R7HUBNEKXRQ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WTBEJ9RTQQMB9VYE,0,rules-v2:08bb09d87efd,wanted product not in title
+S08,FK-WATE9MVXJXHZHEJU,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATD9H76PGK9R3E2,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATDZNSHJHDTS9GN,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATECVGYJXPGREKD,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEBYZGCFGUP9HG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEBYZGFCZPUJAR,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEAYZJBFJXB4FZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATDDXF3D4SGXCW8,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEHYUDCRJMEMQC,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEHZN5BG4SUKBY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S08,FK-WATEEGTHCNRZFZ5Y,3,rules-v2:08bb09d87efd,product and all attributes in title
+S09,FK-BRAE3RFCGHJGVJ9Y,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE2NF6E8SVUPTD,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE6Z79CG9ZH75H,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE4S2FYF4RN49J,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE7FNDZG77GEZH,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE6ZCHAHQE5HD9,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE6Z79ZEURU5ZN,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE3TSHUUUJSXXN,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE6ZCHV2ZAA9US,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-FABE92NVKXGFYBWC,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAEBBMQYTTTFUNW,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE8MVUMSMBMNJS,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE3TSHYHHD8ZK5,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-TROE5FGCZ5UX7YR7,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAEDSGQVSTGKAYQ,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-TROEC86VHUNBQW2J,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE3TSHYZHBYFBU,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-TROECG4WPVWPFRYZ,0,rules-v2:08bb09d87efd,wanted product not in title
+S09,FK-BRAE9G83CUBM56TA,0,rules-v2:08bb09d87efd,wanted product not in title
+S10,FK-SAREGTVFGRYRDCNH,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-TOPEC8AR9XBZHQGH,0,rules-v2:08bb09d87efd,wanted product not in title
+S10,FK-SAREH75XP4PDVJVW,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-FABE9335WS77N9FZ,1,rules-v2:08bb09d87efd,related: blouse
+S10,FK-SAREJHHUWBDYMHX5,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-SAREGTVFFTURURNH,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-SHTE9MSYHGNZUNUW,0,rules-v2:08bb09d87efd,wanted product not in title
+S10,FK-SHTE2PZGPYGVGGAP,0,rules-v2:08bb09d87efd,wanted product not in title
+S10,FK-SRTEJHAAV5MH3GFM,0,rules-v2:08bb09d87efd,wanted product not in title
+S10,FK-FABE92NUZZENGGJF,1,rules-v2:08bb09d87efd,related: blouse
+S10,FK-FABE9336ZKZVTZTB,1,rules-v2:08bb09d87efd,related: blouse
+S10,FK-SAREGTVFZG6KEGHB,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-SAREGVTE4CZ24RYK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-SHTE2FGCWYMDW4VR,0,rules-v2:08bb09d87efd,wanted product not in title
+S10,FK-SHTEBSMGTZVTH3DE,0,rules-v2:08bb09d87efd,wanted product not in title
+S10,FK-SAREGQFGZ68DH3T8,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-SAREJHHUGRH4HPJX,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-SAREGTVEX3ZNBJNY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-SAREG44UGXQU7AJD,3,rules-v2:08bb09d87efd,product and all attributes in title
+S10,FK-SHTE9XBFQDE4HPGF,0,rules-v2:08bb09d87efd,wanted product not in title
+S11,FK-JWSE22B4VZJH797Z,2,rules-v2:08bb09d87efd,pendant named only in the description
+S11,FK-NKCDYQ3RMQKPZVZN,2,rules-v2:08bb09d87efd,pendant named only in the description
+S11,FK-NKCDU4RZRKCZWYQH,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCDU4RZTTVQGVDY,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCE5GJ3HYMV7BBP,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCDU4RZHY9WW9FT,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCE2YCPAPGYFVZP,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCDWBPZEBRJRYH5,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCEC8AZHBUEHH6Y,2,rules-v2:08bb09d87efd,pendant named only in the description
+S11,FK-JWSE6NTHJNDW4YUN,2,rules-v2:08bb09d87efd,pendant named only in the description
+S11,FK-NKCDYQ3R8RNV2TQW,2,rules-v2:08bb09d87efd,pendant named only in the description
+S11,FK-NKCDY8S8PH7ZAQYD,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCE8Z4NFFDSA8MQ,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCE2YCPMYGTHDKD,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-JWSDVZ95WSVTZF7E,2,rules-v2:08bb09d87efd,pendant named only in the description
+S11,FK-NKCE5GJ3YZQ8UFUR,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-JWSDZJB8YBA5ESCP,2,rules-v2:08bb09d87efd,pendant named only in the description
+S11,FK-JWSE6NTHZJQWZK2C,2,rules-v2:08bb09d87efd,pendant named only in the description
+S11,FK-NKCE2YCPGMPDFUPF,1,rules-v2:08bb09d87efd,related: necklace
+S11,FK-NKCDZHF7YJM5HBFP,1,rules-v2:08bb09d87efd,related: necklace
+S12,FK-CDBECTRVD5HFXNPZ,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-CDBE8Q7N27HQHMPG,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VMREGZPQGV6ENXFG,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-SUDEHYGUFAGB4NYH,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VHREB3ZY4FDJGJ5E,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VHREB3ZYZSEMKBGH,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-SUDEHYGUD6ZMX9AU,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VSKEC9SFEQVKCWVG,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VHREB3NZEN8HGQHT,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VMREGZPQVBXT7HFR,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-BHGEGTAVSWG4ZTGH,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-CDBE8Q7NKHSB7CYJ,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-HLKEGGXG7A2VCNJQ,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VHREB3ZYZAFWTNXJ,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-CDBE8TZ2GHU67PRF,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-HLUEFUXMZVZYGYHX,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VHREB3NZAKNHNQFY,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VHREB3ZYYDTFGAGH,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-VHREB3NZKU68PRVB,0,rules-v2:08bb09d87efd,wanted product not in title
+S12,FK-BHGEGTAU6PQYT9HY,0,rules-v2:08bb09d87efd,wanted product not in title
+S13,FK-ACCE9WVGXDRXPZE8,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGRNJSJW8G,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGYABHS8J4,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGMFMTASR2,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGV8H86JSH,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGVJ4GKTKJ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGPZPZHYZC,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGVKYCUXEC,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGKW5SD6AW,3,rules-v2:08bb09d87efd,product and all attributes in title
+S13,FK-ACCE9WVGMNBSGNUR,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSEGGFARZSB4SHY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSEJJ7CMKHRWVCZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-CPCE4ZPPVAZE2VBG,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-BTWDYMY2AY556WZV,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-MATEGX23XSZHD9VK,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-BDSEGQ32ZQVH7DP5,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSEJSJZ6HYKU3KK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSEJJ6USEQZS3QA,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-CPCEA4ZCHPHGHCYN,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-BDSEJJ7CDYYK8V8Y,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-CPCE6RHH7EKSBV5X,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-CPCE5YKSD8HVN6NG,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-BTWEBTHDXYWMTHZY,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-CPCE7Z3WCGYSGTR3,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-CPCEA4ZCYYKCHARZ,0,rules-v2:08bb09d87efd,wanted product not in title
+S14,FK-BDSEJJ6U2FXUM3S9,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSEJTHGGZH3HSJF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSEJTHQJSEAEEJZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSEGG8BKWBVMPZK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSE6WKCFTWQZAKF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S14,FK-BDSEJTHNGWVGWWQU,3,rules-v2:08bb09d87efd,product and all attributes in title
+S15,FK-BRAE3TSHUNYCRAST,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAE3TSHXQXHZFZH,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAE3TSHVGGGXRHT,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEDSENZ9WFTCES,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAE3TSHZGQRFVWZ,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEE4UZZVMJUGE3,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAECCJJSZWYYSPC,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAE3TSHXZFRYAZQ,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEE3GEYSHHAYQN,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAE3TSHUSJJYKM7,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEDSH2GSCZN4XF,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAECFAQRUQMTZYG,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEAM5DR9NS5XPE,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEB3KBY393GUHA,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEDSG92FGZZXCT,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAECT26XXBDSZWJ,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAE2NF7GHGHTURG,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEAJXR6YE8AZDN,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEE3RMMRRFQ9AD,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAEDSHQ6X5YYX6N,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAE3TSHVWYHGGWH,0,rules-v2:08bb09d87efd,excluded: bra
+S15,FK-BRAE3TSHWHCZVZW6,0,rules-v2:08bb09d87efd,excluded: bra
+S16,FK-BRAE3TSHVMCW7NDZ,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2M4Q4QTNHTWF,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHXQXHZFZH,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2M4QWF2FVMH5,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRADX3A8SH2GGZ7Z,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHVWYHGGWH,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHYZTHHE2F,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2NF6S2ZYBQWQ,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2NF6E8SVUPTD,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHRTGMZA44,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2GWBKZZTD3VH,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2NF6JYPGHQEF,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHXZFRYAZQ,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2NF6JA5GUEXG,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHUSJJYKM7,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHYZHBYFBU,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHZ6KZBBZH,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE3TSHYTS4FCU4,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2NF6QBUFMJTU,,rules-v2:08bb09d87efd,no query text: unjudged
+S16,FK-BRAE2GWB6GSSCFGT,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE5AKCDFDZ2FWQ,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE3YT8UF6KNEKW,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE5TXZYPGHGEDX,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE5GG4DYDAG4XG,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BCHEGTZFDWMDGEJB,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE4DS7AJPPPZ96,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE66EFESWZBPG6,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE3YT8VDB5QSG2,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE3YT9UF7XDEXK,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAECPQAHY5U8C9D,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-NKCE5H4XW2PH6KFH,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-NKCE8JUJEUE3HR4H,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAEAX9RJMZKFY3H,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-NKCED842FSG9PEQN,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE73VF6GBYSXQN,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE3YT8EJ2S3PWA,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-NKCDYSR9YGEZHE9D,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-NKCE2F5HXGKRMKYZ,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-NKCE7Y2Y4BFFU9A4,,rules-v2:08bb09d87efd,no query text: unjudged
+S17,FK-BBAE5AKCUNGWRFGZ,,rules-v2:08bb09d87efd,no query text: unjudged
+S18,FK-SNDEDG6HF8EDVZTV,1,rules-v2:08bb09d87efd,related: heel
+S18,FK-SFFEG763F38URMXA,1,rules-v2:08bb09d87efd,related: slipper
+S18,FK-SFFEGEZCEJRG9HVF,1,rules-v2:08bb09d87efd,related: slipper
+S18,FK-SHODYZ6SYRMHDYPB,1,rules-v2:08bb09d87efd,related: ballerina
+S18,FK-SHODYQE7UKHU3ZHE,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOE9T33EJDNTZ68,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOE24GJYF8FAPWK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SFFEJSGAKSZA8K9K,1,rules-v2:08bb09d87efd,related: slipper
+S18,FK-SHOECV2JZFGSSUSR,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SFFEGGJYFJWAV4HV,1,rules-v2:08bb09d87efd,related: slipper
+S18,FK-SHOE34YXWXZ9PCFF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOE3PFHZMH9RZGY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOE9WDKXRHBF8GG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SNDDXFQHUDJDHZG2,1,rules-v2:08bb09d87efd,related: wedge
+S18,FK-SHOEATSZWUNKW8ZK,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOEJCKBGJGZQJHN,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOEDZZYZYGXGQZZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHODYYX9N2ZM7CYY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOE7QJJXY4NZZUP,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SFFEHVAVYGCD3HSD,1,rules-v2:08bb09d87efd,related: flip flop
+S18,FK-SHODYZ7QYUEYDEZ2,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOECH8DTDMVKGGS,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOE9YD5XF7KK39U,3,rules-v2:08bb09d87efd,product and all attributes in title
+S18,FK-SHOE7U642BAVQGX6,3,rules-v2:08bb09d87efd,product and all attributes in title
+S19,FK-PCSE62VYGKSQGKHF,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEAYRTZYDSPGMB,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEBDFUMFZZQDJW,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEBD5MCK4SUCHD,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEB3FAUUWKEPEF,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSE4FKCKZZMHKYG,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSDY5AHEENB3Q9X,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEAYRTWFFHXZF7,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSE4FKCZ23EPQFS,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSE3YFFCYQVRNYX,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEBDFUFJWGARNX,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSDY5AFFQG43YQW,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSE7Y9XGFAEZMMM,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSE76X4K44HZ5YY,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEDN38QJGPN6JU,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSE73MZDRKZXTWW,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEA7HBHMUNHZRP,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSEAYRTZXHEJJHJ,0,rules-v2:08bb09d87efd,wanted product not in title
+S19,FK-PCSE6SJGY3ZSWGZ3,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-SOCEJPT5EGSQNRYU,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-TSHECB65GWKFP2HF,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-SOCEJPT5YDSZ7QQP,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-BRFEG89JNCVGBVTR,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-TSHEBQFMZXHTVCWZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-SOCEJPT5ZR5ADJA5,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-TSHEBQFHQTYRV2JG,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-SOCEJPT5QW94BHWE,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-SCFEFXSGTNYZ9EC2,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-TSHECJAYTY4YDUGT,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-SOCEJPT5FU7JGVYU,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-TSHECJAYRBVQG4WC,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-SOCEJPT5AHPUGYX4,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-TSHE8KKZRMHYY5T6,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-TSHECJAYXWW4NQZZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-TSHE8JZHJPUPWDKZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-TSHE5NEERGY8HJFY,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-SOCEJPT5FMWQKHV2,0,rules-v2:08bb09d87efd,wanted product not in title
+S20,FK-TSHECJAYBRHZHFWA,3,rules-v2:08bb09d87efd,product and all attributes in title
+S20,FK-TSHE9CGGP6VHNMZ5,3,rules-v2:08bb09d87efd,product and all attributes in title
+U01,FK-SFAEEGTFKDTHTGAD,3,rules-v2:08bb09d87efd,product and all attributes in title
+U01,FK-SFAEEGTF6PZ82MFX,3,rules-v2:08bb09d87efd,product and all attributes in title
+U01,FK-ABQEJ7YQTNQGMXZV,0,rules-v2:08bb09d87efd,wanted product not in title
+U02,FK-ABQEJ7YQTNQGMXZV,3,rules-v2:08bb09d87efd,product and all attributes in title
+U03,FK-WTBDPEWSAHZZSHB3,3,rules-v2:08bb09d87efd,product and all attributes in title
+U04,FK-WATEHZTQHHDMFZQZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+U04,FK-WATEHZP5RHMMCBPZ,3,rules-v2:08bb09d87efd,product and all attributes in title
+U04,FK-WATEHZP4KYR8JVHP,3,rules-v2:08bb09d87efd,product and all attributes in title
+U05,FK-WATEHVHJMDH9ME88,3,rules-v2:08bb09d87efd,product and all attributes in title
+U05,FK-WATEHVHJHMCGW3VN,3,rules-v2:08bb09d87efd,product and all attributes in title
+U05,FK-WATEHVHJSUBGKZVG,3,rules-v2:08bb09d87efd,product and all attributes in title
+U05,FK-WATEHVHJTFRSSSYK,3,rules-v2:08bb09d87efd,product and all attributes in title

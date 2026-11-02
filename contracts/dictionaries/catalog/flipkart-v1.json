@@ -1,0 +1,42 @@
+{
+  "dictionary_version": "flipkart-v1",
+  "source_header": [
+    "uniq_id", "crawl_timestamp", "product_url", "product_name", "product_category_tree", "pid",
+    "retail_price", "discounted_price", "image", "is_FK_Advantage_product", "description",
+    "product_rating", "overall_rating", "brand", "product_specifications"
+  ],
+  "bounds": {
+    "cell_bytes": 16384,
+    "record_bytes": 65536,
+    "spec_nesting": 8,
+    "spec_entries": 256,
+    "price_minor_max": 1000000000
+  },
+  "rating_sentinel": "No rating available",
+  "roots": [
+    "Automation & Robotics", "Automotive", "Baby Care", "Bags, Wallets & Belts",
+    "Beauty and Personal Care", "Cameras & Accessories", "Clothing", "Computers", "Eyewear",
+    "Food & Nutrition", "Footwear", "Furniture", "Gaming", "Health & Personal Care Appliances",
+    "Home & Kitchen", "Home Decor & Festive Needs", "Home Entertainment", "Home Furnishing",
+    "Home Improvement", "Household Supplies", "Jewellery", "Kitchen & Dining",
+    "Mobiles & Accessories", "Pens & Stationery", "Pet Supplies", "Sports & Fitness", "Sunglasses",
+    "Tools & Hardware", "Toys & School Supplies", "Watches", "Wearable Smart Devices", "eBooks"
+  ],
+  "colour_keys": ["color", "colour", "primary color"],
+  "material_keys": {
+    "clothing": ["fabric", "material"],
+    "furniture": ["primary material", "material"],
+    "default": ["material"]
+  },
+  "size_root": "clothing",
+  "size_key": "size",
+  "size_kind": "apparel_alpha",
+  "size_wrapper_regex": "^this product is sold as (.+) by the brand$",
+  "allowed_apparel_sizes": ["XXS", "XS", "S", "M", "L", "XL", "XXL", "XXXL", "FREE_SIZE", "ONE_SIZE"],
+  "size_aliases": {
+    "xxs": "XXS", "xs": "XS", "s": "S", "m": "M", "l": "L", "xl": "XL", "xxl": "XXL", "xxxl": "XXXL",
+    "small": "S", "medium": "M", "large": "L", "extra large": "XL",
+    "free size": "FREE_SIZE", "one size": "ONE_SIZE", "one size fits all": "ONE_SIZE",
+    "one size fit for all": "ONE_SIZE", "one size fits to all": "ONE_SIZE"
+  }
+}

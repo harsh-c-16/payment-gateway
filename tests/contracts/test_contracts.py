@@ -317,7 +317,7 @@ def test_contracts_check_all_preserves_missing_handoffs_in_evidence(tmp_path, mo
     output = json.loads(capsys.readouterr().out)
     assert output["test_mode"] == "offline"
     assert any(
-        "MISSING: contracts/http/catalog.yaml (Harsh)" in reason for reason in output["reasons"]
+        "PASS: contracts/http/catalog.yaml (Harsh)" in reason for reason in output["reasons"]
     )
     assert any(
         "MISSING: contracts/http/transactions.yaml (Aditya)" in reason

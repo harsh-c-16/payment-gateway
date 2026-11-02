@@ -1,0 +1,215 @@
+{
+  "$defs": {
+    "FileDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "byte_size": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "row_count": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "schema_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Schema Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "partition_values": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Partition Values",
+          "type": "object"
+        },
+        "min_event_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "(Z|\\+00:00)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Min Event Time"
+        },
+        "max_event_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "(Z|\\+00:00)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Event Time"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "byte_size",
+        "row_count",
+        "schema_name",
+        "schema_version",
+        "partition_values",
+        "min_event_time",
+        "max_event_time"
+      ],
+      "title": "FileDescriptor",
+      "type": "object"
+    },
+    "NormalizedFiles": {
+      "additionalProperties": false,
+      "properties": {
+        "observations": {
+          "$ref": "#/$defs/FileDescriptor"
+        },
+        "catalog": {
+          "$ref": "#/$defs/FileDescriptor"
+        },
+        "dispositions": {
+          "$ref": "#/$defs/FileDescriptor"
+        },
+        "issues": {
+          "$ref": "#/$defs/FileDescriptor"
+        }
+      },
+      "required": [
+        "observations",
+        "catalog",
+        "dispositions",
+        "issues"
+      ],
+      "title": "NormalizedFiles",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "source_manifest_ref": {
+      "title": "Source Manifest Ref",
+      "type": "string"
+    },
+    "dataset_revision": {
+      "title": "Dataset Revision",
+      "type": "string"
+    },
+    "rules_version": {
+      "title": "Rules Version",
+      "type": "string"
+    },
+    "dictionary_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Dictionary Sha256",
+      "type": "string"
+    },
+    "files": {
+      "$ref": "#/$defs/NormalizedFiles"
+    },
+    "raw_rows": {
+      "minimum": 0,
+      "title": "Raw Rows",
+      "type": "integer"
+    },
+    "canonical_rows": {
+      "minimum": 0,
+      "title": "Canonical Rows",
+      "type": "integer"
+    },
+    "active_rows": {
+      "minimum": 0,
+      "title": "Active Rows",
+      "type": "integer"
+    },
+    "inactive_rows": {
+      "minimum": 0,
+      "title": "Inactive Rows",
+      "type": "integer"
+    },
+    "superseded_rows": {
+      "minimum": 0,
+      "title": "Superseded Rows",
+      "type": "integer"
+    },
+    "rejected_rows": {
+      "minimum": 0,
+      "title": "Rejected Rows",
+      "type": "integer"
+    },
+    "canonical_business_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Canonical Business Digest",
+      "type": "string"
+    },
+    "content_sha256": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Content Sha256"
+    }
+  },
+  "required": [
+    "source_manifest_ref",
+    "dataset_revision",
+    "rules_version",
+    "dictionary_sha256",
+    "files",
+    "raw_rows",
+    "canonical_rows",
+    "active_rows",
+    "inactive_rows",
+    "superseded_rows",
+    "rejected_rows",
+    "canonical_business_digest"
+  ],
+  "title": "NormalizedCatalogManifest",
+  "type": "object"
+}

@@ -1,0 +1,129 @@
+{
+  "$defs": {
+    "FacetBrand": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "title": "FacetBrand",
+      "type": "object"
+    },
+    "FacetRoot": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label"
+      ],
+      "title": "FacetRoot",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "dataset_revision": {
+      "title": "Dataset Revision",
+      "type": "string"
+    },
+    "dictionary_version": {
+      "title": "Dictionary Version",
+      "type": "string"
+    },
+    "roots": {
+      "items": {
+        "$ref": "#/$defs/FacetRoot"
+      },
+      "title": "Roots",
+      "type": "array"
+    },
+    "path_prefixes": {
+      "items": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "title": "Path Prefixes",
+      "type": "array"
+    },
+    "brands": {
+      "items": {
+        "$ref": "#/$defs/FacetBrand"
+      },
+      "title": "Brands",
+      "type": "array"
+    },
+    "colours": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Colours",
+      "type": "array"
+    },
+    "materials": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Materials",
+      "type": "array"
+    },
+    "allowed_apparel_sizes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Allowed Apparel Sizes",
+      "type": "array"
+    },
+    "observed_apparel_sizes": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Observed Apparel Sizes",
+      "type": "array"
+    },
+    "coverage_by_category": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "type": "object"
+      },
+      "title": "Coverage By Category",
+      "type": "object"
+    }
+  },
+  "required": [
+    "dataset_revision",
+    "dictionary_version",
+    "roots",
+    "path_prefixes",
+    "brands",
+    "colours",
+    "materials",
+    "allowed_apparel_sizes",
+    "observed_apparel_sizes",
+    "coverage_by_category"
+  ],
+  "title": "FacetDictionary",
+  "type": "object"
+}

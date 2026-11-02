@@ -1,0 +1,42 @@
+# Catalogue service and stock consumer. Owner: Harsh; add with -f next to the streaming stack.
+# Not exercised yet on a machine with Docker; see docs/harsh/handoff.md before relying on it.
+x-catalog: &catalog
+  image: group3-m04-storage:local
+  pull_policy: never
+  environment:
+    CATALOG_DATABASE_URL: ${CATALOG_DATABASE_URL:?Supply the catalog_user connection string}
+    INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Supply the shared internal service token}
+    EVENT_SCHEMA_CACHE_PATH: /app/schema-cache.json
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    RUN_ID: ${RUN_ID:?Supply an explicit run identity}
+    QUOTE_TTL_SECONDS: "60"
+    CATALOG_REUSE_CONNECTIONS: ${CATALOG_REUSE_CONNECTIONS:-false}
+    CATALOG_MAX_CONNECTIONS: ${CATALOG_MAX_CONNECTIONS:-10}
+    PYTHONPYCACHEPREFIX: /tmp/catalog-pycache
+  volumes:
+    - ../services:/app/services:ro
+    - ../pipelines:/app/pipelines:ro
+    - ../shared:/app/shared:ro
+    - ../contracts:/app/contracts:ro
+    - ../migrations/catalog:/app/migrations/catalog:ro
+    - ../artifacts/infra/streaming-local/registry-manifest.json:/app/schema-cache.json:ro
+  mem_limit: 384m
+  cpus: 0.5
+  pids_limit: 128
+  labels:
+    group3.owner: harsh
+services:
+  catalog:
+    <<: *catalog
+    profiles: [catalog]
+    command: [uvicorn, services.catalog.app:create_app, --factory, --host, "0.0.0.0", --port, "8002"]
+    ports: ["127.0.0.1:8002:8002"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health/live',timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+  catalog-worker:
+    <<: *catalog
+    profiles: [catalog-worker]
+    command: [python, -m, services.catalog.worker, --namespace, "${RUN_NAMESPACE:?Supply dev or an isolated namespace}"]

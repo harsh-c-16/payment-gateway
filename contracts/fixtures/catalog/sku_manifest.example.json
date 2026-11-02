@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "dataset_revision": "example-not-a-dataset",
+  "source_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "rules_version": "flipkart-v1",
+  "namespace": "bench-example",
+  "sku_count": 3,
+  "sorted_skus": [
+    {
+      "sku": "FK-EXAMPLE1",
+      "product_id": "FK-EXAMPLE1",
+      "source_pid": "EXAMPLE1",
+      "source_observation_id": "obs-1"
+    },
+    {
+      "sku": "FK-EXAMPLE2",
+      "product_id": "FK-EXAMPLE2",
+      "source_pid": "EXAMPLE2",
+      "source_observation_id": "obs-2"
+    },
+    {
+      "sku": "FK-EXAMPLE3",
+      "product_id": "FK-EXAMPLE3",
+      "source_pid": "EXAMPLE3",
+      "source_observation_id": "obs-3"
+    }
+  ],
+  "canonical_business_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+  "content_sha256": "c0b25784b05fbebe5cc22449f23faa1e8207e72942ea4c431be00c01690e29cf"
+}
