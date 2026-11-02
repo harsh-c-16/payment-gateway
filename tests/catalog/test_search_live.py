@@ -82,7 +82,8 @@ def test_lexical_ranks_title_above_description_and_is_reproducible(world):
     assert skus(first)[0] == "FK-SHIRT1"
     assert skus(first).index("FK-SHIRT3") > 0
     assert "FK-WATCH1" not in skus(first)
-    assert first["candidate_count"] < first["eligible_count"]
+    assert first["candidate_count"] == first["eligible_count"] > first["returned_count"]
+    assert first["exhausted"] is True
     assert skus(search(client, namespace, query_text="blue shirt", top_k=20)) == skus(first)
 
 

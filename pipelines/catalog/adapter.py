@@ -302,6 +302,21 @@ def projection_wait_action(invocation):
         return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (type(error).__name__,), "real")
 
 
+def runner_catalog_manifest(path):
+    """The projection W-PIPE and W-QUALITY read: active SKUs from a verified SKU manifest."""
+    manifest = json.loads(Path(path).read_text(encoding="utf-8"))
+    if artifacts.content_hash(manifest) != manifest["content_sha256"]:
+        raise ValueError("SKU manifest hash mismatch")
+    return {
+        "active_skus": [entry["sku"] for entry in manifest["sorted_skus"]],
+        "synthetic": False,
+        "sku_manifest_sha256": manifest["content_sha256"],
+        "dataset_revision": manifest["dataset_revision"],
+        "source_sha256": manifest["source_sha256"],
+        "rules_version": manifest["rules_version"],
+    }
+
+
 def runner_importer(source, out_root, *, url=None):
     """Importer for Jaineel's ImportDriver: W-IMPORT with the variant's load mode."""
 

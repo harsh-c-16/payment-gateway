@@ -4,7 +4,7 @@
 **Role:** M2: catalogue, retrieval, quotes, stock read model, Parquet compaction and query benchmarks
 **Brief:** [05_HARSH_CHAUDHARI.md](../specs/05_HARSH_CHAUDHARI.md)
 **Status date:** 2 November 2026
-**Branch:** merged to `main` in PR #3
+**Branch:** merged to `main` in PR #3; later work is on `harsh` until merged
 
 Results: [experiments.md](experiments.md). What teammates need: [handoff.md](handoff.md). How the
 relevance labels were made: [relevance_labels.md](relevance_labels.md).
@@ -19,8 +19,8 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 | H02 | Authoritative prices, idempotent quotes, internal lookup, price update | Real PostgreSQL; **outbox is a test double** | `test_quotes_live.py`, `test_price_live.py` |
 | H03 | Exact retrieval with hard filters; five search modes; 50 frozen queries | Real PostgreSQL; **outbox is a test double** | `test_search_live.py`, `test_vector_search_live.py`, 0 violations in every experiment |
 | H04 | Stock consumer, read model, projection wait, freshness receipts | Real PostgreSQL with records through the real codec; **real broker NOT_RUN** | `test_projection_live.py` |
-| H05 | I0/I1, B0/O2/P1, exact/HNSW | Owner runs done; **official runner NOT_RUN** | [experiments.md](experiments.md) §§1–6 |
-| H06 | Compaction candidates, Q1–Q6 through the real publisher | Owner run done on a synthetic fixture; **cold series and official runner NOT_RUN** | `tests/analytics/`, [experiments.md](experiments.md) §7 |
+| H05 | I0/I1, B0/O2/P1, exact/HNSW | Owner runs done, with import and search repeated on the SSD; **official runner NOT_RUN** | [experiments.md](experiments.md) §§1–6 |
+| H06 | Compaction candidates, Q1–Q6 through the real publisher, warm and cold series, compaction fault boundary | Owner run done on a synthetic fixture; **official runner NOT_RUN** | `tests/analytics/`, [experiments.md](experiments.md) §7 |
 
 ## Evaluation items I own
 
@@ -48,13 +48,15 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 
 ## Tests
 
-Full suite at `9312f02`, with real PostgreSQL for the catalogue and analytics tests:
-**1,260 passed, 314 skipped, 1 failed.**
+Full suite on the code of the commit that added this line, with real PostgreSQL for the catalogue and analytics tests:
+**1,268 passed, 314 skipped, 1 expected failure, 1 failed.**
 
 - **The failure** is `tests/pipelines/test_postgres.py::test_success_evidence_contains_no_credentials`.
   It is outside my paths and also fails on untouched `main`.
 - **The skips** include my T-09 real-broker test, which needs a Kafka broker, plus other owners' tests
   that need services unavailable on this machine.
+- **The expected failure** is the brand-filter finding in [handoff.md](handoff.md#review-of-your-workflow-against-the-real-service),
+  which needs a change in Jaineel's workflow.
 
 ## NOT_RUN, and why
 
@@ -63,7 +65,6 @@ Full suite at `9312f02`, with real PostgreSQL for the catalogue and analytics te
 | Official W-IMPORT, W-SEARCH, W-ANALYTICS through the P9 runner, frozen limits | The composition module and outbox are not available yet | Jaineel's composition, Aditya's outbox |
 | Search and price events through the real outbox | `shared.outbox` is absent, so the service fails closed with 503 | Aditya's library |
 | T-09 on a real broker | No broker on this machine | [Command in the handoff](handoff.md#vichitr) |
-| Cold-cache Q1–Q6 series | Optional in evaluation rule 12; warm is the main series | Run separately for all layouts |
 | `infra/compose.catalog.yaml` running | No Docker on this machine; statically checked only | A machine with Docker |
 | Human relevance labels | Team decision, recorded in [relevance_labels.md](relevance_labels.md) | Label the pool by hand |
 | HNSW and hybrid search at 10× | The clone fixture has no vectors | Clone vectors too |
@@ -78,3 +79,9 @@ Full suite at `9312f02`, with real PostgreSQL for the catalogue and analytics te
    hash, and core experiments must not carry them, so they sit in a separate hashed requirements file.
 3. **A stress ladder was added.** The specification's stress protocol covers W-PIPE only, which left no
    evidence for session reuse under concurrency.
+4. **Early runs were on a RAM filesystem.** I repeated import and search on the SSD. Conclusions held,
+   except that P1's price-update gain drops from 10× to about 3.4×. See
+   [experiments.md](experiments.md) §2a.
+5. **The merged service broke Jaineel's workflow.** Reviewing it against the real service showed 33 of
+   50 queries rejected over `candidate_count`. CI and my tests had not caught this. It is fixed, and a
+   live test now covers it.

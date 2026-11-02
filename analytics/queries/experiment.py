@@ -1,7 +1,8 @@
 """F-COMPACT and F-PARTITION on one frozen snapshot, real publisher, Q1-Q6 3+30 x 3 reps.
 
-python -m analytics.queries.experiment --out DIR [--publications 300 --events 200]
-Owner-run on one host without frozen limits; labelled so in the summary it writes.
+python -m analytics.queries.experiment --out DIR [--publications 300 --events 200] [--cold]
+Owner-run on one host without frozen limits; labelled so in the summary it writes. --cold needs
+Linux and an output directory on real storage: eviction does nothing on a RAM-backed filesystem.
 """
 
 import argparse
@@ -37,6 +38,7 @@ from pipelines.storage import FileStore
 from shared.event_transport.codec import EventCodec
 
 WARMUPS, EXECUTIONS, REPETITIONS, SEED = 3, 30, 3, 42
+COLD_EXECUTIONS = 5
 
 
 def nearest(values, quantile):
@@ -76,6 +78,70 @@ def measure(layouts, store_root, day, out):
             print(f"rep {repetition} layout {name} done", flush=True)
     pq.write_table(pa.Table.from_pylist(rows), out / "query_results.parquet", compression="zstd")
     return rows, digests
+
+
+def evict(files, store_root):
+    """Drops these files from the OS page cache without root. Dirty pages must be written first."""
+    for descriptor in files:
+        handle = os.open(Path(store_root) / descriptor.path, os.O_RDONLY)
+        try:
+            os.fsync(handle)
+            os.posix_fadvise(handle, 0, 0, os.POSIX_FADV_DONTNEED)
+        finally:
+            os.close(handle)
+
+
+def storage_read_bytes():
+    """Bytes this process fetched from storage, which proves whether an eviction really happened."""
+    for line in Path("/proc/self/io").read_text().splitlines():
+        if line.startswith("read_bytes:"):
+            return int(line.split()[1])
+    raise OSError("read_bytes is missing from /proc/self/io")
+
+
+def measure_cold(layouts, store_root, day, out):
+    """Same eviction before every execution of every layout, in a separate series and file."""
+    rng, rows, digests = random.Random(SEED + 1), [], defaultdict(dict)
+    for repetition in range(1, REPETITIONS + 1):
+        names = list(layouts)
+        rng.shuffle(names)
+        for name in names:
+            order = list(QUERIES) * COLD_EXECUTIONS
+            rng.shuffle(order)
+            for query_id in order:
+                evict(layouts[name].files, store_root)
+                connection = open_connection()
+                before = storage_read_bytes()
+                result, facts = run_query(connection, query_id, layouts[name], store_root, day)
+                fetched = storage_read_bytes() - before
+                connection.close()
+                digests[query_id].setdefault(name, result_digest(result))
+                rows.append(
+                    {
+                        "layout": name,
+                        "repetition": repetition,
+                        "query_id": query_id,
+                        "storage_read_bytes": fetched,
+                        **facts,
+                    }
+                )
+            print(f"cold rep {repetition} layout {name} done", flush=True)
+    pq.write_table(
+        pa.Table.from_pylist(rows), out / "query_results_cold.parquet", compression="zstd"
+    )
+    return rows, digests
+
+
+def summarize_cold(rows, layouts):
+    series = summarize(rows, layouts)
+    for key, value in series.items():
+        query_id, name = key.split("/")
+        value["median_storage_read_bytes"] = median(
+            row["storage_read_bytes"]
+            for row in rows
+            if row["layout"] == name and row["query_id"] == query_id
+        )
+    return series
 
 
 def summarize(rows, layouts):
@@ -128,6 +194,7 @@ def main():
     parser.add_argument("--out", required=True)
     parser.add_argument("--publications", type=int, default=300)
     parser.add_argument("--events", type=int, default=200)
+    parser.add_argument("--cold", action="store_true", help="add the separate cold-cache series")
     arguments = parser.parse_args()
     out = Path(arguments.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -222,6 +289,14 @@ def main():
             "result_digest_mismatches": mismatches,
             "series": summarize(rows, layouts),
         }
+        if arguments.cold:
+            cold_rows, cold_digests = measure_cold(layouts, store_root, day, out)
+            summary["cold_series"] = summarize_cold(cold_rows, layouts)
+            summary["cold_digest_mismatches_against_warm"] = [
+                query_id
+                for query_id, values in cold_digests.items()
+                if any(values[name] != digests[query_id][name] for name in values)
+            ]
         (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         print(
             json.dumps({k: summary[k] for k in ("layouts", "result_digest_mismatches")}, indent=1)

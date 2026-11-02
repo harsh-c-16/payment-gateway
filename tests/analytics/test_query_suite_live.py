@@ -1,9 +1,12 @@
 """Q1-Q6 over the real publisher's manifests: file selection and empty generations."""
 
+import os
 from datetime import UTC, datetime, timedelta
 
-from analytics.queries import fixture
-from analytics.queries.suite import open_connection, run_query
+import pytest
+
+from analytics.queries import experiment, fixture
+from analytics.queries.suite import QUERIES, open_connection, run_query
 
 
 def active(pipeline, dataset="silver"):
@@ -44,3 +47,26 @@ def test_query_suite_returns_empty_when_no_files_exist():
     rows, facts = run_query(connection, "Q2", View, "/nonexistent", None)
     connection.close()
     assert rows == [] and facts["files_opened"] == 0
+
+
+@pytest.mark.skipif(not hasattr(os, "posix_fadvise"), reason="NOT_RUN: eviction needs Linux")
+def test_cold_series_keeps_the_warm_results_and_stays_in_its_own_file(pipeline, tmp_path):
+    fixture.build(pipeline, pipeline.test_namespace, publications=2, events_per_publication=20)
+
+    class Layout:
+        files = list(pipeline.active_manifest(pipeline.test_namespace, "silver").files) + list(
+            pipeline.active_manifest(pipeline.test_namespace, "gold").files
+        )
+
+    day = (datetime.now(UTC) - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    layouts = {"only": Layout}
+    warm_rows, warm = experiment.measure(layouts, pipeline.test_root, day, tmp_path)
+    cold_rows, cold = experiment.measure_cold(layouts, pipeline.test_root, day, tmp_path)
+    assert {query: values["only"] for query, values in cold.items()} == {
+        query: values["only"] for query, values in warm.items()
+    }
+    assert len(cold_rows) == len(QUERIES) * experiment.COLD_EXECUTIONS * experiment.REPETITIONS
+    assert (tmp_path / "query_results_cold.parquet").is_file()
+    assert (tmp_path / "query_results.parquet").is_file()
+    series = experiment.summarize_cold(cold_rows, layouts)
+    assert all("median_storage_read_bytes" in value for value in series.values())

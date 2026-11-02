@@ -9,4 +9,5 @@ bytes and returned rows. File-size sums are selected bytes, not bytes read.
 
 `fixture.py` builds a labelled synthetic dataset through the real Bronze, Silver, Gold and publication
 code, publishing often enough to create the small-file layout. `experiment.py` runs F-COMPACT and
-F-PARTITION on it: `ANALYTICS_DATABASE_URL=... python -m analytics.queries.experiment --out DIR`.
+F-PARTITION on it: `ANALYTICS_DATABASE_URL=... python -m analytics.queries.experiment --out DIR`. Add
+`--cold` for the separate cold-cache series, on real storage and on Linux only.

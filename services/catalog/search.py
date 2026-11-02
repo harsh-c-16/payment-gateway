@@ -279,7 +279,9 @@ def search_catalog(db, events, request, context, *, encoder=None, frozen_vector=
             search_id=search_id,
             hits=hits,
             mode=request.mode,
-            candidate_count=candidates,
+            # The pool a ranker may consider is the eligible set, so consumers can rely on
+            # candidate >= eligible >= returned. Text matches only decide `exhausted`.
+            candidate_count=eligible,
             eligible_count=eligible,
             returned_count=len(hits),
             exhausted=len(hits) == candidates,
