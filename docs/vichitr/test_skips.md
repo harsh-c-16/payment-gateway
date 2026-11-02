@@ -1,3 +1,34 @@
+# M10 skip update: 2 November 2026
+
+Full baseline source **21ba06a**: **299 passed, 8 skipped** in Linux. Corrected
+source **0c54150**: **55 affected live/pure regressions passed, zero skipped**,
+plus **1 separately controlled real-broker outage/recovery pass**. Full Windows
+pipelines/contracts/integration: **334 passed, 126 skipped**.
+
+**120 of those 126 host skips passed in Linux** across the baseline, corrected
+affected-source and controlled-broker runs. The six remaining opt-ins are listed
+under the earlier checkpoint below with their exact environment requirements.
+
+The full large/quality suite was not repeated after the first-ingress and client
+namespace/idempotency fixes. All affected replay, capture, HTTP, migration,
+event-time and native Kafka paths were rerun on the corrected source. Earlier
+raw results identify their exact source; no earlier pass is relabelled as a
+full corrected-source run. Source/runtime and skip coverage are recorded in
+artifacts/m10/verification-final.json and skips.json.
+
+The same six older opt-in infrastructure/transport cases below were not rerun.
+The other Linux skips are the Windows-only filesystem guard (passed on Windows)
+and the external-controller broker-fault test (passed separately). The real
+outbox/relay and operational service integrations remain NOT_RUN: tests explicitly
+double those absent dependencies. The broker itself, SQL, immutable files and
+process-exit recovery are real.
+
+The first host run retained one unchanged 25-ms client-deadline assertion failure;
+its exact focused rerun and the complete final rerun passed without changing
+any timeout, assertion or client code. Evidence: artifacts/m10/host-first.xml,
+host-deadline-retry.xml and host-final.xml. The two replay bugs found during review
+also retain their before-fix failing XML separately; regression cases now pass.
+
 # M09 skip update: 1 November 2026
 
 Source **b12dd02**: full Windows pipelines/contracts/integration **328 passed,

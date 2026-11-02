@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 1 November 2026. Branch: `vichitr`. Status: M09 event-time/watermark/late-revision provider implemented and live verified at b12dd02. Real broker notification recovery was tested with an explicit outbox/relay double. Labelled quality imports, actual outbox/catalogue/compactor adoption, full W-QUALITY and integrated gates remain pending. Next: M10 isolated analytical replay. See [progress](progress.md) and [M09 handoff](m09_event_time_handoff.md).
+Prepared: 31 October 2026; updated 2 November 2026. Branch: `vichitr`. Status: M10 replay provider implemented; full baseline verified at 21ba06a and all affected fixes verified at 0c54150. Original bytes/IDs, first ingress, isolated namespaces, resumable jobs and pinned semantic comparison are covered. Actual outbox/catalogue/compactor adoption, labelled quality imports, full W-QUALITY and integrated/performance gates remain pending. Next: M11 baseline evidence and measured experiments. See [progress](progress.md) and [M10 handoff](m10_replay_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
@@ -123,6 +123,11 @@ See [M09 handoff](m09_event_time_handoff.md) for exact semantics and evidence li
 - Compare semantic digests/counts/states/money while excluding execution-only namespace/time/generation values. Repairs require a new event ID and repair reference, first evaluated in isolation.
 - Check replay twice into the same target, invalid-record replay, transform-version comparison, failure before publication and unchanged operational stock/payments/orders. Never call operational mutation APIs or republish replay to live business consumers.
 - Retain Bronze/dedup/manifests/evidence for at least 30 days and through final acceptance, whichever is later; active replay/reader references prevent deletion. Lineage includes code/lock/dictionary hashes and exact source membership, not only min/max offsets.
+
+Checkpoint: owned replay creation/status/worker and pinned-reference comparison
+are implemented and verified. Capture-only jobs explicitly lack a published Gold
+reference; real operational/outbox integration and oversized aggregate-money DTO
+review remain pending. See [M10 handoff](m10_replay_handoff.md).
 
 ### M11 — Baseline and measured experiments
 

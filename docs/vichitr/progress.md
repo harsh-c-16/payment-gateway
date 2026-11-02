@@ -6,6 +6,123 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M10 durable isolated replay and semantic comparison — 2 November 2026
+
+Baseline source: **21ba06a78c9c6e2aa6ddc5a48eb474ef5b7b9f4e**; final runtime:
+**0c5415009b4d23af7e545df24588a2d8c63e4650**. The replay
+provider, canonical creation/status endpoints and optional worker are implemented.
+See the [M10 handoff](m10_replay_handoff.md) for source-ID bindings, namespace
+ownership, fixed replay clocks, provider pinning, retry semantics and limits.
+
+Changed owned paths: migrations 007/008 and loader/readiness/version evidence;
+curation/capture/quarantine effective namespaces; reducer/backfill namespace
+projections; event-time replay clocks; typed Silver namespace and publication
+lineage; durable replay queue/worker/repair/reference comparison; optional Compose
+worker and checker evidence mount; owned pure/live/process-crash, ingress/client
+and migration
+regressions; owner/pipeline documentation. No public DTO/event/HTTP schema, shared
+workflow, lock, evaluation config or another owner's code changed.
+
+Original Bronze bytes, keys, ordered headers, topics/offsets, event IDs, original
+document namespace, timestamps and content hashes are retained. Exact selected
+sources and reference generations are durable; a new target must be empty and is
+claimed against normal ingestion. Session locks and the existing sink dedup path
+recover unfinished jobs. Provider hashes prevent resuming with a different code,
+lock, dictionary or schema-ID mapping. Replay cannot mutate source pointers,
+reset live groups or invoke operational commands. Repair evaluation uses new IDs
+and existing quarantine references in isolation; it does not promote repairs.
+
+Pinned publications receive exact logical-row/digest/count/state/money comparison.
+Capture-only jobs retain null reconciliation because no published Gold reference
+was supplied. A mismatch leaves a FAILED diagnostic target, not a source promotion.
+Large exact monetary sums exceeding the existing reconciliation DTO int64 bound
+fail closed with the unrounded values retained privately; coordinated DTO review
+is still required. This comparison does not replace Jaineel's independent oracle.
+
+Commands use the locked `.venv/Scripts/python.exe`. Docker and host pytest require
+execution outside the sandbox for the engine pipe and Windows scratch ACLs.
+Development tests use the then-dirty worktree with parent d4fda59 in fixture
+metadata; they do not establish a clean-d4fda59 runtime result.
+
+| Development command/check | Actual result | Evidence |
+|---|---|---|
+| Adapter `env up --profile streaming-local` | Passed, exit 0; original low-memory profile retained | artifacts/projectctl/8927d567-c1f6-4360-91a9-14dcc013d53d/ |
+| Host `pytest test_replay.py test_silver.py test_vertical.py -q --tb=short` | 42 passed, 18.78 s | artifacts/m10/pure-development.xml |
+| Real Linux `test_replay_live.py test_event_time_live.py test_business_gold_live.py` | 28 passed, 252.46 s | artifacts/m10/live-development.xml |
+| Expanded `test_replay.py test_replay_live.py` | 20 passed, 172.05 s; includes two acknowledged process exits, historical future rejection and repair isolation | artifacts/m10/replay-development.xml |
+| Added provider fingerprint/resume fence, same focused files | 21 passed, 184.09 s | artifacts/m10/replay-provenance-development.xml |
+| Ruff lint/format; generated `projectctl.schemas --check` and `projectctl.conversation_contract --check` | Passed; 67 formatted files; generated contracts current | Session transcript |
+
+| Source-pinned check | Actual result | Evidence |
+|---|---|---|
+| Adapter `db migrate --namespace bench-m10` | Analytics 1–7 applied. Global exit_code=4 remains truthful: other service/outbox providers absent | artifacts/infra/analytics/checks/f7e4bfc0-50ba-480d-b9bd-d85e4c0b8ad6/analytics-migration.json |
+| Existing persistent M05 legacy Silver/Gold checkpoint replay, then replay again | COMPLETED, reconciliation passed, repeat target generation=1, original source pointer unchanged | artifacts/m10/legacy-smoke.json, checkpoint-reference.json |
+
+The persistent smoke uses `docker exec ... python -m artifacts.m10.legacy_smoke`
+inside the live checker. Its initial script-path invocation lacked the repository
+module search path and failed to import before any work; the module invocation
+above passed. The new replay is retained in its isolated public namespace.
+
+Full Linux verification uses the normal storage-check mounts plus
+`-f artifacts/m10/evidence.compose.yaml` to route earlier modules' sidecars under
+artifacts/m10/regression-facts. It preserves prior checkpoint logs rather than
+overwriting them. The primary M10 XML and source metadata remain under artifacts/m10.
+
+The full correctness run began with a 0.5-CPU checker cap. The engine exposes eight
+CPUs; the checker was increased to two CPUs during the long quality smoke, keeping
+512 MiB memory. The ignored QA overlay records that cap for subsequent checks.
+PostgreSQL/Kafka/registry limits and committed SUT profiles did not change. Exact
+adjustment: artifacts/m10/checker-cpu-adjustment.json. These JUnit durations are
+correctness-run timings, not comparable performance measurements.
+
+| Review regression and correction | Actual evidence |
+|---|---|
+| A later recapture could make an originally future-invalid source valid | Source 21ba06a reproduced invalid=0 instead of 1; raw failure preserved in artifacts/m10/first-ingress-before.xml and .json. Final code freezes first durable source ingress and passes it separately from unchanged wrapper bytes |
+| Provider expected target namespace in the header, while Jaineel's existing AnalyticsClient sends source namespace | Actual client against the real in-process app returned HTTP 400; preserved in artifacts/m10/client-contract-before.xml. Provider now accepts the source context and verifies it against selected references |
+| API idempotency must follow that source context, including concurrent different targets | Migration 008 renames the key namespace without rewriting migration 007. A scoped transaction lock enforces one key/signature; the real SQL concurrency test accepts one request and rejects the other |
+| Focused corrections before final source pin | 6 passed, 34.17 s; raw artifacts/m10/review-fixes-development.xml. This development run used the dirty working tree with parent 21ba06a, not clean 21ba06a |
+
+The full suite completed on 21ba06a: **299 passed, 8 skipped**, 2,657.03 s
+(artifacts/m10/linux-final.xml). The two additional review regressions were not
+covered by that suite and were not hidden by its green result. Final source
+0c54150 is checked with all affected replay/capture/API/migration/Kafka paths;
+unchanged large publisher and quality fixtures are not repeated for these fixes.
+
+| Final corrected-source verification | Actual result | Evidence |
+|---|---|---|
+| Source 0c54150, storage-check pytest: all replay files; event-time, vertical/capture/HTTP/publication/storage regressions; both native Kafka slices; 24-domain and migration backfill cases | **55 passed, 0 skipped**, 307.44 s | artifacts/m10/affected-final.xml |
+| Source 0c54150, controlled actual Kafka pause/resume with explicit SQL outbox/relay double | **1 passed**, 46.45 s; pending notification survives outage and is marked sent only after recovered broker ack | artifacts/m10/dlq-final.xml, regression-facts/m09/dlq-recovery.json |
+| First full Windows pipelines/contracts/integration run after Docker stopped | 333 passed, 126 skipped, 1 failed, 96.89 s: unchanged `test_absolute_deadline_includes_body_and_never_extends_for_retry[search]` sent zero requests before its 25-ms deadline | artifacts/m10/host-first.xml |
+| Exact unchanged deadline case rerun | 1 passed, 0.48 s; no assertion/budget/client code changed | artifacts/m10/host-deadline-retry.xml |
+| Final full Windows pipelines/contracts/integration rerun on 0c54150 | **334 passed, 126 skipped**, 76.80 s | artifacts/m10/host-final.xml |
+| Generated schemas/OpenAPI and Ruff lint/format | Passed; 68 formatted files | Session transcript |
+| Adapter migration after correction | Analytics **1–8** applied; global exit_code=4 still reports other owners' missing providers | artifacts/infra/analytics/checks/6fe1dac5-35e8-4b1a-83af-bc331dc307b7/analytics-migration.json |
+| Adapter `env down`, then `docker desktop stop` | Exit 0; volumes retained, zero Desktop/backend processes | artifacts/projectctl/67797a9f-7a54-4def-b1ec-c67c5561ce60/, artifacts/m10/shutdown.json |
+
+The host deadline failure is retained as a transient timing observation, not
+attributed to a proven cause. Its 25-ms setup assumption can depend on scheduling;
+neither the consumer nor its test was changed. All affected corrected-source
+paths passed, including the actual existing AnalyticsClient contract. The complete
+large/quality suite was not repeated after the focused fixes; its exact earlier
+source and the final affected-source results are distinguished above.
+
+**120 of the 126 Windows skips passed in Linux** across the full/focused/broker
+runs. The same six older opt-in cases were not rerun. Skip names/reasons and
+cross-platform coverage are retained in artifacts/m10/skips.json
+and verification-final.json. Delivery uses the user's standing authorization to
+commit/push completed modules to origin/vichitr. Actions status for the delivered
+HEAD is recorded in artifacts/m10/github-actions.json; the three shared CI jobs
+do not replace the locally executed live checks. Runtime files remain identical
+to 0c54150; the delivery commit only updates owner documentation.
+
+Next checkpoint: M11 baseline and measured experiments.
+
+Remaining: real shared outbox/relay integration and actual operational stock/payment
+invariants are NOT_RUN (providers absent; outbox/operational spies in tests are
+explicit doubles). Full 100,000-record W-QUALITY, Harsh/Jaineel adoption, integrated
+gates and performance claims remain pending. No memory allocation was increased,
+development data deleted, or live event/group republished/reset.
+
 ## M09 event time, late revisions and DLQ fault boundary — 1 November 2026
 
 Source revision: **b12dd0297125415a7cfb1662b34b5d914e61d158**. The owned provider
