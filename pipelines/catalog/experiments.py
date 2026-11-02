@@ -28,6 +28,7 @@ from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
 from pipelines.catalog.adapter import database_url, run_import
+from pipelines.catalog.migrate import apply_variant
 from services.catalog import products, search
 from services.catalog.database import Database
 from shared.contracts.catalog import PriceUpdateRequest, SearchRequest
@@ -36,7 +37,6 @@ from shared.contracts.common import RequestContext
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data/raw/flipkart_com-ecommerce_sample.csv"
 QUERIES = ROOT / "contracts/fixtures/catalog/queries.json"
-O2_MIGRATION = ROOT / "migrations/catalog/variants/o2_category_price_btree.sql"
 WARMUPS, EXECUTIONS, REPETITIONS, SEED = 3, 30, 3, 42
 PRICE_UPDATES = 2000
 
@@ -358,7 +358,7 @@ def search_trial(variant, repetition, specs, out, source, scale, executions):
             build = {"seconds": None, "index_bytes": 0}
             if "O2" in variant:
                 started = perf_counter()
-                connection.execute(O2_MIGRATION.read_text(encoding="utf-8"))
+                apply_variant(connection, "o2")
                 build["seconds"] = perf_counter() - started
                 build["index_bytes"] = connection.execute(
                     "SELECT pg_relation_size(to_regclass('products_o2_category_price'))"

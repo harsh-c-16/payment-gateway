@@ -1,9 +1,16 @@
 """Apply only catalog_db migrations, checksum-verified. Caller owns the transaction."""
 
+import argparse
 import hashlib
+import os
 from pathlib import Path
 
+import psycopg
+
 MIGRATIONS = sorted((Path(__file__).resolve().parents[2] / "migrations/catalog").glob("*.sql"))
+VARIANTS = {
+    "o2": MIGRATIONS[0].parent / "variants/o2_category_price_btree.sql",
+}
 
 
 class MigrationChanged(RuntimeError):
@@ -32,3 +39,23 @@ def migrate_catalog(tx):
                 "INSERT INTO catalog_schema_migrations (version,sha256) VALUES (%s,%s)",
                 (version, digest),
             )
+
+
+def apply_variant(connection, name):
+    """Optional index experiments stay out of the base migrations, so B0 never carries them."""
+    connection.execute(VARIANTS[name].read_text(encoding="utf-8"))
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Apply catalogue migrations and optional variants")
+    parser.add_argument("--variant", choices=sorted(VARIANTS))
+    arguments = parser.parse_args()
+    with psycopg.connect(os.environ["CATALOG_DATABASE_URL"], autocommit=True) as connection:
+        with connection.transaction():
+            migrate_catalog(connection)
+        if arguments.variant:
+            apply_variant(connection, arguments.variant)
+
+
+if __name__ == "__main__":
+    main()

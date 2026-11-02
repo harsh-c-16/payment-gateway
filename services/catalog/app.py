@@ -106,7 +106,10 @@ ValidSku = Annotated[Sku, "catalogue SKU"]
 
 
 def create_app(*, db=None, events=None):
-    db = db or Database(os.environ.get("CATALOG_DATABASE_URL", ""))
+    db = db or Database(
+        os.environ.get("CATALOG_DATABASE_URL", ""),
+        reuse_connections=os.environ.get("CATALOG_REUSE_CONNECTIONS", "false") == "true",
+    )
     events = events or SharedEvents()
     ttl = int(os.environ.get("QUOTE_TTL_SECONDS", "60"))
     errors = {

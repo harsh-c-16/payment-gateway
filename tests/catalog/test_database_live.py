@@ -37,3 +37,18 @@ def test_reused_connection_that_died_is_replaced(database_url):
             tx.execute("SELECT 1")
     with pooled.transaction() as tx:
         assert tx.execute("SELECT pg_backend_pid() AS pid").fetchone()["pid"] != pid
+
+
+def test_o2_variant_adds_only_its_index(database_url):
+    from pipelines.catalog.migrate import apply_variant
+
+    with psycopg.connect(database_url, autocommit=True) as connection:
+        count = "SELECT count(*) FROM pg_indexes WHERE schemaname=current_schema()"
+        before = connection.execute(count).fetchone()[0]
+        assert not connection.execute(
+            "SELECT to_regclass('products_o2_category_price')"
+        ).fetchone()[0]
+        apply_variant(connection, "o2")
+        apply_variant(connection, "o2")
+        assert connection.execute(count).fetchone()[0] == before + 1
+        assert connection.execute("SELECT to_regclass('products_o2_category_price')").fetchone()[0]
