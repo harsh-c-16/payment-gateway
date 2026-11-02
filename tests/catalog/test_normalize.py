@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from pipelines.catalog.exports import dirty_case_failures
 from pipelines.catalog.normalize import (
     CsvStructureError,
     load_dictionary,
@@ -24,12 +25,6 @@ FIXTURE = json.loads(
     (ROOT / "contracts/fixtures/catalog/dirty_catalogue.json").read_text(encoding="utf-8")
 )
 DICTIONARY = load_dictionary()
-# Asserted against live PostgreSQL in test_import_live/test_service_live, not by the pure rules.
-LIVE_ONLY = {
-    "catalog_version_after_first",
-    "catalog_version_after_repeat",
-    "second_import_business_change_count",
-}
 ROW_CASES = [case for case in FIXTURE["cases"] if "input_rows" in case]
 
 
@@ -42,41 +37,7 @@ def run(rows):
 
 @pytest.mark.parametrize("case", ROW_CASES, ids=lambda case: case["case_id"])
 def test_independent_dirty_fixture(case):
-    observations, selection = run(case["input_rows"])
-    expected = case["expected"]
-    assert [selection.dispositions[o.row_number] for o in observations] == expected["dispositions"]
-    assert [item.uniq_id for item in selection.canonical] == expected["selected_source_ids"]
-    failure = expected["import_failure"]
-    bound = [o for o in observations if o.bound_exceeded]
-    if failure:
-        assert failure["reason"] == "INPUT_BOUND_EXCEEDED"
-        assert bound[0].row_number == failure["source_row_number"]
-    else:
-        assert not bound
-    wanted = dict(expected["normalized_fields"])
-    issues = wanted.pop("issue_codes", [])
-    all_issues = [code for o in observations for code in o.issues]
-    assert set(issues) <= set(all_issues)
-    filters = wanted.pop("hard_filter_matches", {})
-    attributes = wanted.pop("attributes", {})
-    listing_count = wanted.pop("listing_count", None)
-    record_number = wanted.pop("source_logical_record_number", None)
-    if listing_count is not None:
-        assert len(selection.canonical) == listing_count
-    if not selection.canonical:
-        assert not wanted and not filters and not attributes
-        return
-    fields = selection.canonical[0].fields
-    if record_number is not None:
-        assert fields["source_row_number"] == record_number
-    for name, value in attributes.items():
-        assert fields["attributes"][name] == value
-    for name, value in filters.items():
-        facet, requested = name.split("=")
-        assert (fields[facet] == requested) is value
-    for name, value in wanted.items():
-        if name not in LIVE_ONLY:
-            assert fields[name] == value, name
+    assert dirty_case_failures(case, DICTIONARY) == []
 
 
 def test_malformed_width_fails_whole_import_before_any_row(tmp_path):
