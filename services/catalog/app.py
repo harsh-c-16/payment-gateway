@@ -109,6 +109,7 @@ ValidSku = Annotated[Sku, "catalogue SKU"]
 def create_app(*, db=None, events=None, encoder=None):
     db = db or Database(
         os.environ.get("CATALOG_DATABASE_URL", ""),
+        max_connections=int(os.environ.get("CATALOG_MAX_CONNECTIONS", "10")),
         reuse_connections=os.environ.get("CATALOG_REUSE_CONNECTIONS", "false") == "true",
     )
     events = events or SharedEvents()

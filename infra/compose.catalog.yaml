@@ -11,6 +11,7 @@ x-catalog: &catalog
     RUN_ID: ${RUN_ID:?Supply an explicit run identity}
     QUOTE_TTL_SECONDS: "60"
     CATALOG_REUSE_CONNECTIONS: ${CATALOG_REUSE_CONNECTIONS:-false}
+    CATALOG_MAX_CONNECTIONS: ${CATALOG_MAX_CONNECTIONS:-10}
     PYTHONPYCACHEPREFIX: /tmp/catalog-pycache
   volumes:
     - ../services:/app/services:ro
