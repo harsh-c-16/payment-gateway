@@ -91,6 +91,9 @@ def test_worker_subscribes_to_five_business_domains_and_closes_on_failure(monkey
             groups.append(self)
             captured.update(name=name, topics=topics)
 
+        def buffer_snapshot(self):
+            return {"namespace": "bench-m06", "observed_at": "2026-11-02T00:00:00Z"}
+
         def close(self):
             self.closed = True
             captured["closed"] = True

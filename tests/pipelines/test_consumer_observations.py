@@ -129,7 +129,11 @@ def test_worker_samples_fixed_ticks_and_final_state_without_inventing_missed_tic
             pass
 
         def buffer_snapshot(self):
-            return {"namespace": "bench-buffer", "observed_fixture_clock": clock[0]}
+            return {
+                "namespace": "bench-buffer",
+                "observed_fixture_clock": clock[0],
+                "observed_at": "2026-11-02T00:00:00Z",
+            }
 
         def close(self):
             closed.append(True)

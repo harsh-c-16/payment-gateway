@@ -24,10 +24,13 @@ def log_buffer(group, run_id, *, final=False):
             {
                 **sample,
                 "schema_version": 1,
+                "timestamp": sample["observed_at"],
                 "service": "analytics-worker",
                 "operation": "consumer_buffer",
                 "run_id": run_id,
                 "correlation_id": run_id,
+                "event_id": None,
+                "resource_id": sample.get("group_id"),
                 "outcome": "final" if final else "observed",
                 "duration_seconds": monotonic() - started,
                 "clock_domain": "worker_monotonic",
