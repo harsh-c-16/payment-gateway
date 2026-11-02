@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 import unicodedata
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
@@ -444,3 +444,49 @@ def read_source(path, dictionary):
         raise CsvStructureError(f"CSV_STRUCTURE_ERROR: {type(error).__name__}") from error
     finally:
         csv.field_size_limit(previous)
+
+
+def profile_catalog(rows, selection, observations, source_sha256):
+    """Full-file observations for profile.json; reads nothing beyond the supplied rows."""
+    columns = defaultdict(Counter)
+    shapes, identities, issue_counts = Counter(), Counter(), Counter()
+    uniq_ids, pids = set(), set()
+    for raw in rows:
+        for name, value in raw.items():
+            columns[name]["blank" if not value.strip() else "nonblank"] += 1
+        cell = raw["product_specifications"].strip()
+        if not cell:
+            shapes["spec_blank"] += 1
+        elif cell == '{"product_specification"=>nil}':
+            shapes["spec_nil"] += 1
+        elif cell.startswith('{"product_specification"=>['):
+            shapes["spec_list"] += 1
+        elif cell.startswith('{"product_specification"=>{'):
+            shapes["spec_singleton"] += 1
+        else:
+            shapes["spec_other"] += 1
+        uniq_ids.add(raw["uniq_id"])
+        pids.add(raw["pid"])
+    identities.update(unique_uniq_id=len(uniq_ids), unique_pid=len(pids))
+    category_counts, coverage = Counter(), Counter()
+    for item in observations:
+        issue_counts.update(item.issues)
+    for item in selection.canonical:
+        fields = item.fields
+        category_counts[fields["category"] or "unclassified"] += 1
+        for name in ("brand", "category", "description", "colour", "material", "size"):
+            if fields[name] is not None:
+                coverage[name] += 1
+                if fields["active"]:
+                    coverage["active_" + name] += 1
+    return {
+        "source_sha256": source_sha256,
+        "raw_rows": len(observations),
+        "column_profiles": {name: dict(counts) for name, counts in sorted(columns.items())},
+        "nested_shape_counts": dict(shapes),
+        "identity_counts": dict(identities),
+        "category_counts": dict(category_counts),
+        "facet_coverage": dict(coverage),
+        "selected_counts": dict(Counter(selection.dispositions.values())),
+        "issue_counts": dict(issue_counts),
+    }
