@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "name": "streaming-local",
+  "purpose": "development smoke; not a frozen integrated benchmark profile",
+  "services": {
+    "postgres": {"memory_mib": 512, "cpu_cores": 0.5},
+    "kafka": {"memory_mib": 1024, "cpu_cores": 0.75},
+    "schema-registry": {"memory_mib": 640, "cpu_cores": 0.5}
+  },
+  "total_memory_mib": 2176,
+  "kafka_bootstrap_host": "127.0.0.1:9092",
+  "kafka_bootstrap_compose": "kafka:9092",
+  "schema_registry_host": "http://127.0.0.1:8081",
+  "schema_registry_compose": "http://schema-registry:8081",
+  "topic_partitions": 1,
+  "topic_replication_factor": 1,
+  "topic_retention_ms": 604800000,
+  "consumer_groups": {
+    "analytics": "<namespace>.analytics.v1",
+    "catalog_stock": "<namespace>.catalog-stock.v1"
+  }
+}

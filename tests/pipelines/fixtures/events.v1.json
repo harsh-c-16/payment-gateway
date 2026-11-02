@@ -1,0 +1,773 @@
+{
+  "fixture_kind": "synthetic-contract-examples",
+  "review_status": "PENDING_PRODUCER_CONSUMER_REVIEW",
+  "events": {
+    "CONVERSATION_TURN": {
+      "event_id": "00000000-0000-0000-0000-000000000064",
+      "event_type": "CONVERSATION_TURN",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "conversation",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "session",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000a",
+      "aggregate_version": 1,
+      "payload": {
+        "turn_id": "00000000-0000-0000-0000-000000000001",
+        "mode": "fixed",
+        "outcome": "success",
+        "duration_ms": 12.5,
+        "llm_call_count": 0,
+        "extractor_source": "rules"
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "INTENT_EXTRACTED": {
+      "event_id": "00000000-0000-0000-0000-000000000065",
+      "event_type": "INTENT_EXTRACTED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "conversation",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "session",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000a",
+      "aggregate_version": 1,
+      "payload": {
+        "turn_id": "00000000-0000-0000-0000-000000000001",
+        "intent": {
+          "query_text": "synthetic product",
+          "category": null,
+          "size": null,
+          "colour": null,
+          "material": null,
+          "brand": null,
+          "occasion": null,
+          "max_price_minor": null,
+          "category_path_prefix": null,
+          "currency": "INR"
+        },
+        "extractor_version": "rules-v1",
+        "outcome": "valid"
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "INTENT_REJECTED": {
+      "event_id": "00000000-0000-0000-0000-000000000066",
+      "event_type": "INTENT_REJECTED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "conversation",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "session",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000a",
+      "aggregate_version": 1,
+      "payload": {
+        "turn_id": "00000000-0000-0000-0000-000000000001",
+        "reason_code": "MODEL_OUTPUT_INVALID",
+        "extractor_version": "rules-v1",
+        "restricted_content_reference": "restricted/synthetic-1"
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "TOOL_CALLED": {
+      "event_id": "00000000-0000-0000-0000-000000000067",
+      "event_type": "TOOL_CALLED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "conversation",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "session",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000a",
+      "aggregate_version": 1,
+      "payload": {
+        "turn_id": "00000000-0000-0000-0000-000000000001",
+        "tool_call_id": "00000000-0000-0000-0000-000000000002",
+        "tool_name": "search",
+        "outcome": "success",
+        "duration_ms": 3.0
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "ADD_TO_CART": {
+      "event_id": "00000000-0000-0000-0000-000000000068",
+      "event_type": "ADD_TO_CART",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "conversation",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "session",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000a",
+      "aggregate_version": 1,
+      "payload": {
+        "cart_id": "00000000-0000-0000-0000-000000000003",
+        "cart_version": 1,
+        "sku": "FK-SYNTHETIC-1",
+        "quantity_after": 2
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "CHECKOUT_STARTED": {
+      "event_id": "00000000-0000-0000-0000-000000000069",
+      "event_type": "CHECKOUT_STARTED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "conversation",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "session",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000a",
+      "aggregate_version": 1,
+      "payload": {
+        "cart_id": "00000000-0000-0000-0000-000000000003",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "confirmation_id": "00000000-0000-0000-0000-000000000006"
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "SEARCH_REQUESTED": {
+      "event_id": "00000000-0000-0000-0000-00000000006a",
+      "event_type": "SEARCH_REQUESTED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "catalog",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "search",
+      "aggregate_id": "00000000-0000-0000-0000-000000000007",
+      "aggregate_version": 1,
+      "payload": {
+        "search_id": "00000000-0000-0000-0000-000000000007",
+        "intent": {
+          "query_text": "synthetic product",
+          "category": null,
+          "size": null,
+          "colour": null,
+          "material": null,
+          "brand": null,
+          "occasion": null,
+          "max_price_minor": null,
+          "category_path_prefix": null,
+          "currency": "INR"
+        },
+        "mode": "lexical"
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "PRODUCT_RETRIEVED": {
+      "event_id": "00000000-0000-0000-0000-00000000006b",
+      "event_type": "PRODUCT_RETRIEVED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "catalog",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "search",
+      "aggregate_id": "00000000-0000-0000-0000-000000000007",
+      "aggregate_version": 1,
+      "payload": {
+        "search_id": "00000000-0000-0000-0000-000000000007",
+        "skus": [],
+        "returned_count": 0,
+        "mode": "lexical",
+        "duration_ms": 7.25
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "PRODUCT_COMPARED": {
+      "event_id": "00000000-0000-0000-0000-00000000006c",
+      "event_type": "PRODUCT_COMPARED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "catalog",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "search",
+      "aggregate_id": "00000000-0000-0000-0000-000000000008",
+      "aggregate_version": 1,
+      "payload": {
+        "comparison_id": "00000000-0000-0000-0000-000000000008",
+        "skus": [
+          "FK-SYNTHETIC-1"
+        ],
+        "field_names": [
+          "price_minor"
+        ]
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "PRICE_UPDATED": {
+      "event_id": "00000000-0000-0000-0000-00000000006d",
+      "event_type": "PRICE_UPDATED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "catalog",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "sku",
+      "aggregate_id": "FK-SYNTHETIC-1",
+      "aggregate_version": 1,
+      "payload": {
+        "sku": "FK-SYNTHETIC-1",
+        "price_minor": 219900,
+        "currency": "INR",
+        "catalog_version": 1
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "ORDER_CREATED": {
+      "event_id": "00000000-0000-0000-0000-00000000006e",
+      "event_type": "ORDER_CREATED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "orders",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "order",
+      "aggregate_id": "00000000-0000-0000-0000-000000000005",
+      "aggregate_version": 1,
+      "payload": {
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "order_status": "PENDING",
+        "total_amount_minor": 439800,
+        "currency": "INR",
+        "created_at": "2026-10-31T10:00:00Z",
+        "user_id": "synthetic-user",
+        "session_id": "00000000-0000-0000-0000-00000000000a",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "failure_code": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "ORDER_CONFIRMED": {
+      "event_id": "00000000-0000-0000-0000-00000000006f",
+      "event_type": "ORDER_CONFIRMED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "orders",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "order",
+      "aggregate_id": "00000000-0000-0000-0000-000000000005",
+      "aggregate_version": 1,
+      "payload": {
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "order_status": "CONFIRMED",
+        "total_amount_minor": 439800,
+        "currency": "INR",
+        "created_at": "2026-10-31T10:00:00Z",
+        "user_id": "synthetic-user",
+        "session_id": "00000000-0000-0000-0000-00000000000a",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "failure_code": null,
+        "reservation_id": "00000000-0000-0000-0000-00000000000b",
+        "payment_id": "00000000-0000-0000-0000-00000000000c"
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "ORDER_CANCELLED": {
+      "event_id": "00000000-0000-0000-0000-000000000070",
+      "event_type": "ORDER_CANCELLED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "orders",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "order",
+      "aggregate_id": "00000000-0000-0000-0000-000000000005",
+      "aggregate_version": 1,
+      "payload": {
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "order_status": "CANCELLED",
+        "total_amount_minor": 439800,
+        "currency": "INR",
+        "created_at": "2026-10-31T10:00:00Z",
+        "user_id": "synthetic-user",
+        "session_id": "00000000-0000-0000-0000-00000000000a",
+        "quote_id": "00000000-0000-0000-0000-000000000004",
+        "failure_code": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "STOCK_UPDATED": {
+      "event_id": "00000000-0000-0000-0000-000000000071",
+      "event_type": "STOCK_UPDATED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "inventory",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "sku",
+      "aggregate_id": "FK-SYNTHETIC-1",
+      "aggregate_version": 1,
+      "payload": {
+        "sku": "FK-SYNTHETIC-1",
+        "on_hand": 3,
+        "reserved": 2,
+        "available": 1,
+        "stock_version": 1,
+        "changed_at": "2026-10-31T10:00:00Z",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "reservation_id": "00000000-0000-0000-0000-00000000000b",
+        "reason_code": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "INVENTORY_RESERVED": {
+      "event_id": "00000000-0000-0000-0000-000000000072",
+      "event_type": "INVENTORY_RESERVED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "inventory",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "sku",
+      "aggregate_id": "FK-SYNTHETIC-1",
+      "aggregate_version": 1,
+      "payload": {
+        "sku": "FK-SYNTHETIC-1",
+        "on_hand": 3,
+        "reserved": 2,
+        "available": 1,
+        "stock_version": 1,
+        "changed_at": "2026-10-31T10:00:00Z",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "reservation_id": "00000000-0000-0000-0000-00000000000b",
+        "reason_code": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "INVENTORY_RELEASED": {
+      "event_id": "00000000-0000-0000-0000-000000000073",
+      "event_type": "INVENTORY_RELEASED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "inventory",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "sku",
+      "aggregate_id": "FK-SYNTHETIC-1",
+      "aggregate_version": 1,
+      "payload": {
+        "sku": "FK-SYNTHETIC-1",
+        "on_hand": 3,
+        "reserved": 2,
+        "available": 1,
+        "stock_version": 1,
+        "changed_at": "2026-10-31T10:00:00Z",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "reservation_id": "00000000-0000-0000-0000-00000000000b",
+        "reason_code": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "INVENTORY_EXPIRED": {
+      "event_id": "00000000-0000-0000-0000-000000000074",
+      "event_type": "INVENTORY_EXPIRED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "inventory",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "sku",
+      "aggregate_id": "FK-SYNTHETIC-1",
+      "aggregate_version": 1,
+      "payload": {
+        "sku": "FK-SYNTHETIC-1",
+        "on_hand": 3,
+        "reserved": 2,
+        "available": 1,
+        "stock_version": 1,
+        "changed_at": "2026-10-31T10:00:00Z",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "reservation_id": "00000000-0000-0000-0000-00000000000b",
+        "reason_code": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "INVENTORY_COMMITTED": {
+      "event_id": "00000000-0000-0000-0000-000000000075",
+      "event_type": "INVENTORY_COMMITTED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "inventory",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "sku",
+      "aggregate_id": "FK-SYNTHETIC-1",
+      "aggregate_version": 1,
+      "payload": {
+        "sku": "FK-SYNTHETIC-1",
+        "on_hand": 3,
+        "reserved": 2,
+        "available": 1,
+        "stock_version": 1,
+        "changed_at": "2026-10-31T10:00:00Z",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "reservation_id": "00000000-0000-0000-0000-00000000000b",
+        "reason_code": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "INVENTORY_REJECTED": {
+      "event_id": "00000000-0000-0000-0000-000000000076",
+      "event_type": "INVENTORY_REJECTED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "inventory",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "sku",
+      "aggregate_id": "FK-SYNTHETIC-1",
+      "aggregate_version": 1,
+      "payload": {
+        "sku": "FK-SYNTHETIC-1",
+        "on_hand": 3,
+        "reserved": 2,
+        "available": 1,
+        "stock_version": 1,
+        "changed_at": "2026-10-31T10:00:00Z",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "reservation_id": "00000000-0000-0000-0000-00000000000b",
+        "reason_code": "OUT_OF_STOCK",
+        "reservation_request_id": "00000000-0000-0000-0000-00000000000d"
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "PAYMENT_PENDING": {
+      "event_id": "00000000-0000-0000-0000-000000000077",
+      "event_type": "PAYMENT_PENDING",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "payments",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "payment_attempt",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000c",
+      "aggregate_version": 1,
+      "payload": {
+        "payment_id": "00000000-0000-0000-0000-00000000000c",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "attempt_number": 1,
+        "status": "PENDING",
+        "amount_minor": 439800,
+        "currency": "INR",
+        "attempt_created_at": "2026-10-31T10:00:00Z",
+        "failure_code": null,
+        "debit_id": null,
+        "reversal_id": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "PAYMENT_SUCCESS": {
+      "event_id": "00000000-0000-0000-0000-000000000078",
+      "event_type": "PAYMENT_SUCCESS",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "payments",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "payment_attempt",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000c",
+      "aggregate_version": 1,
+      "payload": {
+        "payment_id": "00000000-0000-0000-0000-00000000000c",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "attempt_number": 1,
+        "status": "SUCCESS",
+        "amount_minor": 439800,
+        "currency": "INR",
+        "attempt_created_at": "2026-10-31T10:00:00Z",
+        "failure_code": null,
+        "debit_id": "00000000-0000-0000-0000-00000000000e",
+        "reversal_id": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "PAYMENT_FAILED": {
+      "event_id": "00000000-0000-0000-0000-000000000079",
+      "event_type": "PAYMENT_FAILED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "payments",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "payment_attempt",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000c",
+      "aggregate_version": 1,
+      "payload": {
+        "payment_id": "00000000-0000-0000-0000-00000000000c",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "attempt_number": 1,
+        "status": "FAILED",
+        "amount_minor": 439800,
+        "currency": "INR",
+        "attempt_created_at": "2026-10-31T10:00:00Z",
+        "failure_code": "SIMULATED_FAILURE",
+        "debit_id": null,
+        "reversal_id": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "PAYMENT_CANCELLED": {
+      "event_id": "00000000-0000-0000-0000-00000000007a",
+      "event_type": "PAYMENT_CANCELLED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "payments",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "payment_attempt",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000c",
+      "aggregate_version": 1,
+      "payload": {
+        "payment_id": "00000000-0000-0000-0000-00000000000c",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "attempt_number": 1,
+        "status": "CANCELLED",
+        "amount_minor": 439800,
+        "currency": "INR",
+        "attempt_created_at": "2026-10-31T10:00:00Z",
+        "failure_code": null,
+        "debit_id": null,
+        "reversal_id": null
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "PAYMENT_REVERSED": {
+      "event_id": "00000000-0000-0000-0000-00000000007b",
+      "event_type": "PAYMENT_REVERSED",
+      "schema_version": 1,
+      "event_time": "2026-10-31T10:00:00Z",
+      "produced_at": "2026-10-31T10:00:00Z",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "source_service": "payments",
+      "correlation_id": "00000000-0000-0000-0000-000000000009",
+      "session_id": "00000000-0000-0000-0000-00000000000a",
+      "user_id": "synthetic-user",
+      "aggregate_type": "payment_attempt",
+      "aggregate_id": "00000000-0000-0000-0000-00000000000c",
+      "aggregate_version": 1,
+      "payload": {
+        "payment_id": "00000000-0000-0000-0000-00000000000c",
+        "order_id": "00000000-0000-0000-0000-000000000005",
+        "attempt_number": 1,
+        "status": "REVERSED",
+        "amount_minor": 439800,
+        "currency": "INR",
+        "attempt_created_at": "2026-10-31T10:00:00Z",
+        "failure_code": null,
+        "debit_id": "00000000-0000-0000-0000-00000000000e",
+        "reversal_id": "00000000-0000-0000-0000-00000000000f"
+      },
+      "metadata": {
+        "dataset_revision": "synthetic-v1",
+        "synthetic": true,
+        "scenario_source": "simulation"
+      }
+    },
+    "DLQ_NOTICE": {
+      "event_id": "00000000-0000-0000-0000-0000000000c8",
+      "diagnostic_id": "00000000-0000-0000-0000-0000000000c8",
+      "namespace": "bench-m02-examples",
+      "run_id": "m02-synthetic",
+      "schema_version": 1,
+      "produced_at": "2026-10-31T10:00:00Z",
+      "source_service": "conversation",
+      "origin_kind": "service_diagnostic",
+      "source_locator": "restricted/synthetic-1",
+      "reason_code": "MODEL_OUTPUT_INVALID",
+      "created_at": "2026-10-31T10:00:00Z"
+    }
+  }
+}

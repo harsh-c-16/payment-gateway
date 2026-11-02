@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "note": "Released M02 schema hashes supported by M03 readers; registry IDs remain environment-specific.",
+  "schemas": [
+    {
+      "subject": "conversation-events.v1-value",
+      "sha256": "698e9b55e34fdd9700a1a5108c8d4425a5305cfa2dd13ef5dfe01f91f42bffd0"
+    },
+    {
+      "subject": "inventory-events.v1-value",
+      "sha256": "3f46ee54115905186505c75259c24ad72a503f6b5e053f046489608f46399540"
+    },
+    {
+      "subject": "order-events.v1-value",
+      "sha256": "9dcd28964f416ffe70d21b9dfd48bb98f1fbf9004150b05bed9fe164f8bdb450"
+    },
+    {
+      "subject": "payment-events.v1-value",
+      "sha256": "a0e680b900be27ab7cc97c3c2f850251bbb37f6a86a9154b6d9f9376410d4c11"
+    },
+    {
+      "subject": "retrieval-events.v1-value",
+      "sha256": "a3fda67ec0ba56eebc01f8ad3f37a639073853ceb496a9fd67a2f356eb92740e"
+    },
+    {
+      "subject": "dead-letter.v1-value",
+      "sha256": "22c6dbcaf64fb445fa57ea8e57115345988ad353f604df599e46dc496bb818fa"
+    }
+  ]
+}

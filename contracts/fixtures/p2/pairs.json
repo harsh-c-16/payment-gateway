@@ -722,10 +722,23 @@
       "response": {
         "receipts": [
           {
+            "namespace": "bench-p2",
+            "source": {
+              "topic": "bench-p2.conversation-events.v1",
+              "partition": 0,
+              "offset": 0,
+              "raw_locator": "bronze/p2-synthetic.jsonl#1"
+            },
+            "raw_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
             "event_id": "00000000-0000-0000-0000-000000000008",
             "disposition": "new_valid",
-            "silver_at": null,
-            "visibility_generation": null
+            "reason_code": null,
+            "ingested_at": "2026-10-25T10:00:00Z",
+            "bronze_durable_at": "2026-10-25T10:00:00Z",
+            "silver_committed_observed_at": null,
+            "gold_visible_at": null,
+            "visibility_generation": null,
+            "timing_validity": "missing"
           }
         ],
         "next_cursor": null

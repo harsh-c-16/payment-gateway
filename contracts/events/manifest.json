@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "compatibility": "BACKWARD_TRANSITIVE",
+  "hash_encoding": "sorted compact UTF-8 JSON",
+  "review_status": "PENDING_PRODUCER_CONSUMER_REVIEW",
+  "schemas": [
+    {
+      "subject": "conversation-events.v1-value",
+      "schema_path": "contracts/events/conversation-events.v1.schema.json",
+      "sha256": "2998e4e2adfe13a2b10cd8ac491c86da78dc8b001432131074fd28bf7cc1c596"
+    },
+    {
+      "subject": "inventory-events.v1-value",
+      "schema_path": "contracts/events/inventory-events.v1.schema.json",
+      "sha256": "9f96441fb9f2555175b614c05b8c2888614f10464516abafbee27113aceea328"
+    },
+    {
+      "subject": "order-events.v1-value",
+      "schema_path": "contracts/events/order-events.v1.schema.json",
+      "sha256": "784fdb3e498cb9b63561631cc34b1f18738446accda68ba0c709559a37723e19"
+    },
+    {
+      "subject": "payment-events.v1-value",
+      "schema_path": "contracts/events/payment-events.v1.schema.json",
+      "sha256": "cddb07941339979ead335f75eec921bd19fe7cc083f4aea6fd96fb6d331ff956"
+    },
+    {
+      "subject": "retrieval-events.v1-value",
+      "schema_path": "contracts/events/retrieval-events.v1.schema.json",
+      "sha256": "49995fd5ce0c8fa6ecb57cf431d7f10aa06280fae8712b44998b28599e1d2720"
+    },
+    {
+      "subject": "dead-letter.v1-value",
+      "schema_path": "contracts/events/dead-letter.v1.schema.json",
+      "sha256": "8593a385bb020a14107f3968183783f413fd8fd641617b90849b82babb0b8e59"
+    }
+  ]
+}

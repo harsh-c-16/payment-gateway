@@ -495,10 +495,23 @@ def examples():
         {
             "receipts": [
                 {
+                    "namespace": "bench-p2",
+                    "source": {
+                        "topic": "bench-p2.conversation-events.v1",
+                        "partition": 0,
+                        "offset": 0,
+                        "raw_locator": "bronze/p2-synthetic.jsonl#1",
+                    },
+                    "raw_sha256": "0" * 64,
                     "event_id": uid(8),
                     "disposition": "new_valid",
-                    "silver_at": None,
+                    "reason_code": None,
+                    "ingested_at": NOW,
+                    "bronze_durable_at": NOW,
+                    "silver_committed_observed_at": None,
+                    "gold_visible_at": None,
                     "visibility_generation": None,
+                    "timing_validity": "missing",
                 }
             ],
             "next_cursor": None,
