@@ -130,3 +130,15 @@ def world(tmp_path, database_url, db, events, monkeypatch, outbox_double):
     seed_stock(db, events.codec, namespace, ["FK-ZEROSTOCK"], on_hand=0, start_offset=2000)
     client = TestClient(create_app(db=db, events=events), raise_server_exceptions=False)
     return client, namespace, report
+
+
+@pytest.fixture(scope="session")
+def encoder():
+    """The real locked model when present; the semantic tests skip visibly otherwise."""
+    pytest.importorskip("onnxruntime")
+    directory = Path(__file__).resolve().parents[2] / "artifacts/models/all-MiniLM-L6-v2"
+    if not (directory / "model.onnx").is_file():
+        pytest.skip("NOT_RUN: locked embedding model files not present")
+    from services.catalog.embedding import Encoder
+
+    return Encoder(directory)

@@ -288,6 +288,22 @@ class CatalogLoadReport(WireModel):
     artifact_paths: list[str]
 
 
+class EmbeddingManifest(WireModel):
+    model_id: str
+    revision: str
+    dimensions: Literal[384]
+    normalized: Literal[True]
+    distance: Literal["cosine"]
+    text_template_version: str
+    input_hash: Sha256
+    output_hash: Sha256
+    row_count: Count
+    encoded_rows: Count
+    truncated_documents: Count
+    batch_size: Count
+    encode_seconds: Annotated[float, Field(ge=0)]
+
+
 class ProjectionResult(WireModel):
     event_id: UUIDText
     outcome: Literal["applied", "duplicate", "stale", "conflict", "deferred"]

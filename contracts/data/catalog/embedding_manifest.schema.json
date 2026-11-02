@@ -1,0 +1,84 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "model_id": {
+      "title": "Model Id",
+      "type": "string"
+    },
+    "revision": {
+      "title": "Revision",
+      "type": "string"
+    },
+    "dimensions": {
+      "const": 384,
+      "title": "Dimensions",
+      "type": "integer"
+    },
+    "normalized": {
+      "const": true,
+      "title": "Normalized",
+      "type": "boolean"
+    },
+    "distance": {
+      "const": "cosine",
+      "title": "Distance",
+      "type": "string"
+    },
+    "text_template_version": {
+      "title": "Text Template Version",
+      "type": "string"
+    },
+    "input_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Input Hash",
+      "type": "string"
+    },
+    "output_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Output Hash",
+      "type": "string"
+    },
+    "row_count": {
+      "minimum": 0,
+      "title": "Row Count",
+      "type": "integer"
+    },
+    "encoded_rows": {
+      "minimum": 0,
+      "title": "Encoded Rows",
+      "type": "integer"
+    },
+    "truncated_documents": {
+      "minimum": 0,
+      "title": "Truncated Documents",
+      "type": "integer"
+    },
+    "batch_size": {
+      "minimum": 0,
+      "title": "Batch Size",
+      "type": "integer"
+    },
+    "encode_seconds": {
+      "minimum": 0,
+      "title": "Encode Seconds",
+      "type": "number"
+    }
+  },
+  "required": [
+    "model_id",
+    "revision",
+    "dimensions",
+    "normalized",
+    "distance",
+    "text_template_version",
+    "input_hash",
+    "output_hash",
+    "row_count",
+    "encoded_rows",
+    "truncated_documents",
+    "batch_size",
+    "encode_seconds"
+  ],
+  "title": "EmbeddingManifest",
+  "type": "object"
+}

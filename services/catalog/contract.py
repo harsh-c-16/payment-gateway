@@ -20,6 +20,7 @@ DATA_SCHEMAS = {
     "facet_dictionary": dtos.FacetDictionary,
     "catalog_profile": dtos.CatalogProfile,
     "catalog_load_report": dtos.CatalogLoadReport,
+    "embedding_manifest": dtos.EmbeddingManifest,
 }
 
 
