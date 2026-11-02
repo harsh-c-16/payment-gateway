@@ -1,5 +1,6 @@
 """projectctl bindings for `catalog profile|import|verify` (runbook §§2-3)."""
 
+import asyncio
 import csv
 import hashlib
 import json
@@ -297,6 +298,23 @@ def projection_wait_action(invocation):
         return ProviderResult(ExitCode.BAD_INPUT, (type(error).__name__,), "real")
     except psycopg.Error as error:
         return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (type(error).__name__,), "real")
+
+
+def runner_importer(source, out_root, *, url=None):
+    """Importer for Jaineel's ImportDriver: W-IMPORT with the variant's load mode."""
+
+    async def importer(context):
+        _, timings = await asyncio.to_thread(
+            run_import,
+            source,
+            load_mode=context["parameters"]["catalog_load_mode"],
+            namespace=context["namespace"],
+            out=Path(out_root) / context["namespace"],
+            url=url,
+        )
+        return timings
+
+    return importer
 
 
 def register(registry):
