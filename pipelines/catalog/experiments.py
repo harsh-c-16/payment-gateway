@@ -1,30 +1,70 @@
-"""Owner-run I0/I1 comparison on one host, each trial in a fresh schema.
+"""Owner-run I0/I1 and B0/O2 comparisons on one host, each trial in a fresh schema.
 
-This is not the P9 runner: it has no frozen resource limits. Results are labelled accordingly.
+This is not the P9 runner: it has no frozen resource limits, no outbox write (Aditya's library
+is absent) and runs searches closed-loop. Results are labelled accordingly. Usage:
 
     python -m pipelines.catalog.experiments import --out DIR
+    python -m pipelines.catalog.experiments search --out DIR [--scale 10] [--variants B0,O2]
 """
 
 import argparse
 import json
+import math
 import os
 import platform
 import random
 import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from statistics import median
+from time import perf_counter
 from uuid import uuid4
 
 import psycopg
+import pyarrow as pa
+import pyarrow.parquet as pq
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
 from pipelines.catalog.adapter import database_url, run_import
+from services.catalog import products, search
+from services.catalog.database import Database
+from shared.contracts.catalog import PriceUpdateRequest, SearchRequest
+from shared.contracts.common import RequestContext
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / "data/raw/flipkart_com-ecommerce_sample.csv"
-REPETITIONS, SEED = 3, 42
+QUERIES = ROOT / "contracts/fixtures/catalog/queries.json"
+O2_MIGRATION = ROOT / "migrations/catalog/variants/o2_category_price_btree.sql"
+WARMUPS, EXECUTIONS, REPETITIONS, SEED = 3, 30, 3, 42
+PRICE_UPDATES = 2000
+
+
+class NoEvents:
+    """Skips the outbox write until the shared library exists; declared in every result."""
+
+    mode = "outbox-absent"
+
+    def ready(self):
+        pass
+
+    def append(self, tx, **event):
+        pass
+
+
+def nearest_rank(values, quantile):
+    ordered = sorted(values)
+    return ordered[max(math.ceil(quantile * len(ordered)), 1) - 1] if ordered else None
+
+
+def latency_summary(values):
+    return {
+        "count": len(values),
+        "p50": nearest_rank(values, 0.50),
+        "p95": nearest_rank(values, 0.95),
+        "p99": nearest_rank(values, 0.99),
+    }
 
 
 def git_state():
@@ -46,6 +86,10 @@ def host_facts():
         "python": platform.python_version(),
         "resource_limits": "none enforced; not the frozen local4c8g profile",
     }
+
+
+def scoped_url(schema):
+    return make_conninfo(database_url(), options=f"-c search_path={schema},public")
 
 
 def create_schema():
@@ -154,18 +198,337 @@ def run_import_experiment(arguments):
     print(json.dumps(summary["variants"], indent=2))
 
 
+def seed_stock(connection, namespace):
+    """File 08 performance profile. Direct SQL only because Aditya's seed is not available."""
+    connection.execute(
+        "INSERT INTO stock_projection (namespace,sku,on_hand,reserved,stock_version,changed_at,"
+        "event_id) SELECT namespace,sku,10000,0,1,clock_timestamp(),gen_random_uuid() "
+        "FROM products WHERE namespace=%s AND active",
+        (namespace,),
+    )
+
+
+def clone_catalogue(connection, namespace, scale):
+    """Synthetic scale fixture: new deterministic SKUs, same content, explicit factor in IDs."""
+    columns = [
+        row[0]
+        for row in connection.execute(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_schema = current_schema() AND table_name='products' "
+            "AND column_name NOT IN ('sku','product_id') ORDER BY ordinal_position"
+        ).fetchall()
+    ]
+    names = sql.SQL(",").join(map(sql.Identifier, columns))
+    for copy in range(1, scale):
+        connection.execute(
+            sql.SQL(
+                "INSERT INTO products (sku,product_id,{names}) "
+                "SELECT left(sku,57)||'-X'||%(copy)s,left(sku,57)||'-X'||%(copy)s,{names} "
+                "FROM products WHERE namespace=%(namespace)s AND sku NOT LIKE '%%-X%%'"
+            ).format(names=names),
+            {"copy": copy, "namespace": namespace},
+        )
+
+
+def hit_violations(intent, hit):
+    """Independent re-check of each returned hit against the requested constraints."""
+    violations = []
+    if hit["stock_available"] <= 0:
+        violations.append("stock")
+    if intent.get("category") and hit["category"] != intent["category"]:
+        violations.append("category")
+    if intent.get("size") and hit["size"] != intent["size"]:
+        violations.append("size")
+    if intent.get("colour") and hit["colour"] != intent["colour"]:
+        violations.append("colour")
+    if intent.get("material") and hit["material"] != intent["material"]:
+        violations.append("material")
+    bound = intent.get("max_price_minor")
+    if bound is not None and hit["price_minor"] > bound:
+        violations.append("price")
+    return violations
+
+
+def make_request(spec, mode):
+    return SearchRequest(
+        request_id=str(uuid4()),
+        session_id=str(uuid4()),
+        intent=spec["request"]["intent"],
+        top_k=spec["request"]["top_k"],
+        mode=mode,
+    )
+
+
+def explain(connection, spec, namespace, mode, directory, variant):
+    """Plans for the two statements a search runs, kept as raw text."""
+    variant = variant.replace("+", "-")
+    request = make_request(spec, mode)
+    where, parameters = search.hard_filters(request.intent, namespace)
+    statements = {
+        "filter": (
+            f"SELECT count(*) FROM {search.FROM_ELIGIBLE} WHERE {where}",
+            parameters,
+        )
+    }
+    if mode == "filter_only":
+        statements["rank"] = (
+            f"SELECT {search.HIT_COLUMNS} FROM {search.FROM_ELIGIBLE} WHERE {where} "
+            "ORDER BY p.price_minor, p.sku LIMIT 5",
+            parameters,
+        )
+    elif request.intent.query_text.strip():
+        statements["rank"] = (
+            f"SELECT {search.HIT_COLUMNS}, ts_rank(p.search_vector, {search.TSQUERY}) AS score "
+            f"FROM {search.FROM_ELIGIBLE} WHERE {where} AND p.search_vector @@ {search.TSQUERY} "
+            "ORDER BY score DESC, p.sku LIMIT 5",
+            {**parameters, "text": request.intent.query_text},
+        )
+    used_index = False
+    for name, (statement, values) in statements.items():
+        lines = connection.execute("EXPLAIN (ANALYZE, BUFFERS) " + statement, values).fetchall()
+        text = "\n".join(line[0] for line in lines)
+        used_index = used_index or "products_o2_category_price" in text
+        path = directory / variant / mode
+        path.mkdir(parents=True, exist_ok=True)
+        (path / f"{spec['query_id']}-{name}.txt").write_text(text + "\n", encoding="utf-8")
+    return used_index
+
+
+def price_update_costs(db, namespace, seed):
+    """Mutation overhead of the index: identical updates on both variants."""
+    context = RequestContext(
+        namespace=namespace,
+        run_id=str(uuid4()),
+        user_id="experiment",
+        correlation_id=str(uuid4()),
+        request_id=str(uuid4()),
+        session_id=None,
+    )
+    with db.transaction() as tx:
+        rows = tx.execute(
+            "SELECT sku,price_minor,catalog_version FROM products "
+            "WHERE namespace=%s AND active AND sku NOT LIKE '%%-X%%' ORDER BY sku",
+            (namespace,),
+        ).fetchall()
+    random.Random(seed).shuffle(rows)
+    durations = []
+    for row in rows[:PRICE_UPDATES]:
+        started = perf_counter()
+        products.update_price(
+            db,
+            NoEvents(),
+            row["sku"],
+            PriceUpdateRequest(
+                price_minor=max(row["price_minor"] + 100, 1),
+                expected_catalog_version=row["catalog_version"],
+            ),
+            context,
+            str(uuid4()),
+        )
+        durations.append((perf_counter() - started) * 1000)
+    return latency_summary(durations)
+
+
+def search_trial(variant, repetition, specs, out, source, scale, executions):
+    schema = create_schema()
+    url = scoped_url(schema)
+    namespace = f"bench-search-{variant.lower().replace('+', '-')}-{repetition}"
+    db = Database(url, reuse_connections="P1" in variant)
+    rows, plans_used = [], {}
+    context = RequestContext(
+        namespace=namespace,
+        run_id=str(uuid4()),
+        user_id="experiment",
+        correlation_id=str(uuid4()),
+        request_id=str(uuid4()),
+        session_id=None,
+    )
+    try:
+        run_import(
+            source,
+            load_mode="copy",
+            namespace=namespace,
+            out=out / "import" / f"{variant}-{repetition}",
+            url=url,
+        )
+        with psycopg.connect(url, autocommit=True) as connection:
+            if scale > 1:
+                clone_catalogue(connection, namespace, scale)
+            seed_stock(connection, namespace)
+            build = {"seconds": None, "index_bytes": 0}
+            if "O2" in variant:
+                started = perf_counter()
+                connection.execute(O2_MIGRATION.read_text(encoding="utf-8"))
+                build["seconds"] = perf_counter() - started
+                build["index_bytes"] = connection.execute(
+                    "SELECT pg_relation_size(to_regclass('products_o2_category_price'))"
+                ).fetchone()[0]
+            else:
+                connection.execute("ANALYZE products")
+            table_bytes = connection.execute("SELECT pg_table_size('products')").fetchone()[0]
+        rng = random.Random(f"{SEED}-{repetition}")
+        for mode in ("filter_only", "lexical"):
+            order = specs[:]
+            rng.shuffle(order)
+            for spec in order:
+                for _ in range(WARMUPS):
+                    search.search_catalog(db, NoEvents(), make_request(spec, mode), context)
+                for _ in range(executions):
+                    started = perf_counter()
+                    response = search.search_catalog(
+                        db, NoEvents(), make_request(spec, mode), context
+                    )
+                    client_ms = (perf_counter() - started) * 1000
+                    hits = [hit.model_dump(mode="json") for hit in response.hits]
+                    rows.append(
+                        {
+                            "variant": variant,
+                            "repetition": repetition,
+                            "mode": mode,
+                            "query_id": spec["query_id"],
+                            "stratum": spec["stratum"],
+                            "eligible_count": response.eligible_count,
+                            "candidate_count": response.candidate_count,
+                            "returned_skus": [hit["sku"] for hit in hits],
+                            "scores": [hit["score"] for hit in hits],
+                            "violations": sum(
+                                len(hit_violations(spec["request"]["intent"], hit)) for hit in hits
+                            ),
+                            "filter_ms": response.timings_ms.filter,
+                            "rank_ms": response.timings_ms.rank,
+                            "server_total_ms": response.timings_ms.total,
+                            "client_ms": client_ms,
+                        }
+                    )
+            with psycopg.connect(url, autocommit=True) as connection:
+                plans_used[mode] = sum(
+                    explain(connection, spec, namespace, mode, out / "plans", variant)
+                    for spec in specs
+                )
+        updates = price_update_costs(db, namespace, SEED + repetition)
+        return rows, {
+            "variant": variant,
+            "repetition": repetition,
+            "index_build": build,
+            "table_bytes": table_bytes,
+            "queries_whose_plans_used_index": plans_used,
+            "price_update_ms": updates,
+        }
+    finally:
+        drop_schema(schema)
+
+
+def run_search_experiment(arguments):
+    out = Path(arguments.out)
+    out.mkdir(parents=True, exist_ok=True)
+    specs = json.loads(QUERIES.read_text(encoding="utf-8"))["queries"]
+    rng = random.Random(SEED)
+    rows, trials = [], []
+    variants = arguments.variants.split(",")
+    for repetition in range(1, REPETITIONS + 1):
+        order = variants[:]
+        rng.shuffle(order)
+        for variant in order:
+            trial_rows, facts = search_trial(
+                variant,
+                repetition,
+                specs,
+                out,
+                Path(arguments.source),
+                arguments.scale,
+                arguments.executions,
+            )
+            rows += trial_rows
+            trials.append(facts)
+            print(f"rep {repetition} {variant}: {len(trial_rows)} searches", flush=True)
+    pq.write_table(pa.Table.from_pylist(rows), out / "query_results.parquet", compression="zstd")
+    write_json(
+        out / "summary.json",
+        summarize_search(rows, trials, arguments.scale, variants, arguments.executions),
+    )
+
+
+def summarize_search(rows, trials, scale, variants, executions):
+    summary = {
+        "workload": "W-SEARCH",
+        "profile": "owner-local closed-loop; no outbox write; not the P9 open-loop runner",
+        "scale_factor": scale,
+        "synthetic_scale_fixture": scale > 1,
+        "host": host_facts(),
+        "generated_at": datetime.now(UTC).isoformat(),
+        "executions_per_query": executions,
+        "variants": {
+            "B0": "no optional index, new connection per transaction",
+            "O2": "products(namespace,category,price_minor) B-tree",
+            "P1": "reused database sessions, an owner extension outside the core matrix",
+            "O2+P1": "both changes",
+        },
+        "repetitions": REPETITIONS,
+        "hard_filter_violations": sum(row["violations"] for row in rows),
+        "trials": trials,
+        "series": {},
+    }
+    # Same query, mode and repetition must return the same results with and without the index.
+    answers = {}
+    for row in rows:
+        key = (row["mode"], row["query_id"], row["repetition"])
+        answers.setdefault(key, {})[row["variant"]] = row["returned_skus"]
+    summary["result_mismatches_between_variants"] = sum(
+        1 for value in answers.values() if len({tuple(v) for v in value.values()}) > 1
+    )
+    summary["eligible_counts"] = {row["query_id"]: row["eligible_count"] for row in rows}
+    for mode in ("filter_only", "lexical"):
+        for stratum in ("all", "broad", "selective", "zero", "few"):
+            for variant in variants:
+                per_run = []
+                for repetition in range(1, REPETITIONS + 1):
+                    chosen = [
+                        row
+                        for row in rows
+                        if row["mode"] == mode
+                        and row["variant"] == variant
+                        and row["repetition"] == repetition
+                        and (stratum == "all" or row["stratum"] == stratum)
+                    ]
+                    per_run.append(
+                        {
+                            "client_ms": latency_summary([r["client_ms"] for r in chosen]),
+                            "filter_ms": latency_summary([r["filter_ms"] for r in chosen]),
+                            "rank_ms": latency_summary([r["rank_ms"] for r in chosen]),
+                        }
+                    )
+                summary["series"][f"{mode}/{stratum}/{variant}"] = {
+                    metric: {
+                        quantile: {
+                            "median": median(run[metric][quantile] for run in per_run),
+                            "min": min(run[metric][quantile] for run in per_run),
+                            "max": max(run[metric][quantile] for run in per_run),
+                        }
+                        for quantile in ("p50", "p95", "p99")
+                    }
+                    for metric in ("client_ms", "filter_ms", "rank_ms")
+                }
+    return summary
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    command = commands.add_parser("import")
-    command.add_argument("--out", required=True)
-    command.add_argument("--source", default=str(SOURCE))
+    for name in ("import", "search"):
+        command = commands.add_parser(name)
+        command.add_argument("--out", required=True)
+        command.add_argument("--source", default=str(SOURCE))
+    commands.choices["search"].add_argument("--scale", type=int, default=1)
+    commands.choices["search"].add_argument("--variants", default="B0,O2,P1,O2+P1")
+    commands.choices["search"].add_argument("--executions", type=int, default=EXECUTIONS)
     one = commands.add_parser("import-one")
     for flag in ("--source", "--mode", "--namespace", "--schema", "--out"):
         one.add_argument(flag, required=True)
     arguments = parser.parse_args()
     if arguments.command == "import":
         run_import_experiment(arguments)
+    elif arguments.command == "search":
+        run_search_experiment(arguments)
     else:
         import_one(arguments)
 
