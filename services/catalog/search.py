@@ -5,6 +5,7 @@ from time import perf_counter
 from uuid import uuid4
 
 from pipelines.catalog.normalize import clean_text, load_dictionary
+from services.catalog.embedding import vector_text
 from services.catalog.errors import ServiceError
 from services.catalog.products import dataset_revision
 from shared.contracts.catalog import ProductHit, SearchResponse
@@ -89,7 +90,7 @@ def filter_catalog(tx, intent, namespace):
     return where, parameters, count
 
 
-def rank_filter_only(tx, where, parameters, limit, _text):
+def rank_filter_only(tx, where, parameters, limit, _text, _vector):
     rows = tx.execute(
         f"""SELECT {HIT_COLUMNS}, 0.0::float8 AS score, count(*) OVER () AS candidates
         FROM {FROM_ELIGIBLE} WHERE {where} ORDER BY p.price_minor, p.sku LIMIT %(limit)s""",
@@ -98,11 +99,12 @@ def rank_filter_only(tx, where, parameters, limit, _text):
     return rows
 
 
-def rank_lexical(tx, where, parameters, limit, text):
-    has_terms = tx.execute(f"SELECT numnode({TSQUERY}) > 0 AS terms", {"text": text}).fetchone()[
-        "terms"
-    ]
-    if not has_terms:
+def has_terms(tx, text):
+    return tx.execute(f"SELECT numnode({TSQUERY}) > 0 AS terms", {"text": text}).fetchone()["terms"]
+
+
+def rank_lexical(tx, where, parameters, limit, text, _vector):
+    if not has_terms(tx, text):
         # Structured search without text: every eligible listing is an equal candidate.
         return tx.execute(
             f"""SELECT {HIT_COLUMNS}, 0.0::float8 AS score, count(*) OVER () AS candidates
@@ -120,9 +122,6 @@ def rank_lexical(tx, where, parameters, limit, text):
     ).fetchall()
 
 
-RANKERS = {"filter_only": rank_filter_only, "lexical": rank_lexical}
-
-
 def fuse_rrf(lexical_ranked, vector_ranked, k=60, top_k=5):
     """Reciprocal rank fusion over already-eligible SKUs; ties break on SKU."""
     scores = {}
@@ -133,17 +132,102 @@ def fuse_rrf(lexical_ranked, vector_ranked, k=60, top_k=5):
     return [(sku, scores[sku]) for sku in ordered[:top_k]]
 
 
-def search_catalog(db, events, request, context):
-    """Search plus SEARCH_REQUESTED/PRODUCT_RETRIEVED in one local transaction."""
-    ranker = RANKERS.get(request.mode)
-    if ranker is None:
+def exact_search(tx, where, parameters, vector, limit):
+    """Exact cosine ranking over eligible rows. The materialized CTE cannot use an ANN index."""
+    return tx.execute(
+        f"""WITH eligible AS MATERIALIZED (
+                SELECT p.sku, p.embedding FROM {FROM_ELIGIBLE}
+                WHERE {where} AND p.embedding IS NOT NULL
+            )
+            SELECT sku, embedding <=> %(vector)s::vector AS distance
+            FROM eligible ORDER BY distance, sku LIMIT %(limit)s""",
+        {**parameters, "vector": vector, "limit": limit},
+    ).fetchall()
+
+
+def hydrate(tx, where, parameters, ranked, candidates):
+    """Full hit rows for SKUs ranked elsewhere, re-checked against the same hard filters."""
+    if not ranked:
+        return []
+    rows = tx.execute(
+        f"SELECT {HIT_COLUMNS} FROM {FROM_ELIGIBLE} WHERE {where} AND p.sku = ANY(%(ranked_skus)s)",
+        {**parameters, "ranked_skus": [sku for sku, _ in ranked]},
+    ).fetchall()
+    by_sku = {row["sku"]: row for row in rows}
+    return [
+        {**by_sku[sku], "score": score, "candidates": candidates}
+        for sku, score in ranked
+        if sku in by_sku
+    ]
+
+
+def rank_vector_exact(tx, where, parameters, limit, _text, vector):
+    rows = exact_search(tx, where, parameters, vector, limit)
+    return hydrate(tx, where, parameters, [(r["sku"], 1 - r["distance"]) for r in rows], len(rows))
+
+
+def _rank_hybrid(tx, where, parameters, limit, text, vector, branch):
+    # Stopwords alone give no lexical ranking; SKU order must not pose as one in the fusion.
+    lexical = (
+        [row["sku"] for row in rank_lexical(tx, where, parameters, CANDIDATE_LIMIT, text, None)]
+        if has_terms(tx, text)
+        else []
+    )
+    semantic = [row["sku"] for row in branch(tx, where, parameters, vector, CANDIDATE_LIMIT)]
+    fused = fuse_rrf(lexical, semantic, k=60, top_k=limit)
+    return hydrate(tx, where, parameters, fused, len(set(lexical) | set(semantic)))
+
+
+def rank_hybrid_exact(tx, where, parameters, limit, text, vector):
+    return _rank_hybrid(tx, where, parameters, limit, text, vector, exact_search)
+
+
+RANKERS = {
+    "filter_only": rank_filter_only,
+    "lexical": rank_lexical,
+    "vector_exact": rank_vector_exact,
+    "hybrid_exact": rank_hybrid_exact,
+}
+VECTOR_MODES = {"vector_exact", "hybrid_exact"}
+
+
+def query_embedding(request, encoder):
+    """Encoded before any database work, so no connection is held during inference.
+
+    Returns (vector text or None, elapsed ms, calls). Occasion guides semantic ranking only.
+    """
+    intent = request.intent
+    text = " ".join(part for part in (intent.query_text, intent.occasion) if part).strip()
+    if request.mode not in VECTOR_MODES or not text:
+        return None, 0.0, 0
+    if encoder is None:
         raise ServiceError(
             503,
             ErrorCode.DEPENDENCY_UNAVAILABLE,
             "Vector retrieval modes are not provisioned in this deployment.",
             details={"mode": request.mode},
         )
+    started = perf_counter()
+    vectors, _ = encoder.encode([text])
+    return vector_text(vectors[0]), (perf_counter() - started) * 1000, 1
+
+
+def search_catalog(db, events, request, context, *, encoder=None, frozen_vector=None):
+    """Search plus SEARCH_REQUESTED/PRODUCT_RETRIEVED in one local transaction.
+
+    frozen_vector lets exact-versus-ANN trials reuse one saved query embedding.
+    """
     total_start = perf_counter()
+    if frozen_vector is not None:
+        vector, embedding_ms, embedding_calls = frozen_vector, 0.0, 0
+    else:
+        vector, embedding_ms, embedding_calls = query_embedding(request, encoder)
+    # No text means nothing to embed: every eligible listing is an equal lexical candidate.
+    ranker = (
+        RANKERS[request.mode]
+        if vector is not None or request.mode not in VECTOR_MODES
+        else (rank_lexical)
+    )
     search_id = str(uuid4())
     namespace = context.namespace
     with db.transaction() as tx:
@@ -151,7 +235,7 @@ def search_catalog(db, events, request, context):
         where, parameters, eligible = filter_catalog(tx, request.intent, namespace)
         filter_ms = (perf_counter() - started) * 1000
         started = perf_counter()
-        rows = ranker(tx, where, parameters, request.top_k, request.intent.query_text)
+        rows = ranker(tx, where, parameters, request.top_k, request.intent.query_text, vector)
         rank_ms = (perf_counter() - started) * 1000
         candidates = rows[0]["candidates"] if rows else 0
         hits = [
@@ -171,14 +255,14 @@ def search_catalog(db, events, request, context):
             eligible_count=eligible,
             returned_count=len(hits),
             exhausted=len(hits) == candidates,
-            embedding_revision=None,
+            embedding_revision=encoder.revision if embedding_calls else None,
             timings_ms={
-                "embedding": 0,
+                "embedding": embedding_ms,
                 "filter": filter_ms,
                 "rank": rank_ms,
                 "total": (perf_counter() - total_start) * 1000,
             },
-            embedding_calls=0,
+            embedding_calls=embedding_calls,
             served_at=served_at,
         )
         revision = dataset_revision(tx, namespace)

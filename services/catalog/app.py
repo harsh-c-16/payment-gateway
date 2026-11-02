@@ -16,6 +16,7 @@ from pydantic import TypeAdapter, ValidationError
 from pipelines.catalog.migrate import MIGRATIONS
 from services.catalog import products, search
 from services.catalog.database import Database
+from services.catalog.embedding import encoder_from_environment
 from services.catalog.errors import ServiceError
 from services.catalog.events import SharedEvents
 from shared.contracts.catalog import (
@@ -105,12 +106,13 @@ Internal = Depends(internal_caller)
 ValidSku = Annotated[Sku, "catalogue SKU"]
 
 
-def create_app(*, db=None, events=None):
+def create_app(*, db=None, events=None, encoder=None):
     db = db or Database(
         os.environ.get("CATALOG_DATABASE_URL", ""),
         reuse_connections=os.environ.get("CATALOG_REUSE_CONNECTIONS", "false") == "true",
     )
     events = events or SharedEvents()
+    encoder = encoder or encoder_from_environment()
     ttl = int(os.environ.get("QUOTE_TTL_SECONDS", "60"))
     errors = {
         status: {"model": ErrorResponse, "description": "Common error object"}
@@ -122,6 +124,7 @@ def create_app(*, db=None, events=None):
             "service": {"catalog"},
             "route": set(ROUTES),
             "status": {str(code) for code in range(100, 600)},
+            "kind": {"query"},
         }
     )
     app.state.telemetry = telemetry
@@ -162,7 +165,13 @@ def create_app(*, db=None, events=None):
 
     @app.post("/v1/search", response_model=SearchResponse)
     def post_search(body: SearchRequest, context: Context):
-        return search.search_catalog(db, events, body, context)
+        response = search.search_catalog(db, events, body, context, encoder=encoder)
+        if response.embedding_calls:
+            telemetry.record("embedding_calls_total", response.embedding_calls, kind="query")
+            telemetry.record(
+                "embedding_duration_seconds", response.timings_ms.embedding / 1000, kind="query"
+            )
+        return response
 
     @app.get("/v1/catalog/facets", response_model=FacetDictionary)
     def get_facets(context: Context, dataset_revision: Annotated[str | None, Query()] = None):

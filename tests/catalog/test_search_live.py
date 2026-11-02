@@ -109,9 +109,9 @@ def test_hostile_query_text_is_data(world):
     assert skus(search(client, namespace, category="watches", mode="filter_only"))
 
 
-def test_vector_modes_fail_visibly_until_provisioned(world):
+def test_vector_modes_fail_visibly_without_an_encoder(world):
     client, namespace, _ = world
-    result = search(client, namespace, mode="hybrid_exact", expect=503)
+    result = search(client, namespace, query_text="shirt", mode="hybrid_exact", expect=503)
     assert result["error"]["code"] == "DEPENDENCY_UNAVAILABLE"
 
 
