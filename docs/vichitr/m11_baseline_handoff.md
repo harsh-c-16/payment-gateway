@@ -24,7 +24,7 @@ committed batch row; Bronze/captured source receipts may still exist unfinished.
 the sink process. `flush_duration_seconds` uses that process's local monotonic
 clock, from before connection acquisition through COMMIT acknowledgement. It
 includes connection/lock waits, validation, reducers and the batch-audit INSERT.
-It excludes Bronze capture, subsequent timer/receipt-observation SQL writes,
+It excludes connection teardown, Bronze capture, subsequent timer/receipt-observation SQL writes,
 Gold publication and offset commits. It is not DB-only execution time or
 end-to-end visibility latency. Do not subtract wall clocks to reconstruct it.
 

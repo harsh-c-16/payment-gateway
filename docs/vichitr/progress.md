@@ -19,10 +19,73 @@ mount, owned bounds/SQL/native-process-crash tests and migration regressions.
 No shared DTO, canonical endpoint/schema, dependency, evaluation config, harness,
 workflow or another owner's implementation changes.
 
-Initial offline checks: **20 passed**, `artifacts/m11/offline-focused.xml`.
-Ruff lint and diff whitespace checks pass. Real SQL/Kafka/file verification,
-source pins and final delivery evidence are pending in this implementation commit;
-the verification record will be completed after those runs.
+Initial source: **718dc8e7b741369439a772891cf32f2f783697ac**. Final runtime:
+**12c51eb37c27a708dd1f5511a7c2b0c2d706dbcd**. All local checks below completed.
+The source-pinned actual consumer process exits 73 after sink COMMIT but before
+timer/offset writes. The broker has no committed offset, restart redelivers with
+one logical Gold effect and the old batch timer remains NULL. Explicit clock
+doubles separately prove that connection teardown and later observation work are
+excluded from the flush timer. Invalid-source cases use the named outbox double.
+
+| Check | Actual outcome | Raw evidence |
+|---|---|---|
+| Initial reader/B0/worker checks | 20 passed | `artifacts/m11/offline-focused.xml` |
+| First real sink audit checks at 718dc8e | 6 passed, 15.60 s | `artifacts/m11/live-focused.xml`, `focused-facts/sink-crash.json` |
+| First Linux regressions at 718dc8e | 318 passed, 8 skipped, 2 deselected, 171.14 s | `artifacts/m11/linux-regressions.xml`, `baseline-facts/` |
+| Stronger teardown clock probe against 718dc8e runtime | Expected failure: 7.125 s versus 0.125 s; preserved before correction | `artifacts/m11/close-boundary-before.xml` |
+| Final Linux regressions at 12c51eb | **318 passed, 8 skipped, 2 deselected, 199.68 s** | `artifacts/m11/linux-final.xml`, `sink-crash.json`, `regression-facts/` |
+| Final host pipeline/contracts/integration at 12c51eb | **344 passed, 132 skipped, 52.24 s** | `artifacts/m11/host-final.xml`; earlier clean run in `host-first.xml` |
+| Ruff lint/format; generated CLI and conversation schema checks; diff whitespace | Passed; 21 Python files formatted/current | Session commands below |
+| Actual infrastructure startup | Passed; fixed 2,176-MiB SUT profile | `artifacts/infra/streaming-local/checks/3ab20afd-7800-4ada-ac76-77f7cf084ab7/streaming.json` |
+| Analytics migration 009 | Applied; versions 1–9 | `artifacts/infra/analytics/checks/ec2efb4c-6284-45d9-bea6-aad3cdd54923/analytics-migration.json` |
+
+The strengthened clock probe caught teardown included after COMMIT; 12c51eb moves
+the observation inside the connection context after the transaction context exits.
+No assertion was weakened. The final full selected Linux suite includes that
+regression and all six new live cases. Initial and failed evidence is retained.
+
+Exact reproduction from repository root (Python is `.venv/Scripts/python.exe`):
+
+```powershell
+$env:PROJECTCTL_ADAPTER_MODULE='infra.analytics'
+.venv/Scripts/python.exe -m projectctl env up --profile streaming-local
+.venv/Scripts/python.exe -m projectctl db migrate --namespace bench-m11
+# Global migrate intentionally returns exit_code=4: other owner migrations/outbox are absent.
+$env:POSTGRES_SECRETS_DIR=(Resolve-Path artifacts/infra/postgres-local/secrets).Path
+$taskCommit=git rev-parse HEAD
+docker compose -p group3-postgres-local -f infra/compose.yaml -f infra/compose.streaming.yaml -f infra/compose.storage.yaml -f artifacts/m11/evidence.compose.yaml --profile storage-check run --rm --no-deps -e RUN_VERTICAL_LIVE_TESTS=1 -e RUN_STORAGE_LIVE_TESTS=1 -e M05_CODE_COMMIT=$taskCommit storage-check python -m pytest tests/pipelines -q --tb=short -k 'not quality_ratio_smoke and not more_than_ten_thousand' --junitxml=artifacts/m11/linux-final.xml
+.venv/Scripts/python.exe -m pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m11/host-final.xml
+.venv/Scripts/python.exe -m ruff check pipelines/curation pipelines/ingestion infra/analytics.py tests/pipelines/test_sink_observations.py tests/pipelines/test_sink_observations_live.py tests/pipelines/sink_crash.py tests/pipelines/test_business_gold_live.py tests/pipelines/test_silver_live.py
+.venv/Scripts/python.exe -m ruff format --check pipelines/curation pipelines/ingestion infra/analytics.py tests/pipelines/test_sink_observations.py tests/pipelines/test_sink_observations_live.py tests/pipelines/sink_crash.py tests/pipelines/test_business_gold_live.py tests/pipelines/test_silver_live.py
+.venv/Scripts/python.exe -m projectctl.schemas --check
+.venv/Scripts/python.exe -m projectctl.conversation_contract --check
+git diff --check
+.venv/Scripts/python.exe -m projectctl env down
+docker desktop stop
+```
+
+Use fresh output filenames when reproducing; never overwrite retained evidence.
+The ignored QA overlay sets only the checker to 2 CPUs/512 MiB and redirects
+M04–M10 sidecars under M11 so old evidence survives. Actual Docker inspection
+is in `runtime-context.json` and `runtime-final-context.json`: VM memory remains
+4,040,888,320 bytes with 8 CPUs; SUT allocations are unchanged. This is correctness
+QA, not a benchmark profile or measured capacity result. Shutdown evidence is
+`artifacts/m11/shutdown.json`; volumes are retained.
+
+**Skipped coverage:** 123 of the host's 132 skipped cases pass in final Linux.
+The other nine are the unchanged 2,000-record quality smoke and 10,001-record
+publication fixture (verified in M10), the controlled broker-pause DLQ scenario
+(verified separately in M10), and six older opt-ins: registry/all-wire compatibility,
+PostgreSQL isolation/recreation, streaming retained-volume recreation, transport
+ack/manual-offset uncertainty, caller-outbox savepoint and real rebalance fencing.
+Those infrastructure/provider paths did not change here. Linux's eight skips are
+the six older opt-ins, externally controlled DLQ outage and Windows-only guard
+(the guard passes on the host). No new audit case is skipped in Linux.
+
+`artifacts/m11/verification.json` maps counts/skips to source pins and preserves
+NOT_RUN performance. `source-snapshot.json` checks delivered runtime against
+12c51eb. GitHub's three shared CI jobs are read after push and recorded in
+`github-actions.json`; those jobs do not replace the local M4 live checks.
 
 Full independent 100,000-record T-03, actual outbox/catalogue/compactor integration,
 real observer-factory adoption, complete B0 bottleneck trace and all paired
