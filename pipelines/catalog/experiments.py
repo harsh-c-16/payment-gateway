@@ -211,6 +211,7 @@ def seed_stock(connection, namespace):
         "FROM products WHERE namespace=%s AND active",
         (namespace,),
     )
+    connection.execute("ANALYZE products, stock_projection")
 
 
 def clone_catalogue(connection, namespace, scale):
@@ -362,8 +363,6 @@ def prepare_variant(url, namespace, variant, source, import_out, scale=1):
             build["index_bytes"] = connection.execute(
                 "SELECT pg_relation_size(to_regclass('products_o2_category_price'))"
             ).fetchone()[0]
-        else:
-            connection.execute("ANALYZE products")
         return build, connection.execute("SELECT pg_table_size('products')").fetchone()[0]
 
 

@@ -284,6 +284,8 @@ def projection_wait_action(invocation):
             while True:
                 status = projection_status(connection, arguments["namespace"], skus)
                 if status["projected"] == status["expected"]:
+                    # Readers start now, so they must not plan against a never-analyzed table.
+                    connection.execute("ANALYZE stock_projection")
                     return ProviderResult(
                         ExitCode.COMPLETED, (f"projection ready: {json.dumps(status)}",), "real"
                     )

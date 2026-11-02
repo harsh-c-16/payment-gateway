@@ -296,3 +296,8 @@ def test_projection_wait_reports_missing_and_completes(
     assert '"expected": 2, "projected": 1' in result.reasons[0]
     apply(db, namespace, 1, 10, 0, 2, sku="FK-A2")
     assert adapter.projection_wait_action(invocation).code == ExitCode.COMPLETED
+    with db.transaction() as tx:
+        analyzed = tx.execute(
+            "SELECT reltuples FROM pg_class WHERE oid='stock_projection'::regclass"
+        ).fetchone()
+    assert analyzed["reltuples"] > 0

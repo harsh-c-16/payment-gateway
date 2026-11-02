@@ -73,6 +73,16 @@ def test_row_and_copy_produce_identical_rows_digests_and_chunks(tmp_path, databa
     assert copy_times["raw_to_ready_seconds"] > 0
 
 
+def test_promotion_leaves_planner_statistics_for_the_first_searches(tmp_path, database_url):
+    import_rows(tmp_path, database_url, namespace(), [row("A1"), row("A2")])
+    analyzed = fetch(
+        database_url,
+        "SELECT reltuples, last_analyze IS NOT NULL FROM pg_class c "
+        "JOIN pg_stat_user_tables t ON t.relid = c.oid WHERE c.oid='products'::regclass",
+    )
+    assert analyzed == [(2.0, True)]
+
+
 def test_repeat_import_is_a_noop_with_same_versions(tmp_path, database_url):
     ns = namespace()
     rows = [row("A1"), row("A2", discounted_price="")]

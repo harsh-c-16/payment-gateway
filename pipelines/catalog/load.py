@@ -286,6 +286,9 @@ def load_catalog(
                 "VALUES (%s,%s,%s) ON CONFLICT (namespace,dataset_revision) DO NOTHING",
                 (namespace, manifest.dataset_revision, Jsonb(facets)),
             )
+            # Without statistics the first searches plan for a nearly empty table until
+            # autovacuum runs, which takes about a minute and costs them several times the latency.
+            connection.execute("ANALYZE products")
             connection.execute(
                 "UPDATE catalog_imports SET status='complete',completed_at=clock_timestamp() "
                 "WHERE import_id=%s",
