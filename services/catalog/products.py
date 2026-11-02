@@ -198,3 +198,62 @@ def get_quote(db, namespace, quote_id, user_id):
     return Quote(
         **{**row, "quote_id": str(row["quote_id"]), "cart_id": str(row["cart_id"])}, lines=lines
     )
+
+
+def update_price(db, events, sku, request, context, key):
+    """Price, catalog_version and PRICE_UPDATED commit together; stock is untouched."""
+    namespace = context.namespace
+    with db.transaction() as tx:
+        scope = "internal:" + sku
+        replay = _claim(tx, namespace, scope, "price", key, request.model_dump(mode="json"))
+        if replay is not None:
+            return Product(**replay)
+        current = tx.execute(
+            "SELECT active,catalog_version FROM products WHERE namespace=%s AND sku=%s FOR UPDATE",
+            (namespace, sku),
+        ).fetchone()
+        if current is None:
+            raise not_found("Product")
+        if not current["active"]:
+            raise ServiceError(
+                409, ErrorCode.PRODUCT_NOT_SELLABLE, "Inactive listing has no live price."
+            )
+        if current["catalog_version"] != request.expected_catalog_version:
+            raise ServiceError(
+                409,
+                ErrorCode.ILLEGAL_STATE,
+                "Catalogue version changed.",
+                details={"catalog_version": str(current["catalog_version"])},
+            )
+        # The source-derived hash must also change: a later re-import then sees a real difference.
+        row = tx.execute(
+            f"""UPDATE products p SET price_minor=%(price)s, catalog_version=catalog_version+1,
+                normalized_business_hash=encode(sha256(convert_to(
+                    normalized_business_hash || ':price:' || %(price)s::text, 'UTF8')), 'hex')
+            WHERE namespace=%(namespace)s AND sku=%(sku)s RETURNING {PRODUCT_COLUMNS}""",
+            {"price": request.price_minor, "namespace": namespace, "sku": sku},
+        ).fetchone()
+        product = Product(**row)
+        occurred_at = tx.execute("SELECT clock_timestamp() AS now").fetchone()["now"]
+        events.append(
+            tx,
+            event_type="PRICE_UPDATED",
+            payload={
+                "sku": sku,
+                "price_minor": product.price_minor,
+                "currency": product.currency,
+                "catalog_version": product.catalog_version,
+            },
+            context=context,
+            aggregate_type="sku",
+            aggregate_id=sku,
+            aggregate_version=product.catalog_version,
+            event_time=occurred_at,
+            metadata={
+                "dataset_revision": product.dataset_revision,
+                "synthetic": True,
+                "scenario_source": "simulation",
+            },
+        )
+        _complete(tx, namespace, scope, "price", key, product.model_dump(mode="json"))
+    return product

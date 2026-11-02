@@ -20,6 +20,8 @@ from services.catalog.errors import ServiceError
 from services.catalog.events import SharedEvents
 from shared.contracts.catalog import (
     FacetDictionary,
+    PriceUpdateRequest,
+    Product,
     ProductResponse,
     Quote,
     QuoteRequest,
@@ -42,6 +44,7 @@ ROUTES = (
     "/v1/products/{sku}",
     "/v1/quotes",
     "/internal/v1/quotes/{quote_id}",
+    "/internal/v1/catalog/{sku}/price",
     "/internal/v1/projection/receipts",
     "/health/live",
     "/health/ready",
@@ -166,6 +169,10 @@ def create_app(*, db=None, events=None):
     @app.get("/internal/v1/quotes/{quote_id}", response_model=Quote, dependencies=[Internal])
     def get_quote(quote_id: UUIDText, context: Context):
         return products.get_quote(db, context.namespace, quote_id, context.user_id)
+
+    @app.post("/internal/v1/catalog/{sku}/price", response_model=Product, dependencies=[Internal])
+    def post_price(sku: ValidSku, body: PriceUpdateRequest, context: Context, key: Key):
+        return products.update_price(db, events, sku, body, context, key)
 
     @app.get("/internal/v1/projection/receipts", dependencies=[Internal])
     def get_receipts(
