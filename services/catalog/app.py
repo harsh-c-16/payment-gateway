@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import TypeAdapter, ValidationError
 
 from pipelines.catalog.migrate import MIGRATIONS
-from services.catalog import products
+from services.catalog import products, search
 from services.catalog.database import Database
 from services.catalog.errors import ServiceError
 from services.catalog.events import SharedEvents
@@ -25,6 +25,8 @@ from shared.contracts.catalog import (
     ProductResponse,
     Quote,
     QuoteRequest,
+    SearchRequest,
+    SearchResponse,
 )
 from shared.contracts.common import (
     ErrorCode,
@@ -40,6 +42,7 @@ from shared.telemetry.metrics import Telemetry
 
 LOGGER = logging.getLogger("catalog")
 ROUTES = (
+    "/v1/search",
     "/v1/catalog/facets",
     "/v1/products/{sku}",
     "/v1/quotes",
@@ -153,6 +156,10 @@ def create_app(*, db=None, events=None):
             details={"fields": fields},
         )
         return JSONResponse(failure.response(correlation(request)), status_code=422)
+
+    @app.post("/v1/search", response_model=SearchResponse)
+    def post_search(body: SearchRequest, context: Context):
+        return search.search_catalog(db, events, body, context)
 
     @app.get("/v1/catalog/facets", response_model=FacetDictionary)
     def get_facets(context: Context, dataset_revision: Annotated[str | None, Query()] = None):
