@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from pipelines.storage import publication
 from shared.event_transport.schemas import canonical_json
 
 from . import test_vertical_live as live
@@ -64,6 +65,13 @@ def test_kill_at_acknowledged_publication_boundary_is_recoverable(vertical, oper
     )
     assert child.returncode == 73, child.stderr
     assert f"M08_BOUNDARY_ACK:{operation}:{point}" in child.stdout
+    # Process exit precedes server-side session cleanup; wait for this exact lock.
+    with vertical.connect() as tx, tx.transaction():
+        tx.execute("SET LOCAL lock_timeout='5s'")
+        tx.execute(
+            "SELECT pg_advisory_xact_lock(%s)",
+            (publication.lock_key(vertical.test_namespace, "publisher"),),
+        )
     committed = point == "after_manifest_swap"
     visible = query(vertical)
     assert visible.generation == (2 if committed else 1)
