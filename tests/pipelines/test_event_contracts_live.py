@@ -142,7 +142,11 @@ def test_registry_compatibility_and_all_domain_wire_examples():
         assert received == emitted.keys()
     finally:
         consumer.close()
-    evidence = streaming.ROOT / "artifacts/m02/live-contracts.json"
+    evidence = (
+        streaming.ROOT
+        / os.environ.get("PIPELINE_EVIDENCE_ROOT", "artifacts")
+        / "m02/live-contracts.json"
+    )
     evidence.parent.mkdir(parents=True, exist_ok=True)
     evidence.write_text(
         json.dumps(

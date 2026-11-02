@@ -127,6 +127,32 @@ def test_real_worker_exports_committed_sink_and_published_gold_metrics(vertical)
             finally:
                 observer.close()
             assert committed == 2
+            deadline = monotonic() + 5
+            while True:
+                buffer_samples = []
+                for line in log_path.read_text().splitlines():
+                    try:
+                        sample = json.loads(line)
+                    except ValueError:
+                        continue
+                    if sample.get("operation") == "consumer_buffer":
+                        buffer_samples.append(sample)
+                if any(
+                    s["peak_pending_records"] >= 1 and s["pending_records"] == 0
+                    for s in buffer_samples
+                ):
+                    break
+                assert monotonic() < deadline, "worker buffer observations missing after drain"
+                sleep(0.1)
+            assert all(
+                s["namespace"] == namespace and s["run_id"] == "m11-worker-real-fixture"
+                for s in buffer_samples
+            )
+            assert all(
+                s["pending_records"] <= s["record_limit"]
+                and s["pending_raw_bytes"] <= s["application_byte_limit"]
+                for s in buffer_samples
+            )
             Path("artifacts/m11-worker/worker-metrics.txt").write_text(text)
             Path("artifacts/m11-worker/worker-proof.json").write_text(
                 json.dumps(
@@ -142,6 +168,10 @@ def test_real_worker_exports_committed_sink_and_published_gold_metrics(vertical)
                         "gold_unique": 1,
                         "broker_committed_next_offset": committed,
                         "separate_parent_registry_has_no_worker_histogram": True,
+                        "buffer_observation_count": len(buffer_samples),
+                        "peak_application_records": max(
+                            s["peak_pending_records"] for s in buffer_samples
+                        ),
                         "performance": "NOT_RUN; correctness observation only",
                     },
                     indent=2,

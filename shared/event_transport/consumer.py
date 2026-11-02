@@ -68,6 +68,7 @@ class ConsumerGroup:
         if not isinstance(group_id, str) or not group_id.startswith(self.namespace + "."):
             raise ValueError("consumer group must share its topics' namespace")
         self.group_id, self.topics = group_id, topics
+        self.workers, self.worker_index = workers, worker_index
         self.record_limit = GROUP_MAX_RECORDS // workers + (
             worker_index < GROUP_MAX_RECORDS % workers
         )
@@ -82,6 +83,7 @@ class ConsumerGroup:
         self.paused = False
         self.closed = False
         self.last_rebalance_error = None
+        self.peak_records = self.peak_bytes = self.pause_count = self.overflow_rejections = 0
         # A quarter-budget native queue + a fetch response leaves byte headroom
         # for the half-budget application buffer; raw bytes, not total process RSS.
         self.application_byte_limit = self.byte_limit // 2
@@ -221,15 +223,45 @@ class ConsumerGroup:
     def _buffered_count(self):
         return sum(len(records) for records in self.ledger.values())
 
-    def _pause_if_needed(self):
-        blocked = (
+    def _pause_required(self):
+        return (
             self._buffered_count() >= self.record_limit - 1
             or self.buffer_bytes > self.application_byte_limit - MAX_SOURCE_BYTES
         )
+
+    def buffer_snapshot(self):
+        """Owner-thread observation of raw application bytes, not native queue occupancy/RSS."""
+        self._check_thread()
+        return {
+            "observed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+            "namespace": self.namespace,
+            "group_id": self.group_id,
+            "consumer_instance": self.instance_token,
+            "workers": self.workers,
+            "worker_index": self.worker_index,
+            "pending_records": self._buffered_count(),
+            "ready_records": len(self.ready),
+            "pending_raw_bytes": self.buffer_bytes,
+            "record_limit": self.record_limit,
+            "application_byte_limit": self.application_byte_limit,
+            "worker_raw_byte_budget": self.byte_limit,
+            "native_queue_limit_bytes": self.settings["queued.max.messages.kbytes"] * 1024,
+            "native_fetch_limit_bytes": self.settings["fetch.max.bytes"],
+            "fetch_paused": self.paused,
+            "pause_required": self._pause_required(),
+            "peak_pending_records": self.peak_records,
+            "peak_pending_raw_bytes": self.peak_bytes,
+            "pause_count": self.pause_count,
+            "overflow_rejections": self.overflow_rejections,
+        }
+
+    def _pause_if_needed(self):
+        blocked = self._pause_required()
         partitions = [TopicPartition(*key) for key in self.assignments]
         if partitions and blocked != self.paused:
             (self.consumer.pause if blocked else self.consumer.resume)(partitions)
             self.paused = blocked
+            self.pause_count += int(blocked)
 
     def _capture(self, message):
         key = (message.topic(), message.partition())
@@ -262,8 +294,10 @@ class ConsumerGroup:
             or self._buffered_count() >= self.record_limit
             or self.buffer_bytes + size > self.application_byte_limit
         ):
+            self.overflow_rejections += 1
             self.consumer.seek(TopicPartition(*key, message.offset()))
             self.consumer.pause([TopicPartition(*owned) for owned in self.assignments])
+            self.pause_count += int(not self.paused)
             self.paused = True
             raise ConsumerBufferError("source buffer limit reached; record rewound without commit")
         records = self.ledger[key]
@@ -272,6 +306,8 @@ class ConsumerGroup:
         records[record.offset] = [record, False]
         self.buffer_bytes += size
         self.ready.append(record)
+        self.peak_records = max(self.peak_records, self._buffered_count())
+        self.peak_bytes = max(self.peak_bytes, self.buffer_bytes)
 
     def consume_records(self, topics, max_records, max_wait_ms):
         self._check_thread()

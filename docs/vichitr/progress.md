@@ -6,6 +6,22 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## Independent readiness closure — 2 November 2026
+
+User requested completing remaining work that needs no teammate input. This
+checkpoint adds owner-thread consumer-buffer observations and bounded worker JSON
+logs, refreshes standalone infrastructure/registry/transport/recovery evidence,
+and consolidates the remaining provider handoff. B0/O1 tuning and full independent
+quality/integrated gates still require their actual owners' inputs.
+
+Initial focused checks: **37 passed**, `artifacts/independent/offline-focused.xml`.
+Owned paths: transport consumer/README; ingestion worker; buffer tests and worker
+log check; low-memory PostgreSQL recreation test; test-only evidence redirection
+for old registry/transport checks; checker mount and owner documentation. No new
+dependency, shared metric name, public DTO/schema, CLI command or resource limit.
+Live checks, final source pins and remaining-provider audit are recorded below
+after execution; no unexecuted result is claimed in this implementation commit.
+
 ## M11 worker metrics exposure preparation — 2 November 2026
 
 The next preparation checkpoint exposes the real worker's existing telemetry

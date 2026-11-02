@@ -49,7 +49,7 @@ def read_until(worker, count, deadline_seconds=40):
 
 
 def save_evidence(name, value):
-    path = Path("artifacts/m03") / name
+    path = Path(os.environ.get("PIPELINE_EVIDENCE_ROOT", "artifacts")) / "m03" / name
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 

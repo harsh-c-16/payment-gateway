@@ -8,7 +8,7 @@ import psycopg
 import pytest
 from psycopg import sql
 
-from infra import postgres
+from infra import postgres, streaming
 from projectctl.models import ExitCode
 from projectctl.providers import Invocation
 
@@ -18,13 +18,16 @@ from projectctl.providers import Invocation
     reason="Real Docker required; opt in with RUN_POSTGRES_LIVE_TESTS=1",
 )
 def test_real_isolation_and_persistence_across_container_recreation():
-    result = postgres.adapter(
-        Invocation("env up", {"profile": "postgres-local"}, None, str(uuid4()), "bench-m01")
+    result = streaming.adapter(
+        Invocation("env up", {"profile": "streaming-local"}, None, str(uuid4()), "bench-m01")
     )
     assert result.code == ExitCode.COMPLETED, result.reasons
     values = postgres.credentials()
-    before = postgres.verify()
-    before_container = postgres.compose("ps", "--quiet", "postgres")
+    allocation = json.loads((postgres.ROOT / "infra/streaming-profile.json").read_text())[
+        "services"
+    ]["postgres"]
+    before = postgres.verify(**allocation)
+    before_container = streaming.compose("ps", "--quiet", "postgres")
     denials = []
     for service in postgres.SERVICES:
         for other in postgres.SERVICES:
@@ -43,10 +46,11 @@ def test_real_isolation_and_persistence_across_container_recreation():
         tx.execute(sql.SQL("CREATE TABLE {} (value text NOT NULL)").format(table))
         tx.execute(sql.SQL("INSERT INTO {} VALUES (%s)").format(table), (marker,))
     # Only this Compose project's container is recreated; its named volume is retained.
-    postgres.compose("down", "--timeout", "30")
-    postgres.compose("up", "--detach", "--wait", "--wait-timeout", "90", "postgres")
-    after = postgres.verify()
-    after_container = postgres.compose("ps", "--quiet", "postgres")
+    streaming.compose("stop", "--timeout", "30", "postgres")
+    streaming.compose("rm", "--force", "postgres")
+    streaming.compose("up", "--detach", "--wait", "--wait-timeout", "90", "postgres")
+    after = postgres.verify(**allocation)
+    after_container = streaming.compose("ps", "--quiet", "postgres")
     assert before["data_volume"] == after["data_volume"]
     assert before_container != after_container
     with psycopg.connect(url) as tx:
@@ -64,6 +68,7 @@ def test_real_isolation_and_persistence_across_container_recreation():
                 "cross_database_denials": denials,
                 "persisted_marker_matched": True,
                 "probe_removed": True,
+                "verified_resource_allocation": allocation,
             },
             stream,
             indent=2,

@@ -17,6 +17,9 @@ def test_provisional_publisher_uses_fixed_ticks_without_waiting_for_watermark(mo
         def close(self):
             closed.append(True)
 
+        def buffer_snapshot(self):
+            return {"namespace": "bench-m09", "pending_records": 0}
+
     class PipelineDouble:
         ticks = iter([0.0, 0.26, 0.51])
 

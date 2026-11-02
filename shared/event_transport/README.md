@@ -108,6 +108,23 @@ to the caller. Poll wait is 0–1,000 ms; commit RPC socket bound=5 seconds. Cla
 range assignment, session=10 seconds and max-poll interval=300 seconds are fixed.
 Analytics business ingestion excludes DLQ; explicit DLQ reads are diagnostic only.
 
+`group.buffer_snapshot()` is a read-only, owner-thread observation: uncommitted
+application records/raw bytes, ready records, fixed worker/group budget shares,
+actual fetch-pause state, pressure threshold, lifetime peaks, pause transitions
+and rejected overflow attempts. Durability marks alone do not release these
+buffers; acknowledged offsets or lost ownership do. Peaks/counters remain for
+the handle lifetime and reset under a new `consumer_instance`. Configured native
+queue/fetch limits are not measurements of native occupancy or process RSS.
+The method performs no poll, pause, seek, commit, SQL or file operation.
+
+The analytics worker writes bounded JSON `consumer_buffer` observations to stdout
+on one-second worker-loop deadlines and once before handle closure. Slow SQL or
+publication can miss ticks; missed samples are not invented. Retained peaks and
+pause/overflow counters show pressure between samples. These raw observations
+carry namespace/run/handle identity outside Prometheus labels. Jaineel owns log
+collection and conversion to his existing observation artifacts; no second
+collector or shared metric family is introduced.
+
 Real and explicit-double tests are in `tests/pipelines/`. See
 [M03 handoff](../../docs/vichitr/m03_transport_handoff.md). Actual source durability,
 Bronze/Silver/Gold and Aditya's outbox remain separate modules/dependencies.
