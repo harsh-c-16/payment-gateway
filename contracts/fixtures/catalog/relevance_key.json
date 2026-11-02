@@ -1,0 +1,699 @@
+{
+ "version": "rules-v2",
+ "provenance": "Rule-derived labels, not judged row by row by a person. An LLM assistant drafted this key and the rules; v2 was edited after reading dev and held-out rows, with retrieval modes hidden and before any NDCG was computed. Approved by Harsh Chaudhari on 2026-11-02 with no corrections; no row-level agreement was measured.",
+ "queries": {
+  "B01": {
+   "product": [
+    "shirt"
+   ],
+   "not_product": [
+    "shirt fabric",
+    "shirt material",
+    "t shirt",
+    "t-shirt",
+    "tshirt"
+   ],
+   "exclude": [
+    "bra"
+   ],
+   "related": [
+    "shirt fabric",
+    "shirt material",
+    "t shirt",
+    "t-shirt",
+    "tshirt"
+   ],
+   "attributes": [
+    [
+     "cotton"
+    ],
+    [
+     "men"
+    ]
+   ],
+   "conflicts": [
+    "women"
+   ]
+  },
+  "B02": {
+   "product": [
+    "kurta"
+   ],
+   "related": [
+    "kurta fabric",
+    "kurta material",
+    "kurti"
+   ],
+   "attributes": [
+    [
+     "women",
+     "woman",
+     "ladies",
+     "girl"
+    ]
+   ],
+   "conflicts": [
+    "men"
+   ],
+   "not_product": [
+    "kurta fabric",
+    "kurta material"
+   ]
+  },
+  "B03": {
+   "product": [
+    "necklace"
+   ],
+   "related": [
+    "mala",
+    "pendant",
+    "jewel set",
+    "chain"
+   ],
+   "attributes": [
+    [
+     "gold plated"
+    ]
+   ],
+   "conflicts": [
+    "silver plated",
+    "rhodium plated"
+   ]
+  },
+  "B04": {
+   "product": [
+    "running shoe"
+   ],
+   "related": [
+    "shoe",
+    "sneaker"
+   ],
+   "cap": [
+    "school shoe"
+   ]
+  },
+  "B05": {
+   "product": [
+    "back cover",
+    "back case"
+   ],
+   "related": [
+    "case",
+    "cover",
+    "back panel"
+   ],
+   "attributes": [
+    [
+     "phone",
+     "mobile",
+     "smartphone",
+     "iphone",
+     "samsung",
+     "galaxy",
+     "nokia",
+     "lumia",
+     "htc",
+     "sony",
+     "xperia",
+     "motorola",
+     "moto",
+     "micromax",
+     "lenovo",
+     "xiaomi",
+     "redmi",
+     "oneplus",
+     "vivo",
+     "oppo",
+     "gionee",
+     "huawei",
+     "honor",
+     "blackberry"
+    ]
+   ],
+   "conflicts": [
+    "ipad",
+    "tablet"
+   ]
+  },
+  "B06": {
+   "product": [
+    "seat cover"
+   ],
+   "related": [
+    "car cover",
+    "steering cover",
+    "grill cover"
+   ]
+  },
+  "B07": {
+   "product": [
+    "showpiece"
+   ],
+   "related": [
+    "wall sticker",
+    "wall hanging",
+    "wallpaper",
+    "wall decor",
+    "wall piece",
+    "sticker"
+   ],
+   "attributes": [
+    [
+     "wall"
+    ]
+   ]
+  },
+  "B08": {
+   "product": [
+    "cream",
+    "creme"
+   ],
+   "exclude": [
+    "lip",
+    "shaving",
+    "hair",
+    "beard",
+    "foot"
+   ],
+   "related": [
+    "face wash",
+    "face pack",
+    "face mask",
+    "facial kit",
+    "sunscreen",
+    "sun care",
+    "moisturiser",
+    "moisturizer",
+    "lotion",
+    "bleach",
+    "scrub",
+    "serum"
+   ],
+   "attributes": [
+    [
+     "face",
+     "facial",
+     "skin",
+     "fairness",
+     "under eye"
+    ]
+   ],
+   "cap": [
+    "face mask",
+    "face pack",
+    "face wash",
+    "facial kit"
+   ]
+  },
+  "B09": {
+   "product": [
+    "bed sheet",
+    "bedsheet",
+    "top sheet"
+   ],
+   "related": [
+    "blanket",
+    "bed cover",
+    "comforter",
+    "quilt",
+    "dohar",
+    "duvet"
+   ],
+   "attributes": [
+    [
+     "double",
+     "king",
+     "queen"
+    ]
+   ],
+   "conflicts": [
+    "single"
+   ],
+   "cap": [
+    "top sheet"
+   ]
+  },
+  "B10": {
+   "product": [
+    "mug"
+   ],
+   "related": [
+    "cup"
+   ]
+  },
+  "B11": {
+   "product": [
+    "laptop skin"
+   ],
+   "related": [
+    "skin",
+    "decal",
+    "mouse pad",
+    "mousepad"
+   ]
+  },
+  "B12": {
+   "attributes": [
+    [
+     "analog",
+     "analogue"
+    ]
+   ],
+   "conflicts": [
+    "digital"
+   ],
+   "product": [
+    "watch"
+   ]
+  },
+  "B13": {
+   "product": [
+    "jumpsuit",
+    "romper"
+   ],
+   "related": [
+    "baby suit",
+    "bodysuit",
+    "dungaree",
+    "onesie",
+    "shorts",
+    "sleep suit",
+    "sleepsuit",
+    "t-shirt"
+   ],
+   "cap": [
+    "jumpsuit"
+   ]
+  },
+  "B14": {
+   "product": [
+    "drill"
+   ],
+   "not_product": [
+    "drill bit",
+    "bit set"
+   ],
+   "related": [
+    "drill bit",
+    "bit set",
+    "screwdriver",
+    "impact driver",
+    "grinder"
+   ]
+  },
+  "B15": {
+   "product": [
+    "plush",
+    "soft toy",
+    "stuff bear",
+    "stuffed",
+    "teddy"
+   ],
+   "related": [
+    "doll",
+    "musical",
+    "puppet",
+    "toy"
+   ],
+   "exclude": [
+    "pencil box"
+   ]
+  },
+  "B16": {
+   "product": [
+    "dress",
+    "gown"
+   ],
+   "not_product": [
+    "dress fabric",
+    "dress material",
+    "gown fabric",
+    "gown material"
+   ],
+   "related": [
+    "anarkali",
+    "dress fabric",
+    "dress material",
+    "gown fabric",
+    "gown material",
+    "kurta",
+    "kurti",
+    "lehenga",
+    "saree",
+    "sari",
+    "top"
+   ],
+   "attributes": [
+    [
+     "party"
+    ]
+   ]
+  },
+  "B17": {
+   "product": [
+    "wallet"
+   ],
+   "related": [
+    "card holder",
+    "purse",
+    "clutch",
+    "money clip"
+   ],
+   "attributes": [
+    [
+     "leather"
+    ]
+   ],
+   "exclude": [
+    "case cover",
+    "ipad"
+   ]
+  },
+  "B19": {
+   "product": [
+    "ring"
+   ],
+   "not_product": [
+    "key ring",
+    "keyring"
+   ],
+   "attributes": [
+    [
+     "silver"
+    ]
+   ],
+   "conflicts": [
+    "gold"
+   ]
+  },
+  "B20": {
+   "product": [
+    "cricket shoe",
+    "gym shoe",
+    "running shoe",
+    "sneaker",
+    "sport shoe",
+    "sports shoe",
+    "training shoe",
+    "walking shoe"
+   ],
+   "related": [
+    "shoe",
+    "sports sandal"
+   ],
+   "cap": [
+    "sneaker"
+   ]
+  },
+  "S01": {
+   "product": [
+    "shirt"
+   ],
+   "not_product": [
+    "shirt fabric",
+    "shirt material",
+    "t shirt",
+    "t-shirt",
+    "tshirt"
+   ],
+   "exclude": [
+    "bra"
+   ],
+   "related": [
+    "shirt fabric",
+    "shirt material",
+    "t shirt",
+    "t-shirt",
+    "top",
+    "tshirt"
+   ],
+   "attributes": [
+    [
+     "cotton"
+    ]
+   ]
+  },
+  "S02": {
+   "product": [
+    "kurti"
+   ],
+   "related": [
+    "kurta",
+    "kurti fabric",
+    "kurti material"
+   ],
+   "not_product": [
+    "kurti fabric",
+    "kurti material"
+   ]
+  },
+  "S03": {
+   "product": [
+    "necklace"
+   ],
+   "related": [
+    "mala",
+    "pendant",
+    "jewel set",
+    "chain"
+   ]
+  },
+  "S04": {
+   "product": [
+    "sandal"
+   ],
+   "related": [
+    "slipper",
+    "flip flop",
+    "floater",
+    "flat"
+   ]
+  },
+  "S05": {
+   "product": [
+    "case",
+    "cover"
+   ],
+   "related": [
+    "back panel",
+    "panel"
+   ]
+  },
+  "S06": {
+   "product": [
+    "mat"
+   ],
+   "related": [
+    "floor liner"
+   ]
+  },
+  "S08": {
+   "product": [
+    "watch"
+   ]
+  },
+  "S09": {
+   "product": [
+    "jacket"
+   ],
+   "related": [
+    "blazer",
+    "coat",
+    "hoodie",
+    "jacket fabric",
+    "jacket material",
+    "sweatshirt",
+    "waistcoat"
+   ],
+   "not_product": [
+    "jacket fabric",
+    "jacket material"
+   ]
+  },
+  "S10": {
+   "product": [
+    "saree",
+    "sari"
+   ],
+   "related": [
+    "blouse",
+    "blouse material",
+    "saree fabric",
+    "saree material",
+    "sari fabric",
+    "sari material"
+   ],
+   "not_product": [
+    "saree fabric",
+    "saree material",
+    "sari fabric",
+    "sari material"
+   ]
+  },
+  "S11": {
+   "product": [
+    "pendant",
+    "locket"
+   ],
+   "related": [
+    "necklace",
+    "jewel set",
+    "chain"
+   ],
+   "description_product": [
+    "pendant"
+   ]
+  },
+  "S12": {
+   "product": [
+    "seat cover"
+   ],
+   "related": [
+    "steering cover",
+    "car cover",
+    "cover"
+   ]
+  },
+  "S13": {
+   "product": [
+    "cover",
+    "case"
+   ],
+   "related": [
+    "skin",
+    "back panel",
+    "panel"
+   ]
+  },
+  "S14": {
+   "product": [
+    "bed sheet",
+    "bedsheet",
+    "top sheet"
+   ],
+   "related": [
+    "blanket",
+    "bed cover",
+    "comforter",
+    "quilt",
+    "dohar",
+    "duvet"
+   ],
+   "cap": [
+    "top sheet"
+   ]
+  },
+  "S15": {
+   "product": [
+    "shirt"
+   ],
+   "not_product": [
+    "shirt fabric",
+    "shirt material",
+    "t shirt",
+    "t-shirt",
+    "tshirt"
+   ],
+   "exclude": [
+    "bra"
+   ],
+   "related": [
+    "shirt fabric",
+    "shirt material",
+    "t shirt",
+    "t-shirt",
+    "top",
+    "tshirt"
+   ]
+  },
+  "S18": {
+   "product": [
+    "shoe",
+    "loafer",
+    "boot",
+    "sneaker",
+    "moccasin",
+    "oxford"
+   ],
+   "related": [
+    "ballerina",
+    "bellies",
+    "flat",
+    "flip flop",
+    "floater",
+    "heel",
+    "sandal",
+    "slipper",
+    "wedge"
+   ]
+  },
+  "S19": {
+   "product": [
+    "glove"
+   ],
+   "related": [
+    "safety",
+    "mask",
+    "goggle",
+    "apron"
+   ]
+  },
+  "S20": {
+   "product": [
+    "t-shirt",
+    "tshirt",
+    "t shirt"
+   ],
+   "exclude": [
+    "bra"
+   ],
+   "related": [
+    "polo",
+    "shirt",
+    "t-shirt fabric",
+    "t-shirt material",
+    "top",
+    "tshirt fabric",
+    "tshirt material",
+    "vest"
+   ],
+   "not_product": [
+    "t-shirt fabric",
+    "t-shirt material",
+    "tshirt fabric",
+    "tshirt material"
+   ]
+  },
+  "U01": {
+   "product": [
+    "saree fall",
+    "sari fall"
+   ],
+   "related": [
+    "saree",
+    "sari"
+   ]
+  },
+  "U02": {
+   "product": [
+    "abaya"
+   ]
+  },
+  "U03": {
+   "product": [
+    "wrist band",
+    "wristband"
+   ]
+  },
+  "U04": {
+   "product": [
+    "watch"
+   ]
+  },
+  "U05": {
+   "product": [
+    "watch"
+   ]
+  }
+ }
+}

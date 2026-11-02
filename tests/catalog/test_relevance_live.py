@@ -89,3 +89,7 @@ def test_pool_is_blinded_unlabelled_and_score_needs_labels(
     assert lexical["dev"]["ndcg_at_5"] == pytest.approx(1.0)
     assert lexical["held_out"]["ndcg_at_5"] == pytest.approx(1.0)
     assert lexical["unjudged_results"] == 0
+    assert report["label_sources"] == ["unstated"]
+    assert report["uniform_label_queries"] == ["H1"]
+    assert lexical["held_out"]["ndcg_at_5_excluding_uniform"] is None
+    assert lexical["dev"]["queries_excluding_uniform"] == 1
