@@ -17,6 +17,7 @@ from shared.contracts.analytics import (
     ReplayStatus,
 )
 from shared.contracts.common import IdempotencyKey, UUIDText
+from shared.contracts.events import Namespace
 from shared.event_transport.schemas import canonical_json
 
 
@@ -42,7 +43,7 @@ def capture_scope(tx, pipeline, receipt, replay_id):
     if replay_id is None:
         if one(tx, "SELECT 1 FROM replay_jobs WHERE target_namespace=%s", (origin,)):
             raise ReplayConflict("The namespace belongs to an isolated replay job")
-        return origin, None
+        return origin, None, None
     job = _job(tx, replay_id)
     if (
         job["status"] != "RUNNING"
@@ -52,7 +53,7 @@ def capture_scope(tx, pipeline, receipt, replay_id):
         raise ReplayConflict("Replay is not running with the requested transform")
     selected = rows(
         tx,
-        """SELECT raw_locator,raw_sha256 FROM replay_inputs
+        """SELECT raw_locator,raw_sha256,ingested_at FROM replay_inputs
         WHERE replay_id=%s AND capture_id=%s""",
         (replay_id, receipt.capture_id),
     )
@@ -60,7 +61,11 @@ def capture_scope(tx, pipeline, receipt, replay_id):
     actual = {r.source.raw_locator: r.raw_sha256 for r in receipt.records}
     if not expected or any(actual.get(k) != v for k, v in expected.items()):
         raise SourceCorruption("Replay input is not the frozen original capture selection")
-    return job["target_namespace"], set(expected)
+    return (
+        job["target_namespace"],
+        set(expected),
+        {r["raw_locator"]: r["ingested_at"] for r in selected},
+    )
 
 
 def _job(tx, replay_id):
@@ -83,22 +88,29 @@ def _freeze_capture(tx, replay_id, ref):
         """INSERT INTO replay_inputs
         SELECT %s,%s,r->>'namespace',r->'source'->>'topic',
         (r->'source'->>'partition')::integer,(r->'source'->>'offset')::bigint,
-        r->'source'->>'raw_locator',r->>'raw_sha256',(r->>'ingested_at')::timestamptz
+        r->'source'->>'raw_locator',r->>'raw_sha256',s.ingested_at
         FROM jsonb_array_elements(%s->'records') r
+        JOIN source_receipts s ON s.namespace=r->>'namespace' AND s.topic=r->'source'->>'topic'
+        AND s.partition=(r->'source'->>'partition')::integer
+        AND s.offset_number=(r->'source'->>'offset')::bigint
         ON CONFLICT DO NOTHING""",
         (replay_id, identity, Jsonb(captured["receipt"])),
     )
     conflicting = one(
         tx,
         """SELECT 1 FROM jsonb_array_elements(%s->'records') r
-        JOIN replay_inputs p ON p.replay_id=%s AND p.topic=r->'source'->>'topic'
+        LEFT JOIN replay_inputs p ON p.replay_id=%s AND p.topic=r->'source'->>'topic'
         AND p.partition=(r->'source'->>'partition')::integer
         AND p.offset_number=(r->'source'->>'offset')::bigint
-        WHERE p.raw_sha256<>r->>'raw_sha256' LIMIT 1""",
+        LEFT JOIN source_receipts s ON s.namespace=r->>'namespace'
+        AND s.topic=r->'source'->>'topic' AND s.partition=(r->'source'->>'partition')::integer
+        AND s.offset_number=(r->'source'->>'offset')::bigint
+        WHERE p.raw_sha256 IS NULL OR s.raw_sha256 IS NULL
+        OR p.raw_sha256<>r->>'raw_sha256' OR s.raw_sha256<>r->>'raw_sha256' LIMIT 1""",
         (Jsonb(captured["receipt"]), replay_id),
     )
     if conflicting:
-        raise SourceCorruption("Selected captures disagree about a source coordinate")
+        raise SourceCorruption("Selected capture differs from the original durable source")
     return True
 
 
@@ -144,7 +156,7 @@ def _freeze_publication(tx, replay_id, ref):
     )
 
 
-def create_replay(pipeline, request, *, idempotency_key=None):
+def create_replay(pipeline, request, *, idempotency_key=None, source_namespace=None):
     request = ReplayRequest.model_validate(request)
     if request.transform_version != pipeline.transform_version:
         raise ValueError("The requested transform is not installed in this provider")
@@ -153,14 +165,22 @@ def create_replay(pipeline, request, *, idempotency_key=None):
         raise ValueError("Repeated replay manifest ID")
     request = request.model_copy(update={"source_manifest_ids": refs})
     digest = hashlib.sha256(canonical_json(request.model_dump(mode="json"))).hexdigest()
-    key = TypeAdapter(IdempotencyKey).validate_python(idempotency_key or digest)
+    key = TypeAdapter(IdempotencyKey).validate_python(
+        digest if idempotency_key is None else idempotency_key
+    )
     ns = request.target_namespace
+    request_namespace = (
+        ns if source_namespace is None else TypeAdapter(Namespace).validate_python(source_namespace)
+    )
     with pipeline.connect() as tx, tx.transaction():
+        tx.execute(
+            "SELECT pg_advisory_xact_lock(%s)", (lock_key(request_namespace, "replay-key:" + key),)
+        )
         sink_lock(tx, ns)
         binding = one(
             tx,
-            "SELECT * FROM replay_keys WHERE target_namespace=%s AND idempotency_key=%s",
-            (ns, key),
+            "SELECT * FROM replay_keys WHERE request_namespace=%s AND idempotency_key=%s",
+            (request_namespace, key),
         )
         existing = one(tx, "SELECT * FROM replay_jobs WHERE target_namespace=%s", (ns,))
         if (binding and binding["request_sha256"] != digest) or (
@@ -232,9 +252,23 @@ def create_replay(pipeline, request, *, idempotency_key=None):
             tx.execute(
                 "UPDATE replay_jobs SET clock_at=%s WHERE replay_id=%s", (info["clock"], replay_id)
             )
+        if source_namespace is not None:
+            origin = one(
+                tx,
+                "SELECT namespace FROM replay_references WHERE replay_id=%s AND dataset='silver'",
+                (replay_id,),
+            )
+            if origin is None:
+                origin = one(
+                    tx,
+                    "SELECT namespace FROM replay_inputs WHERE replay_id=%s LIMIT 1",
+                    (replay_id,),
+                )
+            if origin is None or origin["namespace"] != source_namespace:
+                raise ValueError("X-Namespace must identify the selected replay source")
         tx.execute(
             "INSERT INTO replay_keys VALUES (%s,%s,%s,%s) ON CONFLICT DO NOTHING",
-            (ns, key, digest, replay_id),
+            (request_namespace, key, digest, replay_id),
         )
     return ReplayAccepted(
         replay_id=replay_id, status_url=f"/internal/v1/analytics/replays/{replay_id}"

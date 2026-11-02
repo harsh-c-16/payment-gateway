@@ -18,6 +18,7 @@ GOLD_MIGRATION = MIGRATION.with_name("004_business_gold.sql")
 PUBLICATION_MIGRATION = MIGRATION.with_name("005_visibility_lookup.sql")
 EVENT_TIME_MIGRATION = MIGRATION.with_name("006_event_time.sql")
 REPLAY_MIGRATION = MIGRATION.with_name("007_replay.sql")
+REPLAY_KEYS_MIGRATION = MIGRATION.with_name("008_replay_request_namespace.sql")
 
 
 def _transaction(tx):
@@ -41,6 +42,7 @@ def migrate_analytics(tx):
             (5, PUBLICATION_MIGRATION),
             (6, EVENT_TIME_MIGRATION),
             (7, REPLAY_MIGRATION),
+            (8, REPLAY_KEYS_MIGRATION),
         ):
             # Git checkouts may use CRLF; checksums agree across host OSes.
             data = path.read_text(encoding="utf-8").encode("utf-8")
@@ -69,7 +71,9 @@ class CapturePersistence:
     redelivery_noop: int
 
 
-def persist_capture(tx, receipt, store, *, effective_namespace=None, locators=None):
+def persist_capture(
+    tx, receipt, store, *, effective_namespace=None, locators=None, replay_ingress=None
+):
     """Verify bytes before SQL, preserve first locators, never mark worker durability."""
     _transaction(tx)
     receipt = RawBatchReceipt.model_validate(receipt)
@@ -91,6 +95,11 @@ def persist_capture(tx, receipt, store, *, effective_namespace=None, locators=No
         selected = [r for r in selected if r.source.raw_locator in locators]
         if {r.source.raw_locator for r in selected} != set(locators):
             raise SourceCorruption("Replay selection is outside the original capture")
+    if replay_ingress is not None and (
+        effective_namespace is None
+        or set(replay_ingress) != {r.source.raw_locator for r in selected}
+    ):
+        raise SourceCorruption("Replay ingress must cover exactly the selected source records")
     document = receipt.model_dump(mode="json")
     fresh, redelivery = 0, 0
     with tx.transaction():
@@ -124,7 +133,9 @@ def persist_capture(tx, receipt, store, *, effective_namespace=None, locators=No
                     receipt.capture_id,
                     source.raw_locator,
                     row.raw_sha256,
-                    row.ingested_at,
+                    row.ingested_at
+                    if replay_ingress is None
+                    else replay_ingress[source.raw_locator],
                     row.bronze_durable_at,
                 ),
             ).fetchone()

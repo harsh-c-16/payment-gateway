@@ -106,7 +106,7 @@ def create_app(pipeline, *, internal_token, metrics_namespace=None):
                         "SELECT version FROM analytics_schema_migrations"
                     ).fetchall()
                 }
-            if not {1, 2, 3, 4, 5, 6, 7}.issubset(applied):
+            if not {1, 2, 3, 4, 5, 6, 7, 8}.issubset(applied):
                 raise RuntimeError("Migration missing")
             outbox_binding()
         except OutboxUnavailable:
@@ -187,9 +187,9 @@ def create_app(pipeline, *, internal_token, metrics_namespace=None):
     ):
         from pipelines.replay.jobs import create_replay
 
-        if x_namespace != body.target_namespace:
-            raise ValueError("X-Namespace must match the isolated replay target")
-        return create_replay(pipeline, body, idempotency_key=idempotency_key)
+        return create_replay(
+            pipeline, body, idempotency_key=idempotency_key, source_namespace=x_namespace
+        )
 
     @app.get(
         "/internal/v1/analytics/replays/{replay_id}",

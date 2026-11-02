@@ -301,7 +301,7 @@ def test_http_job_contract_ownership_and_idempotency(vertical):
             assert (await client.post(endpoint, json=body)).status_code == 401
             headers = {
                 "Authorization": "Bearer explicit-test-token",
-                "X-Namespace": body["target_namespace"],
+                "X-Namespace": vertical.test_namespace,
                 "X-Run-ID": "explicit-m10",
                 "X-Correlation-ID": "explicit-m10",
                 "Idempotency-Key": "stable-m10",
@@ -319,6 +319,10 @@ def test_http_job_contract_ownership_and_idempotency(vertical):
             assert ReplayStatus.model_validate(status.json()).status == "PENDING"
             changed = dict(body, source_manifest_ids=[str(uuid4())])
             assert (await client.post(endpoint, json=changed, headers=headers)).status_code == 409
+            other_target = dict(body, target_namespace="replay-other-" + uuid4().hex)
+            assert (
+                await client.post(endpoint, json=other_target, headers=headers)
+            ).status_code == 409
             assert run_once(vertical).status == "COMPLETED"
             assert (await client.get(accepted["status_url"], headers=headers)).json()[
                 "status"

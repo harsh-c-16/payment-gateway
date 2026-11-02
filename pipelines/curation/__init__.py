@@ -64,7 +64,7 @@ class AnalyticsPipeline:
         from pipelines.replay.jobs import capture_scope
 
         with self.connect() as tx:
-            namespace, locators = capture_scope(tx, self, raw_receipt, replay_id)
+            namespace, locators, replay_ingress = capture_scope(tx, self, raw_receipt, replay_id)
         if locators is not None:
             records = [
                 r
@@ -85,6 +85,7 @@ class AnalyticsPipeline:
                 self.store,
                 effective_namespace=namespace if replay_id is not None else None,
                 locators=locators,
+                replay_ingress=replay_ingress,
             )
         counts = dict.fromkeys(("new_valid", "duplicate_delivery", "invalid", "redelivery_noop"), 0)
         for record in records:

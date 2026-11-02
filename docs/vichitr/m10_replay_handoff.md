@@ -9,8 +9,9 @@ outbox remain pending; see [progress](progress.md) for executed evidence.
 
 - `POST /internal/v1/analytics/replays` returns the existing canonical 202
   `ReplayAccepted`. Supply the internal bearer token and canonical X-Namespace,
-  X-Run-ID, X-Correlation-ID and Idempotency-Key headers. X-Namespace must equal
-  the isolated target in the body. Status uses the existing authenticated GET URL.
+  X-Run-ID, X-Correlation-ID and Idempotency-Key headers. X-Namespace identifies
+  the selected source, as Jaineel's existing AnalyticsClient expects; the body
+  names a separate isolated target. Status uses the existing authenticated GET URL.
 - `AnalyticsPipeline.replay_bronze(request)` is the common-spec synchronous
   provider and returns `ReplayJob`. `create_replay`, `get_status`, `run_replay` and
   `pipelines.replay.worker.run_once` provide the durable queue/worker boundary.
@@ -49,6 +50,12 @@ Another request cannot take it over, and normal ingestion into a claimed target
 is rejected. Repeating the same request/key returns the same job. A failed job
 requires an explicit repeated creation request to queue a retry.
 
+Migration 008 names the key's request namespace explicitly. API keys are scoped to
+the caller's source namespace and replay operation; concurrent reuse of one key
+for two different targets conflicts under a transaction lock. Library-only calls
+without an HTTP namespace retain their target-scoped request-digest bindings.
+The source header must match the selected capture/publication namespace.
+
 Workers use a session advisory lock and resume PENDING/RUNNING jobs after process
 loss. Code commit, transform, application lock, event dictionaries and verified
 schema-ID mapping are fingerprinted. Resuming with a different provider fails
@@ -63,9 +70,12 @@ Reducers receive an internal namespace projection; the stored original document
 and content hash never change. Backfill also respects the effective namespace.
 
 Replay time uses a frozen maximum original ingress from the selected records.
-Validation still checks each event against its own original ingress, so an
+Validation still checks each event against its first durable source ingress, so an
 originally future-invalid record does not become valid merely because replay
-happens later. Replay clocks/latencies are not live streaming freshness samples.
+happens later. Recaptured wrappers retain their own original timestamp/bytes, while
+the processing receipt and frozen clock use the source coordinate's first ingress.
+A missing/conflicting original source ledger is corruption, not silently omitted
+input. Replay clocks/latencies are not live streaming freshness samples.
 Publication lineage records the replay ID, source IDs, provider fingerprint,
 clock policy and original source namespaces. No cleanup is added: retained source
 dedup keys, captures, immutable files and snapshots remain pinned by references
