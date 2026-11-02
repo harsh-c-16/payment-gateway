@@ -6,6 +6,22 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M11 worker metrics exposure preparation — 2 November 2026
+
+The next preparation checkpoint exposes the real worker's existing telemetry
+registry at internal `http://analytics-worker:8006/metrics`. The API remains a
+separate process/registry. See the [M11 handoff](m11_baseline_handoff.md#worker-metrics-preparation-checkpoint).
+No dependency, migration, public schema, canonical specification, harness,
+evaluation configuration, resource limit or batching behavior changes.
+
+Changed owned paths: ingestion worker entrypoint/export lifecycle, Compose
+worker port metadata/checker evidence mount, explicit lifecycle/bind-error tests,
+real-process HTTP/Kafka/SQL/file check and owner documentation/skip notes.
+Initial focused offline checks: **13 passed**, `artifacts/m11-worker/offline-focused.xml`.
+Live verification and final source/delivery records will follow after the runs.
+Full independent correctness gates, observer composition and B0/O1/scaling
+performance remain NOT_RUN.
+
 ## M11 baseline instrumentation preparation — 2 November 2026
 
 This checkpoint adds durable B0 sink transaction audits and corrects the flush

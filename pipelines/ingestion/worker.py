@@ -5,6 +5,7 @@ import os
 from time import monotonic, sleep
 
 import psycopg
+from prometheus_client import start_http_server
 from pydantic import TypeAdapter
 
 from shared.contracts.common import Identifier
@@ -52,12 +53,19 @@ def run(pipeline, namespace, run_id, bootstrap):
 
 
 def main():
-    run(
-        pipeline_from_env(),
-        os.environ["RUN_NAMESPACE"],
-        os.environ["RUN_ID"],
-        os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"),
-    )
+    pipeline = pipeline_from_env()
+    server, thread = start_http_server(8006, addr="0.0.0.0", registry=pipeline.telemetry.registry)
+    try:
+        run(
+            pipeline,
+            os.environ["RUN_NAMESPACE"],
+            os.environ["RUN_ID"],
+            os.environ.get("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092"),
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
 
 
 if __name__ == "__main__":

@@ -34,8 +34,8 @@ recovery never fabricates the elapsed value. Retry uses normal source dedup and
 creates a separate attempt row. An observation failure propagates before Kafka
 durability marks/offset commits. Receipt-observation recovery and Gold visibility
 keep their existing semantics. Transaction membership survives a missing timer.
-The existing sink histogram uses the same elapsed sample; process-local histograms
-in the worker are not automatically shared with a separate API process.
+The existing sink histogram uses the same elapsed sample. The worker now serves
+its own process-local registry as described below; the API does not aggregate it.
 
 The extra INSERT and post-COMMIT UPDATE are instrumentation overhead. Keep them
 enabled identically in both future comparators. No throughput claim is made.
@@ -65,9 +65,46 @@ No new endpoint or CLI command is added to the canonical surface.
 Jaineel already supplies one-second `KafkaLagReader`, resource readers,
 `ObservationSession`, independent workload accounting and receipt/visibility
 collection. Use those rather than a second collector. The API already reads
-namespace-scoped pending exports/generation from SQL. Queue saturation, real
-observer-factory adoption and cross-process metric exposure still need explicit
-bindings before a complete baseline trace; this checkpoint does not supply them.
+namespace-scoped pending exports/generation from SQL. Queue saturation and real
+observer-factory adoption still need explicit bindings before a complete baseline
+trace. Worker metric exposure is supplied by the next preparation checkpoint below.
+
+## Worker metrics preparation checkpoint
+
+`python -m pipelines.ingestion.worker` starts the installed Prometheus client's
+HTTP exporter using that worker's dedicated `pipeline.telemetry.registry` before
+entering the consumer loop. Inside Compose, scrape
+`http://analytics-worker:8006/metrics`; no host port is published for the worker.
+The API remains at `http://analytics:8006/metrics` with its own registry and its
+SQL-backed namespace gauges. Scraping the API cannot recover worker histograms.
+Each container has its own network address, so the internal port is independent.
+
+The worker endpoint exposes observed source dispositions, unique Silver counts,
+sink row/flush histograms and the existing publication duration/generation/backlog
+observations. Empty metric families stay absent. The exporter never polls Kafka,
+opens a database connection or touches offsets: its HTTP thread reads registry
+samples while the worker retains SDK thread ownership. No default global registry
+or second process collector is added. Container CPU/RSS and Kafka lag still come
+from Jaineel's existing resource/lag readers; this endpoint does not invent them.
+
+The worker's entrypoint closes the listener when its loop returns or raises. A
+bind failure propagates before consumption starts. A forced process exit relies
+on OS socket cleanup and normal Kafka redelivery. HTTP availability alone does
+not prove data readiness or progress; counters reset on process restart and gauges
+show the latest local observation. Use the durable transaction/receipt audit for
+cross-restart reconciliation, and the API's SQL gauges for namespace-wide state.
+Jaineel should bind a separate worker Prometheus target and keep its identity
+distinct from API or future worker instances. Collector composition stays his work.
+
+The real check starts `worker.main` in a separate process with only its connection
+factory/FileStore bound to an isolated test schema/root. It uses actual HTTP,
+Kafka, PostgreSQL and Parquet and verifies two broker records (one duplicate), two
+committed sink attempts, one visible Gold effect and committed next offset 2.
+The parent process registry stays empty. Lifecycle/bind-error unit checks use
+explicit server/worker doubles. No real outbox is needed for these valid sources.
+This checkpoint changes no migration, public DTO/endpoint contract, sink batching,
+producer setting, publisher cadence or container CPU/RAM allocation. Full baseline
+gates and performance/scaling trials remain pending.
 
 The append-only audit currently has no retention/GC, like the retained source
 ledger. Keep benchmark runs isolated and account for disk/SQL growth. No live

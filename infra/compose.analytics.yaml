@@ -42,6 +42,7 @@ services:
     <<: *analytics
     profiles: [analytics-worker]
     command: [python, -m, pipelines.ingestion.worker]
+    expose: ["8006"]
   analytics-replay:
     <<: *analytics
     profiles: [analytics-replay]

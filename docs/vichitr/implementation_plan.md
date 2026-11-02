@@ -172,9 +172,10 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **M11 baseline instrumentation preparation**. M06–M10 providers
-are delivered; this checkpoint prepares real sink audit evidence while preserving
-B0. Next: owner adoption, independent correctness closure and initial B0 trace,
+Current checkpoint: **M11 worker metrics exposure preparation**. M06–M10 providers
+and the durable sink audit are delivered; the worker now exposes its actual
+registry separately from the analytics API while preserving B0. Next: remaining
+observer bindings, owner adoption, independent correctness closure and initial B0 trace,
 then M11a batching. Full W-QUALITY/integrated/performance gates, real compactor
 adoption and aggregate-money DTO review remain pending; see [progress](progress.md).
 

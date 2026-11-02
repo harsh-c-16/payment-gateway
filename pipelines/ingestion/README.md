@@ -58,3 +58,10 @@ outbox. See [handoff](../../docs/vichitr/m04_capture_handoff.md) for CLI composi
 and remaining provider work. The [M05 handoff](../../docs/vichitr/m05_vertical_handoff.md)
 describes worker/API startup and publication. The [M06 handoff](../../docs/vichitr/m06_silver_handoff.md)
 documents all-domain typed Silver, migration/worker changes and remaining quality gates.
+
+The worker entrypoint exposes its own Prometheus registry on internal port 8006.
+Scrape `http://analytics-worker:8006/metrics` inside Compose for sink/publication
+metrics; the separate analytics API registry cannot serve worker histograms.
+No worker port is published to the host. See the
+[M11 handoff](../../docs/vichitr/m11_baseline_handoff.md#worker-metrics-preparation-checkpoint)
+for lifecycle, reset/missing-sample semantics and collector handoffs.

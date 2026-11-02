@@ -1,3 +1,21 @@
+# M11 baseline instrumentation skip update: 2 November 2026
+
+Final runtime **12c51eb**: **318 passed, 8 skipped, 2 deselected** in Linux;
+host pipelines/contracts/integration **344 passed, 132 skipped**. **123 of the
+132 host skips passed in Linux**, including all six new sink audit cases.
+
+The nine not rerun for that checkpoint are the six historical opt-ins listed
+under M08 below, the externally controlled broker-pause DLQ case and the two
+unchanged large fixtures (`quality_ratio_smoke` and `more_than_ten_thousand`).
+The DLQ case and both large fixtures passed in M10. Linux's eight skips are the
+six historical opt-ins, DLQ controller case and Windows-only guard (passed on
+the host). No assertion or skip marker was changed to obtain a pass.
+
+Raw coverage/source pins: `artifacts/m11/verification.json`, `linux-final.xml`
+and `host-final.xml`. The stronger clock teardown test retains a before-fix
+failure; the full selected Linux suite passed after the timer correction.
+Full independent W-QUALITY and actual owner integration remain NOT_RUN.
+
 # M10 skip update: 2 November 2026
 
 Full baseline source **21ba06a**: **299 passed, 8 skipped** in Linux. Corrected
