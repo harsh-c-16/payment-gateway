@@ -7,7 +7,11 @@ import pytest
 from starlette.testclient import TestClient
 
 from pipelines.catalog.embeddings import build_embeddings
+from pipelines.catalog.migrate import apply_variant
+from services.catalog import search as search_module
 from services.catalog.app import create_app
+from services.catalog.embedding import vector_text
+from shared.contracts.catalog import ShoppingIntent
 from tests.catalog.helpers import import_rows, seed_stock
 from tests.catalog.service_helpers import TOKEN, catalogue, search, skus
 
@@ -84,3 +88,55 @@ def test_occasion_reaches_the_semantic_query_but_is_not_a_filter(semantic):
     )
     assert result["embedding_calls"] == 1 and result["returned_count"] == 5
     assert skus(result)[0] == "FK-WATCH1"
+
+
+def intent(**facets):
+    values = dict.fromkeys(("category", "size", "colour", "material", "occasion"))
+    return ShoppingIntent(query_text="x", max_price_minor=None, **{**values, **facets})
+
+
+def test_exact_never_uses_hnsw_and_ann_does(semantic, database_url, db, encoder):
+    _, namespace = semantic
+    with psycopg.connect(database_url, autocommit=True) as connection:
+        apply_variant(connection, "r-ann")
+    vectors, _ = encoder.encode(["blue shirt"])
+    vector = vector_text(vectors[0])
+    with db.transaction() as tx:
+        where, parameters, _ = search_module.filter_catalog(tx, intent(), namespace)
+        values = {**parameters, "vector": vector, "limit": 5}
+        exact_plan = "\n".join(
+            row["QUERY PLAN"]
+            for row in tx.execute(
+                "EXPLAIN WITH eligible AS MATERIALIZED (SELECT p.sku, p.embedding FROM "
+                f"{search_module.FROM_ELIGIBLE} WHERE {where} AND p.embedding IS NOT NULL) "
+                "SELECT sku, embedding <=> %(vector)s::vector AS distance FROM eligible "
+                "ORDER BY distance, sku LIMIT %(limit)s",
+                values,
+            ).fetchall()
+        )
+        assert "products_r_ann_hnsw" not in exact_plan
+        exact = search_module.exact_search(tx, where, parameters, vector, 5)
+        ann = search_module.ann_search(tx, where, parameters, vector, 5)
+        ann_plan = "\n".join(
+            row["QUERY PLAN"]
+            for row in tx.execute(
+                f"EXPLAIN SELECT p.sku FROM {search_module.FROM_ELIGIBLE} WHERE {where} "
+                "AND p.embedding IS NOT NULL ORDER BY p.embedding <=> %(vector)s::vector "
+                "LIMIT %(limit)s",
+                values,
+            ).fetchall()
+        )
+    assert "products_r_ann_hnsw" in ann_plan
+    assert [row["sku"] for row in ann] == [row["sku"] for row in exact]
+
+
+def test_hybrid_ann_respects_filters_and_settings_do_not_leak(semantic, database_url, db):
+    client, namespace = semantic
+    with psycopg.connect(database_url, autocommit=True) as connection:
+        apply_variant(connection, "r-ann")
+    result = search(client, namespace, query_text="watch", mode="hybrid_ann", category="watches")
+    assert skus(result) == ["FK-WATCH1"]
+    assert {hit["retrieval_mode"] for hit in result["hits"]} == {"hybrid_ann"}
+    assert skus(search(client, namespace, query_text="watch", mode="hybrid_ann", size="XXS")) == []
+    with db.transaction() as tx:
+        assert tx.execute("SELECT current_setting('enable_seqscan') AS v").fetchone()["v"] == "on"

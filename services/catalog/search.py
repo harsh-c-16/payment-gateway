@@ -15,6 +15,7 @@ DICTIONARY = load_dictionary()
 ROOTS = set(DICTIONARY["root_ids"].values())
 SIZES = set(DICTIONARY["allowed_apparel_sizes"])
 CANDIDATE_LIMIT = 100
+ANN_DEFAULTS = {"ef_search": 100, "iterative_scan": "strict_order"}
 # Any matching term counts; ts_rank then rewards documents matching more terms and the title.
 TSQUERY = "replace(plainto_tsquery('english', %(text)s)::text, ' & ', ' | ')::tsquery"
 HIT_COLUMNS = """p.sku, p.product_id, p.title, p.category, p.brand, p.size, p.colour, p.material,
@@ -145,6 +146,28 @@ def exact_search(tx, where, parameters, vector, limit):
     ).fetchall()
 
 
+def ann_search(tx, where, parameters, vector, limit, ann_config=ANN_DEFAULTS):
+    """HNSW branch with no exact fallback, so a filtered shortage stays visible to the caller.
+
+    The planner settings hold only for this transaction: they stop it answering a raw ANN trial
+    with an exact plan, which would hide the recall this variant exists to measure.
+    """
+    for name, value in (
+        ("hnsw.ef_search", str(ann_config["ef_search"])),
+        ("hnsw.iterative_scan", ann_config["iterative_scan"]),
+        ("enable_seqscan", "off"),
+        ("enable_bitmapscan", "off"),
+        ("enable_sort", "off"),
+    ):
+        tx.execute("SELECT set_config(%s, %s, true)", (name, value))
+    return tx.execute(
+        f"""SELECT p.sku, p.embedding <=> %(vector)s::vector AS distance
+            FROM {FROM_ELIGIBLE} WHERE {where} AND p.embedding IS NOT NULL
+            ORDER BY p.embedding <=> %(vector)s::vector LIMIT %(limit)s""",
+        {**parameters, "vector": vector, "limit": limit},
+    ).fetchall()
+
+
 def hydrate(tx, where, parameters, ranked, candidates):
     """Full hit rows for SKUs ranked elsewhere, re-checked against the same hard filters."""
     if not ranked:
@@ -182,13 +205,18 @@ def rank_hybrid_exact(tx, where, parameters, limit, text, vector):
     return _rank_hybrid(tx, where, parameters, limit, text, vector, exact_search)
 
 
+def rank_hybrid_ann(tx, where, parameters, limit, text, vector):
+    return _rank_hybrid(tx, where, parameters, limit, text, vector, ann_search)
+
+
 RANKERS = {
     "filter_only": rank_filter_only,
     "lexical": rank_lexical,
     "vector_exact": rank_vector_exact,
     "hybrid_exact": rank_hybrid_exact,
+    "hybrid_ann": rank_hybrid_ann,
 }
-VECTOR_MODES = {"vector_exact", "hybrid_exact"}
+VECTOR_MODES = {"vector_exact", "hybrid_exact", "hybrid_ann"}
 
 
 def query_embedding(request, encoder):
