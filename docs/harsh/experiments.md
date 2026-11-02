@@ -8,11 +8,19 @@ clients and no outbox write, because Aditya's library is not available yet. Use 
 compare variants on this machine, not as absolute service capacity. The official runs through
 Jaineel's runner are still NOT_RUN.
 
-Evidence commit is `deb084d`, except W-ANALYTICS, which ran at `fde1210`; nothing under `analytics/`,
-`pipelines/curation/` or `pipelines/storage/` changed between them. Raw results stay in the ignored
-`artifacts/experiments/` directory, and the commands at the end regenerate them. Expectations below
-come from the design stage. A trial run had already shown rough import and index numbers, so they
-were not blind predictions.
+**Storage.** Sections 1–6 ran with PostgreSQL's data directory on a RAM filesystem (`tmpfs`), which I
+noticed only after the first write-up, so those runs carry no real disk cost. I repeated import and
+search on the SSD in section 2a. Every conclusion held, but price updates gain far less from P1 on
+real storage. W-ANALYTICS stores its Parquet files on the SSD.
+
+Evidence commit is `deb084d` for sections 1–6. Sections 2a and 7 ran at `c4ce74d`, the hash in their
+`summary.json`, a local commit since squashed into the one that added this paragraph with the same
+code. After `deb084d`,
+`candidate_count` changed meaning (see [handoff.md](handoff.md#review-of-your-workflow-against-the-real-service));
+that field plays no part in any result here, and hits and ranking did not change. Raw results stay in
+the ignored `artifacts/experiments/` directory, and the commands at the end regenerate them.
+Expectations below come from the design stage. A trial run had already shown rough import and index
+numbers, so they were not blind predictions.
 
 ## Decisions
 
@@ -22,8 +30,8 @@ were not blind predictions.
 | I1, COPY into staging | **Adopt** | Staging 3.07 → 0.99 s, same digest | None measured |
 | O2, category and price B-tree | **Adopt, for typical latency only** | Lexical p50 42.7 → 13.5 ms; p95 unchanged | 0.48 MB, 0.8 s build |
 | P1, reused sessions | **Recommend**; needs Jaineel's decision because it is outside the frozen matrix | Capacity 111 → 370 searches/s with O2 | Idle sessions held open |
-| F-COMPACT | **Adopt** | Q1 988 → 10 ms, 11,146 → 91 files, same results | 24 s per run |
-| F-PARTITION, date and type partitions | **Keep existing layout**; no latency case for or against | Fewer bytes read, same warm latency | None measured |
+| F-COMPACT | **Adopt** | Q1 1,023 → 10 ms warm, 1,853 → 19 ms cold; 11,146 → 91 files; same results | 29 s per run |
+| F-PARTITION, date and type partitions | **Keep existing layout**; a trade-off | Cold Q5 23% faster, cold Q1 and Q6 slower; warm about level | None measured |
 | HNSW (R-ANN) | **Do not adopt** at this size | Full-search p50 level, p95 worse, recall 0.906 | 37 MB, 1.75 s build |
 
 ## 1. A bug found by the measurements: no statistics after a load
@@ -90,6 +98,34 @@ Stages in one I1 run were parsing and normalizing 2.71 s, promotion 2.32 s, Parq
 and staging 0.99 s, so staging is no longer the bottleneck. Any further gain has to come from parsing.
 Restart behaviour is covered by `tests/catalog/test_import_live.py`, not by these timings.
 
+## 2a. Recheck on the SSD
+
+Same commands with PostgreSQL's data directory on the host's NVMe SSD, `fsync` on. Import used 3 paired
+runs; search used 10 executions per query instead of 30, with 3 repetitions.
+
+| Import | RAM, I0 | RAM, I1 | SSD, I0 | SSD, I1 |
+|---|---|---|---|---|
+| Staging | 3.07 s | 0.99 s | 3.85 s | 1.17 s |
+| Raw file to ready | 10.76 s | 8.92 s | 12.52 s | 9.76 s |
+
+| All queries, ms | RAM: B0 / O2 / P1 / O2+P1 | SSD: B0 / O2 / P1 / O2+P1 |
+|---|---|---|
+| `filter_only` p50 | 31.2 / 11.7 / 20.9 / 4.7 | 31.8 / 12.1 / 21.7 / 4.7 |
+| `filter_only` p95 | 40.6 / 40.8 / 28.6 / 26.4 | 42.0 / 41.3 / 29.5 / 27.5 |
+| `lexical` p50 | 42.7 / 13.5 / 32.0 / 4.9 | 44.3 / 13.4 / 33.2 / 5.2 |
+| `lexical` p95 | 54.9 / 54.8 / 42.9 / 41.6 | 55.6 / 56.8 / 43.5 / 42.3 |
+
+| Price update p50, by repetition | B0 | O2 | P1 | O2+P1 |
+|---|---|---|---|---|
+| RAM | 5.01–5.04 ms | 5.02–5.07 ms | 0.49–0.53 ms | 0.50–0.69 ms |
+| SSD | 5.79–6.77 ms | 5.79–5.88 ms | 1.72–1.78 ms | 1.71–1.77 ms |
+
+**Conclusion.** Search is read-only and cached, so it barely changes, with 0 violations, 0 result
+differences and 35 of 50 queries more than 10% faster under O2 in each mode, as before. Import gets
+slower but keeps the same ranking, and I1's advantage grows slightly: 22% against 17% in total. **Price
+updates are the real correction:** P1 is about 3.4× faster on the SSD against 10× in RAM, because each
+commit now waits for a real disk flush. Quote the SSD figure. O2's update cost does not show on the SSD.
+
 ## 3. W-SEARCH: B0, O2 and P1 on the real catalogue
 
 **Expectation:** O2 helps queries with a category filter and not those without one. P1 removes a
@@ -131,8 +167,8 @@ B19, B20); others cover so much of the table that a scan is the sensible plan (B
 `lexical`). An update cost is not visible next to the 5 ms connection cost. With P1 it appears as up
 to about 0.2 ms in two of three repetitions, so it is small rather than zero.
 
-**P1.** Saves about 10 ms per search and makes price updates 10× faster, because each transaction no
-longer opens a connection.
+**P1.** Saves about 10 ms per search, because each transaction no longer opens a connection. Price
+updates are 10× faster in RAM but about 3.4× on the SSD (section 2a).
 
 **O2+P1 is much better than the two added together, and the reason is not obvious.** On reused
 sessions psycopg prepares a repeated statement, and PostgreSQL can then switch to a cached generic
@@ -257,33 +293,38 @@ fixture has no vectors, so that was not measured.
 queries with a date or type filter.
 
 **Synthetic fixture:** seed 42, 300 publications, 60,218 events, built through the real Bronze, Silver,
-Gold and publisher code. Warm cache, 3 warm-ups and 30 executions per query, 3 repetitions. All three
-layouts returned **identical results for every query**. The candidate was published through Vichitr's
-`publish_candidate` as generation 301.
+Gold and publisher code, with the Parquet files on the SSD. Warm series: 3 warm-ups and 30 executions per
+query, 3 repetitions. Cold series, in its own file: each execution evicts every file in the layout from
+the page cache and opens a new DuckDB connection, 5 executions per query, 3 repetitions. Eviction is
+checked by the bytes actually fetched from storage. All three layouts returned **identical results for
+every query in both series**. The candidate was published through Vichitr's `publish_candidate` as
+generation 301.
 
 | Layout | Files | Bytes | Median file |
 |---|---|---|---|
-| Small files | 11,146 | 314.3 MB | 28.2 KB |
-| Compacted, partitioned | 91 | 21.2 MB | 86.1 KB |
+| Small files | 11,146 | 314.2 MB | 28.2 KB |
+| Compacted, partitioned | 91 | 21.2 MB | 86.3 KB |
 | Compacted, unpartitioned | 7 | 15.2 MB | 6.6 KB |
 
-| Query | Small files p50 ms | Compacted p50 ms | Unpartitioned p50 ms | Files opened (small / compacted / unpartitioned) |
-|---|---|---|---|---|
-| Q1 | 988.1 | 10.1 | 7.5 | 11,090 / 49 / 1 |
-| Q2 | 3.1 | 1.7 | 1.1 | 7 / 7 / 1 |
-| Q3 | 3.7 | 2.0 | 1.8 | 7 / 7 / 1 |
-| Q4 | 3.8 | 2.0 | 1.8 | 7 / 7 / 1 |
-| Q5 | 188.9 | 8.2 | 8.5 | 1,585 / 7 / 1 |
-| Q6 | 1,082.0 | 45.9 | 42.3 | 11,090 / 49 / 1 |
+| Query | Files opened (small / compacted / unpartitioned) | Warm p50 ms (small / compacted / unpartitioned) | Cold p50 ms (small / compacted / unpartitioned) |
+|---|---|---|---|
+| Q1 | 11,090 / 49 / 1 | 1,023.0 / 9.9 / 7.9 | 1,852.6 / 19.0 / 11.9 |
+| Q2 | 7 / 7 / 1 | 2.9 / 1.7 / 1.3 | 2.8 / 2.4 / 1.5 |
+| Q3 | 7 / 7 / 1 | 3.8 / 2.2 / 1.7 | 3.1 / 2.7 / 2.6 |
+| Q4 | 7 / 7 / 1 | 4.0 / 2.1 / 1.9 | 3.6 / 3.2 / 2.8 |
+| Q5 | 1,585 / 7 / 1 | 201.6 / 8.3 / 9.4 | 292.0 / 12.7 / 16.4 |
+| Q6 | 11,090 / 49 / 1 | 1,116.3 / 46.3 / 46.6 | 1,939.9 / 64.2 / 52.3 |
 
-**F-COMPACT.** Adopt: Q1 is 98× faster and Q6 24× faster, with 93% less storage, in 24 s of compaction
-for Silver. Q2–Q4 read the same 7 files and the same bytes in the small-file and compacted layouts, so
-their roughly 1.5 ms difference does not come from those files and is **not claimed as a gain**.
+**F-COMPACT.** Adopt: Q1 is 103× faster warm and 98× cold, and Q6 24× warm and 30× cold, with 93% less
+storage, in 29 s of compaction for Silver. Q2–Q4 read the same 7 files and the same bytes in the
+small-file and compacted layouts, so their 1–2 ms warm difference does not come from those files and is
+**not claimed as a gain**. Cold, that gap nearly closes.
 
-**F-PARTITION.** On Q5, partitioning selects 2.7 MB of files against 13.5 MB and reads 0.36 MB against
-2.07 MB, yet warm latency is the same (8.2 ms against 8.5 ms). Unpartitioned is slightly faster on Q1
-and Q6. So partitioning saves I/O and gives no warm latency benefit at this size. A cold-cache series
-is where it could matter, and that is **NOT_RUN**.
+**F-PARTITION.** It is a trade-off, and the cold series is what shows it. Q5 filters by date, and cold it
+is 23% faster with partitions because it fetches 1.40 MB from storage against 4.10 MB. Warm, the two are
+about level at 8.3 and 9.4 ms. Q1 and Q6 go the other way: they scan everything, so opening 49 files
+instead of 1 makes them slower cold (19.0 against 11.9 ms, 64.2 against 52.3 ms). Partitioning helps
+date-filtered queries and costs full scans, so the existing layout stays and neither is declared better.
 
 **Limit.** The 32 MiB target file size was never reached, because this fixture holds only 21 MB. This
 tests small-file overhead, not behaviour at the target size.
@@ -316,8 +357,10 @@ python -m pipelines.catalog.experiments stress --out artifacts/experiments/w-sea
 python -m pipelines.catalog.experiments search --out artifacts/experiments/w-search-10x \
     --scale 10 --variants B0,O2 --executions 10
 python -m pipelines.catalog.ann_experiment --out artifacts/experiments/w-ann
-python -m analytics.queries.experiment --out artifacts/experiments/w-analytics
+python -m analytics.queries.experiment --out artifacts/experiments/w-analytics --cold
 ```
+
+Run these with PostgreSQL and `--out` on real storage. Eviction does nothing on a RAM filesystem.
 
 Each `summary.json` records the commit and whether the tree was clean. `query_results.parquet` holds
 the raw timings and returned SKUs, and `plans/` holds `EXPLAIN (ANALYZE, BUFFERS)` per query.

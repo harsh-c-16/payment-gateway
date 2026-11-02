@@ -9,8 +9,9 @@ from uuid import uuid4
 import psycopg
 import pytest
 
+from benchmarks.workloads import generate_workload
 from pipelines.catalog import load
-from pipelines.catalog.adapter import ImportRefused, run_import
+from pipelines.catalog.adapter import ImportRefused, run_import, runner_catalog_manifest
 from pipelines.catalog.load import ImportReconciliationError
 from pipelines.catalog.normalize import CsvStructureError
 from pipelines.catalog.verify import verify_import
@@ -71,6 +72,25 @@ def test_row_and_copy_produce_identical_rows_digests_and_chunks(tmp_path, databa
     assert row_times["load_mode"] == "row" and copy_times["load_mode"] == "copy"
     assert row_times["stages"]["staging_seconds"] > 0
     assert copy_times["raw_to_ready_seconds"] > 0
+
+
+def test_active_sku_binding_drives_the_harness_workload_and_refuses_tampering(
+    tmp_path, database_url
+):
+    ns = namespace()
+    import_rows(tmp_path, database_url, ns, [row("A1"), row("A2"), row("A3", discounted_price="")])
+    path = tmp_path / ns / "sku_manifest.json"
+    binding = runner_catalog_manifest(path)
+    assert binding["active_skus"] == ["FK-A1", "FK-A2"] and binding["synthetic"] is False
+    workload = generate_workload(
+        "W-PIPE", 42, binding, rate_per_second=1, duration_seconds=2, warmup_seconds=1, key_count=2
+    )
+    assert sorted(workload.as_dict()["selected_skus"]) == binding["active_skus"]
+    tampered = json.loads(path.read_text(encoding="utf-8"))
+    tampered["sorted_skus"].pop()
+    path.write_text(json.dumps(tampered), encoding="utf-8")
+    with pytest.raises(ValueError):
+        runner_catalog_manifest(path)
 
 
 def test_promotion_leaves_planner_statistics_for_the_first_searches(tmp_path, database_url):

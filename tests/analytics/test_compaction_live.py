@@ -1,5 +1,6 @@
 """T-04 plus the T-12 compaction cases through Vichitr's real publish_candidate."""
 
+import asyncio
 import random
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -8,6 +9,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from analytics.compaction.compact import LayoutConfig, compact_snapshot, rewrite_unpartitioned
+from analytics.compaction.faults import BARRIER, TARGET, CompactionFaults, child
 from analytics.queries import fixture
 from analytics.queries.suite import QUERIES, open_connection, result_digest, run_query
 from pipelines.ingestion import BronzeCapture
@@ -163,6 +165,38 @@ def test_unpublished_candidate_leaves_original_queryable(pipeline):
     compact_snapshot(pipeline.store, silver, output_prefix=prefix(pipeline))
     assert active(pipeline).generation == silver.generation
     assert results(pipeline, [active(pipeline), active(pipeline, "gold")]) == before
+
+
+def test_fault_gate_kills_compaction_before_publish_then_recovery_publishes(pipeline, tmp_path):
+    populate(pipeline, publications=2)
+    before = active(pipeline)
+    wanted = results(pipeline, [before, active(pipeline, "gold")])
+    hooks = CompactionFaults(pipeline, pipeline.test_root, "silver", tmp_path / "work")
+    context = {"namespace": pipeline.test_namespace, "run_id": "run", "case_id": "compaction"}
+
+    async def run():
+        receipt = await hooks.arm(context, BARRIER, TARGET)
+        acknowledgement = await hooks.wait(context, receipt)
+        assert acknowledgement["acknowledged"] is True
+        await hooks.stop(context, acknowledgement)
+        assert active(pipeline).generation == before.generation
+        assert results(pipeline, [active(pipeline), active(pipeline, "gold")]) == wanted
+        return await hooks.restart(context, acknowledgement)
+
+    restart = asyncio.run(run())
+    assert restart["ready"] is True and restart["retained_volume"] is True
+    assert restart["active_unchanged_by_killed_attempt"] is True
+    assert active(pipeline).generation == before.generation + 1
+    assert results(pipeline, [active(pipeline), active(pipeline, "gold")]) == wanted
+
+
+def test_compaction_fault_child_refuses_without_explicit_enablement(tmp_path, monkeypatch):
+    monkeypatch.delenv("FAULT_INJECTION_ENABLED", raising=False)
+    with pytest.raises(SystemExit):
+        child(tmp_path, tmp_path / "pinned.json", "bench-x", "silver")
+    monkeypatch.setenv("FAULT_INJECTION_ENABLED", "true")
+    with pytest.raises(SystemExit):
+        child(tmp_path, tmp_path / "pinned.json", "dev", "silver")
 
 
 def test_gold_order_revisions_do_not_concatenate_retired_snapshots(pipeline):

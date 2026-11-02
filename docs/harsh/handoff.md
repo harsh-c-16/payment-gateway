@@ -36,12 +36,32 @@ What each teammate needs from the catalogue module. Everything below is on `main
 | CLI commands | `pipelines.catalog.adapter.register(registry)`. It registers `catalog profile`, `catalog import`, `catalog verify` and `projection wait`. `PROJECTCTL_ADAPTER_MODULE` takes one module, so your composition module must call this alongside the other owners' `register` |
 | W-IMPORT | `pipelines.catalog.adapter.runner_importer(source, out_root, url=...)` |
 | W-ANALYTICS | `analytics.queries.suite.runner_query_adapter(layout_for, store_root, day)` |
-| `active_skus` for W-PIPE | Your workloads read `active_skus`; the common-spec manifest has `sorted_skus`. Map with `[entry["sku"] for entry in manifest["sorted_skus"]]` |
+| `active_skus` for W-PIPE and W-QUALITY | `pipelines.catalog.adapter.runner_catalog_manifest(path)`. It verifies the manifest hash and returns `active_skus` with provenance |
+| Compaction fault boundary | `analytics.compaction.faults.CompactionFaults`, barrier `after_candidate_files_before_publish`, target `compaction`. No case in `benchmarks/integration_cases.py` maps to it yet, so please agree the mapping |
 | Connection cap | The frozen profile gives catalogue 4 connections; the service default is the common cap of 10. Set `CATALOG_MAX_CONNECTIONS=4` |
 
 **Run `projection wait` after seeding stock, before any search measurement.** It now runs
 `ANALYZE stock_projection`. If the seed bypasses it, the first minute of searches runs on a bad plan and
 inflates p95 about threefold ([experiments.md](experiments.md) §1).
+
+### Review of your workflow against the real service
+
+`p7_workflow.md` asks me to review this binding. `tests/catalog/test_conversation_consumer_live.py` runs
+your real `Gateway` and `FixedWorkflow` against the real service over HTTP, and I also ran the 50 frozen
+queries through `structured_search` on the real catalogue: **43 pass and 7 are rejected**. I changed
+nothing in your code.
+
+| Finding | Where | Status |
+|---|---|---|
+| `candidate_count` was text matches, usually below `eligible_count`, and your funnel check rejected 33 of 50 queries | My service | **Fixed:** `candidate_count` is now the eligible pool. Text matches still decide `exhausted` |
+| `_search` compares `hit["brand"]`, the displayed `Voylla`, with `intent["brand"]`, the dictionary key `voylla`, so every real brand search raises `ContractViolation`. `ProductHit` has no brand key | **Your check** | Open. Compare with casefold. A strict-xfail test will fail when this is fixed, so remove its marker then |
+| `extract_intent` binds any dictionary word as a filter: "blue cotton shirt" becomes `brand=blue` and "laptop skin" becomes `colour=skin, brand=skin`. The source data really has such brands and colours, and I do not invent or remove values | **Your parser**, with noisy source values | Open. Consider binding brand only on an explicit cue |
+| S11, S12, S13, U04 and U05 use the brand label, so `validate_constraints`, which expects keys, rejects them. `/v1/search` accepts both | My frozen query file | Left frozen, since W-SEARCH calls `/v1/search` directly. Tell me if you want keys, which changes `query_sha256` |
+| Z03 and Z05 ask for values that do not exist | Expected | Correct rejection |
+
+Dictionary values, hard path filtering and `dataset_revision` equality passed on the real catalogue. The
+colour and material lists keep raw source values such as `104` and `006r light auburn`, under the
+conservative facet rule.
 
 ### `.env.example`
 
