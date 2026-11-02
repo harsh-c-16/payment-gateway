@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
 
@@ -73,11 +74,18 @@ def test_committed_batches_reconcile_all_dispositions_and_page_scope(vertical, o
 
 def test_flush_elapsed_ends_at_commit_before_observation_work(vertical, monkeypatch):
     clock = [100.0]
+    connect = vertical.connect
     finalize, observe, receipt_observe = (
         vertical._finalize,
         curation.observe_sink_batch,
         vertical._observe,
     )
+
+    @contextmanager
+    def connection():
+        with connect() as tx:
+            yield tx
+        clock[0] += 7  # Connection teardown is also after the sink COMMIT boundary.
 
     def finalized(*args):
         result = finalize(*args)
@@ -93,6 +101,7 @@ def test_flush_elapsed_ends_at_commit_before_observation_work(vertical, monkeypa
         return receipt_observe(*args)
 
     monkeypatch.setattr(curation, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(vertical, "connect", connection)
     monkeypatch.setattr(vertical, "_finalize", finalized)
     monkeypatch.setattr(curation, "observe_sink_batch", observed)
     monkeypatch.setattr(vertical, "_observe", receipts_observed)

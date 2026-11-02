@@ -93,61 +93,62 @@ class AnalyticsPipeline:
         for record in records:
             started_at = datetime.now(UTC)
             started = monotonic()
-            with self.connect() as tx, tx.transaction():
-                sink_lock(tx, namespace)
-                stored = one(
-                    tx,
-                    """SELECT * FROM source_receipts WHERE namespace=%s AND topic=%s
-                    AND partition=%s AND offset_number=%s FOR UPDATE""",
-                    (namespace, record.topic, record.partition, record.offset),
-                )
-                if stored["disposition"] is not None:
-                    disposition, job = "redelivery_noop", None
-                else:
-                    record = replace(record, ingested_at=stored["ingested_at"])
-                    checked = self.codec.validate_event(
-                        record.value_bytes,
-                        record.headers,
-                        record.topic,
-                        record.key_bytes,
-                        source_record=record,
+            with self.connect() as tx:
+                with tx.transaction():
+                    sink_lock(tx, namespace)
+                    stored = one(
+                        tx,
+                        """SELECT * FROM source_receipts WHERE namespace=%s AND topic=%s
+                        AND partition=%s AND offset_number=%s FOR UPDATE""",
+                        (namespace, record.topic, record.partition, record.offset),
                     )
-                    if replay_id is not None and not isinstance(checked, ValidationFailure):
-                        from pipelines.replay.repairs import repair_failure
+                    if stored["disposition"] is not None:
+                        disposition, job = "redelivery_noop", None
+                    else:
+                        record = replace(record, ingested_at=stored["ingested_at"])
+                        checked = self.codec.validate_event(
+                            record.value_bytes,
+                            record.headers,
+                            record.topic,
+                            record.key_bytes,
+                            source_record=record,
+                        )
+                        if replay_id is not None and not isinstance(checked, ValidationFailure):
+                            from pipelines.replay.repairs import repair_failure
 
-                        checked = repair_failure(checked, record.raw_sha256, tx) or checked
-                    disposition, job = self._finalize(tx, stored, record, checked, config)
-                sequence = tx.execute(
-                    """INSERT INTO sink_batches(namespace,run_id,capture_id,replay_id,
-                    code_commit,transform_version,sources,batch_rows,new_valid,duplicate_delivery,
-                    invalid,redelivery_noop,started_at)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s)
-                    RETURNING batch_sequence""",
-                    (
-                        namespace,
-                        config.run_id,
-                        raw_receipt.capture_id,
-                        replay_id,
-                        self.code_commit,
-                        self.transform_version,
-                        Jsonb(
-                            [
-                                dict(
-                                    topic=record.topic,
-                                    partition=record.partition,
-                                    offset=record.offset,
-                                )
-                            ]
+                            checked = repair_failure(checked, record.raw_sha256, tx) or checked
+                        disposition, job = self._finalize(tx, stored, record, checked, config)
+                    sequence = tx.execute(
+                        """INSERT INTO sink_batches(namespace,run_id,capture_id,replay_id,
+                        code_commit,transform_version,sources,batch_rows,new_valid,duplicate_delivery,
+                        invalid,redelivery_noop,started_at)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s)
+                        RETURNING batch_sequence""",
+                        (
+                            namespace,
+                            config.run_id,
+                            raw_receipt.capture_id,
+                            replay_id,
+                            self.code_commit,
+                            self.transform_version,
+                            Jsonb(
+                                [
+                                    dict(
+                                        topic=record.topic,
+                                        partition=record.partition,
+                                        offset=record.offset,
+                                    )
+                                ]
+                            ),
+                            int(disposition == "new_valid"),
+                            int(disposition == "duplicate_delivery"),
+                            int(disposition == "invalid"),
+                            int(disposition == "redelivery_noop"),
+                            started_at,
                         ),
-                        int(disposition == "new_valid"),
-                        int(disposition == "duplicate_delivery"),
-                        int(disposition == "invalid"),
-                        int(disposition == "redelivery_noop"),
-                        started_at,
-                    ),
-                ).fetchone()[0]
-            duration = monotonic() - started
-            committed_at = datetime.now(UTC)
+                    ).fetchone()[0]
+                duration = monotonic() - started
+                committed_at = datetime.now(UTC)
             observe_sink_batch(self.connect, namespace, sequence, committed_at, duration)
             if job is not None:
                 self._observe(namespace, job)  # Only after the sink COMMIT acknowledgement.
