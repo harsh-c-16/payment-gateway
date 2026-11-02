@@ -1,15 +1,20 @@
 """T-09 on real PostgreSQL: the common Appendix B vector, redelivery, gaps and deferred SKUs."""
 
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from uuid import uuid4
 
 import pytest
 
-from services.catalog import projection
+from pipelines.catalog import adapter
+from projectctl.models import ExitCode
+from projectctl.providers import Invocation
+from services.catalog import projection, worker
+from shared.event_transport import ConsumerGroup
 from shared.event_transport.codec import EventCodec
 from shared.local_diagnostics import quarantine_local_diagnostic
 from tests.catalog.helpers import apply_record, import_rows, row, source_record, stock_record
-from tests.pipelines.transport_doubles import offline_cache
+from tests.pipelines.transport_doubles import ConsumerDouble, MessageDouble, offline_cache
 
 CODEC = EventCodec(offline_cache(), source_service="inventory")
 
@@ -142,6 +147,64 @@ def test_deferred_snapshot_cannot_regress_a_newer_applied_version(
     assert state(db, namespace, "FK-LATE")["stock_version"] == 5
 
 
+def test_malformed_record_keeps_a_diagnostic_and_advances(world, db):
+    namespace = world
+    good = stock_record(CODEC, namespace, "FK-A1", 1, 10, 0, offset=1)
+    event = CODEC.cache.validate(
+        good.value_bytes, good.headers, good.topic, good.key_bytes
+    ).envelope
+    bad = source_record(CODEC, event, namespace, 2, raw=b"{not json")
+    marked = []
+    metrics = worker.telemetry()
+    for _ in range(2):  # the second pass is a Kafka redelivery of both offsets
+        worker.process_batch(
+            db,
+            [good, bad],
+            validate=CODEC.validate_event,
+            diagnostics=quarantine_local_diagnostic,
+            run_id="h-test",
+            metrics=metrics,
+            mark=marked.append,
+        )
+    assert [r.offset for r in marked] == [1, 2, 1, 2]
+    assert [r["outcome"] for r in receipts(db, namespace)] == ["applied", "invalid"]
+    with db.transaction() as tx:
+        rows = tx.execute(
+            "SELECT reason_code FROM local_diagnostics WHERE namespace=%s", (namespace,)
+        ).fetchall()
+        observed = tx.execute(
+            "SELECT count(*) AS n FROM projection_receipts "
+            "WHERE namespace=%s AND observed_commit_at IS NOT NULL",
+            (namespace,),
+        ).fetchone()
+    assert [r["reason_code"] for r in rows] == ["INVALID_JSON"]
+    assert observed["n"] == 2
+    assert 'projection_apply_total{outcome="applied"} 1.0' in metrics.exposition().decode()
+
+
+def test_commit_failure_before_mark_means_redelivery_not_loss(world, db):
+    """A crash after the projection commit but before the offset commit replays harmlessly."""
+    namespace = world
+    record = stock_record(CODEC, namespace, "FK-A1", 1, 10, 0, offset=1)
+
+    def crash(_):
+        raise RuntimeError("process died before the offset advanced")
+
+    with pytest.raises(RuntimeError):
+        worker.process_batch(
+            db,
+            [record],
+            validate=CODEC.validate_event,
+            diagnostics=quarantine_local_diagnostic,
+            run_id="h-test",
+            metrics=worker.telemetry(),
+            mark=crash,
+        )
+    assert state(db, namespace)["stock_version"] == 1
+    assert apply_record(db, CODEC, record, quarantine_local_diagnostic).outcome == "duplicate"
+    assert state(db, namespace)["stock_version"] == 1
+
+
 def test_concurrent_versions_for_one_sku_settle_on_the_highest(world, db):
     namespace = world
     records = [
@@ -156,3 +219,80 @@ def test_concurrent_versions_for_one_sku_settle_on_the_highest(world, db):
         outcomes = list(pool.map(one, records))
     assert state(db, namespace)["stock_version"] == 20
     assert set(outcomes) <= {"applied", "stale"}
+
+
+def test_consumer_loop_commits_only_durable_prefix_and_restart_replays(world, db):
+    """Real ConsumerGroup bookkeeping over Vichitr's labelled Kafka double, not a broker."""
+    namespace = world
+    records = [stock_record(CODEC, namespace, "FK-A1", v, 10, 0, offset=v - 1) for v in (1, 2, 3)]
+
+    def deliver():
+        doubles = []
+
+        def factory(settings):
+            consumer = ConsumerDouble(settings)
+            consumer.messages.extend(
+                MessageDouble(
+                    r.topic, r.offset, value=r.value_bytes, key=r.key_bytes, headers=r.headers
+                )
+                for r in records
+            )
+            doubles.append(consumer)
+            return consumer
+
+        group = ConsumerGroup(
+            f"{namespace}.catalog-projection.v1",
+            [worker.topic_for(namespace)],
+            "double:9092",
+            consumer_factory=factory,
+        )
+        stop = Event()
+        metrics = worker.telemetry()
+
+        def stopping(*args, **kwargs):
+            result = CODEC.validate_event(*args, **kwargs)
+            if kwargs["source_record"].offset == 2:
+                stop.set()
+            return result
+
+        worker.run(
+            db,
+            group,
+            namespace,
+            stop=stop,
+            run_id="h-test",
+            metrics=metrics,
+            validate=stopping,
+            diagnostics=quarantine_local_diagnostic,
+        )
+        return doubles[0], metrics
+
+    consumer, metrics = deliver()
+    assert state(db, namespace)["stock_version"] == 3
+    assert max(item.offset for item in consumer.commits[-1]) == 3
+    assert metrics.metrics["projection_age_seconds"]
+    second, metrics = deliver()
+    assert state(db, namespace)["stock_version"] == 3
+    assert 'projection_apply_total{outcome="applied"}' not in metrics.exposition().decode()
+    assert len(receipts(db, namespace)) == 3
+
+
+def test_projection_wait_reports_missing_and_completes(
+    tmp_path, database_url, db, world, monkeypatch
+):
+    namespace = world
+    monkeypatch.setenv("CATALOG_DATABASE_URL", database_url)
+    manifest = tmp_path / namespace / "sku_manifest.json"
+    invocation = Invocation(
+        "projection wait",
+        {"sku_manifest": str(manifest), "namespace": namespace, "timeout_seconds": 1},
+        None,
+        str(uuid4()),
+        namespace,
+    )
+    apply(db, namespace, 1, 10, 0, 1, sku="FK-A1")
+    result = adapter.projection_wait_action(invocation)
+    assert result.code == ExitCode.DEPENDENCY_FAILURE
+    assert '"expected": 2, "projected": 1' in result.reasons[0]
+    apply(db, namespace, 1, 10, 0, 2, sku="FK-A2")
+    assert adapter.projection_wait_action(invocation).code == ExitCode.COMPLETED

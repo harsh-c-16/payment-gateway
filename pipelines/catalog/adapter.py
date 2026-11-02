@@ -5,7 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from time import perf_counter
+from time import monotonic, perf_counter, sleep
 
 import psycopg
 
@@ -259,7 +259,48 @@ def verify_action(invocation):
     )
 
 
+def projection_status(connection, namespace, skus):
+    """Every active SKU needs a projected version; deferred snapshots are reported, not guessed."""
+    projected = connection.execute(
+        "SELECT count(*) FROM stock_projection WHERE namespace=%s AND sku = ANY(%s)",
+        (namespace, skus),
+    ).fetchone()[0]
+    deferred = connection.execute(
+        "SELECT count(*) FROM stock_deferred WHERE namespace=%s", (namespace,)
+    ).fetchone()[0]
+    return {"expected": len(skus), "projected": projected, "deferred": deferred}
+
+
+def projection_wait_action(invocation):
+    arguments = invocation.arguments
+    try:
+        manifest = json.loads(Path(arguments["sku_manifest"]).read_text(encoding="utf-8"))
+        if artifacts.content_hash(manifest) != manifest["content_sha256"]:
+            return ProviderResult(ExitCode.BAD_INPUT, ("SKU manifest hash mismatch",), "real")
+        skus = [entry["sku"] for entry in manifest["sorted_skus"]]
+        deadline = monotonic() + arguments["timeout_seconds"]
+        with psycopg.connect(database_url(), autocommit=True, connect_timeout=5) as connection:
+            while True:
+                status = projection_status(connection, arguments["namespace"], skus)
+                if status["projected"] == status["expected"]:
+                    return ProviderResult(
+                        ExitCode.COMPLETED, (f"projection ready: {json.dumps(status)}",), "real"
+                    )
+                if monotonic() >= deadline:
+                    return ProviderResult(
+                        ExitCode.DEPENDENCY_FAILURE,
+                        (f"projection incomplete at deadline: {json.dumps(status)}",),
+                        "real",
+                    )
+                sleep(0.25)
+    except (OSError, ValueError, KeyError) as error:
+        return ProviderResult(ExitCode.BAD_INPUT, (type(error).__name__,), "real")
+    except psycopg.Error as error:
+        return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (type(error).__name__,), "real")
+
+
 def register(registry):
     registry.register("catalog profile", profile_action)
     registry.register("catalog import", import_action)
     registry.register("catalog verify", verify_action)
+    registry.register("projection wait", projection_wait_action)
