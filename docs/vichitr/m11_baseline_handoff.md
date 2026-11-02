@@ -65,9 +65,11 @@ No new endpoint or CLI command is added to the canonical surface.
 Jaineel already supplies one-second `KafkaLagReader`, resource readers,
 `ObservationSession`, independent workload accounting and receipt/visibility
 collection. Use those rather than a second collector. The API already reads
-namespace-scoped pending exports/generation from SQL. Queue saturation and real
-observer-factory adoption still need explicit bindings before a complete baseline
-trace. Worker metric exposure is supplied by the next preparation checkpoint below.
+namespace-scoped pending exports/generation from SQL. Queue observations are now
+available from the SDK and worker JSON logs; see the
+[current handoff](team_handoff.md#buffer-observation-semantics-for-the-collector).
+Real observer-factory adoption still needs Jaineel's bindings before a complete
+baseline trace. Worker metric exposure is described below.
 
 ## Worker metrics preparation checkpoint
 

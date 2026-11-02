@@ -43,6 +43,11 @@ with the bounded `read_sink_batches` provider; missing timers cannot be recovere
 See the [M11 handoff](../../docs/vichitr/m11_baseline_handoff.md) for exact semantics
 and the remaining correctness/benchmark gates. This checkpoint still rejects O1.
 
+The existing `quarantine_total{reason}` metric records only new committed invalid
+source dispositions. Rollback and already-final source redelivery do not increment
+it. These process counters can reset/lose an observation at a crash; durable
+source/quarantine audits remain authoritative across restarts.
+
 The M05 tests use real PostgreSQL/files/Kafka. Invalid notification atomicity also
 has explicitly labelled outbox doubles; full real-outbox integration remains pending.
 See the [M06 handoff](../../docs/vichitr/m06_silver_handoff.md) for typed files,

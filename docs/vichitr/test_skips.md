@@ -1,3 +1,41 @@
+# Independent readiness skip closure: 2 November 2026
+
+Final runtime **46a29b4**: complete Linux pipelines **331 passed, 8 skipped**;
+Windows pipelines/contracts/integration **353 passed, 134 skipped**. No large
+fixture was deselected: both the 10,001-record publication fixture and 2,000-record
+quality smoke passed on final source.
+
+**Every one of the 134 host-skipped cases has a pass in another recorded run.**
+All eight Linux-skipped cases are covered too. Automatic case-ID matching in
+`artifacts/independent/verification.json` leaves both unverified-skip sets empty.
+
+| Linux skip | Actual execution |
+|---|---|
+| Native Windows filesystem guard | Passed in final Windows run |
+| PostgreSQL isolation/retained recreation | Passed in six-case host live run at the frozen 512-MiB PG allocation; all 30 denial assertions retained |
+| Kafka/registry retained recreation | Passed in six-case host live run |
+| Registry compatibility/all domain wire examples | Passed in six-case host live run |
+| SDK acknowledgements/manual offsets/uncertain retry | Passed in six-case host live run |
+| Caller transaction/outbox savepoint | Passed in six-case host live run; real SQL, explicit outbox double |
+| Real rebalance/fencing/exact redelivery | Passed in six-case host live run; boundary check, not scaling performance |
+| Externally controlled DLQ broker outage | Passed separately with actual pause/unpause and retained SQL; explicit outbox/relay double |
+
+Six-case live source: **b130023**, **6 passed, 124.32 s**, SDK/test bodies unchanged
+by later worker context and curation counter changes. Buffer-pressure/worker-log
+source **d08b864**: **2 passed**; controlled DLQ **1 passed**; fresh isolated SQL
+initialization/migrations passed. Final source **46a29b4** additionally passed
+11 focused quarantine/audit checks, the entire Linux pipeline suite and final host
+suite. The first host fixture failure is retained as **352 passed, 1 failed,
+134 skipped**; its double was updated without changing retry/closure assertions.
+No failure was hidden by a skip, deselection or weakened assertion.
+
+Raw evidence: `artifacts/independent/{verification.json,legacy-live.xml,buffer-live.xml,dlq-final.xml,linux-full.xml,host-first.xml,host-final.xml,fresh-setup.json}`.
+Earlier full-source evidence and module sidecars are preserved separately.
+
+This closes the selected regression inventory, **not** the required independent
+100,000-record W-QUALITY, actual owner integrations or performance/scaling gates.
+Those remain NOT_RUN; exact inputs are in the [team handoff](team_handoff.md).
+
 # M11 worker metrics skip update: 2 November 2026
 
 Final Linux test source **d1a64ac**: **322 passed, 8 skipped, 2 deselected**.

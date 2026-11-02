@@ -14,13 +14,120 @@ logs, refreshes standalone infrastructure/registry/transport/recovery evidence,
 and consolidates the remaining provider handoff. B0/O1 tuning and full independent
 quality/integrated gates still require their actual owners' inputs.
 
-Initial focused checks: **37 passed**, `artifacts/independent/offline-focused.xml`.
-Owned paths: transport consumer/README; ingestion worker; buffer tests and worker
-log check; low-memory PostgreSQL recreation test; test-only evidence redirection
-for old registry/transport checks; checker mount and owner documentation. No new
-dependency, shared metric name, public DTO/schema, CLI command or resource limit.
-Live checks, final source pins and remaining-provider audit are recorded below
-after execution; no unexecuted result is claimed in this implementation commit.
+Initial source: **b130023857604d4466936cb775b04f0d6b2bc2bb**. Worker context/test
+fixture correction: **d08b86456db6d794c688562b1be3046ba3190b33**. Final runtime,
+including committed per-reason quarantine counters:
+**46a29b49d69a3405707681c234002bb03c69931f**.
+
+Changed owned paths: transport consumer/README; ingestion worker; curation reason
+counter; buffer/unit/live/worker-log checks; low-memory PostgreSQL recreation
+test; test-only evidence redirection for older registry/transport checks;
+checker mount and owner documentation. No dependency, new shared metric name,
+public DTO/schema, canonical specification, CLI command or SUT resource limit changed.
+
+The read-only SDK snapshot reports application raw-byte/record occupancy, ready
+records, fixed budget shares, pause/pressure state and lifetime peaks/transition/
+overflow counters. It does not poll or commit. Only the owner thread samples it.
+Worker JSON samples use fixed one-second loop deadlines plus a final sample before
+close. Missed ticks stay missing; lifetime peaks retain inter-sample pressure.
+New handles reset counters under a different `consumer_instance`. No per-record
+payload, credential or high-cardinality Prometheus label is logged. See the
+[team handoff](team_handoff.md) for exact collector semantics and remaining inputs.
+
+The already-registered `quarantine_total{reason}` was not emitted previously. It
+now receives the finalized reason only after successful sink COMMIT and its normal
+observations. Rollback does not increment it; redelivery does not count a quarantine
+twice. The 2,000-record smoke asserts all ten independently expected reason cases.
+Process counters can reset or lose an observation at a crash; durable audit rows
+remain the cross-restart authority.
+
+| Check | Actual outcome | Raw evidence under `artifacts/independent/` |
+|---|---|---|
+| Initial focused SDK/worker checks | 37 passed, 30.90 s | `offline-focused.xml` |
+| Six formerly deferred live checks, b130023 | **6 passed, 124.32 s**, none skipped | `legacy-live.xml`, `legacy/m02/`, `legacy/m03/` and fresh UUID infrastructure evidence |
+| First host run, b130023 | 352 passed, 1 failed, 134 skipped; older `GroupDouble` lacked the new observation method | `host-first.xml` |
+| Fixture/context correction, d08b864 | 34 passed, 8.98 s; outage/retry/close assertions preserved | `fixture-fix.xml` |
+| Real Kafka pressure and separate worker/log checks, d08b864 | **2 passed, 9.02 s** | `buffer-live.xml`, `buffer-focused-facts/` |
+| Controlled real broker pause/recovery, d08b864 | **1 passed, 4.59 s**; real SQL/files/Kafka, explicit outbox/relay double | `dlq-final.xml`, `dlq-console.txt`, `regression-facts/m09/dlq-recovery.json` |
+| First complete Linux pipeline run, d08b864 | 331 passed, 8 skipped, no deselection, 484.35 s | `linux-before-quarantine-metric.xml`, `before-quarantine-metric-facts/` |
+| Quarantine commit/rollback/redelivery and audit cases, 46a29b4 | **11 passed, 16.56 s** | `quarantine-focused.xml`, `quarantine-focused-facts/` |
+| Final complete Linux pipeline run, 46a29b4 | **331 passed, 8 skipped**, no deselection, 473.39 s | `linux-full.xml`, `regression-facts/` |
+| Final Windows pipelines/contracts/integration, 46a29b4 | **353 passed, 134 skipped** | `host-final.xml` |
+| Fresh isolated SQL setup rehearsal, d08b864 | PostgreSQL 18.2, six real service logins, pgvector 0.8.1, analytics migrations 1–9 applied twice; stopped with volume retained | `fresh-setup.json`, `fresh_setup.py`, `fresh.compose.yaml` |
+| Ruff lint/format; generated CLI/conversation contract checks; diff whitespace and owned documentation links | Passed | Commands below and session output |
+
+The first host failure was a missed older test double, not a hidden skip. The
+fixture now supplies a snapshot while still asserting four fresh groups, original
+outage propagation, closures and 250/500/1,000-ms retry delays. Its failing XML is
+retained. The later quarantine instrumentation uses a private return value for
+the existing finalized reason; no wire/DTO signature or shared dictionary changed.
+Full Linux was repeated after that change and includes the larger fixtures.
+
+The PostgreSQL recreation test now reads and verifies the frozen low-memory
+streaming allocation instead of switching to the historical 2-GiB PG-only profile.
+All 30 cross-database denial checks, retained marker/volume and changed container
+ID assertions remain. The other five older checks verify Kafka/registry retained
+recreation, all domain schema compatibility/wire examples, acknowledged/uncertain
+SDK delivery, real caller SQL rollback with an explicit outbox double, and real
+three-partition rebalance fencing/exact redelivery. The latter declares three
+workers and starts two for the boundary case; it is not a P33 scaling experiment.
+
+The fresh rehearsal uses an isolated Compose project/port and a new retained volume,
+at 512 MiB/0.5 CPU. It verifies fresh initialization and analytics migration
+idempotence only, not absent catalogue/operational migrations or full application
+readiness. Existing development data are untouched. Main SUT allocations remain
+2,176 MiB total; checker QA remains 512 MiB/2 CPUs within the existing approximately
+3.76-GiB VM. Actual limits are in `runtime-context.json` and `runtime-final-context.json`.
+
+**Coverage closure:** all **134** host-skipped cases have a pass in Linux or the
+dedicated live runs. All eight Linux-skipped cases have a pass on Windows or the
+dedicated runs. Neither large fixture was deselected. `verification.json` matches
+case IDs and retains empty unverified-skip sets; this does not turn explicit doubles
+or unimplemented project evaluations into real integration passes. Exact current
+coverage is summarized in [test skips](test_skips.md).
+
+Exact reproduction commands (use fresh result paths to preserve raw evidence):
+
+```powershell
+$env:PROJECTCTL_ADAPTER_MODULE='infra.analytics'
+.venv/Scripts/python.exe -m projectctl env up --profile streaming-local
+$env:RUN_POSTGRES_LIVE_TESTS='1'
+$env:RUN_STREAMING_LIVE_TESTS='1'
+$env:RUN_CONTRACTS_LIVE_TESTS='1'
+$env:RUN_TRANSPORT_LIVE_TESTS='1'
+$env:PIPELINE_EVIDENCE_ROOT='artifacts/independent/legacy'
+.venv/Scripts/python.exe -m pytest tests/pipelines/test_postgres_live.py tests/pipelines/test_streaming_live.py tests/pipelines/test_event_contracts_live.py tests/pipelines/test_transport_live.py -q --tb=short --junitxml=artifacts/independent/legacy-live.xml
+# Run the remaining commands in a fresh shell without those four live opt-ins.
+.venv/Scripts/python.exe -m artifacts.independent.fresh_setup
+.venv/Scripts/python.exe artifacts/independent/run_dlq.py
+$env:POSTGRES_SECRETS_DIR=(Resolve-Path artifacts/infra/postgres-local/secrets).Path
+$taskCommit=git rev-parse HEAD
+docker compose -p group3-postgres-local -f infra/compose.yaml -f infra/compose.streaming.yaml -f infra/compose.storage.yaml -f artifacts/independent/evidence.compose.yaml --profile storage-check run --rm --no-deps -e RUN_VERTICAL_LIVE_TESTS=1 -e RUN_STORAGE_LIVE_TESTS=1 -e M05_CODE_COMMIT=$taskCommit storage-check python -m pytest tests/pipelines -q --tb=short --junitxml=artifacts/independent/linux-full.xml
+.venv/Scripts/python.exe -m pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/independent/host-final.xml
+.venv/Scripts/python.exe -m ruff check shared/event_transport/consumer.py pipelines/ingestion/worker.py pipelines/curation/__init__.py tests/pipelines/test_consumer_observations.py tests/pipelines/test_consumer_observations_live.py tests/pipelines/test_event_time.py tests/pipelines/test_silver.py tests/pipelines/test_postgres_live.py tests/pipelines/test_transport_live.py tests/pipelines/test_event_contracts_live.py tests/pipelines/test_worker_metrics_live.py tests/pipelines/test_vertical_live.py tests/pipelines/test_silver_live.py
+.venv/Scripts/python.exe -m ruff format --check shared/event_transport/consumer.py pipelines/ingestion/worker.py pipelines/curation/__init__.py tests/pipelines/test_consumer_observations.py tests/pipelines/test_consumer_observations_live.py tests/pipelines/test_event_time.py tests/pipelines/test_silver.py tests/pipelines/test_postgres_live.py tests/pipelines/test_transport_live.py tests/pipelines/test_event_contracts_live.py tests/pipelines/test_worker_metrics_live.py tests/pipelines/test_vertical_live.py tests/pipelines/test_silver_live.py
+.venv/Scripts/python.exe -m projectctl.schemas --check
+.venv/Scripts/python.exe -m projectctl.conversation_contract --check
+git diff --check
+.venv/Scripts/python.exe -m projectctl env down
+docker desktop stop
+```
+
+The ignored Compose overlay keeps older module artifacts under this checkpoint's
+`regression-facts/`, and test-only `PIPELINE_EVIDENCE_ROOT` preserves older host
+registry/transport evidence. Test-only controller/rehearsal helpers contain no
+credentials or production fault endpoint. Rehearsal and main volumes are retained;
+shutdown is recorded in `shutdown.json`. Final source/delivery identity and three
+shared CI results are retained in `source-snapshot.json` and `github-actions.json`.
+
+The latest fetched main was **8f43cfa8e140317776e6f291e62544130e2dc3d9**. Its seven
+inspected provider paths contain scaffolding READMEs; no claim is made about other
+branches. `dependency-audit.json` records the inspected paths/revision. The
+[team handoff](team_handoff.md) identifies exact remaining owner inputs, migration/
+reset composition, fixture/DTO reviews and the ordered B0/O1/scaling work. Full
+100,000-record W-QUALITY, actual outbox/catalogue/compactor adoption, integrated
+checkout/recovery and performance gates remain NOT_RUN. No remaining gate is
+claimed complete using a local double or this standalone QA evidence.
 
 ## M11 worker metrics exposure preparation — 2 November 2026
 

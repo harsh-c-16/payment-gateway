@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 2 November 2026. Branch: `vichitr`. Status: M10 replay provider delivered. M11 preparation supplies durable sink audits, accurate commit timers and the worker's separate metrics endpoint. Live worker and regression verification is recorded in [progress](progress.md). A correct-B0 freeze/performance result still requires actual owner adoption, remaining observer bindings, independent full W-QUALITY and applicable integrated gates. See the [M11 handoff](m11_baseline_handoff.md).
+Prepared: 31 October 2026; updated 2 November 2026. Branch: `vichitr`. Independent readiness work is complete: consumer-buffer observations, committed quarantine counters, worker metrics, refreshed native recovery checks and isolated SQL initialization/migration rehearsal. Complete selected regression coverage is recorded in [progress](progress.md) and [test skips](test_skips.md). Full W-QUALITY, actual owner integrations, baseline measurement and O1/scaling remain pending. See the [team handoff](team_handoff.md) for exact inputs and next steps.
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
@@ -172,12 +172,14 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **M11 worker metrics exposure preparation**. M06–M10 providers
-and the durable sink audit are delivered; the worker now exposes its actual
-registry separately from the analytics API while preserving B0. Next: remaining
-observer bindings, owner adoption, independent correctness closure and initial B0 trace,
-then M11a batching. Full W-QUALITY/integrated/performance gates, real compactor
-adoption and aggregate-money DTO review remain pending; see [progress](progress.md).
+Current checkpoint: **independent readiness closure**. M06–M10 providers, sink
+audit, worker metrics, buffer observations, reason counters and standalone recovery
+checks are implemented/verified. All selected host/Linux regression skips are
+covered by recorded passes; larger fixtures were rerun. Next requires actual
+owner manifests/outbox/providers, reviewed observer/fixture bindings and global
+migration/reset composition, then independent correctness closure and the initial
+B0 trace before M11a/O1 and M11b/scaling. No whole-team gate or performance result
+is implied; see the [team handoff](team_handoff.md).
 
 ## Source documents
 
