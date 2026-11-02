@@ -6,6 +6,28 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## M11 baseline instrumentation preparation — 2 November 2026
+
+This checkpoint adds durable B0 sink transaction audits and corrects the flush
+timer boundary. It does not enable O1 or establish a measured/correctness-gated
+B0 baseline. See the [M11 handoff](m11_baseline_handoff.md) for provider usage,
+nullable timing semantics, overhead and the remaining owner/collector gates.
+
+Changed owned paths: migration 009, analytics migration loader/readiness/version
+evidence, curation audit insertion/post-COMMIT timer/read provider, checker evidence
+mount, owned bounds/SQL/native-process-crash tests and migration regressions.
+No shared DTO, canonical endpoint/schema, dependency, evaluation config, harness,
+workflow or another owner's implementation changes.
+
+Initial offline checks: **20 passed**, `artifacts/m11/offline-focused.xml`.
+Ruff lint and diff whitespace checks pass. Real SQL/Kafka/file verification,
+source pins and final delivery evidence are pending in this implementation commit;
+the verification record will be completed after those runs.
+
+Full independent 100,000-record T-03, actual outbox/catalogue/compactor integration,
+real observer-factory adoption, complete B0 bottleneck trace and all paired
+performance/scaling trials remain NOT_RUN. No target achievement is claimed.
+
 ## M10 durable isolated replay and semantic comparison — 2 November 2026
 
 Baseline source: **21ba06a78c9c6e2aa6ddc5a48eb474ef5b7b9f4e**; final runtime:

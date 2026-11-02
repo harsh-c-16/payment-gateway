@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 2 November 2026. Branch: `vichitr`. Status: M10 replay provider implemented; full baseline verified at 21ba06a and all affected fixes verified at 0c54150. Original bytes/IDs, first ingress, isolated namespaces, resumable jobs and pinned semantic comparison are covered. Actual outbox/catalogue/compactor adoption, labelled quality imports, full W-QUALITY and integrated/performance gates remain pending. Next: M11 baseline evidence and measured experiments. See [progress](progress.md) and [M10 handoff](m10_replay_handoff.md).
+Prepared: 31 October 2026; updated 2 November 2026. Branch: `vichitr`. Status: M10 replay provider delivered. M11 baseline instrumentation adds durable sink transaction audits and a COMMIT-bounded timer; verification is recorded in [progress](progress.md). This is preparation for M11a, not a correct-B0 freeze or performance result. Actual outbox/catalogue/compactor adoption, independent full W-QUALITY and applicable integrated gates remain pending. See the [M11 handoff](m11_baseline_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 
@@ -131,6 +131,11 @@ review remain pending. See [M10 handoff](m10_replay_handoff.md).
 
 ### M11 — Baseline and measured experiments
 
+- Preparation checkpoint: durable B0 transaction membership/disposition audit,
+  nullable post-COMMIT elapsed observations and bounded run-scoped read provider.
+  Keep B0 unchanged while checking timer/crash/recovery correctness. See the
+  [baseline handoff](m11_baseline_handoff.md); remaining observer bindings and
+  independent correctness gates must close before baseline measurement/tuning.
 - Instrument from earlier modules using existing telemetry: source dispositions, sink batches/flush time, one-second partition/group lag, stage/visibility receipts, export backlog, queue saturation and resources. Jaineel owns collection/orchestration and independent metric calculation; supply the real provider observations and fault hooks.
 - First close applicable T-01/T-03, sink/publication T-07 and T-12 correctness. Freeze a correct B0 and diagnose its bottleneck before tuning.
 - Checkpoint M11a: run W-PIPE B0 versus O1 (1-row transactions versus 100 rows or 50 ms). Keep raw capture, producer settings, validation, durability and 250-ms publication cadence identical. Follow with applicable integrated trials through Jaineel's runner.
@@ -167,7 +172,11 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **M08 incremental publication and candidate safety provider**. Bounded file exports, delta membership/lineage, exact candidate validation, paired CAS and acknowledged crash recovery are implemented. Harsh must adopt/review the compaction integrity format and row-group bound. The existing int64 aggregate-total DTO limit needs owner review for oversized candidates. Actual outbox/catalogue/compactor integration, labelled quality and full W-QUALITY/performance remain pending. Next is M09; see [progress](progress.md).
+Current checkpoint: **M11 baseline instrumentation preparation**. M06–M10 providers
+are delivered; this checkpoint prepares real sink audit evidence while preserving
+B0. Next: owner adoption, independent correctness closure and initial B0 trace,
+then M11a batching. Full W-QUALITY/integrated/performance gates, real compactor
+adoption and aggregate-money DTO review remain pending; see [progress](progress.md).
 
 ## Source documents
 

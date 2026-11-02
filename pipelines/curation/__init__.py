@@ -1,6 +1,7 @@
 """All-domain B0 transactional Silver and unique pipeline-minute contributions."""
 
 from dataclasses import replace
+from datetime import UTC, datetime
 from time import monotonic
 from typing import Annotated
 
@@ -21,6 +22,7 @@ from .event_time import track_event_time
 from .normalization import normalize_payload
 from .observations import enqueue_observation, observe, recover_observations
 from .quarantine import route_dlq
+from .sink_observations import observe_sink_batch
 
 
 class UnsupportedEvent(RuntimeError):
@@ -89,6 +91,7 @@ class AnalyticsPipeline:
             )
         counts = dict.fromkeys(("new_valid", "duplicate_delivery", "invalid", "redelivery_noop"), 0)
         for record in records:
+            started_at = datetime.now(UTC)
             started = monotonic()
             with self.connect() as tx, tx.transaction():
                 sink_lock(tx, namespace)
@@ -114,6 +117,38 @@ class AnalyticsPipeline:
 
                         checked = repair_failure(checked, record.raw_sha256, tx) or checked
                     disposition, job = self._finalize(tx, stored, record, checked, config)
+                sequence = tx.execute(
+                    """INSERT INTO sink_batches(namespace,run_id,capture_id,replay_id,
+                    code_commit,transform_version,sources,batch_rows,new_valid,duplicate_delivery,
+                    invalid,redelivery_noop,started_at)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s)
+                    RETURNING batch_sequence""",
+                    (
+                        namespace,
+                        config.run_id,
+                        raw_receipt.capture_id,
+                        replay_id,
+                        self.code_commit,
+                        self.transform_version,
+                        Jsonb(
+                            [
+                                dict(
+                                    topic=record.topic,
+                                    partition=record.partition,
+                                    offset=record.offset,
+                                )
+                            ]
+                        ),
+                        int(disposition == "new_valid"),
+                        int(disposition == "duplicate_delivery"),
+                        int(disposition == "invalid"),
+                        int(disposition == "redelivery_noop"),
+                        started_at,
+                    ),
+                ).fetchone()[0]
+            duration = monotonic() - started
+            committed_at = datetime.now(UTC)
+            observe_sink_batch(self.connect, namespace, sequence, committed_at, duration)
             if job is not None:
                 self._observe(namespace, job)  # Only after the sink COMMIT acknowledgement.
             counts[disposition] += 1
@@ -121,7 +156,7 @@ class AnalyticsPipeline:
                 "source_records_total", 1, pipeline="analytics", disposition=disposition
             )
             self.telemetry.record("sink_batch_rows", 1)
-            self.telemetry.record("sink_flush_duration_seconds", monotonic() - started)
+            self.telemetry.record("sink_flush_duration_seconds", duration)
             if disposition == "new_valid":
                 self.telemetry.record("silver_unique_total", 1)
         candidates = {}

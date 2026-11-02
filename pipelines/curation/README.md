@@ -35,6 +35,14 @@ and other permanent errors stop immediately. Errors are not classified as dirty
 input. Observations are post-commit upper bounds; recovery is
 labelled, and receipt-journal cursors preserve later updates to earlier sources.
 
+M11's baseline instrumentation retains each committed transaction's source membership,
+four disposition counts, run/capture/replay identity and code/transform pins in
+`sink_batches`. The nullable flush timer spans connection acquisition through the
+sink COMMIT acknowledgement, excluding later observation writes. Read a drained run
+with the bounded `read_sink_batches` provider; missing timers cannot be recovered.
+See the [M11 handoff](../../docs/vichitr/m11_baseline_handoff.md) for exact semantics
+and the remaining correctness/benchmark gates. This checkpoint still rejects O1.
+
 The M05 tests use real PostgreSQL/files/Kafka. Invalid notification atomicity also
 has explicitly labelled outbox doubles; full real-outbox integration remains pending.
 See the [M06 handoff](../../docs/vichitr/m06_silver_handoff.md) for typed files,
