@@ -1,0 +1,141 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "import_id": {
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$",
+      "title": "Import Id",
+      "type": "string"
+    },
+    "source_hash": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Hash",
+      "type": "string"
+    },
+    "dataset_revision": {
+      "title": "Dataset Revision",
+      "type": "string"
+    },
+    "raw_rows": {
+      "minimum": 0,
+      "title": "Raw Rows",
+      "type": "integer"
+    },
+    "canonical_rows": {
+      "minimum": 0,
+      "title": "Canonical Rows",
+      "type": "integer"
+    },
+    "active_rows": {
+      "minimum": 0,
+      "title": "Active Rows",
+      "type": "integer"
+    },
+    "inactive_rows": {
+      "minimum": 0,
+      "title": "Inactive Rows",
+      "type": "integer"
+    },
+    "superseded_rows": {
+      "minimum": 0,
+      "title": "Superseded Rows",
+      "type": "integer"
+    },
+    "rejected_rows": {
+      "minimum": 0,
+      "title": "Rejected Rows",
+      "type": "integer"
+    },
+    "issue_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Issue Counts",
+      "type": "object"
+    },
+    "inserted": {
+      "minimum": 0,
+      "title": "Inserted",
+      "type": "integer"
+    },
+    "updated": {
+      "minimum": 0,
+      "title": "Updated",
+      "type": "integer"
+    },
+    "unchanged": {
+      "minimum": 0,
+      "title": "Unchanged",
+      "type": "integer"
+    },
+    "load_mode": {
+      "enum": [
+        "row",
+        "copy"
+      ],
+      "title": "Load Mode",
+      "type": "string"
+    },
+    "chunk_count": {
+      "minimum": 0,
+      "title": "Chunk Count",
+      "type": "integer"
+    },
+    "chunks_resumed": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Chunks Resumed",
+      "type": "integer"
+    },
+    "elapsed_by_stage_ms": {
+      "additionalProperties": {
+        "type": "number"
+      },
+      "title": "Elapsed By Stage Ms",
+      "type": "object"
+    },
+    "canonical_business_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Canonical Business Digest",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "promoted",
+        "noop"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "artifact_paths": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Artifact Paths",
+      "type": "array"
+    }
+  },
+  "required": [
+    "import_id",
+    "source_hash",
+    "dataset_revision",
+    "raw_rows",
+    "canonical_rows",
+    "active_rows",
+    "inactive_rows",
+    "superseded_rows",
+    "rejected_rows",
+    "issue_counts",
+    "inserted",
+    "updated",
+    "unchanged",
+    "load_mode",
+    "chunk_count",
+    "elapsed_by_stage_ms",
+    "canonical_business_digest",
+    "status",
+    "artifact_paths"
+  ],
+  "title": "CatalogLoadReport",
+  "type": "object"
+}

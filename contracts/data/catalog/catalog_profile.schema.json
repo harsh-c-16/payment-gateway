@@ -1,0 +1,80 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "source_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "raw_rows": {
+      "minimum": 0,
+      "title": "Raw Rows",
+      "type": "integer"
+    },
+    "column_profiles": {
+      "additionalProperties": {
+        "additionalProperties": {
+          "type": "integer"
+        },
+        "type": "object"
+      },
+      "title": "Column Profiles",
+      "type": "object"
+    },
+    "nested_shape_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Nested Shape Counts",
+      "type": "object"
+    },
+    "identity_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Identity Counts",
+      "type": "object"
+    },
+    "category_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Category Counts",
+      "type": "object"
+    },
+    "facet_coverage": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Facet Coverage",
+      "type": "object"
+    },
+    "selected_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Selected Counts",
+      "type": "object"
+    },
+    "issue_counts": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Issue Counts",
+      "type": "object"
+    }
+  },
+  "required": [
+    "source_sha256",
+    "raw_rows",
+    "column_profiles",
+    "nested_shape_counts",
+    "identity_counts",
+    "category_counts",
+    "facet_coverage",
+    "selected_counts",
+    "issue_counts"
+  ],
+  "title": "CatalogProfile",
+  "type": "object"
+}

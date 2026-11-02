@@ -1,0 +1,192 @@
+{
+  "$defs": {
+    "FileDescriptor": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "minLength": 1,
+          "title": "Path",
+          "type": "string"
+        },
+        "sha256": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Sha256",
+          "type": "string"
+        },
+        "byte_size": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Byte Size",
+          "type": "integer"
+        },
+        "row_count": {
+          "maximum": 9223372036854775807,
+          "minimum": 0,
+          "title": "Row Count",
+          "type": "integer"
+        },
+        "schema_name": {
+          "maxLength": 128,
+          "minLength": 1,
+          "pattern": "^[!-~]+$",
+          "title": "Schema Name",
+          "type": "string"
+        },
+        "schema_version": {
+          "maximum": 9223372036854775807,
+          "minimum": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "partition_values": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "title": "Partition Values",
+          "type": "object"
+        },
+        "min_event_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "(Z|\\+00:00)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Min Event Time"
+        },
+        "max_event_time": {
+          "anyOf": [
+            {
+              "format": "date-time",
+              "pattern": "(Z|\\+00:00)$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Max Event Time"
+        }
+      },
+      "required": [
+        "path",
+        "sha256",
+        "byte_size",
+        "row_count",
+        "schema_name",
+        "schema_version",
+        "partition_values",
+        "min_event_time",
+        "max_event_time"
+      ],
+      "title": "FileDescriptor",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "source_path": {
+      "title": "Source Path",
+      "type": "string"
+    },
+    "raw_archive_descriptor": {
+      "$ref": "#/$defs/FileDescriptor"
+    },
+    "source_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Source Sha256",
+      "type": "string"
+    },
+    "byte_size": {
+      "minimum": 0,
+      "title": "Byte Size",
+      "type": "integer"
+    },
+    "row_count": {
+      "minimum": 0,
+      "title": "Row Count",
+      "type": "integer"
+    },
+    "columns": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Columns",
+      "type": "array"
+    },
+    "acquired_at": {
+      "format": "date-time",
+      "pattern": "(Z|\\+00:00)$",
+      "title": "Acquired At",
+      "type": "string"
+    },
+    "source_origin": {
+      "const": "user_upload",
+      "default": "user_upload",
+      "title": "Source Origin",
+      "type": "string"
+    },
+    "original_url": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Original Url"
+    },
+    "licence": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Licence"
+    },
+    "rules_version": {
+      "title": "Rules Version",
+      "type": "string"
+    },
+    "dictionary_sha256": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Dictionary Sha256",
+      "type": "string"
+    },
+    "dataset_revision": {
+      "title": "Dataset Revision",
+      "type": "string"
+    }
+  },
+  "required": [
+    "source_path",
+    "raw_archive_descriptor",
+    "source_sha256",
+    "byte_size",
+    "row_count",
+    "columns",
+    "acquired_at",
+    "rules_version",
+    "dictionary_sha256",
+    "dataset_revision"
+  ],
+  "title": "SourceManifest",
+  "type": "object"
+}
