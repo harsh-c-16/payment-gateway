@@ -13,8 +13,17 @@ Requests carry the headers in `RequestContext.headers()` (`X-Namespace`, `X-User
 routes need `Authorization: Bearer <INTERNAL_API_TOKEN>`. Mutations need `Idempotency-Key`.
 
 Search applies every hard filter before ranking; an empty result is a valid answer and is never
-relaxed. Modes `filter_only` and `lexical` are implemented. `vector_exact`, `hybrid_exact` and
-`hybrid_ann` return 503: no embedding model is in the application lock (see the progress file).
+relaxed. All five modes are implemented. `vector_exact`, `hybrid_exact` and `hybrid_ann` need the
+locked model in `EMBEDDING_MODEL_DIR` and return 503 without it; `hybrid_ann` also needs the `r-ann`
+index. Exact retrieval is the recommended mode at this catalogue size
+([results](../../docs/harsh/experiments.md)).
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `CATALOG_MAX_CONNECTIONS` | 10 | Connection cap; the frozen evaluation profile uses 4 |
+| `CATALOG_REUSE_CONNECTIONS` | `false` | The P1 experiment: keep idle sessions for the next request |
+| `EMBEDDING_MODEL_DIR` | unset | Locked model files; vector modes are off without it |
+| `QUOTE_TTL_SECONDS` | 60 | Quote lifetime |
 
 Search and price changes write their events in the same transaction through Aditya's
 `append_outbox`. Until that library exists these endpoints fail closed with 503 and `/health/ready`

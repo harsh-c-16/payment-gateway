@@ -31,12 +31,16 @@ python -m projectctl catalog verify --manifest artifacts/catalog/bench-smoke/nor
 
 `catalog import` applies catalogue migrations itself (`migrate.migrate_catalog`); it holds no other
 service's tables. A repeated import of the same source and rules is a no-op, and a killed import
-resumes without partial readiness.
+resumes without partial readiness. Promotion analyzes `products`, and `projection wait` analyzes
+`stock_projection`, so the first searches do not plan against missing statistics.
 
 Output directory: `source_manifest.json`, `normalized_manifest.json`, `observations.parquet`,
 `catalog.parquet`, `dispositions.parquet`, `issues.parquet`, `sku_manifest.json`,
 `facet_dictionary.json`, `profile.json`, `quality_by_category.csv`, `import_timings.json`,
 `load_report.json`, and `dataset_checks.json` after verify.
 
-Experiments: `python -m pipelines.catalog.experiments import|search --out DIR`. Results and how to
-read them are in [docs/harsh/progress.md](../../docs/harsh/progress.md).
+Experiments: `python -m pipelines.catalog.experiments import|search|stress --out DIR` and
+`python -m pipelines.catalog.ann_experiment --out DIR`. Relevance pool, labels and NDCG:
+`python -m pipelines.catalog.relevance pool|label|score`. Results are in
+[docs/harsh/experiments.md](../../docs/harsh/experiments.md); the labels are rule-derived, as
+[docs/harsh/relevance_labels.md](../../docs/harsh/relevance_labels.md) explains.
