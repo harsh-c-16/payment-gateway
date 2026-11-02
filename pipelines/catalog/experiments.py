@@ -243,6 +243,8 @@ def hit_violations(intent, hit):
         violations.append("colour")
     if intent.get("material") and hit["material"] != intent["material"]:
         violations.append("material")
+    if intent.get("brand") and (hit["brand"] or "").casefold() != intent["brand"].casefold():
+        violations.append("brand")
     bound = intent.get("max_price_minor")
     if bound is not None and hit["price_minor"] > bound:
         violations.append("price")
