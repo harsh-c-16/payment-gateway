@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 2 November 2026. Branch: `vichitr`. Status: M10 replay provider delivered. M11 baseline instrumentation adds durable sink transaction audits and a COMMIT-bounded timer; verification is recorded in [progress](progress.md). This is preparation for M11a, not a correct-B0 freeze or performance result. Actual outbox/catalogue/compactor adoption, independent full W-QUALITY and applicable integrated gates remain pending. See the [M11 handoff](m11_baseline_handoff.md).
+Prepared: 31 October 2026; updated 2 November 2026. Branch: `vichitr`. Status: M10 replay provider delivered. M11 preparation supplies durable sink audits, accurate commit timers and the worker's separate metrics endpoint. Live worker and regression verification is recorded in [progress](progress.md). A correct-B0 freeze/performance result still requires actual owner adoption, remaining observer bindings, independent full W-QUALITY and applicable integrated gates. See the [M11 handoff](m11_baseline_handoff.md).
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
 

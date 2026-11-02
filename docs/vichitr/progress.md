@@ -17,8 +17,72 @@ evaluation configuration, resource limit or batching behavior changes.
 Changed owned paths: ingestion worker entrypoint/export lifecycle, Compose
 worker port metadata/checker evidence mount, explicit lifecycle/bind-error tests,
 real-process HTTP/Kafka/SQL/file check and owner documentation/skip notes.
-Initial focused offline checks: **13 passed**, `artifacts/m11-worker/offline-focused.xml`.
-Live verification and final source/delivery records will follow after the runs.
+Initial implementation: **ea1247b3d53c5ea3c54480a28a3116e72a5fc978**. Final
+tested source: **d1a64ac6e9e507699e1843477d43a81b7f4967fe**. The only change
+between them is a publication crash-test cleanup fence; production code is identical.
+
+| Check | Actual outcome | Raw evidence |
+|---|---|---|
+| Focused entrypoint/B0/cadence unit checks | 13 passed, 12.26 s | `artifacts/m11-worker/offline-focused.xml` |
+| First real worker/main/HTTP/Kafka/SQL/files check, ea1247b | 1 passed, 9.50 s | `artifacts/m11-worker/live-focused.xml`, `focused-facts/` |
+| Host pipeline/contracts/integration, ea1247b | **347 passed, 133 skipped, 48.30 s** | `artifacts/m11-worker/host-final.xml` |
+| First Linux run, ea1247b | 321 passed, 1 failed, 8 skipped, 2 deselected, 180.30 s | `artifacts/m11-worker/linux-first.xml`, `first-regression-facts/` |
+| Final Linux run, d1a64ac | **322 passed, 8 skipped, 2 deselected, 248.27 s** | `artifacts/m11-worker/linux-final.xml`, `regression-facts/`, `worker-proof.json`, `worker-metrics.txt` |
+| Ruff lint/format; generated CLI/conversation contract checks; diff whitespace | Passed | Exact commands below |
+| Analytics Compose config with explicit nonsecret check-only token/identity | Passed, worker exposes 8006 internally | `docker compose ... --profile analytics-worker config --quiet` |
+| Startup then read-only verification | First startup verification returned `ConnectionTimeout`; later verification passed after all containers reported healthy, with no resource/timeout changes | `artifacts/projectctl/c0e3b088-e955-47db-8870-32366d05fd2d/`, `artifacts/infra/streaming-local/checks/3a9a536f-3abf-4db9-bee1-b7b4bcd71d2e/streaming.json` |
+
+The first Linux failure was `snapshot-before_rename`: the process had exited 73
+with its named fault ACK, but PostgreSQL still held its publication session lock
+when the parent immediately attempted recovery. The publisher correctly rejected
+a competing owner. The test now waits for that exact namespace lock using a
+transaction-scoped advisory lock and a five-second local SQL lock timeout. COMMIT
+acknowledges fence release before recovery. No crash, generation, membership,
+pending-event or visibility assertion was removed/relaxed; no sleep/retry loop or
+production publisher change was added. All seven crash cases pass in final Linux.
+The original failure and initial worker facts remain retained.
+
+The actual worker exports one `new_valid` and one `duplicate_delivery`, two sink
+transactions, one unique Silver/Gold effect, active generation 1 and committed
+next offset 2. HTTP scrape evidence comes from its separate process, while the
+parent registry has no worker histogram. Only the test schema/root connection
+binding differs from normal runtime. No real-outbox pass or timing SLO is claimed.
+
+Exact verification from repository root (use fresh result names on reproduction):
+
+```powershell
+$env:PROJECTCTL_ADAPTER_MODULE='infra.analytics'
+.venv/Scripts/python.exe -m projectctl env up --profile streaming-local
+.venv/Scripts/python.exe -m projectctl env verify --profile streaming-local
+$env:POSTGRES_SECRETS_DIR=(Resolve-Path artifacts/infra/postgres-local/secrets).Path
+$taskCommit=git rev-parse HEAD
+docker compose -p group3-postgres-local -f infra/compose.yaml -f infra/compose.streaming.yaml -f infra/compose.storage.yaml -f artifacts/m11-worker/evidence.compose.yaml --profile storage-check run --rm --no-deps -e RUN_VERTICAL_LIVE_TESTS=1 -e RUN_STORAGE_LIVE_TESTS=1 -e M05_CODE_COMMIT=$taskCommit storage-check python -m pytest tests/pipelines -q --tb=short -k 'not quality_ratio_smoke and not more_than_ten_thousand' --junitxml=artifacts/m11-worker/linux-final.xml
+.venv/Scripts/python.exe -m pytest tests/pipelines tests/contracts tests/integration -q --tb=short --junitxml=artifacts/m11-worker/host-final.xml
+.venv/Scripts/python.exe -m ruff check pipelines/ingestion/worker.py tests/pipelines/test_worker_metrics.py tests/pipelines/test_worker_metrics_live.py tests/pipelines/worker_metrics_process.py tests/pipelines/test_publication_crash_live.py
+.venv/Scripts/python.exe -m ruff format --check pipelines/ingestion/worker.py tests/pipelines/test_worker_metrics.py tests/pipelines/test_worker_metrics_live.py tests/pipelines/worker_metrics_process.py tests/pipelines/test_publication_crash_live.py
+.venv/Scripts/python.exe -m projectctl.schemas --check
+.venv/Scripts/python.exe -m projectctl.conversation_contract --check
+git diff --check
+.venv/Scripts/python.exe -m projectctl env down
+docker desktop stop
+```
+
+The same ignored 2-CPU/512-MiB QA overlay redirects all M04–M11 sidecars into this
+checkpoint; old module evidence survives. SUT allocations remain 2,176 MiB total,
+and the VM reports about 3.76 GiB/8 CPUs. Actual limits/source pins are retained in
+`runtime-context.json` and `runtime-final-context.json`. No CPU/RAM allocation or
+schema migration changed. Shutdown and retained-volume evidence is `shutdown.json`.
+Final delivery/three CI jobs are checked after push in `github-actions.json` and
+`source-snapshot.json`. Shared CI does not replace the local live evidence.
+
+**Skips:** 124 of 133 host-skipped cases pass in final Linux, including the new
+worker process check. The same nine older/unaffected checks are not rerun: six
+opt-in infrastructure/transport cases, controlled broker-pause DLQ and the two
+large fixtures (all detailed in [test skips](test_skips.md)). Linux's eight skips
+include the Windows-only guard, which passes on the host; two large fixtures are
+explicitly deselected. No new worker check is skipped in Linux. Exact lists/counts
+and NOT_RUN performance are in `artifacts/m11-worker/verification.json`.
+
 Full independent correctness gates, observer composition and B0/O1/scaling
 performance remain NOT_RUN.
 

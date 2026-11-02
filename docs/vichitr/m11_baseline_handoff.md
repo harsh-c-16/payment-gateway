@@ -95,6 +95,9 @@ show the latest local observation. Use the durable transaction/receipt audit for
 cross-restart reconciliation, and the API's SQL gauges for namespace-wide state.
 Jaineel should bind a separate worker Prometheus target and keep its identity
 distinct from API or future worker instances. Collector composition stays his work.
+The Compose DNS target is reachable by collectors on that Docker network. A
+host-only collector needs an explicitly coordinated loopback mapping or network
+placement; this checkpoint publishes no additional host port or automatic discovery.
 
 The real check starts `worker.main` in a separate process with only its connection
 factory/FileStore bound to an isolated test schema/root. It uses actual HTTP,

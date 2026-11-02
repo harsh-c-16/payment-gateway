@@ -1,3 +1,28 @@
+# M11 worker metrics skip update: 2 November 2026
+
+Final Linux test source **d1a64ac**: **322 passed, 8 skipped, 2 deselected**.
+Host source **ea1247b**: **347 passed, 133 skipped**. Production code is identical;
+the later change only waits for PostgreSQL's exact publication lock cleanup in
+the crash test. **124 of those 133 host skips passed in final Linux**, including
+the new real worker/HTTP/Kafka/SQL/file metrics check.
+
+The same nine cases were not rerun: the six historical opt-ins under M08 below,
+the externally controlled broker-pause DLQ case and unchanged large fixtures
+`quality_ratio_smoke`/`more_than_ten_thousand`. Those paths did not change in this
+checkpoint; the DLQ/large fixtures have M10 evidence. Linux's eight skips comprise
+the six historical opt-ins, DLQ controller and Windows-only guard (passed on host).
+The two large fixtures are explicitly deselected, not hidden with new skip markers.
+
+The first Linux run retained one publication lock-cleanup race: **321 passed,
+1 failed, 8 skipped, 2 deselected**. The crash ACK/exit and every data assertion
+remain unchanged; a bounded SQL cleanup fence fixes test synchronization. All
+seven process-crash cases pass on final source. No failure was skipped or removed.
+
+Exact sources/counts/reasons and before/after evidence:
+`artifacts/m11-worker/{verification.json,linux-first.xml,linux-final.xml,host-final.xml}`.
+Full independent 100,000-record W-QUALITY, real owner integration and performance
+still remain NOT_RUN. Worker metrics exposure does not establish those gates.
+
 # M11 baseline instrumentation skip update: 2 November 2026
 
 Final runtime **12c51eb**: **318 passed, 8 skipped, 2 deselected** in Linux;
