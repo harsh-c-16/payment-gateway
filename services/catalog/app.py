@@ -21,13 +21,17 @@ from services.catalog.events import SharedEvents
 from shared.contracts.catalog import (
     FacetDictionary,
     ProductResponse,
+    Quote,
+    QuoteRequest,
 )
 from shared.contracts.common import (
     ErrorCode,
     ErrorResponse,
+    IdempotencyKey,
     Identifier,
     RequestContext,
     Sku,
+    UUIDText,
 )
 from shared.telemetry.context import bind_context, log_operation
 from shared.telemetry.metrics import Telemetry
@@ -36,6 +40,8 @@ LOGGER = logging.getLogger("catalog")
 ROUTES = (
     "/v1/catalog/facets",
     "/v1/products/{sku}",
+    "/v1/quotes",
+    "/internal/v1/quotes/{quote_id}",
     "/internal/v1/projection/receipts",
     "/health/live",
     "/health/ready",
@@ -71,6 +77,15 @@ def request_context(request: Request):
     return context
 
 
+def mutation_key(request: Request):
+    try:
+        return TypeAdapter(IdempotencyKey).validate_python(request.headers.get("Idempotency-Key"))
+    except ValidationError as error:
+        raise ServiceError(
+            400, ErrorCode.BAD_REQUEST, "Valid Idempotency-Key is required."
+        ) from error
+
+
 def internal_caller(request: Request):
     token = os.environ.get("INTERNAL_API_TOKEN", "")
     supplied = request.headers.get("Authorization", "")
@@ -79,6 +94,7 @@ def internal_caller(request: Request):
 
 
 Context = Annotated[RequestContext, Depends(request_context)]
+Key = Annotated[str, Depends(mutation_key)]
 Internal = Depends(internal_caller)
 ValidSku = Annotated[Sku, "catalogue SKU"]
 
@@ -86,6 +102,7 @@ ValidSku = Annotated[Sku, "catalogue SKU"]
 def create_app(*, db=None, events=None):
     db = db or Database(os.environ.get("CATALOG_DATABASE_URL", ""))
     events = events or SharedEvents()
+    ttl = int(os.environ.get("QUOTE_TTL_SECONDS", "60"))
     errors = {
         status: {"model": ErrorResponse, "description": "Common error object"}
         for status in (400, 401, 403, 404, 409, 422, 429, 503)
@@ -141,6 +158,14 @@ def create_app(*, db=None, events=None):
     @app.get("/v1/products/{sku}", response_model=ProductResponse)
     def get_product(sku: ValidSku, context: Context):
         return products.get_product(db, context.namespace, sku)
+
+    @app.post("/v1/quotes", response_model=Quote, status_code=201)
+    def post_quote(body: QuoteRequest, context: Context, key: Key):
+        return products.create_quote(db, body, context, key, ttl_seconds=ttl)
+
+    @app.get("/internal/v1/quotes/{quote_id}", response_model=Quote, dependencies=[Internal])
+    def get_quote(quote_id: UUIDText, context: Context):
+        return products.get_quote(db, context.namespace, quote_id, context.user_id)
 
     @app.get("/internal/v1/projection/receipts", dependencies=[Internal])
     def get_receipts(
