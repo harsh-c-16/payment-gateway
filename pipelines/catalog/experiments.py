@@ -5,6 +5,7 @@ is absent) and runs searches closed-loop. Results are labelled accordingly. Usag
 
     python -m pipelines.catalog.experiments import --out DIR
     python -m pipelines.catalog.experiments search --out DIR [--scale 10] [--variants B0,O2]
+    python -m pipelines.catalog.experiments stress --out DIR [--seconds 30] [--max-connections 4]
 """
 
 import argparse
@@ -15,6 +16,7 @@ import platform
 import random
 import subprocess
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from statistics import median
@@ -31,6 +33,7 @@ from pipelines.catalog.adapter import database_url, run_import
 from pipelines.catalog.migrate import apply_variant
 from services.catalog import products, search
 from services.catalog.database import Database
+from services.catalog.errors import ServiceError
 from shared.contracts.catalog import PriceUpdateRequest, SearchRequest
 from shared.contracts.common import RequestContext
 
@@ -39,6 +42,8 @@ SOURCE = ROOT / "data/raw/flipkart_com-ecommerce_sample.csv"
 QUERIES = ROOT / "contracts/fixtures/catalog/queries.json"
 WARMUPS, EXECUTIONS, REPETITIONS, SEED = 3, 30, 3, 42
 PRICE_UPDATES = 2000
+# W-SEARCH caps concurrency at 32; the frozen profile gives the catalogue four connections.
+STRESS_CLIENTS, STRESS_VARIANTS = (1, 8, 32), ("B0", "O2+P1")
 
 
 class NoEvents:
@@ -331,13 +336,8 @@ def price_update_costs(db, namespace, seed):
     return latency_summary(durations)
 
 
-def search_trial(variant, repetition, specs, out, source, scale, executions):
-    schema = create_schema()
-    url = scoped_url(schema)
-    namespace = f"bench-search-{variant.lower().replace('+', '-')}-{repetition}"
-    db = Database(url, reuse_connections="P1" in variant)
-    rows, plans_used = [], {}
-    context = RequestContext(
+def experiment_context(namespace):
+    return RequestContext(
         namespace=namespace,
         run_id=str(uuid4()),
         user_id="experiment",
@@ -345,29 +345,39 @@ def search_trial(variant, repetition, specs, out, source, scale, executions):
         request_id=str(uuid4()),
         session_id=None,
     )
+
+
+def prepare_variant(url, namespace, variant, source, import_out, scale=1):
+    """Fresh import and seeded stock; an O2 variant then builds its index on the loaded table."""
+    run_import(source, load_mode="copy", namespace=namespace, out=import_out, url=url)
+    with psycopg.connect(url, autocommit=True) as connection:
+        if scale > 1:
+            clone_catalogue(connection, namespace, scale)
+        seed_stock(connection, namespace)
+        build = {"seconds": None, "index_bytes": 0}
+        if "O2" in variant:
+            started = perf_counter()
+            apply_variant(connection, "o2")
+            build["seconds"] = perf_counter() - started
+            build["index_bytes"] = connection.execute(
+                "SELECT pg_relation_size(to_regclass('products_o2_category_price'))"
+            ).fetchone()[0]
+        else:
+            connection.execute("ANALYZE products")
+        return build, connection.execute("SELECT pg_table_size('products')").fetchone()[0]
+
+
+def search_trial(variant, repetition, specs, out, source, scale, executions):
+    schema = create_schema()
+    url = scoped_url(schema)
+    namespace = f"bench-search-{variant.lower().replace('+', '-')}-{repetition}"
+    db = Database(url, reuse_connections="P1" in variant)
+    rows, plans_used = [], {}
+    context = experiment_context(namespace)
     try:
-        run_import(
-            source,
-            load_mode="copy",
-            namespace=namespace,
-            out=out / "import" / f"{variant}-{repetition}",
-            url=url,
+        build, table_bytes = prepare_variant(
+            url, namespace, variant, source, out / "import" / f"{variant}-{repetition}", scale
         )
-        with psycopg.connect(url, autocommit=True) as connection:
-            if scale > 1:
-                clone_catalogue(connection, namespace, scale)
-            seed_stock(connection, namespace)
-            build = {"seconds": None, "index_bytes": 0}
-            if "O2" in variant:
-                started = perf_counter()
-                apply_variant(connection, "o2")
-                build["seconds"] = perf_counter() - started
-                build["index_bytes"] = connection.execute(
-                    "SELECT pg_relation_size(to_regclass('products_o2_category_price'))"
-                ).fetchone()[0]
-            else:
-                connection.execute("ANALYZE products")
-            table_bytes = connection.execute("SELECT pg_table_size('products')").fetchone()[0]
         rng = random.Random(f"{SEED}-{repetition}")
         for mode in ("filter_only", "lexical"):
             order = specs[:]
@@ -513,16 +523,121 @@ def summarize_search(rows, trials, scale, variants, executions):
     return summary
 
 
+def stress_level(db, requests, context, clients, seconds):
+    """Closed loop: each client thread sends its next request when the last one ends.
+
+    Threads share one Database, as handler threads do in a service process, so waits for a free
+    connection and the 503s they end in are real. Client work shares the GIL too, so saturated
+    throughput describes this one process and not PostgreSQL alone.
+    """
+
+    def client(index):
+        latencies, rejected, violations = [], 0, 0
+        position = index * len(requests) // clients
+        deadline = perf_counter() + seconds
+        while perf_counter() < deadline:
+            spec, mode = requests[position % len(requests)]
+            position += 1
+            started = perf_counter()
+            try:
+                response = search.search_catalog(db, NoEvents(), make_request(spec, mode), context)
+            except ServiceError:
+                rejected += 1
+                continue
+            latencies.append((perf_counter() - started) * 1000)
+            violations += sum(
+                len(hit_violations(spec["request"]["intent"], hit.model_dump(mode="json")))
+                for hit in response.hits
+            )
+        return latencies, rejected, violations
+
+    started = perf_counter()
+    with ThreadPoolExecutor(clients) as pool:
+        results = list(pool.map(client, range(clients)))
+    elapsed = perf_counter() - started
+    latencies = [ms for found, _, _ in results for ms in found]
+    return {
+        "clients": clients,
+        "seconds": elapsed,
+        "completed_per_second": len(latencies) / elapsed,
+        "rejected": sum(rejected for _, rejected, _ in results),
+        "hard_filter_violations": sum(bad for _, _, bad in results),
+        "latency_ms": latency_summary(latencies),
+    }
+
+
+def run_stress_experiment(arguments):
+    out = Path(arguments.out)
+    out.mkdir(parents=True, exist_ok=True)
+    specs = json.loads(QUERIES.read_text(encoding="utf-8"))["queries"]
+    rng = random.Random(SEED)
+    requests = [(spec, mode) for spec in specs for mode in ("filter_only", "lexical")]
+    rng.shuffle(requests)
+    levels = []
+    for repetition in range(1, REPETITIONS + 1):
+        for variant in rng.sample(STRESS_VARIANTS, len(STRESS_VARIANTS)):
+            schema = create_schema()
+            url = scoped_url(schema)
+            namespace = f"bench-stress-{variant.lower().replace('+', '-')}-{repetition}"
+            db = Database(
+                url, max_connections=arguments.max_connections, reuse_connections="P1" in variant
+            )
+            context = experiment_context(namespace)
+            try:
+                prepare_variant(
+                    url,
+                    namespace,
+                    variant,
+                    Path(arguments.source),
+                    out / "import" / f"{variant}-{repetition}",
+                )
+                for spec, mode in requests:
+                    search.search_catalog(db, NoEvents(), make_request(spec, mode), context)
+                for clients in STRESS_CLIENTS:
+                    level = stress_level(db, requests, context, clients, arguments.seconds)
+                    levels.append({"variant": variant, "repetition": repetition, **level})
+                    print(f"rep {repetition} {variant}: {level}", flush=True)
+            finally:
+                drop_schema(schema)
+    series = {}
+    for variant in STRESS_VARIANTS:
+        for clients in STRESS_CLIENTS:
+            runs = [r for r in levels if r["variant"] == variant and r["clients"] == clients]
+            series[f"{variant}/{clients}"] = {
+                "completed_per_second": median(r["completed_per_second"] for r in runs),
+                "p50_ms": median(r["latency_ms"]["p50"] for r in runs),
+                "p95_ms": median(r["latency_ms"]["p95"] for r in runs),
+                "p99_ms": median(r["latency_ms"]["p99"] for r in runs),
+                "rejected": sum(r["rejected"] for r in runs),
+                "hard_filter_violations": sum(r["hard_filter_violations"] for r in runs),
+            }
+    write_json(
+        out / "summary.json",
+        {
+            "workload": "W-SEARCH concurrent client ladder",
+            "profile": "owner-local closed-loop threads; no outbox write; not the P9 runner",
+            "host": host_facts(),
+            "max_connections": arguments.max_connections,
+            "seconds_per_level": arguments.seconds,
+            "repetitions": REPETITIONS,
+            "series": series,
+            "levels": levels,
+        },
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    for name in ("import", "search"):
+    for name in ("import", "search", "stress"):
         command = commands.add_parser(name)
         command.add_argument("--out", required=True)
         command.add_argument("--source", default=str(SOURCE))
     commands.choices["search"].add_argument("--scale", type=int, default=1)
     commands.choices["search"].add_argument("--variants", default="B0,O2,P1,O2+P1")
     commands.choices["search"].add_argument("--executions", type=int, default=EXECUTIONS)
+    commands.choices["stress"].add_argument("--seconds", type=float, default=30)
+    commands.choices["stress"].add_argument("--max-connections", type=int, default=4)
     one = commands.add_parser("import-one")
     for flag in ("--source", "--mode", "--namespace", "--schema", "--out"):
         one.add_argument(flag, required=True)
@@ -531,6 +646,8 @@ def main():
         run_import_experiment(arguments)
     elif arguments.command == "search":
         run_search_experiment(arguments)
+    elif arguments.command == "stress":
+        run_stress_experiment(arguments)
     else:
         import_one(arguments)
 
