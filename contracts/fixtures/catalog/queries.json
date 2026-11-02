@@ -1,0 +1,1079 @@
+{
+ "schema_version": 1,
+ "rules_version": "flipkart-v1",
+ "synthetic_labels": false,
+ "purpose": "W-SEARCH fixed query specifications; written before any tuning",
+ "review_status": "awaiting_human_review",
+ "relevance_labels": null,
+ "strata": {
+  "broad": 20,
+  "selective": 20,
+  "zero": 5,
+  "few": 5
+ },
+ "split": {
+  "dev": 30,
+  "held_out": 20
+ },
+ "queries": [
+  {
+   "query_id": "B01",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "cotton shirt for men",
+     "category": "clothing",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B02",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "women kurta",
+     "category": "clothing",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B03",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "gold plated necklace",
+     "category": "jewellery",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B04",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "running shoes",
+     "category": "footwear",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B05",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "phone back cover",
+     "category": "mobiles_accessories",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B06",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "car seat cover",
+     "category": "automotive",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B07",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "wall decor showpiece",
+     "category": "home_decor_festive_needs",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B08",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "face cream",
+     "category": "beauty_and_personal_care",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B09",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "bed sheet double",
+     "category": "home_furnishing",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B10",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "coffee mug",
+     "category": "kitchen_dining",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B11",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "laptop skin",
+     "category": "computers",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B12",
+   "stratum": "broad",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "analog wrist watch",
+     "category": "watches",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B13",
+   "stratum": "broad",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "baby romper",
+     "category": "baby_care",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B14",
+   "stratum": "broad",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "drill machine",
+     "category": "tools_hardware",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B15",
+   "stratum": "broad",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "soft toy",
+     "category": "toys_school_supplies",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B16",
+   "stratum": "broad",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "party wear dress",
+     "category": null,
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B17",
+   "stratum": "broad",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "leather wallet",
+     "category": null,
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B18",
+   "stratum": "broad",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "",
+     "category": "clothing",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "B19",
+   "stratum": "broad",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "silver ring",
+     "category": null,
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": [
+      "Jewellery",
+      "Rings"
+     ]
+    }
+   }
+  },
+  {
+   "query_id": "B20",
+   "stratum": "broad",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "sports shoes under budget",
+     "category": null,
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": [
+      "Footwear",
+      "Women's Footwear"
+     ]
+    }
+   }
+  },
+  {
+   "query_id": "S01",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "cotton shirt",
+     "category": "clothing",
+     "size": null,
+     "colour": "blue",
+     "material": "cotton",
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S02",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "kurti",
+     "category": "clothing",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 50000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S03",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "necklace",
+     "category": "jewellery",
+     "size": null,
+     "colour": "gold",
+     "material": null,
+     "max_price_minor": 100000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S04",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "sandals",
+     "category": "footwear",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 60000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S05",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "case",
+     "category": "mobiles_accessories",
+     "size": null,
+     "colour": null,
+     "material": "plastic",
+     "max_price_minor": 100000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S06",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "mat",
+     "category": "automotive",
+     "size": null,
+     "colour": null,
+     "material": "rubber",
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S07",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "",
+     "category": "kitchen_dining",
+     "size": null,
+     "colour": null,
+     "material": "ceramic",
+     "max_price_minor": 30000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S08",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "watch",
+     "category": "watches",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 100000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S09",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "jacket",
+     "category": "clothing",
+     "size": null,
+     "colour": "black",
+     "material": "cotton",
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S10",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "saree",
+     "category": "clothing",
+     "size": null,
+     "colour": null,
+     "material": "georgette",
+     "max_price_minor": 100000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S11",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "pendant",
+     "category": "jewellery",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": "Voylla",
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S12",
+   "stratum": "selective",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "seat cover",
+     "category": "automotive",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": "Speedwav",
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S13",
+   "stratum": "selective",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "cover",
+     "category": "mobiles_accessories",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": "TheLostPuppy",
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S14",
+   "stratum": "selective",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "bed sheet",
+     "category": "home_furnishing",
+     "size": null,
+     "colour": null,
+     "material": "cotton",
+     "max_price_minor": 150000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S15",
+   "stratum": "selective",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "shirt",
+     "category": "clothing",
+     "size": null,
+     "colour": "white",
+     "material": null,
+     "max_price_minor": 70000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S16",
+   "stratum": "selective",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "",
+     "category": "clothing",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 25000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S17",
+   "stratum": "selective",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "",
+     "category": "jewellery",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 20000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S18",
+   "stratum": "selective",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "shoe",
+     "category": "footwear",
+     "size": null,
+     "colour": "brown",
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S19",
+   "stratum": "selective",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "gloves",
+     "category": "tools_hardware",
+     "size": null,
+     "colour": null,
+     "material": "plastic",
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "S20",
+   "stratum": "selective",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "tshirt",
+     "category": null,
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 40000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": [
+      "Clothing",
+      "Men's Clothing"
+     ]
+    }
+   }
+  },
+  {
+   "query_id": "Z01",
+   "stratum": "zero",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "shirt",
+     "category": null,
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 0,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "Z02",
+   "stratum": "zero",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "shirt",
+     "category": "clothing",
+     "size": "XXS",
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "Z03",
+   "stratum": "zero",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "dress",
+     "category": "clothing",
+     "size": null,
+     "colour": "ultraviolet",
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "Z04",
+   "stratum": "zero",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "watch",
+     "category": "watches",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 100,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "Z05",
+   "stratum": "zero",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "ring",
+     "category": "jewellery",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": "No Such Brand",
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "U01",
+   "stratum": "few",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "saree falls",
+     "category": "clothing",
+     "size": "L",
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "U02",
+   "stratum": "few",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "abaya",
+     "category": "clothing",
+     "size": "L",
+     "colour": "blue",
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "U03",
+   "stratum": "few",
+   "split": "dev",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "wrist band",
+     "category": "clothing",
+     "size": "ONE_SIZE",
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": null,
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "U04",
+   "stratum": "few",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "watch",
+     "category": "watches",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": null,
+     "occasion": null,
+     "currency": "INR",
+     "brand": "Carlos",
+     "category_path_prefix": null
+    }
+   }
+  },
+  {
+   "query_id": "U05",
+   "stratum": "few",
+   "split": "held_out",
+   "request": {
+    "top_k": 5,
+    "mode": "lexical",
+    "intent": {
+     "query_text": "watch",
+     "category": "watches",
+     "size": null,
+     "colour": null,
+     "material": null,
+     "max_price_minor": 500000,
+     "occasion": null,
+     "currency": "INR",
+     "brand": "ESIDON",
+     "category_path_prefix": null
+    }
+   }
+  }
+ ]
+}
