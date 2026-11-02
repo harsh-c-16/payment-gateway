@@ -1,7 +1,9 @@
 """Real PostgreSQL in an isolated per-test schema; a missing database is a visible skip."""
 
 import os
+import sys
 from pathlib import Path
+from types import ModuleType
 from uuid import uuid4
 
 import psycopg
@@ -36,6 +38,23 @@ def database_url(monkeypatch, tmp_path):
         assert schema.startswith("h_test_") and len(schema) == 39
         with psycopg.connect(url, autocommit=True, connect_timeout=5) as admin:
             admin.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema)))
+
+
+@pytest.fixture
+def db(database_url):
+    from services.catalog.database import Database
+
+    return Database(database_url)
+
+
+@pytest.fixture
+def outbox_double(monkeypatch):
+    """Lets the real diagnostics helper run in tests; proves nothing about the real relay."""
+    appended = []
+    module = ModuleType("shared.outbox")
+    module.append_outbox = lambda tx, event: appended.append(event)
+    monkeypatch.setitem(sys.modules, "shared.outbox", module)
+    return appended
 
 
 @pytest.fixture
