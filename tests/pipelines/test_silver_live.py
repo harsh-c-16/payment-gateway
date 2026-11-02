@@ -255,6 +255,12 @@ def test_quality_ratio_smoke_with_all_ten_invalid_subcases(vertical, outbox_doub
     ) == (2000, 1970, 20, 10)
     failures = quarantine(vertical.connect, vertical.test_namespace).records
     assert [failure.reason_code for failure in failures] == expected_reasons
+    metrics = vertical.telemetry.exposition().decode()
+    for reason in set(expected_reasons):
+        assert (
+            f'quarantine_total{{reason="{reason}"}} {float(expected_reasons.count(reason))}\n'
+            in metrics
+        )
     for source, failure in zip(invalid, failures, strict=True):
         path, line = failure.source_locator.raw_locator.rsplit("#", 1)
         wrapper = json.loads(vertical.store.read(path).splitlines()[int(line) - 1])

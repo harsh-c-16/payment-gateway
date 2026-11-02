@@ -222,6 +222,9 @@ def test_real_quarantine_rollback_and_duplicate_identity_conflicts(
     assert curate(vertical, [record(vertical, event(vertical), 2)]).invalid == 1
     assert count(vertical, "silver_events") == 1
     assert count(vertical, "quarantine") == count(vertical, "test_outbox_double") == 2
+    metrics = vertical.telemetry.exposition()
+    assert b'quarantine_total{reason="EVENT_ID_CONFLICT"} 1.0\n' in metrics
+    assert b'quarantine_total{reason="AGGREGATE_VERSION_CONFLICT"} 1.0\n' in metrics
     original = outbox_double.append_outbox
 
     def fail(*args):
@@ -236,6 +239,7 @@ def test_real_quarantine_rollback_and_duplicate_identity_conflicts(
     )
     with pytest.raises(RuntimeError, match="explicit outbox"):
         curate(vertical, [bad])
+    assert vertical.telemetry.exposition() == metrics
     assert count(vertical, "quarantine") == 2
     with vertical.connect() as tx:
         assert (
@@ -247,6 +251,8 @@ def test_real_quarantine_rollback_and_duplicate_identity_conflicts(
     monkeypatch.setattr(outbox_double, "append_outbox", original)
     assert curate(vertical, [bad]).invalid == 1
     assert count(vertical, "quarantine") == count(vertical, "test_outbox_double") == 3
+    assert curate(vertical, [bad]).redelivery_noop == 1
+    assert b'quarantine_total{reason="INVALID_JSON"} 1.0\n' in vertical.telemetry.exposition()
 
 
 def test_real_publication_disk_failure_preserves_pointer_and_pending(vertical, monkeypatch):

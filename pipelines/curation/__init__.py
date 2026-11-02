@@ -103,7 +103,7 @@ class AnalyticsPipeline:
                         (namespace, record.topic, record.partition, record.offset),
                     )
                     if stored["disposition"] is not None:
-                        disposition, job = "redelivery_noop", None
+                        disposition, job, reason = "redelivery_noop", None, None
                     else:
                         record = replace(record, ingested_at=stored["ingested_at"])
                         checked = self.codec.validate_event(
@@ -117,7 +117,9 @@ class AnalyticsPipeline:
                             from pipelines.replay.repairs import repair_failure
 
                             checked = repair_failure(checked, record.raw_sha256, tx) or checked
-                        disposition, job = self._finalize(tx, stored, record, checked, config)
+                        disposition, job, reason = self._finalize(
+                            tx, stored, record, checked, config
+                        )
                     sequence = tx.execute(
                         """INSERT INTO sink_batches(namespace,run_id,capture_id,replay_id,
                         code_commit,transform_version,sources,batch_rows,new_valid,duplicate_delivery,
@@ -160,6 +162,8 @@ class AnalyticsPipeline:
             self.telemetry.record("sink_flush_duration_seconds", duration)
             if disposition == "new_valid":
                 self.telemetry.record("silver_unique_total", 1)
+            elif disposition == "invalid":
+                self.telemetry.record("quarantine_total", 1, reason=reason)
         candidates = {}
         for record in records:
             key = (record.topic, record.partition)
@@ -289,18 +293,22 @@ class AnalyticsPipeline:
         )
         journal(tx, namespace, stored)
         if event_id is None:
-            return disposition, None
-        return disposition, enqueue_observation(
-            tx,
-            namespace,
-            "sink",
-            [
-                {
-                    "topic": record.topic,
-                    "partition": record.partition,
-                    "offset_number": record.offset,
-                }
-            ],
+            return disposition, None, failure.reason_code.value
+        return (
+            disposition,
+            enqueue_observation(
+                tx,
+                namespace,
+                "sink",
+                [
+                    {
+                        "topic": record.topic,
+                        "partition": record.partition,
+                        "offset_number": record.offset,
+                    }
+                ],
+            ),
+            None,
         )
 
     def _insert_valid(self, tx, checked, record, stored):
