@@ -9,15 +9,18 @@ from time import perf_counter
 
 import psycopg
 
-from pipelines.catalog import artifacts, load
+from pipelines.catalog import artifacts, load, verify
 from pipelines.catalog.migrate import migrate_catalog
 from pipelines.catalog.normalize import (
+    CsvStructureError,
     load_dictionary,
     normalize_catalog_row,
     profile_catalog,
     read_source,
     select_latest_listings,
 )
+from projectctl.models import ExitCode
+from projectctl.providers import ProviderResult
 from shared.event_transport.schemas import canonical_json
 from shared.telemetry.metrics import Telemetry
 
@@ -193,3 +196,70 @@ def run_import(source, *, load_mode, namespace, out, url=None, hook=lambda stage
     report = report.model_copy(update={"artifact_paths": sorted(p.name for p in out.iterdir())})
     artifacts.write_json(out / "load_report.json", report.model_dump(mode="json"))
     return report, timings
+
+
+def profile_action(invocation):
+    arguments = invocation.arguments
+    try:
+        dictionary = load_dictionary()
+        raw_rows, observations = read_all(arguments["source"], dictionary)
+        selection = select_latest_listings(observations)
+        source_sha256 = hashlib.sha256(Path(arguments["source"]).read_bytes()).hexdigest()
+        profile = write_profile(arguments["out"], raw_rows, observations, selection, source_sha256)
+    except OSError as error:
+        return ProviderResult(ExitCode.BAD_INPUT, (type(error).__name__,), "real")
+    except CsvStructureError as error:
+        return ProviderResult(ExitCode.BAD_INPUT, (str(error),), "real")
+    return ProviderResult(
+        ExitCode.COMPLETED, (f"profile written: {json.dumps(profile['selected_counts'])}",), "real"
+    )
+
+
+def import_action(invocation):
+    arguments = invocation.arguments
+    try:
+        report, _ = run_import(
+            arguments["source"],
+            load_mode=arguments["load_mode"],
+            namespace=arguments["namespace"],
+            out=arguments["out"],
+        )
+    except (CsvStructureError, ImportRefused, FileNotFoundError) as error:
+        return ProviderResult(ExitCode.BAD_INPUT, (str(error),), "real")
+    except load.ImportReconciliationError as error:
+        return ProviderResult(ExitCode.CORRECTNESS_FAILURE, (str(error),), "real")
+    except psycopg.Error as error:
+        return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (type(error).__name__,), "real")
+    return ProviderResult(
+        ExitCode.COMPLETED,
+        (
+            f"{report.status}: canonical={report.canonical_rows} active={report.active_rows} "
+            f"inactive={report.inactive_rows} digest={report.canonical_business_digest}",
+        ),
+        "real",
+    )
+
+
+def verify_action(invocation):
+    arguments = invocation.arguments
+    try:
+        with psycopg.connect(database_url(), autocommit=True, connect_timeout=5) as connection:
+            report = verify.verify_import(
+                Path(arguments["manifest"]), arguments["namespace"], connection
+            )
+    except (OSError, ValueError) as error:
+        return ProviderResult(ExitCode.BAD_INPUT, (type(error).__name__,), "real")
+    except psycopg.Error as error:
+        return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (type(error).__name__,), "real")
+    failed = [item["name"] for item in report["assertions"] if not item["passed"]]
+    if failed:
+        return ProviderResult(ExitCode.CORRECTNESS_FAILURE, tuple(failed), "real")
+    return ProviderResult(
+        ExitCode.COMPLETED, (f"verified {len(report['assertions'])} assertions",), "real"
+    )
+
+
+def register(registry):
+    registry.register("catalog profile", profile_action)
+    registry.register("catalog import", import_action)
+    registry.register("catalog verify", verify_action)

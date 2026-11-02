@@ -13,6 +13,7 @@ from pipelines.catalog import load
 from pipelines.catalog.adapter import ImportRefused, run_import
 from pipelines.catalog.load import ImportReconciliationError
 from pipelines.catalog.normalize import CsvStructureError
+from pipelines.catalog.verify import verify_import
 from tests.catalog.helpers import import_rows, row, write_csv
 
 ROWS = [row(f"P{i:05}", discounted_price=str(100 + i)) for i in range(2500)]
@@ -258,3 +259,27 @@ def test_equal_time_conflict_is_withheld(tmp_path, database_url):
     )
     assert dispositions[0][0] == dispositions[1][0] == "rejected_mandatory"
     assert "SOURCE_ID_CONFLICT" in dispositions[0][1]
+
+
+def test_full_file_import_row_and_copy_then_verify(tmp_path, database_url, source_csv):
+    reports = {}
+    for mode in ("row", "copy"):
+        ns = namespace()
+        out = tmp_path / ns
+        reports[mode], _ = run_import(
+            source_csv, load_mode=mode, namespace=ns, out=out, url=database_url
+        )
+        with psycopg.connect(database_url, autocommit=True) as connection:
+            checks = verify_import(
+                out / "normalized_manifest.json", ns, connection, source_path=source_csv
+            )
+        failed = [item["name"] for item in checks["assertions"] if not item["passed"]]
+        assert not failed
+        assert checks["provider_normalization_comparison"] == "PASS"
+        assert checks["facet_coverage_verification"] == "PASS"
+        manifest = json.loads((out / "sku_manifest.json").read_text(encoding="utf-8"))
+        assert manifest["sku_count"] == 19920
+        assert len(json.loads((out / "facet_dictionary.json").read_text())["roots"]) == 32
+        assert (out / "facet_dictionary.json").stat().st_size < 2 * 1024 * 1024
+    assert reports["row"].canonical_business_digest == reports["copy"].canonical_business_digest
+    assert reports["row"].active_rows == 19920 and reports["row"].inactive_rows == 78
