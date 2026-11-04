@@ -336,6 +336,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /metrics:
+    get:
+      operationId: metrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain: {}
+
   # ── Audit exports (read-only, for oracle/benchmark) ──
 
   /internal/v1/audit/orders:

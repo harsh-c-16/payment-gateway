@@ -10,10 +10,8 @@ from shared.contracts.common import (
     Sku,
     UTCTime,
     UUIDText,
-    Version,
     WireModel,
 )
-
 
 Quantity = Annotated[int, Field(strict=True, ge=1, le=10)]
 Positive = Annotated[int, Field(strict=True, ge=1, le=2**63 - 1)]
@@ -41,8 +39,14 @@ class QuoteLine(WireModel):
 
 
 OrderStatus = Literal[
-    "PENDING", "RESERVING", "PAYMENT_PENDING", "COMMITTING_STOCK",
-    "CONFIRMED", "COMPENSATING", "CANCELLED", "MANUAL_REVIEW",
+    "PENDING",
+    "RESERVING",
+    "PAYMENT_PENDING",
+    "COMMITTING_STOCK",
+    "CONFIRMED",
+    "COMPENSATING",
+    "CANCELLED",
+    "MANUAL_REVIEW",
 ]
 
 
