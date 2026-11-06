@@ -3,6 +3,7 @@
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from itertools import count
 
 import pytest
 from confluent_kafka import TopicPartition
@@ -25,7 +26,10 @@ def group(**kwargs):
     )
 
 
-def test_snapshot_is_read_only_and_counts_until_commit_or_revoke():
+def test_snapshot_is_read_only_and_counts_until_commit_or_revoke(monkeypatch):
+    # Buffer accounting must not depend on the host scheduling two polls within 10 ms.
+    ticks = count(step=0.001)
+    monkeypatch.setattr(consumer, "monotonic", lambda: next(ticks))
     current = group()
     try:
         initial = current.buffer_snapshot()
@@ -68,6 +72,8 @@ def test_snapshot_requires_the_consumer_owner_thread():
 
 
 def test_snapshot_retains_pause_and_peak_after_drain(monkeypatch):
+    ticks = count(step=0.001)
+    monkeypatch.setattr(consumer, "monotonic", lambda: next(ticks))
     monkeypatch.setattr(consumer, "GROUP_MAX_RECORDS", 3)
     current = group()
     try:

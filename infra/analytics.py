@@ -25,11 +25,11 @@ def migrate(invocation):
                 {
                     "owner": "Vichitr",
                     "analytics_capture_migration": "APPLIED",
-                    "analytics_migration_versions": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+                    "analytics_migration_versions": list(range(1, 11)),
                     "namespace_argument": invocation.namespace,
                     "scope": "analytics database schema; no namespace data reset",
                     "other_service_migrations": "NOT_RUN",
-                    "outbox_migration": "NOT_RUN",
+                    "outbox_migration": "APPLIED; analytics database only",
                 },
                 indent=2,
             ),
@@ -39,7 +39,7 @@ def migrate(invocation):
             ExitCode.DEPENDENCY_FAILURE,
             (
                 "Analytics capture migration applied. Global db migrate is incomplete: "
-                "other service/outbox migration providers still require owner composition.",
+                "other service migration providers still require owner composition.",
                 f"Evidence: {out.relative_to(postgres.ROOT).as_posix()}/analytics-migration.json",
             ),
             "real",

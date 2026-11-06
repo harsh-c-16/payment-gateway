@@ -3,6 +3,7 @@
 import json
 import os
 import re
+from time import monotonic, sleep
 
 import httpx
 import psycopg
@@ -19,6 +20,12 @@ RUNTIME = ROOT / "artifacts/infra/streaming-local"
 REGISTRY = "http://127.0.0.1:8081"
 BOOTSTRAP = "127.0.0.1:9092"
 SCHEMA_CACHE = RUNTIME / "registry-manifest.json"
+
+
+class TopicNotReady(postgres.SetupError):
+    """Creation is acknowledged but partition/ISR metadata has not converged."""
+
+
 DOMAINS = (
     "conversation-events",
     "retrieval-events",
@@ -66,8 +73,12 @@ def verify_topics(admin, namespace, partitions=1):
         if (
             topic is None
             or topic.error
-            or len(topic.partitions) != partitions
-            or any(len(p.replicas) != 1 or len(p.isrs) != 1 for p in topic.partitions.values())
+            or not topic.partitions
+            or any(not p.replicas or not p.isrs for p in topic.partitions.values())
+        ):
+            raise TopicNotReady("Topic partition/ISR metadata is not ready.")
+        if len(topic.partitions) != partitions or any(
+            len(p.replicas) != 1 or len(p.isrs) != 1 for p in topic.partitions.values()
         ):
             raise postgres.SetupError("Missing topic or incorrect partitions/replicas/ISR.")
         config = descriptions[resource].result(timeout=20)
@@ -112,7 +123,14 @@ def provision_topics(namespace, partitions=1):
         except KafkaException as exc:
             if exc.args[0].code() != KafkaError.TOPIC_ALREADY_EXISTS:
                 raise
-    return verify_topics(admin, namespace, partitions)
+    deadline = monotonic() + 25
+    while True:
+        try:
+            return verify_topics(admin, namespace, partitions)
+        except TopicNotReady:
+            if monotonic() >= deadline:
+                raise
+            sleep(0.25)
 
 
 def container_facts(service, limits, expected_image):
@@ -158,6 +176,9 @@ def verify():
     available = int(postgres.command(["docker", "info", "--format", "{{.MemTotal}} "]).strip())
     if available <= profile["total_memory_mib"] * 1024 * 1024:
         raise postgres.SetupError("Docker memory is below the declared development allocations.")
+    available_cpus = int(postgres.command(["docker", "info", "--format", "{{.NCPU}}"]))
+    if available_cpus < sum(service["cpu_cores"] for service in profile["services"].values()):
+        raise postgres.SetupError("Docker CPUs are below the declared development allocations.")
     database = postgres.verify(**profile["services"]["postgres"])
     containers = {
         name: container_facts(name, profile["services"][name], lock[name]["image"])
@@ -189,6 +210,7 @@ def verify():
     return {
         "profile": profile,
         "docker_memory_bytes": available,
+        "docker_cpu_cores": available_cpus,
         "postgres": database,
         "containers": containers,
         "registry_subjects": subjects,

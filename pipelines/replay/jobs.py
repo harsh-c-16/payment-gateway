@@ -115,10 +115,12 @@ def _freeze_capture(tx, replay_id, ref):
 
 
 def _freeze_publication(tx, replay_id, ref):
+    # Paired compaction carries unchanged lineage forward; pin its first paired generation.
     found = rows(
         tx,
-        """SELECT namespace,generation FROM snapshot_manifests
-        WHERE dataset='silver' AND manifest->'input_manifest_ids' @> %s::jsonb LIMIT 2""",
+        """SELECT namespace,min(generation) AS generation FROM snapshot_manifests
+        WHERE manifest->'input_manifest_ids' @> %s::jsonb
+        GROUP BY namespace LIMIT 2""",
         (Jsonb([ref]),),
     )
     if len(found) != 1:

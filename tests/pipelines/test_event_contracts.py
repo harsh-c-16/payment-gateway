@@ -118,6 +118,38 @@ def test_invalid_payload_and_cross_field_invariants(cache, name, field, value):
         cache.validate(canonical_json(doc), *wire(cache, original))
 
 
+@pytest.mark.parametrize(
+    "name,field",
+    [
+        ("PAYMENT_SUCCESS", "amount_minor"),
+        ("ORDER_CREATED", "total_amount_minor"),
+        ("PRICE_UPDATED", "price_minor"),
+    ],
+)
+@pytest.mark.parametrize(
+    "value,reason",
+    [
+        ("100", "INVALID_TYPE"),
+        (True, "INVALID_TYPE"),
+        (1.0, "INVALID_TYPE"),
+        (1.25, "INVALID_TYPE"),
+        (-1.25, "INVALID_TYPE"),
+        (float(2**63), "INVALID_TYPE"),
+        (None, "INVALID_TYPE"),
+        (-1, "INVALID_AMOUNT"),
+        (2**63, "INVALID_AMOUNT"),
+    ],
+)
+def test_money_type_and_numeric_bounds_have_distinct_reasons(cache, name, field, value, reason):
+    original = examples()[name]
+    doc = copy.deepcopy(original)
+    doc["payload"][field] = value
+    with pytest.raises(RecordInvalid) as error:
+        cache.validate(canonical_json(doc), *wire(cache, original))
+    assert error.value.reason == reason
+    assert error.value.path == f"payload.{field}"
+
+
 def test_missing_required_and_owned_event_provenance(cache):
     original = examples()["INVENTORY_REJECTED"]
     for mutate in (

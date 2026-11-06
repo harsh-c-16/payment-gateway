@@ -199,6 +199,7 @@ def test_missing_outbox_fails_without_dirty_infrastructure_classification_then_r
     vertical, outbox_double, monkeypatch
 ):
     import sys
+    from types import ModuleType
 
     source = record(vertical, event(vertical))
     source = replace(
@@ -208,7 +209,7 @@ def test_missing_outbox_fails_without_dirty_infrastructure_classification_then_r
     )
     receipt = BronzeCapture(vertical.store).ingest_bronze([source])
     with monkeypatch.context() as missing:
-        missing.delitem(sys.modules, "shared.outbox")
+        missing.setitem(sys.modules, "shared.outbox", ModuleType("shared.outbox"))
         with pytest.raises(OutboxUnavailable):
             vertical.curate_silver(receipt, {"run_id": "explicit-m10-fixture"})
         body = request(vertical, [receipt.capture_id])

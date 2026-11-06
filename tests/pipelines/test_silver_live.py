@@ -90,7 +90,7 @@ def test_all_24_domains_unique_duplicate_redelivery_and_active_files(vertical):
         assert tx.execute("SELECT count(*) FROM export_pending").fetchone()[0] == 0
         assert {
             row[0] for row in tx.execute("SELECT version FROM analytics_schema_migrations")
-        } == {1, 2, 3, 4, 5, 6, 7, 8, 9}
+        } == set(range(1, 11))
     Path("artifacts/m06/all-domains.json").write_text(
         json.dumps(
             {
@@ -200,7 +200,7 @@ def test_quality_ratio_smoke_with_all_ten_invalid_subcases(vertical, outbox_doub
         "INVALID_UTF8",
         "MISSING_REQUIRED",
         "MISSING_REQUIRED",
-        "INVALID_AMOUNT",
+        "INVALID_TYPE",
         "INVALID_QUANTITY",
         "UNSUPPORTED_SCHEMA",
         "UNSUPPORTED_SCHEMA",
@@ -300,9 +300,7 @@ def test_quality_ratio_smoke_with_all_ten_invalid_subcases(vertical, outbox_doub
                 "gold_unique_events": 1970,
                 "notification_provider": "explicit SQL outbox double",
                 "full_w_quality": "NOT_RUN",
-                "reason_handoff": (
-                    "wrong_money_type currently INVALID_AMOUNT; harness expects INVALID_TYPE"
-                ),
+                "reason_handoff": "wrong_money_type aligned with fixture: INVALID_TYPE",
             },
             indent=2,
         )

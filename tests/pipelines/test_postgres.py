@@ -106,6 +106,17 @@ def test_down_keeps_volume_and_credentials(runtime, monkeypatch):
 def test_compose_uses_secrets_locked_image_volume_and_proposed_database_limits():
     document = yaml.safe_load(postgres.COMPOSE.read_text(encoding="utf-8"))
     service = document["services"]["postgres"]
+    assert service["init"] is True
+    assert service["healthcheck"]["test"] == [
+        "CMD",
+        "pg_isready",
+        "-h",
+        "127.0.0.1",
+        "-U",
+        "group3_admin",
+        "-d",
+        "postgres",
+    ]
     lock = json.loads((postgres.ROOT / "infra/images.lock.json").read_text())
     assert service["image"] == lock["postgres"]["image"]
     assert service["image"].endswith("@sha256:" + lock["postgres"]["manifest_sha256"])
@@ -123,7 +134,6 @@ def test_compose_uses_secrets_locked_image_volume_and_proposed_database_limits()
         assert lock["postgres"]["status"] == "RESOLVED_NOT_SMOKE_TESTED"
         assert lock["postgres"]["observed_server_version"] is None
         assert lock["postgres"]["smoke_evidence"] is None
-    assert "-h 127.0.0.1" in service["healthcheck"]["test"][1]
 
 
 def container_state():
@@ -131,6 +141,7 @@ def container_state():
     return {
         "health": "healthy",
         "image_id": "explicit-test-image-id",
+        "init": True,
         "image": lock["postgres"]["image"],
         "mounts": [
             {
@@ -153,7 +164,7 @@ def mock_container(monkeypatch, state):
 
 
 @pytest.mark.parametrize(
-    "mutation", ["public_port", "no_volume", "unlimited_memory", "wrong_image"]
+    "mutation", ["public_port", "no_volume", "unlimited_memory", "wrong_image", "no_init"]
 )
 def test_verify_rejects_container_guarantee_changes(runtime, monkeypatch, mutation):
     postgres.credentials(create=True)
@@ -164,6 +175,8 @@ def test_verify_rejects_container_guarantee_changes(runtime, monkeypatch, mutati
         state["mounts"] = []
     elif mutation == "unlimited_memory":
         state["memory"] = 0
+    elif mutation == "no_init":
+        state["init"] = False
     else:
         state["image"] = "postgres:latest"
     mock_container(monkeypatch, state)

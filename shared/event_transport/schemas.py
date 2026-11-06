@@ -322,7 +322,11 @@ class SchemaCache:
                 part in ("amount_minor", "total_amount_minor", "price_minor")
                 for part in error.absolute_path
             ):
-                reason = ReasonCode.INVALID_AMOUNT
+                reason = (
+                    ReasonCode.INVALID_TYPE
+                    if type(error.instance) is not int
+                    else ReasonCode.INVALID_AMOUNT
+                )
             elif "quantity_after" in error.absolute_path:
                 reason = ReasonCode.INVALID_QUANTITY
             raise RecordInvalid(reason, path)

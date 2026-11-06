@@ -12,6 +12,34 @@ acknowledges COMMIT.
 
 ## Provider and timing semantics
 
+### Quality wire handoff — 6 November 2026
+
+`pipelines.ingestion.quality.QualityMaterializer` supplies the pure materializer
+callback expected by `benchmarks.drivers.PipelineDriver`. Construct it with a
+verified `EventCodec`, the frozen workload recipe's exactly 10,000 sorted unique
+`selected_skus`, and the actual catalogue `dataset_revision`. The harness remains
+responsible for verifying the catalogue manifests and freezing that selection.
+
+Call `(record, context)` using the scheduler's existing context: namespace, run ID,
+request ID, scheduled UTC time and produced UTC time. It returns the existing
+`Packet` DTO with plain JSON/raw bytes, topic, key and JSON-journalable text headers.
+The publisher binding converts header values back to UTF-8 bytes. Valid stock
+facts use the independent recipe's ordinal modulo 10,000 and version division;
+runtime IDs come from the scheduler's request identity. Simulation provenance
+is explicit. No dictionary/facet values are guessed.
+
+The ten invalid subcases deliberately mutate validated SDK bytes. They require
+the runner's explicit raw-fixture publisher with the same frozen Kafka settings;
+do not weaken normal `KafkaPublisher` validation to send dirty fixtures. Duplicate
+records deliberately fail if rematerialized: the existing scheduler must reuse
+the original persisted packet, including identity, timestamps and headers.
+
+Sixteen focused checks cover identity/bytes stability, key/version boundaries,
+every independent `SUBCASES` reason and rejected duplicate/namespace/selection
+inputs. These are pure schema checks with explicit test SKUs/registry IDs, not
+the 100,000-record Kafka run or an independently reviewed performance result.
+Jaineel still owns the publisher/lifecycle/audit/observer factory and its review.
+
 Migration 009 creates `sink_batches`. Each transaction atomically stores its
 source coordinates, capture ID, effective namespace, caller's run ID, optional
 replay ID, code/transform pins, row count and four disposition counts alongside

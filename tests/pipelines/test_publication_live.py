@@ -3,6 +3,7 @@
 import hashlib
 import json
 from collections import defaultdict
+from contextlib import contextmanager
 from datetime import timedelta
 from decimal import Decimal
 from uuid import uuid4
@@ -25,6 +26,86 @@ from .test_vertical_live import count, curate, event, query, record
 
 vertical = live.vertical
 pytestmark = live.pytestmark
+
+
+@pytest.mark.parametrize("reference_dataset", ["silver", "gold"])
+def test_reused_connections_clean_temporary_tables_after_publish_failure_candidates_and_replay(
+    vertical, monkeypatch, reference_dataset
+):
+    original_connect = vertical.connect
+    idle, opened = [], []
+    with original_connect() as tx:
+        tx.execute("CREATE TABLE m08_pending(marker text)")
+        tx.execute("INSERT INTO m08_pending VALUES ('permanent table must survive')")
+
+    @contextmanager
+    def pooled():
+        if idle:
+            connection = idle.pop()
+        else:
+            connection = original_connect()
+            opened.append(connection)
+            assert len(opened) <= 12
+        try:
+            yield connection
+        finally:
+            idle.append(connection)
+
+    monkeypatch.setattr(vertical, "connect", pooled)
+    try:
+        curate(vertical, [record(vertical, event(vertical))])
+        first = vertical.publish_snapshot(vertical.test_namespace)
+        assert vertical.publish_snapshot(vertical.test_namespace) == first
+        curate(vertical, [record(vertical, event(vertical, 2), 1)])
+
+        def failed_pointer(point):
+            if point == "before_manifest_swap":
+                raise RuntimeError("explicit pointer failure on reused connection")
+
+        with monkeypatch.context() as fault:
+            fault.setattr(publication, "boundary", failed_pointer)
+            with pytest.raises(RuntimeError, match="explicit pointer failure"):
+                vertical.publish_snapshot(vertical.test_namespace)
+        assert vertical.active_manifest(vertical.test_namespace, "gold") == first
+        vertical.publish_snapshot(vertical.test_namespace)
+        for dataset in ("silver", "gold"):
+            candidate = candidate_double(vertical, dataset)
+            vertical.publish_candidate(candidate)
+        assert sum(row["unique_events"] for row in query(vertical).rows) == 2
+        source = vertical.active_manifest(vertical.test_namespace, "gold")
+        reference = vertical.active_manifest(vertical.test_namespace, reference_dataset)
+        body = {
+            "source_manifest_ids": reference.input_manifest_ids,
+            "target_namespace": "replay-pooled-" + uuid4().hex,
+            "transform_version": vertical.transform_version,
+        }
+        replayed = vertical.replay_bronze(body)
+        assert replayed.status == "COMPLETED" and replayed.reconciliation.passed
+        target = vertical.active_manifest(body["target_namespace"], "gold")
+        repeated = vertical.replay_bronze(body)
+        assert repeated.status == "COMPLETED" and repeated.replay_id == replayed.replay_id
+        assert repeated.reconciliation.passed
+        assert vertical.active_manifest(body["target_namespace"], "gold") == target
+        assert vertical.active_manifest(vertical.test_namespace, "gold") == source
+        with pooled() as tx:
+            assert tx.execute(
+                "SELECT DISTINCT generation FROM replay_references WHERE replay_id=%s",
+                (replayed.replay_id,),
+            ).fetchall() == [
+                (source.generation - 1 if reference_dataset == "silver" else source.generation,)
+            ]
+        for connection in idle:
+            assert connection.execute(
+                "SELECT to_regclass('pg_temp.m08_pending'),to_regclass('pg_temp.m08_members'),"
+                "to_regclass('pg_temp.m08_candidate_rows')"
+            ).fetchone() == (None, None, None)
+        with original_connect() as tx:
+            assert tx.execute("SELECT marker FROM m08_pending").fetchall() == [
+                ("permanent table must survive",)
+            ]
+    finally:
+        for connection in opened:
+            connection.close()
 
 
 def _wire(value):

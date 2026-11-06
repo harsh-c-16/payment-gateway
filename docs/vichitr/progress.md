@@ -6,6 +6,222 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## Actual-data integration and quality binding — 6 November 2026
+
+The user requested a continuous pass through remaining feasible work after the
+owner implementations merged, retaining CI selection. Base:
+`4783bcc3eb553890807bac9fc1988a1f5ebeab86`. Generated data, credentials, wire journals
+and QA controllers remain ignored under `artifacts/integration-20261106/`.
+
+Implementation:
+
+- Analytics migration 010 installs the exact real shared outbox template, and
+  readiness now requires all ten migrations plus the table and callable binding.
+  The normal local analytics schema was migrated too: CLI run
+  `17b6ab92-d194-4627-9d46-c2d76c4346f0` records versions 1–10 APPLIED. Its global
+  exit 4 remains correct: other database migration dispatch is not composed.
+- Wrong monetary types use `INVALID_TYPE`, explicitly approved by the user;
+  invalid integer amounts retain `INVALID_AMOUNT`. The independent oracle,
+  registered event schemas, canonical DTOs and accepted input types are unchanged.
+- `QualityMaterializer` supplies the owned pure `PipelineDriver` callback. It
+  uses frozen actual-SKU selection, scheduler identities/times and explicit
+  benchmark provenance; the scheduler reuses original packets for duplicates.
+  Deliberate invalid bytes require the harness's explicit raw-fixture publisher.
+- Real SQL testing reproduced a relay ordering defect: failure of version 1
+  allowed version 2 for the same aggregate to publish. The small shared-outbox
+  correction, under the user's authorization to fix the merged transaction code
+  on this branch, retains later rows of that aggregate while unrelated aggregates
+  can proceed. Uncertain, not-queued and stored-corruption cases verify ordered
+  recovery. This restores common §7 without changing an interface.
+- PostgreSQL ran as PID 1 and reaped an orphaned health probe exiting 2, then
+  restarted its server processes. Logs match the [upstream container issue](https://github.com/docker-library/postgres/issues/1349).
+  Compose now enables [init](https://docs.docker.com/reference/compose-file/services/#init)
+  and executes the probe directly; runtime verification requires init. An actual
+  orphan-exit-2 probe left `pg_postmaster_start_time()` unchanged.
+- A periodic QA stack dump found repeated Pydantic adapter compilation in Bronze.
+  The three fixed type validators are now instantiated once and reused, following
+  [Pydantic's documented pattern](https://docs.pydantic.dev/latest/concepts/performance/#typeadapter-instantiated-once).
+  Validation, capture bounds, one-row sink transactions, durability and Kafka
+  controls remain identical. Nine strict identity/coordinate/time rejection cases
+  accompany existing byte/rollback checks. No B0/O1 measurement is claimed.
+- Legacy missing-outbox fixtures now explicitly inject absence; the real binding
+  is present. Buffer-accounting doubles use an advancing deterministic clock,
+  retaining every assertion without assuming two host polls finish within 10 ms.
+- Full repeated replay exposed publisher temporary tables surviving connection
+  reuse (`DuplicateTable`). `publisher_session` now drops only its three
+  `pg_temp` tables on success/failure, then always releases the advisory lock.
+  Pooled tests preserve a permanent table with the same name. They cover no-op
+  publication, pointer rollback, both candidate datasets and repeated replay.
+- Those tests also reproduced compacted lineage lookup failures: Gold-only
+  lineage was not found, and carried Silver lineage appeared ambiguous. Replay
+  now resolves either dataset to the first paired generation that introduced the
+  immutable reference, preserving rejection of unknown/cross-namespace ambiguity.
+  Both Silver and Gold references have explicit generation assertions.
+- Native startup exposed topic metadata/ISR lag after the creation ACK. A bounded
+  readiness wait preserves strict partition/replication/retention checks and all
+  producer settings. Verification also checks engine CPU capacity against the
+  declared resource profile.
+
+Verified local data path: actual unchanged CSV → catalogue → inventory seed →
+real transactional outbox → Kafka → actual stock projection and analytical
+Bronze/Silver → active Gold. Namespace: `bench-vichitr-integration-20261106`.
+The import contains **19,998 listings /19,920 active SKUs**; identical import and
+seed repeats are no-ops. Manifest SHA-256:
+`724b23c3074ec87c97e8becc8a14ab323ccf5271a23bcf9af3fb88cf1ae8e916`.
+Inventory/projection retain stock version 1, on-hand 10,000 and reserved 0 for all
+active SKUs. **19,920** unique source coordinates, Silver IDs and active Gold
+events reconcile; broker end and committed next offset are both **19,920**.
+There are **59,760 receipt-journal updates** and **20,088 one-row sink attempts**;
+journal updates and redelivered processing attempts are not extra source records.
+The batch export retains actual timers, including zero missing timers in this run.
+
+| Verification | Actual result | Local evidence |
+|---|---|---|
+| Final host pipelines/contracts/integration + existing outbox callers | 415 passed, 142 skipped | `host-delivered-final.xml` |
+| Complete Linux pipelines + real compactor suite, before pooled-session fixes | 391 passed, 12 skipped | `linux-final.xml` |
+| Final affected publication/replay/crash/compactor regression | 67 passed | `pooled-publication-final.xml` |
+| Final schema/transport/quality-materializer checks, including money error precedence | 138 passed | `contracts-delivery.xml` |
+| Final startup/configuration checks | 43 passed | `startup-final.xml`; CPU candidate later reverted |
+| Additional real storage opt-ins | 3 passed | `storage-optins.xml` |
+| Real SQL/outbox ACK-before-mark, DLQ, readiness and aggregate-head faults | 5 passed; controlled outage separately opted in | `outbox-fixed.xml` |
+| Actual Kafka pause/resume with real outbox/relay | 1 passed | `dlq-real.xml`, `facts/m09/dlq-recovery.json` |
+| All 100,000 quality packets, actual selected SKUs/registered IDs, unchanged independent reasons | Wire-only: 98,500 valid +1,000 identical duplicates +500 invalid | `quality-wire-only.json`, `quality-wire-only.jsonl` |
+| Retained actual source, active Gold, broker drain and raw audits | PASS; 19,920 unique source coordinates | `flow-result.json`, `broker-drain.json`, `flow-audit.json`, `source-receipt-journal.jsonl`, `sink-batches.jsonl` |
+| Full-source replay, repeat and actual-data compaction | PASS: both reconciliations cover 19,920 records; target generation and inventory digest unchanged on repeat; Silver candidate 19,920 rows, Gold candidate 2 rows; stale candidates rejected, old files hash-verified | `replay-latest-status.json`, `replay-repeat-status.json`, `replay-compaction.json` |
+
+The unchanged 2,000-record live quality smoke is included in the Linux pass with
+the approved reason. The 100,000-record wire preflight is **not** the live
+W-QUALITY/Silver/Gold gate, independent harness review or a performance result.
+Reader/compactor fixtures explicitly identify offline schema doubles where used.
+
+Resources and source pins: Docker remains eight CPUs /4,040,888,320 bytes RAM
+(about 3.76 GiB). Service memory limits stay 512/1,024/640 MiB for PostgreSQL,
+Kafka and registry. Ordinary QA workers retain 512 MiB; the importer used a
+768-MiB ceiling after an observed 505-MiB peak. Bulk correctness temporarily uses
+two existing CPUs for PostgreSQL; the committed development profile remains
+0.5 CPU. Catalogue connection reuse and bounded QA analytics reuse (2 connections
+for ingestion, 4 for replay) are explicit test setup, not a frozen B0 profile.
+Publication was staged after drain. Runtime `code_commit` tags identify the base
+revision; dirty source patches/hashes are retained in `source-pins.json` and
+`source-final-code-pins.json`, with delivered-code pins in `source-delivery-pins.json`.
+These mixed-resume runs cannot establish a clean
+benchmark freeze or cadence/SLO acceptance.
+
+**Native restart/readiness is not closed.** The restored default profile's
+six-case rehearsal had 5 failures/1 pass, then 3 failures/3 passes after the
+topic-ready fix (`legacy-live-final.xml`, `legacy-live-retry.xml`). SQL connection
+timeouts and registry HTTP timeouts/500s remained. A candidate using PostgreSQL
+2 CPUs and registry 1 CPU passed `env up` (run
+`59aeedd6-5173-4ce6-b7e3-b357d58a8d24`) but failed 4/6 native checks, so it was
+**rejected and reverted**; neither RAM nor the committed CPU profile increased.
+See `legacy-live-cpu-profile.xml` and `cpu-profile-candidate-rejected.json`.
+A retained-data Docker Desktop restart then exceeded its 180-second startup
+deadline and remained `starting` (`docker-cold-start.json`). Native cold readback
+must be rerun after Docker Desktop starts reliably. Earlier historical passes do
+not close these failures. No source, volume, password or unrelated WSL
+distribution was reset/deleted; shutdown status is recorded separately.
+
+Shutdown closure: normal Desktop stop also timed out. Only processes under the
+verified Docker Desktop installation and the `docker-desktop` WSL distribution
+were targeted. `shutdown.json` confirms zero Desktop/backend/build processes,
+that distribution stopped, no deleted volumes and no unrelated WSL shutdown.
+Free physical memory then measured 2,884,400 KiB. Cold-restart readback remains
+pending; the durable dataset/snapshot volumes were preserved.
+
+Style/diff checks: changed owner Python files pass Ruff and formatting; Git's
+whitespace check passes. Shared outbox retains its five existing lint findings
+with **zero new findings**, verified against the base (`outbox-lint-baseline.json`).
+Legacy formatting was preserved. CI test selection and workflows remain untouched.
+
+The actual-data path, repeated replay, compactor adoption and owned quality wire
+binding have evidence above. Full native readiness, independent live W-QUALITY,
+clean B0 freeze/O1/scaling and whole-business gates remain open. Runner bindings
+and owner migration/reset composition are still required; no global-success
+status was substituted for these gaps.
+
+Failed evidence is retained: the first concurrent/staged catalogue attempts hit
+two-second connection timeouts; the interrupted pre-init suite records 135 passed,
+3 skipped and 12 recovery errors (`linux-before-init.xml`). The next pre-cache
+attempt was intentionally interrupted at 258 passed/4 skipped to load validator
+reuse (`linux-after-init.xml`). The first ordering test reproduces overtaking
+(`relay-order-reproduced.xml`); the earliest attempt encountered SQL recovery
+(`relay-order-before.xml`). Initial materializer tests caught missing required
+payload/session identity before the 16-case pass. QA audit/replay setup errors
+(journal multiplicity and a two-connection cap insufficient for nested replay)
+are recorded without changing production behavior. The full second replay then
+exposed the actual pooled temporary-table defect (`replay-second-failure.json`);
+the pooled regression exposed compacted-lineage resolution errors before its
+two-case and full 67-case passes. Six wrong-type-plus-range cases reproduce schema
+error-order dependence (`money-priority-before.xml`); choosing by the invalid
+value's integer type fixes their reason without accepting any new value.
+Periodic faulthandler dumps
+are diagnostic samples, not fabricated batch deadlines or measured benchmarks.
+
+The earlier cold-query check remains unavailable: this kernel does not expose
+`/proc/self/io`; no zero counter, warm substitution or weakened assertion was
+introduced. The first focused report retains that failure and broker-pressure
+failures (`focused-live.xml`); broker retries and stronger ACK-boundary assertions
+passed separately. Current skips, closure and external gates are in
+[test skips](test_skips.md) and [team handoff](team_handoff.md). No CI workflow or
+test selection, application lock, canonical specification or event schema changed.
+
+## Monetary validation reason alignment — 6 November 2026
+
+The user explicitly approved aligning our validator with the independent
+`benchmarks.quality.SUBCASES` expectation. Wrong money types now return
+`INVALID_TYPE`; negative/out-of-range integer amounts retain `INVALID_AMOUNT`.
+This changes the diagnostic reason only, not accepted inputs or schema assets.
+No independent oracle, fixture, canonical DTO or CI selection was changed.
+
+Changed: `shared/event_transport/schemas.py`,
+`tests/pipelines/{test_event_contracts,test_silver_live}.py` and owner notes.
+Twenty-seven boundary cases cover string, bool, integral/fractional float, null,
+negative and overflowing integers across payment, order total and price fields.
+Wrong types take precedence when a float is also negative/out of range, independent
+of the schema's validator ordering.
+The existing real-SQL quality smoke expectation follows the approved reason.
+
+Verification: `python -m pytest tests/pipelines/test_event_contracts.py
+tests/pipelines/test_transport.py -q --tb=short
+--junitxml=artifacts/integration-20261106/contracts-aligned.xml`:
+**116 passed**, zero skips. An initial restricted Windows run encountered
+access-denied in pytest temporary-directory cleanup; rerunning with writable
+temporary directories passed. The real-SQL smoke is included in the full Linux
+pass above; neither that smoke nor this unit result is full live W-QUALITY.
+
+## Inventory seed and outbox corrections — 6 November 2026
+
+The user explicitly authorized fixing the merged Aditya implementation on
+`vichitr`, then excluded CI changes. Base: `f488f637c6a6578188cff53594f2ea6c9f63af4e`.
+Changed paths: `services/inventory/{adapter,seed}.py`, `shared/outbox/__init__.py`,
+`tests/transactions/test_seed.py` and these owner notes. No CI configuration,
+dependency lock, canonical DTO/event schema or SQL migration changed.
+
+The outbox serializer now validates type before accessing event methods. The
+inventory adapter uses the actual CLI result codes, manifest and seed signature,
+and supplies the required nullable session identity. Seeding validates the
+catalogue manifest hash/count/order/namespace/revision, uses the existing SQL
+seed/chunk ledger, and writes simulated `STOCK_UPDATED` events with catalogue
+provenance through the real transactional outbox. Chunks are bounded to 1,000
+rows. Namespace locks serialize concurrent seed attempts; checkpoints permit
+resume without duplicate stock/events. A different manifest/seed/profile requires
+a fresh namespace; repeating an identical seed does not refill changed stock.
+
+Verification: `python -m pytest tests/transactions -q --tb=short` with the real
+PostgreSQL 18 inventory login supplied through `INVENTORY_TEST_DATABASE_URL`:
+**104 passed, zero skipped**, including four live SQL/outbox cases. They cover
+the real adapter, immutable repeat behavior, partial-chunk rollback/resume and
+concurrent seeding. Schema IDs/cache are explicit offline fixtures; no Kafka
+delivery or whole-business integration is claimed. PostgreSQL retains 512 MiB /
+0.5 CPU; all isolated test schemas were removed. Lint/format checks on the seed,
+adapter and new tests, plus `git diff --check`, passed.
+
+Raw evidence: `artifacts/seed-fix-20261106/transactions-live.xml` and
+`environment.json`. The first local attempt's `offline.xml` retains missing
+nullable-session setup errors, corrected before the passing live run. CI test
+selection is deliberately unchanged. The real catalogue import, relay-to-Kafka
+acceptance and whole-service migration/readiness composition remain next work.
+
 ## Independent readiness closure — 2 November 2026
 
 User requested completing remaining work that needs no teammate input. This

@@ -106,7 +106,8 @@ def create_app(pipeline, *, internal_token, metrics_namespace=None):
                         "SELECT version FROM analytics_schema_migrations"
                     ).fetchall()
                 }
-            if not {1, 2, 3, 4, 5, 6, 7, 8, 9}.issubset(applied):
+                tx.execute("SELECT event_id,published_at FROM outbox LIMIT 0")
+            if not set(range(1, 11)).issubset(applied):
                 raise RuntimeError("Migration missing")
             outbox_binding()
         except OutboxUnavailable:

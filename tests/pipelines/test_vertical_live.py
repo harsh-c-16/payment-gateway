@@ -200,7 +200,10 @@ def test_real_valid_duplicate_redelivery_and_active_gold(vertical):
     )
 
 
-def test_real_missing_outbox_leaves_invalid_source_pending(vertical):
+def test_real_missing_outbox_leaves_invalid_source_pending(vertical, monkeypatch):
+    import shared.outbox as outbox
+
+    monkeypatch.delattr(outbox, "append_outbox")
     good = record(vertical, event(vertical))
     invalid = replace(
         good, value_bytes=b"\xff", raw_sha256=raw_fingerprint(good.key_bytes, b"\xff", good.headers)
