@@ -1,7 +1,7 @@
 """Unit tests for inventory reservation logic — mocked DB."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -27,85 +27,77 @@ def _mock_db():
     return db, tx
 
 
+def _reserve_request(*pairs):
+    request = MagicMock(order_id="o1", ttl_seconds=30)
+    request.items = [MagicMock(sku=sku, quantity=quantity) for sku, quantity in pairs]
+    return request
+
+
+def _reserve_tx(existing):
+    """Route SQL to canned rows so assertions see the real statement order."""
+
+    def execute(query, params=()):
+        cursor = MagicMock()
+        if query.lstrip().startswith("SELECT reservation_id, state"):
+            cursor.fetchone.return_value = existing(params)
+        elif "UPDATE inventory" in query:
+            cursor.fetchone.return_value = {"stock_version": 2}
+        elif "SELECT on_hand, reserved" in query:
+            cursor.fetchone.return_value = {"on_hand": 10, "reserved": 1}
+        elif "FROM reservations WHERE" in query:
+            cursor.fetchone.return_value = {
+                "reservation_id": "r-live",
+                "order_id": "o1",
+                "state": "ACTIVE",
+                "expires_at": datetime.now(UTC),
+                "updated_at": datetime.now(UTC),
+            }
+        elif "FROM reservation_items" in query:
+            cursor.fetchall.return_value = [{"sku": "SKU-A", "quantity": 2}]
+        return cursor
+
+    return execute
+
+
 class TestReserve:
-    def test_sorts_skus_for_lock_order(self):
-        from services.inventory.reservation import reserve
+    def test_locks_skus_in_sorted_order(self):
+        from services.inventory import reservation
 
         db, tx = _mock_db()
-        events = MagicMock()
-        ctx = _context()
+        with patch.object(reservation, "uuid4", return_value="r-new"):
+            tx.execute.side_effect = _reserve_tx(
+                lambda _p: {"reservation_id": "r-new", "state": "ACTIVE"}
+            )
+            result = reservation.reserve(
+                db, MagicMock(), "dev", _reserve_request(("SKU-B", 1), ("SKU-A", 2)), _context()
+            )
+        locked = [c[0][1][3] for c in tx.execute.call_args_list if "UPDATE inventory" in c[0][0]]
+        assert locked == ["SKU-A", "SKU-B"]
+        assert result["reservation_id"] == "r-new"
 
-        request = MagicMock()
-        request.order_id = "o1"
-        request.ttl_seconds = 30
-        item_b = MagicMock()
-        item_b.sku = "SKU-B"
-        item_b.quantity = 1
-        item_a = MagicMock()
-        item_a.sku = "SKU-A"
-        item_a.quantity = 2
-        request.items = [item_b, item_a]
+    @pytest.mark.parametrize("state", ["ACTIVE", "COMMITTED"])
+    def test_retry_replays_live_reservation_without_reserving_again(self, state):
+        from services.inventory import reservation
 
-        # Simulate insert returning reservation_id (new)
-        cursor = MagicMock()
-        existing_cursor = MagicMock()
-        existing_cursor.fetchone.return_value = {"reservation_id": "will-match", "state": "ACTIVE"}
+        db, tx = _mock_db()
+        tx.execute.side_effect = _reserve_tx(
+            lambda _p: {"reservation_id": "r-live", "state": state}
+        )
+        result = reservation.reserve(
+            db, MagicMock(), "dev", _reserve_request(("SKU-A", 2)), _context()
+        )
+        assert result["reservation_id"] == "r-live"
+        assert not any("UPDATE inventory" in c[0][0] for c in tx.execute.call_args_list)
 
-        stock_cursor_a = MagicMock()
-        stock_cursor_a.fetchone.return_value = {"on_hand": 100, "reserved": 2}
-        stock_cursor_b = MagicMock()
-        stock_cursor_b.fetchone.return_value = {"on_hand": 50, "reserved": 1}
+    @pytest.mark.parametrize("state", ["RELEASED", "EXPIRED"])
+    def test_released_or_expired_order_cannot_reserve_again(self, state):
+        from services.inventory import reservation
 
-        update_cursor_a = MagicMock()
-        update_cursor_a.fetchone.return_value = {"stock_version": 2}
-        update_cursor_b = MagicMock()
-        update_cursor_b.fetchone.return_value = {"stock_version": 3}
-
-        insert_item_cursor = MagicMock()
-
-        call_count = {"n": 0}
-
-        def side_effect(*args, **kwargs):
-            call_count["n"] += 1
-            n = call_count["n"]
-            if n == 1:  # INSERT reservation
-                cursor.fetchone.return_value = None  # simulate ON CONFLICT
-                return cursor
-            elif n == 2:  # SELECT existing reservation
-                # Patch the reservation_id to match
-                return existing_cursor
-            elif n == 3:  # UPDATE inventory SKU-A
-                return update_cursor_a
-            elif n == 4:  # INSERT reservation_item SKU-A
-                return insert_item_cursor
-            elif n == 5:  # SELECT stock SKU-A
-                return stock_cursor_a
-            elif n == 6:  # events.append for SKU-A (not a tx call)
-                return MagicMock()
-            elif n == 7:  # UPDATE inventory SKU-B
-                return update_cursor_b
-            elif n == 8:  # INSERT reservation_item SKU-B
-                return insert_item_cursor
-            elif n == 9:  # SELECT stock SKU-B
-                return stock_cursor_b
-            return MagicMock()
-
-        tx.execute.side_effect = side_effect
-
-        # The test will raise because our mock reservation_id won't match
-        # This is fine — we're testing that items are sorted
-        with pytest.raises(Exception):
-            reserve(db, events, "dev", request, ctx)
-
-        # Verify the UPDATE inventory calls happened in sorted order
-        update_calls = [
-            c
-            for c in tx.execute.call_args_list
-            if len(c[0]) > 0 and "UPDATE inventory" in str(c[0][0])
-        ]
-        if len(update_calls) >= 2:
-            # First update should be SKU-A (sorted)
-            assert "SKU-A" in str(update_calls[0]) or True  # sorted order check
+        db, tx = _mock_db()
+        tx.execute.side_effect = _reserve_tx(lambda _p: {"reservation_id": "r-old", "state": state})
+        with pytest.raises(ServiceError) as failure:
+            reservation.reserve(db, MagicMock(), "dev", _reserve_request(("SKU-A", 1)), _context())
+        assert failure.value.status == 409
 
 
 class TestGetStock:

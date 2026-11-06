@@ -1,12 +1,11 @@
 """Durable orchestrated saga for checkout: reserve -> pay -> commit -> confirm.
 
-Each step is idempotent. On failure, compensation runs: release inventory, reverse payment.
-The saga_jobs table tracks the current step, attempt count, and backoff schedule.
+Each step is idempotent. On failure, compensation releases inventory first, then reverses
+payment (common spec §9.3). saga_jobs tracks the current step, attempt count and backoff.
 Operation keys ensure the intended command is recorded before the network call.
-Per-order advisory locks prevent concurrent saga runners on the same order.
+A durable lease on saga_jobs.next_attempt_at prevents concurrent runners on one order.
 """
 
-import hashlib
 import logging
 import os
 import time
@@ -17,10 +16,13 @@ import httpx
 from services.orders.errors import ServiceError
 
 logger = logging.getLogger("orders.saga")
+# One pooled client: a fresh httpx client per call costs ~200 ms of setup.
+_HTTP = httpx.Client(timeout=2.0)
 
-MAX_SAGA_ATTEMPTS = 5
-BACKOFF_BASE_SECONDS = 2
+BACKOFF_BASE_SECONDS = 0.1
+BACKOFF_CAP_SECONDS = 2.0
 MANUAL_REVIEW_TIMEOUT_SECONDS = 60
+CLAIM_LEASE_SECONDS = 10
 
 _BENCHMARK_MODE = os.environ.get("BENCHMARK_MODE", "false") == "true"
 
@@ -52,28 +54,30 @@ class FaultBarrier:
             pass
 
 
-def _order_advisory_lock_id(order_id: str) -> int:
-    return int(hashlib.sha256(f"saga-order-{order_id}".encode()).hexdigest()[:15], 16)
-
-
 def run_pending_sagas(
     db, events, context, *, inventory_url, payments_url, internal_token, batch_size=10
 ):
-    """Process pending saga jobs. Returns count of jobs processed."""
+    """Claim due saga jobs under a lease and run one step each. Returns count processed."""
     now = datetime.now(UTC)
     processed = 0
 
+    # Claiming pushes next_attempt_at past the lease so other workers skip the job without a
+    # transaction held open across network calls; a crashed worker's job reappears afterwards.
     with db.transaction(statement_timeout_ms=5000) as tx:
         jobs = tx.execute(
             """
-            SELECT sj.namespace, sj.order_id, sj.planned_step, sj.attempt
-            FROM saga_jobs sj
-            WHERE sj.next_attempt_at IS NOT NULL AND sj.next_attempt_at <= %s
-            ORDER BY sj.next_attempt_at
-            LIMIT %s
-            FOR UPDATE SKIP LOCKED
+            UPDATE saga_jobs sj SET next_attempt_at = %s, updated_at = %s
+            FROM (
+                SELECT namespace, order_id FROM saga_jobs
+                WHERE next_attempt_at IS NOT NULL AND next_attempt_at <= %s
+                ORDER BY next_attempt_at
+                LIMIT %s
+                FOR UPDATE SKIP LOCKED
+            ) due
+            WHERE sj.namespace = due.namespace AND sj.order_id = due.order_id
+            RETURNING sj.namespace, sj.order_id, sj.planned_step, sj.attempt
             """,
-            (now, batch_size),
+            (now + timedelta(seconds=CLAIM_LEASE_SECONDS), now, now, batch_size),
         ).fetchall()
 
     for job in jobs:
@@ -88,11 +92,11 @@ def run_pending_sagas(
                 internal_token=internal_token,
             )
             processed += 1
-        except Exception:
+        except Exception as error:
             logger.exception(
                 "saga step failed for order %s step %s", job["order_id"], job["planned_step"]
             )
-            _backoff(db, job)
+            _backoff(db, job, error)
 
     return processed
 
@@ -103,9 +107,11 @@ def _operation_key(order_id, step, version=1):
 
 def _execute_step(db, events, job, context, *, inventory_url, payments_url, internal_token):
     ns = job["namespace"]
-    oid = job["order_id"]
+    oid = str(job["order_id"])
     step = job["planned_step"]
     now = datetime.now(UTC)
+    # The worker polls every namespace; internal calls and events must carry the job's own.
+    context = context.model_copy(update={"namespace": ns})
 
     headers = _internal_headers(context, internal_token)
 
@@ -116,7 +122,7 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
         _record_operation_key(db, ns, oid, op_key, step)
 
         FaultBarrier.check(db, ns, "saga.before_reserve")
-        resp = httpx.post(
+        resp = _HTTP.post(
             f"{inventory_url}/internal/v1/reservations",
             json={
                 "order_id": oid,
@@ -158,21 +164,39 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
 
     elif step == "AUTHORIZE_PAYMENT":
         order = _get_order(db, ns, oid)
-        po = httpx.get(
+        po = _HTTP.get(
             f"{payments_url}/internal/v1/payments/by-order/{oid}",
             headers=headers,
             timeout=2.0,
         )
-        existing_attempts = po.json().get("attempts", []) if po.status_code == 200 else []
+        # §9.2: a lost response must not produce a new attempt, and nothing follows a SUCCESS.
+        if po.status_code != 200:
+            raise RuntimeError(f"payment lookup returned {po.status_code}")
+        payment_order = po.json()
+        existing_attempts = payment_order.get("attempts", [])
+        success = next((a for a in existing_attempts if a.get("status") == "SUCCESS"), None)
+        if success is not None:
+            _advance(
+                db,
+                events,
+                ns,
+                oid,
+                "PAYMENT_PENDING",
+                "COMMIT_STOCK",
+                now,
+                context,
+                payment_id=success["payment_id"],
+            )
+            return
         attempt_number = len(existing_attempts) + 1
-        if attempt_number > 2:
+        if payment_order.get("quiesced") or attempt_number > 2:
             _advance(
                 db,
                 events,
                 ns,
                 oid,
                 "COMPENSATING",
-                "COMPENSATE_PAYMENT",
+                "COMPENSATE_RELEASE",
                 now,
                 context,
                 failure_code="ALL_PAYMENT_ATTEMPTS_FAILED",
@@ -183,7 +207,7 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
         _record_operation_key(db, ns, oid, op_key, step)
 
         FaultBarrier.check(db, ns, "saga.before_payment")
-        resp = httpx.post(
+        resp = _HTTP.post(
             f"{payments_url}/internal/v1/payments/authorize",
             json={
                 "order_id": oid,
@@ -219,7 +243,7 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
                     ns,
                     oid,
                     "COMPENSATING",
-                    "COMPENSATE_PAYMENT",
+                    "COMPENSATE_RELEASE",
                     now,
                     context,
                     failure_code="PAYMENT_FAILED",
@@ -231,7 +255,7 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
                 ns,
                 oid,
                 "COMPENSATING",
-                "COMPENSATE_PAYMENT",
+                "COMPENSATE_RELEASE",
                 now,
                 context,
                 failure_code="PAYMENT_CONFLICT",
@@ -245,7 +269,7 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
         _record_operation_key(db, ns, oid, op_key, step)
 
         FaultBarrier.check(db, ns, "saga.before_commit")
-        resp = httpx.post(
+        resp = _HTTP.post(
             f"{inventory_url}/internal/v1/reservations/by-order/{oid}/commit",
             json={"reservation_id": order["reservation_id"]},
             headers=headers,
@@ -262,7 +286,7 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
                 ns,
                 oid,
                 "COMPENSATING",
-                "COMPENSATE_PAYMENT",
+                "COMPENSATE_RELEASE",
                 now,
                 context,
                 failure_code="COMMIT_FAILED",
@@ -274,43 +298,43 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
         FaultBarrier.check(db, ns, "saga.before_confirm")
         _finalize(db, events, ns, oid, "CONFIRMED", now, context)
 
+    elif step == "COMPENSATE_RELEASE":
+        # §9.3: release first. Only a proven release lets payment be reversed; a committed
+        # sale finishes forward and is never refunded as a generic failure.
+        order = _get_order(db, ns, oid)
+        try:
+            resp = _HTTP.post(
+                f"{inventory_url}/internal/v1/reservations/by-order/{oid}/release",
+                json={"reason": order["failure_code"] or "saga_compensation"},
+                headers=headers,
+                timeout=2.0,
+            )
+        except httpx.HTTPError as error:
+            raise RuntimeError("inventory release outcome unknown") from error
+
+        if resp.status_code == 200:
+            _update_saga_step(db, ns, oid, "COMPENSATE_PAYMENT", now)
+        elif resp.status_code == 409 and _reports_committed(resp):
+            if not order["payment_id"]:
+                raise RuntimeError("inventory committed without a recorded payment")
+            logger.info("order %s: inventory already committed, finishing forward", oid)
+            _advance(db, events, ns, oid, "COMMITTING_STOCK", "CONFIRM", now, context)
+        else:
+            raise RuntimeError(f"inventory release returned {resp.status_code}")
+
     elif step == "COMPENSATE_PAYMENT":
         order = _get_order(db, ns, oid)
         try:
-            httpx.post(
+            resp = _HTTP.post(
                 f"{payments_url}/internal/v1/payments/by-order/{oid}/reverse",
-                json={"reason": order.get("failure_code", "saga_compensation")},
+                json={"reason": order["failure_code"] or "saga_compensation"},
                 headers=headers,
                 timeout=2.0,
             )
-        except httpx.HTTPError:
-            raise RuntimeError("payments service unavailable during compensation")
-        _update_saga_step(db, ns, oid, "COMPENSATE_RELEASE", now)
-
-    elif step == "COMPENSATE_RELEASE":
-        order = _get_order(db, ns, oid)
-        try:
-            resp = httpx.post(
-                f"{inventory_url}/internal/v1/reservations/by-order/{oid}/release",
-                json={"reason": order.get("failure_code", "saga_compensation")},
-                headers=headers,
-                timeout=2.0,
-            )
-        except httpx.HTTPError:
-            raise RuntimeError("inventory service unavailable during compensation")
-
-        if resp.status_code == 409:
-            release_data = (
-                resp.json()
-                if resp.headers.get("content-type", "").startswith("application/json")
-                else {}
-            )
-            error_detail = release_data.get("error", {}).get("message", "")
-            if "committed" in error_detail.lower():
-                logger.info("order %s: inventory already committed, finishing forward", oid)
-                _advance(db, events, ns, oid, "COMMITTING_STOCK", "CONFIRM", now, context)
-                return
-
+        except httpx.HTTPError as error:
+            raise RuntimeError("payment reversal outcome unknown") from error
+        if resp.status_code != 200:
+            raise RuntimeError(f"payment reverse returned {resp.status_code}")
         _update_saga_step(db, ns, oid, "CANCEL", now)
 
     elif step == "CANCEL":
@@ -331,7 +355,7 @@ def _record_operation_key(db, ns, oid, op_key, step):
 
 def _advance(db, events, ns, oid, new_status, next_step, now, context, **extra):
     with db.transaction() as tx:
-        version = tx.execute(
+        updated = tx.execute(
             """
             UPDATE orders
             SET status = %s, order_version = order_version + 1, updated_at = %s,
@@ -350,7 +374,9 @@ def _advance(db, events, ns, oid, new_status, next_step, now, context, **extra):
                 ns,
                 oid,
             ),
-        ).fetchone()["order_version"]
+        ).fetchone()
+        if updated is None:
+            raise RuntimeError(f"order {oid} not found in namespace {ns}")
         tx.execute(
             """
             UPDATE saga_jobs SET planned_step = %s, attempt = 0, next_attempt_at = %s, updated_at = %s
@@ -431,41 +457,56 @@ def _retry_step(db, ns, oid, step, now):
         )
 
 
-def _backoff(db, job):
+def _backoff(db, job, error=None):
+    """§9.3: exponential retry from 100 ms capped at 2 s; the job is never dropped.
+
+    An order with no saga progress for MANUAL_REVIEW_TIMEOUT_SECONDS is surfaced as
+    MANUAL_REVIEW while its durable retry continues and may still resolve it.
+    """
     now = datetime.now(UTC)
     attempt = job["attempt"] + 1
-    if attempt >= MAX_SAGA_ATTEMPTS:
-        with db.transaction() as tx:
-            tx.execute(
-                """
-                UPDATE orders SET status = 'MANUAL_REVIEW', order_version = order_version + 1, updated_at = %s
-                WHERE namespace = %s AND order_id = %s
-                """,
-                (now, job["namespace"], job["order_id"]),
-            )
-            tx.execute(
-                """
-                UPDATE saga_jobs SET planned_step = 'MANUAL_REVIEW', next_attempt_at = NULL,
-                    attempt = %s, last_error = 'max_attempts', updated_at = %s
-                WHERE namespace = %s AND order_id = %s
-                """,
-                (attempt, now, job["namespace"], job["order_id"]),
-            )
-        logger.warning(
-            "order %s moved to MANUAL_REVIEW after %d attempts", job["order_id"], attempt
-        )
-        return
-
-    delay = min(BACKOFF_BASE_SECONDS * (2**attempt), 2.0)
+    delay = min(BACKOFF_BASE_SECONDS * 2 ** (attempt - 1), BACKOFF_CAP_SECONDS)
     with db.transaction() as tx:
         tx.execute(
             """
             UPDATE saga_jobs
-            SET attempt = %s, next_attempt_at = %s, last_error = 'retrying', updated_at = %s
+            SET attempt = %s, next_attempt_at = %s, last_error = %s, updated_at = %s
             WHERE namespace = %s AND order_id = %s
             """,
-            (attempt, now + timedelta(seconds=delay), now, job["namespace"], job["order_id"]),
+            (
+                attempt,
+                now + timedelta(seconds=delay),
+                str(error or "retrying")[:500],
+                now,
+                job["namespace"],
+                job["order_id"],
+            ),
         )
+        flagged = tx.execute(
+            """
+            UPDATE orders
+            SET status = 'MANUAL_REVIEW', order_version = order_version + 1, updated_at = %s
+            WHERE namespace = %s AND order_id = %s AND updated_at <= %s
+              AND status NOT IN ('CONFIRMED', 'CANCELLED', 'MANUAL_REVIEW')
+            RETURNING order_id
+            """,
+            (
+                now,
+                job["namespace"],
+                job["order_id"],
+                now - timedelta(seconds=MANUAL_REVIEW_TIMEOUT_SECONDS),
+            ),
+        ).fetchone()
+    if flagged:
+        logger.warning("order %s surfaced as MANUAL_REVIEW; retry continues", job["order_id"])
+
+
+def _reports_committed(resp):
+    try:
+        message = resp.json().get("error", {}).get("message", "")
+    except ValueError:
+        return False
+    return "committed" in message.lower()
 
 
 def _get_order(db, ns, oid):

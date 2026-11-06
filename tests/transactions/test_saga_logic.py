@@ -1,10 +1,13 @@
 """Unit tests for saga orchestration logic — mocked DB and HTTP calls."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
+
+import pytest
 
 from services.orders.saga import (
-    MAX_SAGA_ATTEMPTS,
+    BACKOFF_CAP_SECONDS,
     _backoff,
     _execute_step,
     _internal_headers,
@@ -110,27 +113,46 @@ class TestRunPendingSagas:
         mock_backoff.assert_called_once()
 
 
+def _saga_job_update(tx):
+    return next(c for c in tx.execute.call_args_list if "UPDATE saga_jobs" in c[0][0])
+
+
 class TestBackoff:
-    def test_increments_attempt(self):
+    def test_first_retry_after_100ms(self):
         db, tx = _mock_db()
-        job = {"namespace": "dev", "order_id": "o1", "attempt": 0}
+        before = datetime.now(UTC)
+        _backoff(db, {"namespace": "dev", "order_id": "o1", "attempt": 0}, RuntimeError("x"))
+        attempt, next_at, last_error = _saga_job_update(tx)[0][1][:3]
+        assert attempt == 1
+        assert timedelta(milliseconds=90) <= next_at - before <= timedelta(milliseconds=500)
+        assert last_error == "x"
 
-        _backoff(db, job)
-        sql = tx.execute.call_args[0][0]
-        assert "UPDATE saga_jobs" in sql
-
-    def test_manual_review_at_max_attempts(self):
+    def test_delay_capped_at_two_seconds(self):
         db, tx = _mock_db()
-        job = {"namespace": "dev", "order_id": "o1", "attempt": MAX_SAGA_ATTEMPTS - 1}
+        before = datetime.now(UTC)
+        _backoff(db, {"namespace": "dev", "order_id": "o1", "attempt": 30})
+        next_at = _saga_job_update(tx)[0][1][1]
+        assert next_at - before <= timedelta(seconds=BACKOFF_CAP_SECONDS + 0.5)
 
-        _backoff(db, job)
-        calls = tx.execute.call_args_list
-        found_manual_review = any("MANUAL_REVIEW" in str(c) for c in calls)
-        assert found_manual_review, "Expected MANUAL_REVIEW status update"
+    def test_job_is_never_dropped(self):
+        db, tx = _mock_db()
+        _backoff(db, {"namespace": "dev", "order_id": "o1", "attempt": 1000})
+        next_at = _saga_job_update(tx)[0][1][1]
+        assert next_at is not None
+        assert not any("next_attempt_at = NULL" in c[0][0] for c in tx.execute.call_args_list)
+
+    def test_manual_review_only_after_sixty_seconds_without_progress(self):
+        db, tx = _mock_db()
+        before = datetime.now(UTC)
+        _backoff(db, {"namespace": "dev", "order_id": "o1", "attempt": 0})
+        review = next(c for c in tx.execute.call_args_list if "MANUAL_REVIEW" in c[0][0])
+        cutoff = review[0][1][3]
+        assert "updated_at <= %s" in review[0][0]
+        assert abs((before - timedelta(seconds=60)) - cutoff) < timedelta(seconds=1)
 
 
 class TestExecuteStepReserve:
-    @patch("services.orders.saga.httpx")
+    @patch("services.orders.saga._HTTP")
     def test_reserve_success_advances_to_authorize(self, mock_httpx):
         db, tx = _mock_db()
         events = MagicMock()
@@ -166,7 +188,7 @@ class TestExecuteStepReserve:
         assert args[0][4] == "RESERVING"
         assert args[0][5] == "AUTHORIZE_PAYMENT"
 
-    @patch("services.orders.saga.httpx")
+    @patch("services.orders.saga._HTTP")
     def test_reserve_conflict_cancels(self, mock_httpx):
         db, tx = _mock_db()
         events = MagicMock()
@@ -199,7 +221,7 @@ class TestExecuteStepReserve:
 
 
 class TestExecuteStepAuthorizePayment:
-    @patch("services.orders.saga.httpx")
+    @patch("services.orders.saga._HTTP")
     def test_payment_success_advances_to_commit(self, mock_httpx):
         db, tx = _mock_db()
         events = MagicMock()
@@ -244,7 +266,7 @@ class TestExecuteStepAuthorizePayment:
         assert args[0][4] == "PAYMENT_PENDING"
         assert args[0][5] == "COMMIT_STOCK"
 
-    @patch("services.orders.saga.httpx")
+    @patch("services.orders.saga._HTTP")
     def test_payment_fail_attempt1_retries(self, mock_httpx):
         db, tx = _mock_db()
         events = MagicMock()
@@ -284,7 +306,7 @@ class TestExecuteStepAuthorizePayment:
             )
         mock_retry.assert_called_once()
 
-    @patch("services.orders.saga.httpx")
+    @patch("services.orders.saga._HTTP")
     def test_max_attempts_exceeded_compensates(self, mock_httpx):
         db, tx = _mock_db()
         events = MagicMock()
@@ -319,11 +341,11 @@ class TestExecuteStepAuthorizePayment:
             )
         args = mock_advance.call_args
         assert args[0][4] == "COMPENSATING"
-        assert args[0][5] == "COMPENSATE_PAYMENT"
+        assert args[0][5] == "COMPENSATE_RELEASE"
 
 
 class TestExecuteStepCommitStock:
-    @patch("services.orders.saga.httpx")
+    @patch("services.orders.saga._HTTP")
     def test_commit_success_advances_to_confirm(self, mock_httpx):
         db, tx = _mock_db()
         events = MagicMock()
@@ -353,7 +375,7 @@ class TestExecuteStepCommitStock:
         assert args[0][4] == "COMMITTING_STOCK"
         assert args[0][5] == "CONFIRM"
 
-    @patch("services.orders.saga.httpx")
+    @patch("services.orders.saga._HTTP")
     def test_commit_conflict_compensates(self, mock_httpx):
         db, tx = _mock_db()
         events = MagicMock()
@@ -404,69 +426,63 @@ class TestExecuteStepConfirm:
         assert mock_finalize.call_args[0][4] == "CONFIRMED"
 
 
+def _run_step(step, db, *, ctx=None, namespace="dev"):
+    _execute_step(
+        db,
+        MagicMock(),
+        {"namespace": namespace, "order_id": "o1", "planned_step": step, "attempt": 0},
+        ctx or _context(),
+        inventory_url="http://inventory:8004",
+        payments_url="http://payments:8005",
+        internal_token="",
+    )
+
+
 class TestCompensationSteps:
-    @patch("services.orders.saga.httpx")
-    def test_compensate_payment_then_release(self, mock_httpx):
-        db, tx = _mock_db()
-        events = MagicMock()
-        ctx = _context()
-        job = {
-            "namespace": "dev",
-            "order_id": "o1",
-            "planned_step": "COMPENSATE_PAYMENT",
-            "attempt": 0,
-        }
+    """Common spec §9.3: release inventory first; reverse payment only after a proven release."""
 
-        mock_httpx.post.return_value = MagicMock(status_code=200)
+    def _db(self):
+        db, tx = _mock_db()
         tx.execute.return_value.fetchone.return_value = {
             "order_id": "o1",
             "failure_code": "PAYMENT_FAILED",
+            "payment_id": None,
         }
+        return db
 
-        with patch("services.orders.saga._update_saga_step") as mock_update:
-            _execute_step(
-                db,
-                events,
-                job,
-                ctx,
-                inventory_url="http://inventory:8004",
-                payments_url="http://payments:8005",
-                internal_token="",
-            )
-        args = mock_update.call_args
-        assert args[0][2] == "o1"
-        assert args[0][3] == "COMPENSATE_RELEASE"
+    @patch("services.orders.saga._HTTP")
+    def test_release_first_then_reverse_payment(self, http):
+        http.post.return_value = MagicMock(status_code=200)
+        with patch("services.orders.saga._update_saga_step") as update:
+            _run_step("COMPENSATE_RELEASE", self._db())
+        assert http.post.call_args[0][0].endswith("/reservations/by-order/o1/release")
+        assert update.call_args[0][3] == "COMPENSATE_PAYMENT"
 
-    @patch("services.orders.saga.httpx")
-    def test_compensate_release_then_cancel(self, mock_httpx):
+    @patch("services.orders.saga._HTTP")
+    def test_reverse_payment_then_cancel(self, http):
+        http.post.return_value = MagicMock(status_code=200)
+        with patch("services.orders.saga._update_saga_step") as update:
+            _run_step("COMPENSATE_PAYMENT", self._db())
+        assert http.post.call_args[0][0].endswith("/payments/by-order/o1/reverse")
+        assert update.call_args[0][3] == "CANCEL"
+
+    @pytest.mark.parametrize("step", ["COMPENSATE_RELEASE", "COMPENSATE_PAYMENT"])
+    @patch("services.orders.saga._HTTP")
+    def test_unknown_participant_outcome_never_advances(self, http, step):
+        http.post.return_value = MagicMock(status_code=503)
+        with patch("services.orders.saga._update_saga_step") as update:
+            with pytest.raises(RuntimeError):
+                _run_step(step, self._db())
+        update.assert_not_called()
+
+    @patch("services.orders.saga._HTTP")
+    def test_release_uses_default_reason_when_failure_code_null(self, http):
         db, tx = _mock_db()
-        events = MagicMock()
-        ctx = _context()
-        job = {
-            "namespace": "dev",
-            "order_id": "o1",
-            "planned_step": "COMPENSATE_RELEASE",
-            "attempt": 0,
-        }
-
-        mock_httpx.post.return_value = MagicMock(status_code=200)
-        tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1",
-            "failure_code": "PAYMENT_FAILED",
-        }
-
-        with patch("services.orders.saga._update_saga_step") as mock_update:
-            _execute_step(
-                db,
-                events,
-                job,
-                ctx,
-                inventory_url="http://inventory:8004",
-                payments_url="http://payments:8005",
-                internal_token="",
-            )
-        args = mock_update.call_args
-        assert args[0][3] == "CANCEL"
+        tx.execute.return_value.fetchone.return_value = {"failure_code": None, "payment_id": None}
+        http.post.return_value = MagicMock(status_code=200)
+        with patch("services.orders.saga._update_saga_step"):
+            _run_step("COMPENSATE_RELEASE", db)
+        assert http.post.call_args[1]["json"] == {"reason": "saga_compensation"}
 
     def test_cancel_calls_finalize_cancelled(self):
         db, tx = _mock_db()
@@ -486,6 +502,104 @@ class TestCompensationSteps:
             )
         mock_finalize.assert_called_once()
         assert mock_finalize.call_args[0][4] == "CANCELLED"
+
+
+class TestPaymentRecovery:
+    """Common spec §9.2: a lost response never produces a second attempt or a double charge."""
+
+    @patch("services.orders.saga._HTTP")
+    def test_existing_success_is_reused_without_new_attempt(self, http):
+        db, tx = _mock_db()
+        tx.execute.return_value.fetchone.return_value = {"total_amount_minor": 5000}
+        http.get.return_value = MagicMock(
+            status_code=200,
+            json=lambda: {"attempts": [{"payment_id": "p1", "status": "SUCCESS"}]},
+        )
+        with patch("services.orders.saga._advance") as advance:
+            _run_step("AUTHORIZE_PAYMENT", db)
+        http.post.assert_not_called()
+        assert advance.call_args[0][5] == "COMMIT_STOCK"
+        assert advance.call_args[1]["payment_id"] == "p1"
+
+    @patch("services.orders.saga._HTTP")
+    def test_failed_lookup_backs_off_instead_of_guessing_attempt(self, http):
+        db, tx = _mock_db()
+        tx.execute.return_value.fetchone.return_value = {"total_amount_minor": 5000}
+        http.get.return_value = MagicMock(status_code=503)
+        with pytest.raises(RuntimeError):
+            _run_step("AUTHORIZE_PAYMENT", db)
+        http.post.assert_not_called()
+
+    @patch("services.orders.saga._HTTP")
+    def test_quiesced_payment_order_compensates(self, http):
+        db, tx = _mock_db()
+        tx.execute.return_value.fetchone.return_value = {"total_amount_minor": 5000}
+        http.get.return_value = MagicMock(
+            status_code=200, json=lambda: {"attempts": [], "quiesced": True}
+        )
+        with patch("services.orders.saga._advance") as advance:
+            _run_step("AUTHORIZE_PAYMENT", db)
+        http.post.assert_not_called()
+        assert advance.call_args[0][5] == "COMPENSATE_RELEASE"
+
+
+class TestJobScoping:
+    @patch("services.orders.saga._HTTP")
+    def test_internal_calls_carry_the_jobs_namespace(self, http):
+        from shared.contracts.common import RequestContext
+
+        worker = RequestContext(
+            namespace="dev",
+            run_id="saga-worker",
+            user_id="system",
+            correlation_id=str(uuid4()),
+            request_id=str(uuid4()),
+            session_id=None,
+        )
+        db, tx = _mock_db()
+        tx.execute.return_value.fetchone.return_value = {"order_id": "o1"}
+        tx.execute.return_value.fetchall.return_value = [{"sku": "SKU-1", "quantity": 1}]
+        http.post.return_value = MagicMock(status_code=201, json=lambda: {"reservation_id": "r1"})
+        with patch("services.orders.saga._advance"):
+            _run_step("RESERVE", db, ctx=worker, namespace="bench-run-7")
+        assert http.post.call_args[1]["headers"]["X-Namespace"] == "bench-run-7"
+
+    @patch("services.orders.saga._HTTP")
+    def test_order_id_from_database_is_sent_as_string(self, http):
+        from uuid import UUID
+
+        db, tx = _mock_db()
+        tx.execute.return_value.fetchone.return_value = {"order_id": "o1"}
+        tx.execute.return_value.fetchall.return_value = [{"sku": "SKU-1", "quantity": 1}]
+        http.post.return_value = MagicMock(status_code=201, json=lambda: {"reservation_id": "r1"})
+        order_id = UUID("12345678-1234-5678-1234-567812345678")
+        with patch("services.orders.saga._advance"):
+            _execute_step(
+                db,
+                MagicMock(),
+                {"namespace": "dev", "order_id": order_id, "planned_step": "RESERVE", "attempt": 0},
+                _context(),
+                inventory_url="http://inventory:8004",
+                payments_url="http://payments:8005",
+                internal_token="",
+            )
+        assert http.post.call_args[1]["json"]["order_id"] == str(order_id)
+
+    def test_claim_leases_jobs_in_one_statement(self):
+        db, tx = _mock_db()
+        tx.execute.return_value.fetchall.return_value = []
+        run_pending_sagas(
+            db,
+            MagicMock(),
+            _context(),
+            inventory_url="http://inventory:8004",
+            payments_url="http://payments:8005",
+            internal_token="",
+        )
+        sql, params = tx.execute.call_args[0]
+        assert "UPDATE saga_jobs" in sql and "FOR UPDATE SKIP LOCKED" in sql
+        lease_until, claimed_at = params[0], params[1]
+        assert lease_until - claimed_at == timedelta(seconds=10)
 
 
 class TestRetryStep:

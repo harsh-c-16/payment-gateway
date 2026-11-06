@@ -10,6 +10,8 @@ from services.orders.errors import ServiceError, not_found
 from shared.contracts.common import ErrorCode
 
 logger = logging.getLogger("orders")
+# One pooled client: a fresh httpx client per call costs ~200 ms of setup.
+_HTTP = httpx.Client(timeout=2.0)
 
 
 def create_order(db, events, namespace, request, context, *, catalog_url, internal_token):
@@ -148,7 +150,7 @@ def _fetch_quote(catalog_url, quote_id, context, internal_token):
         headers["Authorization"] = f"Bearer {internal_token}"
 
     try:
-        resp = httpx.get(
+        resp = _HTTP.get(
             f"{catalog_url}/internal/v1/quotes/{quote_id}",
             headers=headers,
             timeout=2.0,

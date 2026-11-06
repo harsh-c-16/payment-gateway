@@ -1,9 +1,15 @@
 """Event building for inventory domain."""
 
+import logging
+
 import psycopg
 
 from services.inventory.errors import ServiceError
 from shared.contracts.common import ErrorCode
+
+LOGGER = logging.getLogger("inventory.events")
+# Common spec §7 / dataset rules: runtime order/inventory/payment facts are synthetic simulation.
+RUNTIME_METADATA = {"synthetic": True, "scenario_source": "simulation"}
 
 
 def _unavailable():
@@ -33,11 +39,14 @@ class InventoryEvents:
     def ready(self):
         self._bindings()
 
-    def append(self, tx, **event):
+    def append(self, tx, *, metadata=None, **event):
         build_event, append_outbox = self._bindings()
         try:
-            append_outbox(tx, build_event(**event))
+            append_outbox(
+                tx, build_event(**event, metadata={**RUNTIME_METADATA, **(metadata or {})})
+            )
         except psycopg.Error:
             raise
         except Exception as error:
+            LOGGER.exception("cannot build or append %s", event.get("event_type"))
             raise _unavailable() from error

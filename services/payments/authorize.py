@@ -144,8 +144,7 @@ def authorize(db, events, namespace, request, context):
             "UPDATE payment_orders SET updated_at = %s WHERE namespace = %s AND order_id = %s",
             (now, namespace, request.order_id),
         )
-
-    return _attempt_snapshot(tx, namespace, payment_id)
+        return _attempt_snapshot(tx, namespace, payment_id)
 
 
 def get_payment_order(db, namespace, order_id):

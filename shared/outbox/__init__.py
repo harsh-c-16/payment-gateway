@@ -18,7 +18,7 @@ from uuid import uuid4
 from psycopg.pq import TransactionStatus
 from psycopg.rows import dict_row
 
-from shared.contracts.events import DlqNotice, EventEnvelope, PublishAck, RegisteredRecord
+from shared.contracts.events import DlqNotice, EventEnvelope, RegisteredRecord
 
 logger = logging.getLogger(__name__)
 
@@ -190,7 +190,7 @@ def relay_once(db_connection, publisher, *, limit=100, claim_id=None) -> RelayRe
             continue
 
         try:
-            ack: PublishAck = publisher.publish_event(event, topic, key)
+            publisher.publish_event(event, topic, key)
             result.broker_acked += 1
         except RetryablePublishError as exc:
             blocked_aggregates.add(aggregate)

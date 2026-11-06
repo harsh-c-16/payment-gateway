@@ -7,7 +7,6 @@ import pytest
 from services.orders.saga import (
     FaultBarrier,
     _operation_key,
-    _order_advisory_lock_id,
     _record_operation_key,
 )
 
@@ -25,21 +24,6 @@ class TestOperationKey:
         k1 = _operation_key("order-1", "reserve")
         k2 = _operation_key("order-2", "reserve")
         assert k1 != k2
-
-
-class TestAdvisoryLockId:
-    def test_deterministic(self):
-        id1 = _order_advisory_lock_id("order-123")
-        id2 = _order_advisory_lock_id("order-123")
-        assert id1 == id2
-
-    def test_different_orders_different_ids(self):
-        id1 = _order_advisory_lock_id("order-1")
-        id2 = _order_advisory_lock_id("order-2")
-        assert id1 != id2
-
-    def test_returns_int(self):
-        assert isinstance(_order_advisory_lock_id("order-123"), int)
 
 
 class TestRecordOperationKey:
@@ -100,7 +84,7 @@ class TestFaultBarrier:
 class TestFinishForward:
     """Test that COMPENSATE_RELEASE detects COMMITTED and finishes forward."""
 
-    @patch("services.orders.saga.httpx")
+    @patch("services.orders.saga._HTTP")
     def test_release_committed_finishes_forward(self, mock_httpx):
         from services.orders.saga import _execute_step
 
@@ -126,7 +110,8 @@ class TestFinishForward:
 
         tx.execute.return_value.fetchone.return_value = {
             "order_id": "o1",
-            "failure_code": "PAYMENT_FAILED",
+            "failure_code": "COMMIT_FAILED",
+            "payment_id": "p1",
         }
 
         resp = MagicMock()
@@ -150,3 +135,37 @@ class TestFinishForward:
         args = mock_advance.call_args
         assert args[0][4] == "COMMITTING_STOCK"
         assert args[0][5] == "CONFIRM"
+        mock_httpx.post.assert_called_once()
+        assert mock_httpx.post.call_args[0][0].endswith("/release")
+
+    @patch("services.orders.saga._HTTP")
+    def test_committed_without_recorded_payment_is_not_confirmed(self, mock_httpx):
+        from services.orders.saga import _execute_step
+
+        db = MagicMock()
+        tx = MagicMock()
+        db.transaction.return_value.__enter__ = MagicMock(return_value=tx)
+        db.transaction.return_value.__exit__ = MagicMock(return_value=False)
+        tx.execute.return_value.fetchone.return_value = {"failure_code": "X", "payment_id": None}
+        resp = MagicMock(status_code=409)
+        resp.json.return_value = {"error": {"message": "Cannot release a committed reservation."}}
+        mock_httpx.post.return_value = resp
+        job = {
+            "namespace": "dev",
+            "order_id": "o1",
+            "planned_step": "COMPENSATE_RELEASE",
+            "attempt": 0,
+        }
+
+        with patch("services.orders.saga._advance") as mock_advance:
+            with pytest.raises(RuntimeError, match="without a recorded payment"):
+                _execute_step(
+                    db,
+                    MagicMock(),
+                    job,
+                    MagicMock(),
+                    inventory_url="http://inventory:8004",
+                    payments_url="http://payments:8005",
+                    internal_token="",
+                )
+        mock_advance.assert_not_called()
