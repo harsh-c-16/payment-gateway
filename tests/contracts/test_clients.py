@@ -18,7 +18,6 @@ from services.conversation.clients import (
 )
 from services.conversation.provider_contracts import (
     ENDPOINTS,
-    ContractUnavailable,
     ContractViolation,
     OpenAPIContracts,
 )
@@ -313,7 +312,7 @@ def test_real_mode_stopped_provider_never_returns_fixture(context):
 
 def test_real_success_without_canonical_contract_is_rejected():
     contracts = OpenAPIContracts(ROOT / "contracts/http")
-    with pytest.raises(ContractUnavailable):
+    with pytest.raises(ContractViolation):
         contracts.validate(ENDPOINTS["order_status"], "response", {"status": "CONFIRMED"})
 
 

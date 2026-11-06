@@ -1,0 +1,820 @@
+openapi: 3.1.0
+info:
+  title: Transaction services (Orders, Inventory, Payments)
+  version: 1.0.0
+  description: >-
+    Owner: Aditya Gaurav. Public order endpoints for M1 conversation service,
+    plus internal reservation/payment endpoints consumed by the saga worker.
+servers:
+- url: http://orders:8003
+paths:
+  /v1/orders:
+    post:
+      operationId: create_order
+      summary: Accept a checkout and start the durable saga
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderRequest'
+      responses:
+        '202':
+          description: Order accepted; saga runs asynchronously
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderAccepted'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Business conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Dependency unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/orders/{order_id}:
+    get:
+      operationId: order_status
+      summary: Current order snapshot
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Order snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderSnapshot'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /v1/orders/{order_id}/events:
+    get:
+      operationId: order_events
+      summary: SSE stream of order state changes
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: Last-Event-ID
+        in: header
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: SSE stream; each event data is an OrderSnapshot JSON
+          content:
+            text/event-stream: {}
+
+  /internal/v1/reservations:
+    post:
+      operationId: create_reservation
+      summary: Reserve inventory for an order (all-or-nothing)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReserveRequest'
+      responses:
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationSnapshot'
+        '409':
+          description: Out of stock or conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/v1/reservations/by-order/{order_id}:
+    get:
+      operationId: get_reservation
+      summary: Current reservation for an order
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Reservation snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationSnapshot'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/v1/reservations/by-order/{order_id}/commit:
+    post:
+      operationId: commit_reservation
+      summary: Commit reserved stock (sale confirmed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reservation_id]
+              properties:
+                reservation_id:
+                  type: string
+                  format: uuid
+              additionalProperties: false
+      responses:
+        '200':
+          description: Committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationSnapshot'
+        '409':
+          description: Expired or already released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/v1/reservations/by-order/{order_id}/release:
+    post:
+      operationId: release_reservation
+      summary: Release or tombstone reservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+              additionalProperties: false
+      responses:
+        '200':
+          description: Released or tombstone created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReservationSnapshot'
+        '409':
+          description: Already committed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/v1/inventory/{sku}:
+    get:
+      operationId: get_stock
+      summary: Current stock snapshot for a SKU
+      parameters:
+      - name: sku
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: '^[!-~]{1,64}$'
+      responses:
+        '200':
+          description: Stock snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockSnapshot'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/v1/payments/authorize:
+    post:
+      operationId: authorize_payment
+      summary: Create a simulated payment attempt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizePaymentRequest'
+      responses:
+        '202':
+          description: Payment attempt created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentSnapshot'
+        '409':
+          description: Conflict (quiesced, duplicate, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /internal/v1/payments/by-order/{order_id}:
+    get:
+      operationId: get_payments
+      summary: All payment attempts for an order
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Payment order state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOrderSnapshot'
+
+  /internal/v1/payments/by-order/{order_id}/reverse:
+    post:
+      operationId: reverse_payments
+      summary: Quiesce and reverse all payments for an order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+              additionalProperties: false
+      responses:
+        '200':
+          description: Quiesced
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentOrderSnapshot'
+
+  /health/live:
+    get:
+      operationId: health_live
+      responses:
+        '200':
+          description: Alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                additionalProperties: false
+
+  /health/ready:
+    get:
+      operationId: health_ready
+      responses:
+        '200':
+          description: Ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                additionalProperties: false
+        '503':
+          description: Not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /metrics:
+    get:
+      operationId: metrics
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain: {}
+
+  # ── Audit exports (read-only, for oracle/benchmark) ──
+
+  /internal/v1/audit/orders:
+    get:
+      operationId: audit_orders
+      summary: Read-only order snapshot for oracle reconciliation
+      parameters:
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 10000, default: 1000}
+      responses:
+        '200':
+          description: Order snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {type: object}}
+                  count: {type: integer}
+
+  /internal/v1/audit/saga-jobs:
+    get:
+      operationId: audit_saga_jobs
+      summary: Read-only saga job snapshot for recovery inspection
+      parameters:
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 10000, default: 1000}
+      responses:
+        '200':
+          description: Saga job snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {type: object}}
+                  count: {type: integer}
+
+  /internal/v1/audit/stock:
+    get:
+      operationId: audit_stock
+      summary: Read-only stock snapshot for oracle reconciliation
+      parameters:
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 10000, default: 1000}
+      responses:
+        '200':
+          description: Stock snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {type: object}}
+                  count: {type: integer}
+
+  /internal/v1/audit/reservations:
+    get:
+      operationId: audit_reservations
+      summary: Read-only reservation snapshot for oracle reconciliation
+      parameters:
+      - name: limit
+        in: query
+        schema: {type: integer, minimum: 1, maximum: 10000, default: 1000}
+      responses:
+        '200':
+          description: Reservation snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {type: object}}
+                  count: {type: integer}
+
+  /internal/v1/audit/payments:
+    get:
+      operationId: audit_payments
+      summary: Read-only payment snapshot for oracle reconciliation
+      responses:
+        '200':
+          description: Payment snapshots
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {type: object}}
+                  count: {type: integer}
+
+  /internal/v1/audit/ledger:
+    get:
+      operationId: audit_ledger
+      summary: Read-only ledger entries for reconciliation
+      responses:
+        '200':
+          description: Ledger entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: {type: array, items: {type: object}}
+                  count: {type: integer}
+                  net_debit_minor: {type: integer, minimum: 0}
+
+  /internal/v1/fault-barriers:
+    post:
+      operationId: set_fault_barrier
+      summary: Set or clear a fault barrier (benchmark mode only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [barrier_name, enabled]
+              properties:
+                barrier_name: {type: string}
+                enabled: {type: boolean}
+                action: {type: string, enum: [CRASH, DELAY, SKIP], default: CRASH}
+                delay_ms: {type: integer, minimum: 0, default: 0}
+      responses:
+        '200':
+          description: Barrier set
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  barrier_name: {type: string}
+                  enabled: {type: boolean}
+                  action: {type: string}
+        '403':
+          description: Not in benchmark mode
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    ErrorResponse:
+      type: object
+      required: [error, correlation_id]
+      properties:
+        error:
+          type: object
+          required: [code, message, retryable, details]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            retryable:
+              type: boolean
+            details:
+              type: object
+              additionalProperties:
+                oneOf:
+                - type: string
+                - type: array
+                  items:
+                    type: string
+          additionalProperties: false
+        correlation_id:
+          type: string
+          minLength: 1
+      additionalProperties: false
+
+    CreateOrderRequest:
+      type: object
+      required: [quote_id, session_id, confirmation_id]
+      properties:
+        quote_id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        confirmation_id:
+          type: string
+          format: uuid
+      additionalProperties: false
+
+    OrderAccepted:
+      type: object
+      required: [order_id, status, status_url]
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        status_url:
+          type: string
+      additionalProperties: false
+
+    QuoteLine:
+      type: object
+      required: [sku, quantity, unit_price_minor, line_total_minor, catalog_version]
+      properties:
+        sku:
+          type: string
+          pattern: '^[!-~]{1,64}$'
+        quantity:
+          type: integer
+          minimum: 1
+          maximum: 10
+        unit_price_minor:
+          type: integer
+          minimum: 1
+        line_total_minor:
+          type: integer
+          minimum: 1
+        catalog_version:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+
+    OrderSnapshot:
+      type: object
+      required:
+      - order_id
+      - quote_id
+      - user_id
+      - session_id
+      - status
+      - order_version
+      - lines
+      - total_amount_minor
+      - currency
+      - created_at
+      - updated_at
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        quote_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          minLength: 1
+        session_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum:
+          - PENDING
+          - RESERVING
+          - PAYMENT_PENDING
+          - COMMITTING_STOCK
+          - CONFIRMED
+          - COMPENSATING
+          - CANCELLED
+          - MANUAL_REVIEW
+        order_version:
+          type: integer
+          minimum: 1
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/QuoteLine'
+          minItems: 1
+          maxItems: 20
+        total_amount_minor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          enum: [INR]
+        reservation_id:
+          type: ['string', 'null']
+          format: uuid
+        payment_id:
+          type: ['string', 'null']
+          format: uuid
+        failure_code:
+          type: ['string', 'null']
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    ReserveRequest:
+      type: object
+      required: [order_id, items]
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        items:
+          type: array
+          items:
+            type: object
+            required: [sku, quantity]
+            properties:
+              sku:
+                type: string
+                pattern: '^[!-~]{1,64}$'
+              quantity:
+                type: integer
+                minimum: 1
+                maximum: 10
+            additionalProperties: false
+          minItems: 1
+          maxItems: 20
+        ttl_seconds:
+          type: integer
+          minimum: 1
+          default: 30
+      additionalProperties: false
+
+    ReservationSnapshot:
+      type: object
+      required:
+      - reservation_id
+      - order_id
+      - state
+      - items
+      - expires_at
+      - updated_at
+      properties:
+        reservation_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum: [ACTIVE, COMMITTED, RELEASED, EXPIRED]
+        items:
+          type: array
+          items:
+            type: object
+            required: [sku, quantity]
+            properties:
+              sku:
+                type: string
+              quantity:
+                type: integer
+            additionalProperties: false
+        expires_at:
+          type: string
+          format: date-time
+        inventory_receipts:
+          type: array
+          items:
+            type: object
+            required: [sku, stock_version]
+            properties:
+              sku:
+                type: string
+              stock_version:
+                type: integer
+            additionalProperties: false
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    StockSnapshot:
+      type: object
+      required: [sku, on_hand, reserved, available, stock_version, changed_at]
+      properties:
+        sku:
+          type: string
+          pattern: '^[!-~]{1,64}$'
+        on_hand:
+          type: integer
+          minimum: 0
+        reserved:
+          type: integer
+          minimum: 0
+        available:
+          type: integer
+          minimum: 0
+        stock_version:
+          type: integer
+          minimum: 1
+        changed_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    AuthorizePaymentRequest:
+      type: object
+      required: [order_id, attempt_number, amount_minor, currency]
+      properties:
+        order_id:
+          type: string
+          format: uuid
+        attempt_number:
+          type: integer
+          minimum: 1
+          maximum: 2
+        amount_minor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          enum: [INR]
+      additionalProperties: false
+
+    PaymentSnapshot:
+      type: object
+      required:
+      - payment_id
+      - order_id
+      - attempt_number
+      - status
+      - amount_minor
+      - currency
+      - created_at
+      - updated_at
+      properties:
+        payment_id:
+          type: string
+          format: uuid
+        order_id:
+          type: string
+          format: uuid
+        attempt_number:
+          type: integer
+          minimum: 1
+        status:
+          type: string
+          enum: [PENDING, SUCCESS, FAILED, CANCELLED, REVERSED]
+        amount_minor:
+          type: integer
+          minimum: 0
+        currency:
+          type: string
+          enum: [INR]
+        failure_code:
+          type: ['string', 'null']
+        debit_id:
+          type: ['string', 'null']
+          format: uuid
+        reversal_id:
+          type: ['string', 'null']
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    PaymentOrderSnapshot:
+      type: object
+      required: [attempts, quiesced, net_debit_minor]
+      properties:
+        attempts:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentSnapshot'
+        quiesced:
+          type: boolean
+        net_debit_minor:
+          type: integer
+          minimum: 0
+      additionalProperties: false

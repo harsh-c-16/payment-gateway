@@ -140,8 +140,14 @@ def test_real_app_rejects_double_injection():
         create_app(turn_handler=TurnOutcomeDouble())
 
 
-def test_missing_shared_event_implementation_is_visible():
-    # This repository has no real implementations; never patch their namespaces.
+@pytest.fixture
+def missing_outbox(monkeypatch):
+    import shared.outbox as outbox
+
+    monkeypatch.delattr(outbox, "append_outbox", raising=False)
+
+
+def test_missing_shared_event_implementation_is_visible(missing_outbox):
     with pytest.raises(ServiceError) as error:
         SharedEvents().ready()
     assert error.value.body.code == "DEPENDENCY_UNAVAILABLE"
@@ -202,7 +208,9 @@ def test_http_cart_checkpoint_real_postgresql_with_explicit_event_double(state, 
         assert added.json()["lines"][0]["display_price_minor"] is None
 
 
-def test_real_service_missing_events_cannot_mutate_or_report_ready(database, context):
+def test_real_service_missing_events_cannot_mutate_or_report_ready(
+    database, context, missing_outbox
+):
     state = ConversationState(database)
     created = state.create_session(context, "new")
     with TestClient(create_app(state=state)) as client:
