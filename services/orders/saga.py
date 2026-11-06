@@ -15,7 +15,6 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from services.orders.errors import ServiceError
-from shared.contracts.common import ErrorCode
 
 logger = logging.getLogger("orders.saga")
 
@@ -57,7 +56,9 @@ def _order_advisory_lock_id(order_id: str) -> int:
     return int(hashlib.sha256(f"saga-order-{order_id}".encode()).hexdigest()[:15], 16)
 
 
-def run_pending_sagas(db, events, context, *, inventory_url, payments_url, internal_token, batch_size=10):
+def run_pending_sagas(
+    db, events, context, *, inventory_url, payments_url, internal_token, batch_size=10
+):
     """Process pending saga jobs. Returns count of jobs processed."""
     now = datetime.now(UTC)
     processed = 0
@@ -78,14 +79,19 @@ def run_pending_sagas(db, events, context, *, inventory_url, payments_url, inter
     for job in jobs:
         try:
             _execute_step(
-                db, events, job, context,
+                db,
+                events,
+                job,
+                context,
                 inventory_url=inventory_url,
                 payments_url=payments_url,
                 internal_token=internal_token,
             )
             processed += 1
         except Exception:
-            logger.exception("saga step failed for order %s step %s", job["order_id"], job["planned_step"])
+            logger.exception(
+                "saga step failed for order %s step %s", job["order_id"], job["planned_step"]
+            )
             _backoff(db, job)
 
     return processed
@@ -124,11 +130,29 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
 
         if resp.status_code == 201:
             result = resp.json()
-            _advance(db, events, ns, oid, "RESERVING", "AUTHORIZE_PAYMENT", now, context,
-                     reservation_id=result["reservation_id"])
+            _advance(
+                db,
+                events,
+                ns,
+                oid,
+                "RESERVING",
+                "AUTHORIZE_PAYMENT",
+                now,
+                context,
+                reservation_id=result["reservation_id"],
+            )
         elif resp.status_code == 409:
-            _advance(db, events, ns, oid, "COMPENSATING", "CANCEL", now, context,
-                     failure_code="RESERVATION_FAILED")
+            _advance(
+                db,
+                events,
+                ns,
+                oid,
+                "COMPENSATING",
+                "CANCEL",
+                now,
+                context,
+                failure_code="RESERVATION_FAILED",
+            )
         else:
             raise RuntimeError(f"inventory reserve returned {resp.status_code}")
 
@@ -136,13 +160,23 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
         order = _get_order(db, ns, oid)
         po = httpx.get(
             f"{payments_url}/internal/v1/payments/by-order/{oid}",
-            headers=headers, timeout=2.0,
+            headers=headers,
+            timeout=2.0,
         )
         existing_attempts = po.json().get("attempts", []) if po.status_code == 200 else []
         attempt_number = len(existing_attempts) + 1
         if attempt_number > 2:
-            _advance(db, events, ns, oid, "COMPENSATING", "COMPENSATE_PAYMENT", now, context,
-                     failure_code="ALL_PAYMENT_ATTEMPTS_FAILED")
+            _advance(
+                db,
+                events,
+                ns,
+                oid,
+                "COMPENSATING",
+                "COMPENSATE_PAYMENT",
+                now,
+                context,
+                failure_code="ALL_PAYMENT_ATTEMPTS_FAILED",
+            )
             return
 
         op_key = _operation_key(oid, f"authorize:{attempt_number}")
@@ -165,16 +199,43 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
         if resp.status_code == 202:
             result = resp.json()
             if result["status"] == "SUCCESS":
-                _advance(db, events, ns, oid, "PAYMENT_PENDING", "COMMIT_STOCK", now, context,
-                         payment_id=result["payment_id"])
+                _advance(
+                    db,
+                    events,
+                    ns,
+                    oid,
+                    "PAYMENT_PENDING",
+                    "COMMIT_STOCK",
+                    now,
+                    context,
+                    payment_id=result["payment_id"],
+                )
             elif result["status"] == "FAILED" and attempt_number < 2:
                 _retry_step(db, ns, oid, "AUTHORIZE_PAYMENT", now)
             else:
-                _advance(db, events, ns, oid, "COMPENSATING", "COMPENSATE_PAYMENT", now, context,
-                         failure_code="PAYMENT_FAILED")
+                _advance(
+                    db,
+                    events,
+                    ns,
+                    oid,
+                    "COMPENSATING",
+                    "COMPENSATE_PAYMENT",
+                    now,
+                    context,
+                    failure_code="PAYMENT_FAILED",
+                )
         elif resp.status_code == 409:
-            _advance(db, events, ns, oid, "COMPENSATING", "COMPENSATE_PAYMENT", now, context,
-                     failure_code="PAYMENT_CONFLICT")
+            _advance(
+                db,
+                events,
+                ns,
+                oid,
+                "COMPENSATING",
+                "COMPENSATE_PAYMENT",
+                now,
+                context,
+                failure_code="PAYMENT_CONFLICT",
+            )
         else:
             raise RuntimeError(f"payment authorize returned {resp.status_code}")
 
@@ -195,8 +256,17 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
         if resp.status_code == 200:
             _advance(db, events, ns, oid, "COMMITTING_STOCK", "CONFIRM", now, context)
         elif resp.status_code == 409:
-            _advance(db, events, ns, oid, "COMPENSATING", "COMPENSATE_PAYMENT", now, context,
-                     failure_code="COMMIT_FAILED")
+            _advance(
+                db,
+                events,
+                ns,
+                oid,
+                "COMPENSATING",
+                "COMPENSATE_PAYMENT",
+                now,
+                context,
+                failure_code="COMMIT_FAILED",
+            )
         else:
             raise RuntimeError(f"inventory commit returned {resp.status_code}")
 
@@ -230,7 +300,11 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
             raise RuntimeError("inventory service unavailable during compensation")
 
         if resp.status_code == 409:
-            release_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            release_data = (
+                resp.json()
+                if resp.headers.get("content-type", "").startswith("application/json")
+                else {}
+            )
             error_detail = release_data.get("error", {}).get("message", "")
             if "committed" in error_detail.lower():
                 logger.info("order %s: inventory already committed, finishing forward", oid)
@@ -268,9 +342,13 @@ def _advance(db, events, ns, oid, new_status, next_step, now, context, **extra):
             RETURNING order_version
             """,
             (
-                new_status, now,
-                extra.get("reservation_id"), extra.get("payment_id"), extra.get("failure_code"),
-                ns, oid,
+                new_status,
+                now,
+                extra.get("reservation_id"),
+                extra.get("payment_id"),
+                extra.get("failure_code"),
+                ns,
+                oid,
             ),
         ).fetchone()["order_version"]
         tx.execute(
@@ -373,10 +451,12 @@ def _backoff(db, job):
                 """,
                 (attempt, now, job["namespace"], job["order_id"]),
             )
-        logger.warning("order %s moved to MANUAL_REVIEW after %d attempts", job["order_id"], attempt)
+        logger.warning(
+            "order %s moved to MANUAL_REVIEW after %d attempts", job["order_id"], attempt
+        )
         return
 
-    delay = min(BACKOFF_BASE_SECONDS * (2 ** attempt), 2.0)
+    delay = min(BACKOFF_BASE_SECONDS * (2**attempt), 2.0)
     with db.transaction() as tx:
         tx.execute(
             """

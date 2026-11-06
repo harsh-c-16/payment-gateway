@@ -1,12 +1,10 @@
 """Unit tests for outbox serialization and DDL loading — no database needed."""
 
-import json
-from pathlib import Path
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
-from shared.outbox import _canonical_json, _serialise, outbox_table_ddl, OutboxError
+from shared.outbox import OutboxError, _canonical_json, _serialise, outbox_table_ddl
 
 
 class TestCanonicalJson:
@@ -43,6 +41,7 @@ class TestSerialise:
 class TestAppendOutboxValidation:
     def test_requires_active_transaction(self):
         from psycopg.pq import TransactionStatus
+
         from shared.outbox import append_outbox
 
         mock_tx = MagicMock()

@@ -1,18 +1,12 @@
 """Unit tests for saga orchestration logic — mocked DB and HTTP calls."""
 
-import json
-from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from datetime import UTC, datetime
+from unittest.mock import MagicMock, patch
 
 from services.orders.saga import (
     MAX_SAGA_ATTEMPTS,
-    BACKOFF_BASE_SECONDS,
-    _advance,
     _backoff,
     _execute_step,
-    _finalize,
     _internal_headers,
     _retry_step,
     run_pending_sagas,
@@ -63,7 +57,9 @@ class TestRunPendingSagas:
         ctx = _context()
 
         result = run_pending_sagas(
-            db, events, ctx,
+            db,
+            events,
+            ctx,
             inventory_url="http://inventory:8004",
             payments_url="http://payments:8005",
             internal_token="",
@@ -81,7 +77,9 @@ class TestRunPendingSagas:
 
         with patch("services.orders.saga._execute_step") as mock_exec:
             result = run_pending_sagas(
-                db, events, ctx,
+                db,
+                events,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -101,7 +99,9 @@ class TestRunPendingSagas:
         with patch("services.orders.saga._execute_step", side_effect=RuntimeError("boom")):
             with patch("services.orders.saga._backoff") as mock_backoff:
                 result = run_pending_sagas(
-                    db, events, ctx,
+                    db,
+                    events,
+                    ctx,
                     inventory_url="http://inventory:8004",
                     payments_url="http://payments:8005",
                     internal_token="",
@@ -143,16 +143,20 @@ class TestExecuteStepReserve:
         mock_httpx.post.return_value = mock_response
 
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "total_amount_minor": 5000,
-            "reservation_id": None, "payment_id": None, "failure_code": None,
+            "order_id": "o1",
+            "total_amount_minor": 5000,
+            "reservation_id": None,
+            "payment_id": None,
+            "failure_code": None,
         }
-        tx.execute.return_value.fetchall.return_value = [
-            {"sku": "SKU-001", "quantity": 2}
-        ]
+        tx.execute.return_value.fetchall.return_value = [{"sku": "SKU-001", "quantity": 2}]
 
         with patch("services.orders.saga._advance") as mock_advance:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="tok",
@@ -174,15 +178,17 @@ class TestExecuteStepReserve:
         mock_httpx.post.return_value = mock_response
 
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "total_amount_minor": 5000,
+            "order_id": "o1",
+            "total_amount_minor": 5000,
         }
-        tx.execute.return_value.fetchall.return_value = [
-            {"sku": "SKU-001", "quantity": 1}
-        ]
+        tx.execute.return_value.fetchall.return_value = [{"sku": "SKU-001", "quantity": 1}]
 
         with patch("services.orders.saga._advance") as mock_advance:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -198,7 +204,12 @@ class TestExecuteStepAuthorizePayment:
         db, tx = _mock_db()
         events = MagicMock()
         ctx = _context()
-        job = {"namespace": "dev", "order_id": "o1", "planned_step": "AUTHORIZE_PAYMENT", "attempt": 0}
+        job = {
+            "namespace": "dev",
+            "order_id": "o1",
+            "planned_step": "AUTHORIZE_PAYMENT",
+            "attempt": 0,
+        }
 
         get_resp = MagicMock()
         get_resp.status_code = 200
@@ -212,13 +223,19 @@ class TestExecuteStepAuthorizePayment:
         mock_httpx.post.return_value = post_resp
 
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "total_amount_minor": 5000,
-            "reservation_id": "r1", "payment_id": None, "failure_code": None,
+            "order_id": "o1",
+            "total_amount_minor": 5000,
+            "reservation_id": "r1",
+            "payment_id": None,
+            "failure_code": None,
         }
 
         with patch("services.orders.saga._advance") as mock_advance:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -232,7 +249,12 @@ class TestExecuteStepAuthorizePayment:
         db, tx = _mock_db()
         events = MagicMock()
         ctx = _context()
-        job = {"namespace": "dev", "order_id": "o1", "planned_step": "AUTHORIZE_PAYMENT", "attempt": 0}
+        job = {
+            "namespace": "dev",
+            "order_id": "o1",
+            "planned_step": "AUTHORIZE_PAYMENT",
+            "attempt": 0,
+        }
 
         get_resp = MagicMock()
         get_resp.status_code = 200
@@ -246,12 +268,16 @@ class TestExecuteStepAuthorizePayment:
         mock_httpx.post.return_value = post_resp
 
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "total_amount_minor": 5000,
+            "order_id": "o1",
+            "total_amount_minor": 5000,
         }
 
         with patch("services.orders.saga._retry_step") as mock_retry:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -263,7 +289,12 @@ class TestExecuteStepAuthorizePayment:
         db, tx = _mock_db()
         events = MagicMock()
         ctx = _context()
-        job = {"namespace": "dev", "order_id": "o1", "planned_step": "AUTHORIZE_PAYMENT", "attempt": 0}
+        job = {
+            "namespace": "dev",
+            "order_id": "o1",
+            "planned_step": "AUTHORIZE_PAYMENT",
+            "attempt": 0,
+        }
 
         get_resp = MagicMock()
         get_resp.status_code = 200
@@ -272,12 +303,16 @@ class TestExecuteStepAuthorizePayment:
         mock_httpx.get.return_value = get_resp
 
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "total_amount_minor": 5000,
+            "order_id": "o1",
+            "total_amount_minor": 5000,
         }
 
         with patch("services.orders.saga._advance") as mock_advance:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -300,12 +335,16 @@ class TestExecuteStepCommitStock:
         mock_httpx.post.return_value = mock_response
 
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "reservation_id": "r1",
+            "order_id": "o1",
+            "reservation_id": "r1",
         }
 
         with patch("services.orders.saga._advance") as mock_advance:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -326,12 +365,16 @@ class TestExecuteStepCommitStock:
         mock_httpx.post.return_value = mock_response
 
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "reservation_id": "r1",
+            "order_id": "o1",
+            "reservation_id": "r1",
         }
 
         with patch("services.orders.saga._advance") as mock_advance:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -349,7 +392,10 @@ class TestExecuteStepConfirm:
 
         with patch("services.orders.saga._finalize") as mock_finalize:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -364,16 +410,25 @@ class TestCompensationSteps:
         db, tx = _mock_db()
         events = MagicMock()
         ctx = _context()
-        job = {"namespace": "dev", "order_id": "o1", "planned_step": "COMPENSATE_PAYMENT", "attempt": 0}
+        job = {
+            "namespace": "dev",
+            "order_id": "o1",
+            "planned_step": "COMPENSATE_PAYMENT",
+            "attempt": 0,
+        }
 
         mock_httpx.post.return_value = MagicMock(status_code=200)
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "failure_code": "PAYMENT_FAILED",
+            "order_id": "o1",
+            "failure_code": "PAYMENT_FAILED",
         }
 
         with patch("services.orders.saga._update_saga_step") as mock_update:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -387,16 +442,25 @@ class TestCompensationSteps:
         db, tx = _mock_db()
         events = MagicMock()
         ctx = _context()
-        job = {"namespace": "dev", "order_id": "o1", "planned_step": "COMPENSATE_RELEASE", "attempt": 0}
+        job = {
+            "namespace": "dev",
+            "order_id": "o1",
+            "planned_step": "COMPENSATE_RELEASE",
+            "attempt": 0,
+        }
 
         mock_httpx.post.return_value = MagicMock(status_code=200)
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "failure_code": "PAYMENT_FAILED",
+            "order_id": "o1",
+            "failure_code": "PAYMENT_FAILED",
         }
 
         with patch("services.orders.saga._update_saga_step") as mock_update:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",
@@ -412,7 +476,10 @@ class TestCompensationSteps:
 
         with patch("services.orders.saga._finalize") as mock_finalize:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",

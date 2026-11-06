@@ -114,7 +114,10 @@ def create_app(*, db=None, events=None):
     async def validation_error(request, error):
         fields = sorted({".".join(map(str, item["loc"])) for item in error.errors()})
         failure = ServiceError(
-            422, ErrorCode.VALIDATION_ERROR, "Request failed validation.", details={"fields": fields}
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            "Request failed validation.",
+            details={"fields": fields},
         )
         return JSONResponse(failure.response(correlation(request)), status_code=422)
 

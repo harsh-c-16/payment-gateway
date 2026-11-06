@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from services.inventory.errors import conflict, not_found, storage_unavailable
+from services.inventory.errors import conflict, not_found
 
 
 def reserve(db, events, namespace, request, context):

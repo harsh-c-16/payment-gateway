@@ -117,10 +117,16 @@ class TestFinishForward:
         ctx.request_id = "r"
         ctx.session_id = "s"
 
-        job = {"namespace": "dev", "order_id": "o1", "planned_step": "COMPENSATE_RELEASE", "attempt": 0}
+        job = {
+            "namespace": "dev",
+            "order_id": "o1",
+            "planned_step": "COMPENSATE_RELEASE",
+            "attempt": 0,
+        }
 
         tx.execute.return_value.fetchone.return_value = {
-            "order_id": "o1", "failure_code": "PAYMENT_FAILED",
+            "order_id": "o1",
+            "failure_code": "PAYMENT_FAILED",
         }
 
         resp = MagicMock()
@@ -133,7 +139,10 @@ class TestFinishForward:
 
         with patch("services.orders.saga._advance") as mock_advance:
             _execute_step(
-                db, events, job, ctx,
+                db,
+                events,
+                job,
+                ctx,
                 inventory_url="http://inventory:8004",
                 payments_url="http://payments:8005",
                 internal_token="",

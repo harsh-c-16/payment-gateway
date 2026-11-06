@@ -114,7 +114,9 @@ def create_app(*, db=None, events=None):
                         session_id=None,
                     )
                     processed = saga.run_pending_sagas(
-                        db, events, context,
+                        db,
+                        events,
+                        context,
                         inventory_url=inventory_url,
                         payments_url=payments_url,
                         internal_token=internal_token,
@@ -159,14 +161,21 @@ def create_app(*, db=None, events=None):
     async def validation_error(request, error):
         fields = sorted({".".join(map(str, item["loc"])) for item in error.errors()})
         failure = ServiceError(
-            422, ErrorCode.VALIDATION_ERROR, "Request failed validation.", details={"fields": fields}
+            422,
+            ErrorCode.VALIDATION_ERROR,
+            "Request failed validation.",
+            details={"fields": fields},
         )
         return JSONResponse(failure.response(correlation(request)), status_code=422)
 
     @app.post("/v1/orders", status_code=202)
     def create_order(body: CreateOrderRequest, context: Context):
         return commands.create_order(
-            db, events, context.namespace, body, context,
+            db,
+            events,
+            context.namespace,
+            body,
+            context,
             catalog_url=catalog_url,
             internal_token=internal_token,
         )
@@ -244,7 +253,9 @@ def create_app(*, db=None, events=None):
     def set_fault_barrier(body: dict, context: Context):
         """Set or clear a fault barrier. Only usable in benchmark mode."""
         if not os.environ.get("BENCHMARK_MODE", "false") == "true":
-            raise ServiceError(403, ErrorCode.UNAUTHORIZED, "Fault barriers are only available in benchmark mode.")
+            raise ServiceError(
+                403, ErrorCode.UNAUTHORIZED, "Fault barriers are only available in benchmark mode."
+            )
         name = body.get("barrier_name")
         enabled = body.get("enabled", False)
         action = body.get("action", "CRASH")

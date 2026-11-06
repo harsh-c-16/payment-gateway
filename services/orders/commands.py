@@ -1,14 +1,12 @@
 """Order creation and status queries."""
 
-import hashlib
-import json
 import logging
 from datetime import UTC, datetime
 from uuid import uuid4
 
 import httpx
 
-from services.orders.errors import conflict, not_found, ServiceError
+from services.orders.errors import ServiceError, not_found
 from shared.contracts.common import ErrorCode
 
 logger = logging.getLogger("orders")
@@ -32,9 +30,14 @@ def create_order(db, events, namespace, request, context, *, catalog_url, intern
             RETURNING order_id
             """,
             (
-                namespace, order_id, request.quote_id,
-                context.user_id, request.session_id or context.session_id,
-                quote["total_amount_minor"], now, now,
+                namespace,
+                order_id,
+                request.quote_id,
+                context.user_id,
+                request.session_id or context.session_id,
+                quote["total_amount_minor"],
+                now,
+                now,
             ),
         ).fetchone()
 
@@ -57,8 +60,12 @@ def create_order(db, events, namespace, request, context, *, catalog_url, intern
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
-                    namespace, order_id, line["sku"], line["quantity"],
-                    line["unit_price_minor"], line["line_total_minor"],
+                    namespace,
+                    order_id,
+                    line["sku"],
+                    line["quantity"],
+                    line["unit_price_minor"],
+                    line["line_total_minor"],
                     line.get("catalog_version", 1),
                 ),
             )
@@ -150,9 +157,7 @@ def _fetch_quote(catalog_url, quote_id, context, internal_token):
         return resp.json()
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == 404:
-            raise ServiceError(
-                400, ErrorCode.BAD_REQUEST, "Quote not found or expired."
-            ) from exc
+            raise ServiceError(400, ErrorCode.BAD_REQUEST, "Quote not found or expired.") from exc
         raise ServiceError(
             503, ErrorCode.DEPENDENCY_UNAVAILABLE, "Catalog service unavailable."
         ) from exc

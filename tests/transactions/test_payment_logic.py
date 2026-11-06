@@ -41,6 +41,7 @@ class TestAuthorize:
         request.currency = "INR"
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
@@ -54,15 +55,21 @@ class TestAuthorize:
                 return cursor
             elif call_count["n"] == 4:  # SELECT existing attempt
                 cursor.fetchone.return_value = {
-                    "payment_id": "p-existing", "status": "SUCCESS", "amount_minor": 5000,
+                    "payment_id": "p-existing",
+                    "status": "SUCCESS",
+                    "amount_minor": 5000,
                 }
                 return cursor
             elif call_count["n"] == 5:  # _attempt_snapshot
                 cursor.fetchone.return_value = {
-                    "payment_id": "p-existing", "order_id": "o1",
-                    "attempt_number": 1, "status": "SUCCESS",
-                    "amount_minor": 5000, "currency": "INR",
-                    "failure_code": None, "debit_id": "d1",
+                    "payment_id": "p-existing",
+                    "order_id": "o1",
+                    "attempt_number": 1,
+                    "status": "SUCCESS",
+                    "amount_minor": 5000,
+                    "currency": "INR",
+                    "failure_code": None,
+                    "debit_id": "d1",
                     "reversal_id": None,
                     "created_at": datetime.now(UTC),
                     "updated_at": datetime.now(UTC),
@@ -88,6 +95,7 @@ class TestAuthorize:
         request.currency = "INR"
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
@@ -121,6 +129,7 @@ class TestAuthorize:
         request.currency = "INR"
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
@@ -140,10 +149,14 @@ class TestAuthorize:
                 return cursor
             elif call_count["n"] == 7:  # _attempt_snapshot
                 cursor.fetchone.return_value = {
-                    "payment_id": "p1", "order_id": "o1",
-                    "attempt_number": 1, "status": "SUCCESS",
-                    "amount_minor": 5000, "currency": "INR",
-                    "failure_code": None, "debit_id": "d1",
+                    "payment_id": "p1",
+                    "order_id": "o1",
+                    "attempt_number": 1,
+                    "status": "SUCCESS",
+                    "amount_minor": 5000,
+                    "currency": "INR",
+                    "failure_code": None,
+                    "debit_id": "d1",
                     "reversal_id": None,
                     "created_at": datetime.now(UTC),
                     "updated_at": datetime.now(UTC),
@@ -175,6 +188,7 @@ class TestAuthorize:
         request.currency = "INR"
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
@@ -192,11 +206,15 @@ class TestAuthorize:
                 return cursor
             elif call_count["n"] == 6:  # _attempt_snapshot
                 cursor.fetchone.return_value = {
-                    "payment_id": "p1", "order_id": "o1",
-                    "attempt_number": 1, "status": "FAILED",
-                    "amount_minor": 5000, "currency": "INR",
+                    "payment_id": "p1",
+                    "order_id": "o1",
+                    "attempt_number": 1,
+                    "status": "FAILED",
+                    "amount_minor": 5000,
+                    "currency": "INR",
                     "failure_code": "SIMULATED_DECLINE",
-                    "debit_id": None, "reversal_id": None,
+                    "debit_id": None,
+                    "reversal_id": None,
                     "created_at": datetime.now(UTC),
                     "updated_at": datetime.now(UTC),
                 }
@@ -233,6 +251,7 @@ class TestReversePayments:
         ctx = _context()
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
@@ -242,15 +261,21 @@ class TestReversePayments:
             elif call_count["n"] == 2:  # UPDATE quiesced
                 return cursor
             elif call_count["n"] == 3:  # SELECT attempts
-                cursor.fetchall.return_value = [{
-                    "payment_id": "p1", "order_id": "o1",
-                    "attempt_number": 1, "status": "SUCCESS",
-                    "amount_minor": 5000, "currency": "INR",
-                    "failure_code": None, "debit_id": "d1",
-                    "reversal_id": None,
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }]
+                cursor.fetchall.return_value = [
+                    {
+                        "payment_id": "p1",
+                        "order_id": "o1",
+                        "attempt_number": 1,
+                        "status": "SUCCESS",
+                        "amount_minor": 5000,
+                        "currency": "INR",
+                        "failure_code": None,
+                        "debit_id": "d1",
+                        "reversal_id": None,
+                        "created_at": datetime.now(UTC),
+                        "updated_at": datetime.now(UTC),
+                    }
+                ]
                 return cursor
             elif call_count["n"] == 4:  # INSERT reversal ledger entry
                 return cursor
@@ -261,15 +286,21 @@ class TestReversePayments:
                 cursor.fetchone.return_value = {"quiesced": True}
                 return cursor
             elif call_count["n"] == 7:
-                cursor.fetchall.return_value = [{
-                    "payment_id": "p1", "order_id": "o1",
-                    "attempt_number": 1, "status": "REVERSED",
-                    "amount_minor": 5000, "currency": "INR",
-                    "failure_code": None, "debit_id": "d1",
-                    "reversal_id": "rev1",
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }]
+                cursor.fetchall.return_value = [
+                    {
+                        "payment_id": "p1",
+                        "order_id": "o1",
+                        "attempt_number": 1,
+                        "status": "REVERSED",
+                        "amount_minor": 5000,
+                        "currency": "INR",
+                        "failure_code": None,
+                        "debit_id": "d1",
+                        "reversal_id": "rev1",
+                        "created_at": datetime.now(UTC),
+                        "updated_at": datetime.now(UTC),
+                    }
+                ]
                 return cursor
             elif call_count["n"] == 8:
                 cursor.fetchone.return_value = {"net": 0}
@@ -331,6 +362,7 @@ class TestEventPayloads:
         request.currency = "INR"
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
@@ -340,10 +372,14 @@ class TestEventPayloads:
                 cursor.fetchone.return_value = {"payment_id": "p1"}
             elif call_count["n"] == 7:
                 cursor.fetchone.return_value = {
-                    "payment_id": "p1", "order_id": "o1",
-                    "attempt_number": 1, "status": "SUCCESS",
-                    "amount_minor": 5000, "currency": "INR",
-                    "failure_code": None, "debit_id": "d1",
+                    "payment_id": "p1",
+                    "order_id": "o1",
+                    "attempt_number": 1,
+                    "status": "SUCCESS",
+                    "amount_minor": 5000,
+                    "currency": "INR",
+                    "failure_code": None,
+                    "debit_id": "d1",
                     "reversal_id": None,
                     "created_at": datetime.now(UTC),
                     "updated_at": datetime.now(UTC),
@@ -355,9 +391,16 @@ class TestEventPayloads:
 
         payload = events.append.call_args[1]["payload"]
         required_fields = [
-            "payment_id", "order_id", "attempt_number", "status",
-            "amount_minor", "currency", "attempt_created_at",
-            "failure_code", "debit_id", "reversal_id",
+            "payment_id",
+            "order_id",
+            "attempt_number",
+            "status",
+            "amount_minor",
+            "currency",
+            "attempt_created_at",
+            "failure_code",
+            "debit_id",
+            "reversal_id",
         ]
         for field in required_fields:
             assert field in payload, f"Missing required field: {field}"

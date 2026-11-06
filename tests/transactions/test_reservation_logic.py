@@ -1,7 +1,7 @@
 """Unit tests for inventory reservation logic — mocked DB."""
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -64,6 +64,7 @@ class TestReserve:
         insert_item_cursor = MagicMock()
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             n = call_count["n"]
@@ -98,7 +99,8 @@ class TestReserve:
 
         # Verify the UPDATE inventory calls happened in sorted order
         update_calls = [
-            c for c in tx.execute.call_args_list
+            c
+            for c in tx.execute.call_args_list
             if len(c[0]) > 0 and "UPDATE inventory" in str(c[0][0])
         ]
         if len(update_calls) >= 2:
@@ -112,8 +114,11 @@ class TestGetStock:
 
         db, tx = _mock_db()
         tx.execute.return_value.fetchone.return_value = {
-            "sku": "SKU-001", "on_hand": 100, "reserved": 10,
-            "available": 90, "stock_version": 1,
+            "sku": "SKU-001",
+            "on_hand": 100,
+            "reserved": 10,
+            "available": 90,
+            "stock_version": 1,
             "changed_at": datetime.now(UTC),
         }
         result = get_stock(db, "dev", "SKU-001")
@@ -137,13 +142,16 @@ class TestGetReservationByOrder:
 
         db, tx = _mock_db()
         row = {
-            "reservation_id": "r1", "order_id": "o1",
-            "state": "ACTIVE", "expires_at": datetime.now(UTC),
+            "reservation_id": "r1",
+            "order_id": "o1",
+            "state": "ACTIVE",
+            "expires_at": datetime.now(UTC),
             "updated_at": datetime.now(UTC),
         }
         items = [{"sku": "SKU-001", "quantity": 2}]
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
@@ -180,17 +188,23 @@ class TestCommitReservation:
         ctx = _context()
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
             if call_count["n"] == 1:
                 cursor.fetchone.return_value = {
-                    "reservation_id": "r1", "state": "COMMITTED", "expires_at": datetime.now(UTC),
+                    "reservation_id": "r1",
+                    "state": "COMMITTED",
+                    "expires_at": datetime.now(UTC),
                 }
             elif call_count["n"] == 2:
                 cursor.fetchone.return_value = {
-                    "reservation_id": "r1", "order_id": "o1", "state": "COMMITTED",
-                    "expires_at": datetime.now(UTC), "updated_at": datetime.now(UTC),
+                    "reservation_id": "r1",
+                    "order_id": "o1",
+                    "state": "COMMITTED",
+                    "expires_at": datetime.now(UTC),
+                    "updated_at": datetime.now(UTC),
                 }
             elif call_count["n"] == 3:
                 cursor.fetchall.return_value = [{"sku": "SKU-001", "quantity": 2}]
@@ -209,7 +223,8 @@ class TestCommitReservation:
         ctx = _context()
 
         tx.execute.return_value.fetchone.return_value = {
-            "reservation_id": "r1", "state": "EXPIRED",
+            "reservation_id": "r1",
+            "state": "EXPIRED",
             "expires_at": datetime.now(UTC) - timedelta(seconds=60),
         }
 
@@ -225,7 +240,8 @@ class TestCommitReservation:
         ctx = _context()
 
         tx.execute.return_value.fetchone.return_value = {
-            "reservation_id": "r-other", "state": "ACTIVE",
+            "reservation_id": "r-other",
+            "state": "ACTIVE",
             "expires_at": datetime.now(UTC) + timedelta(seconds=30),
         }
 
@@ -243,17 +259,22 @@ class TestReleaseReservation:
         ctx = _context()
 
         call_count = {"n": 0}
+
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
             if call_count["n"] == 1:
                 cursor.fetchone.return_value = {
-                    "reservation_id": "r1", "state": "RELEASED",
+                    "reservation_id": "r1",
+                    "state": "RELEASED",
                 }
             elif call_count["n"] == 2:
                 cursor.fetchone.return_value = {
-                    "reservation_id": "r1", "order_id": "o1", "state": "RELEASED",
-                    "expires_at": datetime.now(UTC), "updated_at": datetime.now(UTC),
+                    "reservation_id": "r1",
+                    "order_id": "o1",
+                    "state": "RELEASED",
+                    "expires_at": datetime.now(UTC),
+                    "updated_at": datetime.now(UTC),
                 }
             elif call_count["n"] == 3:
                 cursor.fetchall.return_value = []
@@ -271,7 +292,8 @@ class TestReleaseReservation:
         ctx = _context()
 
         tx.execute.return_value.fetchone.return_value = {
-            "reservation_id": "r1", "state": "COMMITTED",
+            "reservation_id": "r1",
+            "state": "COMMITTED",
         }
 
         with pytest.raises(ServiceError) as exc_info:

@@ -4,7 +4,7 @@ import random
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from services.payments.errors import conflict, not_found
+from services.payments.errors import conflict
 
 SIMULATED_FAILURE_RATE = 0.15
 
@@ -41,8 +41,14 @@ def authorize(db, events, namespace, request, context):
             RETURNING payment_id
             """,
             (
-                namespace, payment_id, request.order_id, request.attempt_number,
-                request.amount_minor, request.currency, now, now,
+                namespace,
+                payment_id,
+                request.order_id,
+                request.attempt_number,
+                request.amount_minor,
+                request.currency,
+                now,
+                now,
             ),
         ).fetchone()
 
@@ -97,9 +103,13 @@ def authorize(db, events, namespace, request, context):
                 event_time=now,
             )
         else:
-            failure_code = random.choice([
-                "SIMULATED_DECLINE", "SIMULATED_TIMEOUT", "SIMULATED_INSUFFICIENT_FUNDS",
-            ])
+            failure_code = random.choice(
+                [
+                    "SIMULATED_DECLINE",
+                    "SIMULATED_TIMEOUT",
+                    "SIMULATED_INSUFFICIENT_FUNDS",
+                ]
+            )
             tx.execute(
                 """
                 UPDATE payment_attempts
@@ -214,7 +224,14 @@ def reverse_payments(db, events, namespace, order_id, reason, context):
                     INSERT INTO ledger_entries (namespace, entry_id, payment_id, kind, amount_minor, currency, created_at)
                     VALUES (%s, %s, %s, 'REVERSAL', %s, %s, %s)
                     """,
-                    (namespace, reversal_id, attempt["payment_id"], attempt["amount_minor"], attempt["currency"], now),
+                    (
+                        namespace,
+                        reversal_id,
+                        attempt["payment_id"],
+                        attempt["amount_minor"],
+                        attempt["currency"],
+                        now,
+                    ),
                 )
                 tx.execute(
                     """
@@ -234,7 +251,9 @@ def reverse_payments(db, events, namespace, order_id, reason, context):
                         "status": "REVERSED",
                         "amount_minor": attempt["amount_minor"],
                         "currency": attempt["currency"],
-                        "attempt_created_at": attempt["created_at"].isoformat().replace("+00:00", "Z"),
+                        "attempt_created_at": attempt["created_at"]
+                        .isoformat()
+                        .replace("+00:00", "Z"),
                         "failure_code": None,
                         "debit_id": attempt["debit_id"],
                         "reversal_id": reversal_id,
