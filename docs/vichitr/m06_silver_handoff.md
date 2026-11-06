@@ -58,12 +58,13 @@ covering all ten dirty subcases. It checks real SQL, raw recovery, active Parque
 and notifications through an explicitly labelled SQL outbox double. It is not the
 required full 100,000-record W-QUALITY run or a throughput measurement.
 
-An exact reason-code conflict remains for consumer review: benchmarks/quality.py
-SUBCASES expects `wrong_money_type → INVALID_TYPE`; the existing registered-event
-validator classifies wrongly typed monetary fields as `INVALID_AMOUNT`. This
-checkpoint preserves that public validator behavior and records the difference;
-Jaineel/Vichitr must agree before freezing full-fixture reason reconciliation.
-Both paths classify the source as invalid, so disposition arithmetic is unaffected.
+Resolved 6 November 2026 with the user's explicit approval to align the validator
+with the independent fixture: wrongly typed monetary fields return `INVALID_TYPE`;
+negative or out-of-range integer amounts return `INVALID_AMOUNT`. The independent
+fixture, registered schemas, accepted input types and disposition arithmetic are
+unchanged. Regression checks cover amount, order total and price fields.
+Type errors retain precedence for negative/overflowing floats too; schema error
+ordering cannot turn a wrong type into an integer amount error.
 
 Full W-QUALITY and independent G0/G1/G4 remain NOT_RUN. Aditya must supply the real
 shared outbox; Harsh supplies reviewed catalogue/SKU/dictionary artifacts; Jaineel

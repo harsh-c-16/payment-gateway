@@ -1,8 +1,8 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 2 November 2026. Branch: `vichitr`. Independent readiness work is complete: consumer-buffer observations, committed quarantine counters, worker metrics, refreshed native recovery checks and isolated SQL initialization/migration rehearsal. Complete selected regression coverage is recorded in [progress](progress.md) and [test skips](test_skips.md). Full W-QUALITY, actual owner integrations, baseline measurement and O1/scaling remain pending. See the [team handoff](team_handoff.md) for exact inputs and next steps.
+Prepared: 31 October 2026; updated 6 November 2026. Branch: `vichitr`. Actual CSV import, repeat-safe seed, real outbox/Kafka/projection/Bronze/Silver/Gold, repeated full-source replay and compaction passed for 19,920 active SKUs. The owned quality materializer passed all 100,000 wire-only records with approved money-type reasons. Native Docker restart/readiness remains unstable; failed reports are retained. CI selection stays unchanged. Full live W-QUALITY, reviewed baseline measurement, O1/scaling and whole-business gates remain open; see [progress](progress.md), [test skips](test_skips.md) and [team handoff](team_handoff.md).
 
-This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Implement one checkpoint at a time, verify it, record evidence, and stop before the next checkpoint.
+This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Verify and record each checkpoint while continuing the user's authorized combined implementation pass; preserve the correctness gates before performance comparisons.
 
 ## Project and current checkout
 
@@ -10,7 +10,11 @@ The project is an agentic shopping assistant backed by independently owned catal
 
 Your M4 path is: service-local outboxes → Kafka → exact-byte Bronze → validated/deduplicated Silver → Gold staging → immutable Parquet → active manifest → analytical readers. Kafka offset completion is not Gold visibility.
 
-At inspection, `infra/`, the five M4 pipeline directories, `shared/event_transport/` and `shared/local_diagnostics/` contain scope READMEs; event contracts, analytics migrations and pipeline tests contain placeholders. Event/analytics DTOs and the analytics OpenAPI implementation are absent. Aditya's shared outbox implementation is also absent. Jaineel already supplies application dependencies/`uv.lock`, `projectctl`, telemetry, independent fixtures/oracles, and integration/benchmark/report machinery. His documented tests are previous evidence, not tests rerun for this plan. Real M4 integration and performance remain NOT_RUN.
+The original scaffold inspection is historical. M4 contracts, SDK, pipelines,
+analytics migrations/API, recovery and replay now exist. Main `f488f63` also
+supplies Harsh's catalogue/compactor and Aditya's transaction services/outbox.
+Current local integration uses actual implementations and retained data;
+whole-business and independently measured performance acceptance remain pending.
 
 Reuse the existing Python 3.11 application lock and installed dependency families. Do not restart Jaineel's P1–P11 playbook: it assigns his work, not yours.
 

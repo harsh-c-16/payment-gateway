@@ -63,7 +63,13 @@ def publisher_session(pipeline, namespace):
         try:
             yield tx
         finally:
-            tx.execute("SELECT pg_advisory_unlock(%s)", (key,))
+            try:
+                tx.execute(
+                    "DROP TABLE IF EXISTS pg_temp.m08_pending, pg_temp.m08_members, "
+                    "pg_temp.m08_candidate_rows"
+                )
+            finally:
+                tx.execute("SELECT pg_advisory_unlock(%s)", (key,))
 
 
 def _active(tx, namespace):

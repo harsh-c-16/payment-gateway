@@ -325,7 +325,7 @@ def test_migration_004_backfills_existing_silver_and_is_idempotent(vertical, mon
     for _ in range(2):
         with vertical.connect() as tx, tx.transaction():
             migrate_analytics(tx)
-    assert scalar(vertical, "SELECT count(*) FROM analytics_schema_migrations") == 9
+    assert scalar(vertical, "SELECT count(*) FROM analytics_schema_migrations") == 10
     assert scalar(vertical, "SELECT count(*) FROM gold_business_contributions") == 2
     assert scalar(vertical, "SELECT sum(unique_events) FROM pipeline_minute") == 2
     vertical.publish_snapshot(vertical.test_namespace)

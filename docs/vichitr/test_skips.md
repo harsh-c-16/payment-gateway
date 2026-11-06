@@ -1,3 +1,40 @@
+# Current integration coverage: 6 November 2026
+
+CI selection is unchanged. Evidence is under `artifacts/integration-20261106/`;
+the prior checkpoint reports below remain historical.
+
+| Cohort | Result | Evidence |
+|---|---|---|
+| Final host pipelines/contracts/integration + existing outbox callers | 415 passed, 142 skipped | `host-delivered-final.xml` |
+| Complete Linux pipelines + real compactor tests, before later pooled-session fixes | 391 passed, 12 skipped | `linux-final.xml` |
+| Final affected publication/replay/crash/compactor tests | 67 passed | `pooled-publication-final.xml` |
+| Final contract/transport/quality materializer | 138 passed | `contracts-delivery.xml` |
+| Final startup metadata/durability configuration | 43 passed | `startup-final.xml` |
+| Additional real storage opt-ins | 3 passed | `storage-optins.xml` |
+| Real shared outbox with actual broker pause/resume | 1 passed | `dlq-real.xml` |
+
+The 12 Linux skips comprise: the Windows guard (passed on host), the three storage
+opt-ins (passed separately), the new real-outbox outage (passed separately), six
+native Docker/registry/SDK opt-ins, and the legacy outage case with an explicit
+outbox/relay double. The six-case restored-profile rehearsal initially had
+5 failures/1 pass: startup HTTP/SQL timeouts and topic ISR metadata lag. Raw report:
+`legacy-live-final.xml`. After bounded topic-readiness handling, the retry had
+3 failures/3 passes (`legacy-live-retry.xml`). A CPU-only candidate had 4 failures/
+2 passes and was rejected/reverted (`legacy-live-cpu-profile.xml`). Docker Desktop's
+fresh restart then timed out while starting. The three native SDK checks have a
+current default-profile pass; native PostgreSQL/Kafka recreation and registry
+checks remain unresolved. The legacy double-outage case was not rerun. Historical
+passes do not close these gaps. See [progress](progress.md).
+
+The separate cold-query check remains unavailable because `/proc/self/io` is
+missing on this kernel (`focused-live.xml`); its assertion is preserved. Full live
+100,000-record W-QUALITY, paired B0/O1, scaling and whole-business fault gates remain
+NOT_RUN pending reviewed runner/owner bindings. The actual-catalogue 100,000-packet
+wire-only preflight passed and is distinct from those gates.
+
+Original failures and interrupted reports remain available; no assertion was
+loosened or required test disabled to obtain a pass.
+
 # Independent readiness skip closure: 2 November 2026
 
 Final runtime **46a29b4**: complete Linux pipelines **331 passed, 8 skipped**;

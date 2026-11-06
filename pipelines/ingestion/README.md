@@ -50,11 +50,12 @@ registered business event types with Silver/reducers or quarantine plus the real
 commits, then marks only the owned contiguous consumer prefix. Missing outbox
 blocks invalid sources. Live broker tests prove capture-only commits are rejected.
 
-migrate_analytics(tx) applies analytics migrations 001_capture.sql and
-002_vertical_slice.sql and 003_full_silver.sql using a
-transaction lock and normalized-line-ending checksum. Caller owns commit. It creates
-capture/source receipt, quarantine and processing-run foundations; no substitute
-outbox. See [handoff](../../docs/vichitr/m04_capture_handoff.md) for CLI composition
+migrate_analytics(tx) applies migrations 001 through 010 using a transaction lock
+and normalized-line-ending checksums. Caller owns commit. Migration 010 installs
+the actual shared outbox template in analytics_db; diagnostics use the real
+`shared.outbox.append_outbox` in the same caller transaction. Readiness requires
+all ten migrations, the outbox table and callable binding.
+See [handoff](../../docs/vichitr/m04_capture_handoff.md) for CLI composition
 and remaining provider work. The [M05 handoff](../../docs/vichitr/m05_vertical_handoff.md)
 describes worker/API startup and publication. The [M06 handoff](../../docs/vichitr/m06_silver_handoff.md)
 documents all-domain typed Silver, migration/worker changes and remaining quality gates.

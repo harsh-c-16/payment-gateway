@@ -21,6 +21,9 @@ CAPTURE_MAX_BYTES = 2 * 1024 * 1024
 CAPTURE_MAX_SECONDS = 0.050
 BATCH_MAX_RECORDS = 2000
 BATCH_MAX_BYTES = 16 * 1024 * 1024
+NAMESPACE_VALIDATOR = TypeAdapter(Namespace)
+COUNT_VALIDATOR = TypeAdapter(Count)
+UTC_TIME_VALIDATOR = TypeAdapter(UTCTime)
 
 
 class CaptureTooLarge(RuntimeError):
@@ -34,18 +37,18 @@ class SourceCorruption(RuntimeError):
 def validate_source(record):
     if not isinstance(record, SourceRecord):
         raise TypeError("Expected SourceRecord")
-    TypeAdapter(Namespace).validate_python(record.source_namespace)
+    NAMESPACE_VALIDATOR.validate_python(record.source_namespace)
     if not isinstance(record.topic, str) or not TOPIC.fullmatch(record.topic):
         raise ValueError("Expected a namespaced business topic")
     if not record.topic.startswith(record.source_namespace + "."):
         raise ValueError("Source topic and namespace differ")
     if record.topic.endswith(".dead-letter.v1"):
         raise ValueError("DLQ notifications are not business Bronze ingestion")
-    TypeAdapter(Count).validate_python(record.partition)
-    TypeAdapter(Count).validate_python(record.offset)
-    TypeAdapter(UTCTime).validate_python(record.ingested_at)
+    COUNT_VALIDATOR.validate_python(record.partition)
+    COUNT_VALIDATOR.validate_python(record.offset)
+    UTC_TIME_VALIDATOR.validate_python(record.ingested_at)
     if record.broker_timestamp is not None:
-        TypeAdapter(UTCTime).validate_python(record.broker_timestamp)
+        UTC_TIME_VALIDATOR.validate_python(record.broker_timestamp)
     if not isinstance(record.headers, tuple):
         raise TypeError("Source headers must be an ordered tuple")
     for name, _ in record.headers:
@@ -196,8 +199,8 @@ def read_bronze(store, receipt):
                     tuple((name, _decode(value)) for name, value in document["headers"]),
                     None
                     if document["broker_timestamp"] is None
-                    else TypeAdapter(UTCTime).validate_python(document["broker_timestamp"]),
-                    TypeAdapter(UTCTime).validate_python(document["ingested_at"]),
+                    else UTC_TIME_VALIDATOR.validate_python(document["broker_timestamp"]),
+                    UTC_TIME_VALIDATOR.validate_python(document["ingested_at"]),
                     document["raw_sha256"],
                 )
                 validate_source(record)

@@ -118,7 +118,7 @@ def verify(*, memory_mib=2048, cpu_cores=0.75):
                 '{"health":{{json .State.Health.Status}},"mounts":{{json .Mounts}},'
                 '"ports":{{json .NetworkSettings.Ports}},"memory":{{json .HostConfig.Memory}},'
                 '"cpu":{{json .HostConfig.NanoCpus}},"image_id":{{json .Image}},'
-                '"image":{{json .Config.Image}}}',
+                '"image":{{json .Config.Image}},"init":{{json .HostConfig.Init}}}',
                 container,
             ]
         )
@@ -128,6 +128,7 @@ def verify(*, memory_mib=2048, cpu_cores=0.75):
     ports = state["ports"].get("5432/tcp")
     if (
         state["health"] != "healthy"
+        or state.get("init") is not True
         or len(mounts) != 1
         or mounts[0]["Type"] != "volume"
         or not mounts[0]["RW"]
@@ -175,6 +176,7 @@ def verify(*, memory_mib=2048, cpu_cores=0.75):
         "profile": PROFILE,
         "scope": "PostgreSQL checks only; full G0 NOT_RUN",
         "image_id": state["image_id"],
+        "init": state["init"],
         "data_volume": mounts[0]["Name"],
         "databases": observations,
     }

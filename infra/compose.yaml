@@ -1,6 +1,8 @@
 name: group3-postgres-local
 services:
   postgres:
+    # Reap orphaned probes without PostgreSQL mistaking them for failed server children.
+    init: true
     image: pgvector/pgvector:0.8.1-pg18-trixie@sha256:2fd905ba95f99a51be207d0ff0b8d5b8538cbce7e9083b3ccfa65b93bb28b938
     environment:
       POSTGRES_USER: group3_admin
@@ -21,7 +23,7 @@ services:
       - payments_password
       - analytics_password
     healthcheck:
-      test: [CMD-SHELL, "pg_isready -h 127.0.0.1 -U group3_admin -d postgres"]
+      test: [CMD, pg_isready, -h, 127.0.0.1, -U, group3_admin, -d, postgres]
       interval: 2s
       timeout: 3s
       retries: 30

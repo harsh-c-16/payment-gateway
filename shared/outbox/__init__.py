@@ -154,7 +154,11 @@ def relay_once(db_connection, publisher, *, limit=100, claim_id=None) -> RelayRe
     oldest = min(r["created_at"] for r in rows)
     result.oldest_pending_age_ms = (now - oldest).total_seconds() * 1000
 
+    blocked_aggregates = set()
     for row in rows:
+        aggregate = (row["namespace"], row["aggregate_type"], row["aggregate_id"])
+        if aggregate in blocked_aggregates:
+            continue
         event_id = str(row["event_id"])
         topic = row["topic"]
         key = row["partition_key"].encode("utf-8") if isinstance(row["partition_key"], str) else row["partition_key"]
@@ -169,12 +173,14 @@ def relay_once(db_connection, publisher, *, limit=100, claim_id=None) -> RelayRe
         except Exception:
             logger.exception("outbox relay: cannot deserialize row %s", event_id)
             result.retryable_failed += 1
+            blocked_aggregates.add(aggregate)
             continue
 
         try:
             ack: PublishAck = publisher.publish_event(event, topic, key)
             result.broker_acked += 1
         except RetryablePublishError as exc:
+            blocked_aggregates.add(aggregate)
             if exc.uncertain:
                 result.uncertain += 1
             else:

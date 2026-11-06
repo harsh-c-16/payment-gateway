@@ -56,6 +56,25 @@ def write(store, path="raw/archive.bin", data=b"exact\x00\xff\nbytes"):
     return store.write_immutable(path, data, hashlib.sha256(data).hexdigest())
 
 
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("source_namespace", ""),
+        ("source_namespace", "dev"),
+        ("partition", True),
+        ("partition", "1"),
+        ("partition", -1),
+        ("offset", True),
+        ("offset", -1),
+        ("ingested_at", datetime(2026, 11, 6)),
+        ("broker_timestamp", datetime(2026, 11, 6)),
+    ],
+)
+def test_source_validation_rejects_bad_identity_coordinates_and_non_utc_times(field, value):
+    with pytest.raises(ValueError):
+        bronze.validate_source(replace(source(), **{field: value}))
+
+
 def test_native_windows_fails_before_writing(tmp_path):
     if os.name == "posix":
         pytest.skip("Windows-only unsupported-filesystem check")

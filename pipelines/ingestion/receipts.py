@@ -20,6 +20,7 @@ EVENT_TIME_MIGRATION = MIGRATION.with_name("006_event_time.sql")
 REPLAY_MIGRATION = MIGRATION.with_name("007_replay.sql")
 REPLAY_KEYS_MIGRATION = MIGRATION.with_name("008_replay_request_namespace.sql")
 SINK_OBSERVATIONS_MIGRATION = MIGRATION.with_name("009_sink_observations.sql")
+OUTBOX_MIGRATION = MIGRATION.with_name("010_shared_outbox.sql")
 
 
 def _transaction(tx):
@@ -45,6 +46,7 @@ def migrate_analytics(tx):
             (7, REPLAY_MIGRATION),
             (8, REPLAY_KEYS_MIGRATION),
             (9, SINK_OBSERVATIONS_MIGRATION),
+            (10, OUTBOX_MIGRATION),
         ):
             # Git checkouts may use CRLF; checksums agree across host OSes.
             data = path.read_text(encoding="utf-8").encode("utf-8")

@@ -13,7 +13,15 @@ adds the opt-in analytics API/B0 worker and one supported Silver/Gold slice.
 [M06](../docs/vichitr/m06_silver_handoff.md) extends the worker/Silver files to all
 24 registered business types and adds immutable analytics migration 003. Apply it
 through the existing analytics adapter before starting the updated API/worker.
-Other owners' services, the real outbox and benchmark readiness remain pending.
+Main now includes the catalogue, transaction services and real shared outbox.
+Analytics migration 010 installs its owned outbox table. Whole-business readiness,
+global migration/reset composition and independent benchmark gates remain pending;
+see the current [integration handoff](../docs/vichitr/team_handoff.md).
+
+PostgreSQL uses Compose `init: true` and a direct `pg_isready` probe. The init
+process reaps orphaned probes so PostgreSQL cannot mistake their nonzero exit for
+a failed database child. `env verify` checks that init is actually enabled; an
+older container must be recreated through `env up`, retaining its named volume.
 
 ## Start and verify
 

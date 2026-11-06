@@ -1,17 +1,32 @@
 # M4 integration handoff and remaining gates
 
-This is the current handoff after independent readiness work. Historical module
+Updated 6 November 2026 after merging Harsh and Aditya's implementations. Historical module
 notes describe their own checkpoints; use this file, the current implementation
 plan and canonical specs for remaining work. Evidence/source pins are in
 [progress](progress.md) and [test skips](test_skips.md). No owner approval,
 full-business integration or performance result is implied by a local pass.
+
+Local actual-data acceptance passed for **19,920 active SKUs**, including real
+outbox/Kafka, catalogue stock projection, Bronze/Silver/Gold, full repeated replay
+and logical-equivalent compaction. Source and replay snapshots use isolated QA
+namespaces. The local ignored `artifacts/integration-20261106/context.json`
+identifies the inventory/analytics schemas; the Linux volume root is
+`/lakehouse/vichitr-integration-20261106`. Catalogue rows are namespace-scoped in
+`catalog_db`. The normal analytics schema also has migrations 1–10 applied.
+
+**Native operational readiness remains open:** retained-container recreation and
+registry checks encountered SQL/HTTP/controller timeouts. A CPU-only profile trial
+was rejected and reverted; RAM and the committed development CPU limits remain
+unchanged. Docker Desktop's subsequent fresh startup timed out. Rerun these checks
+after the local Docker runtime starts reliably. Exact failed/passing cohorts are
+in [test skips](test_skips.md); the 100,000 quality-packet pass is wire-only.
 
 ## What is available
 
 | Provider | Actual binding |
 |---|---|
 | Infrastructure | `PROJECTCTL_ADAPTER_MODULE=infra.analytics`; `projectctl env up --profile streaming-local`, `projectctl env verify --profile streaming-local`, `projectctl env down`. PostgreSQL/Kafka/registry/file volume and registered current/historical schemas. |
-| Analytics schema | `projectctl db migrate --namespace bench-...` applies analytics migrations 1–9. Global command still reports dependency exit 4 until other database/outbox migration dispatch is composed. |
+| Analytics schema | `projectctl db migrate --namespace bench-...` applies analytics migrations 1–10, including the real shared outbox table. Global command still reports dependency exit 4 until other database migration dispatch is composed. |
 | Producer SDK | `shared.event_transport`: configure registered schema cache/source service, build/validate immutable events, publish with real broker acknowledgement. README documents exact keyword calls and fixed settings. |
 | Consumer SDK | Long-lived owner-thread `ConsumerGroup`; validate and durably process before `mark_durable`, then commit only the contiguous prefix. `buffer_snapshot()` is read-only. |
 | Diagnostics | `shared.local_diagnostics` and curation quarantine bind to the caller's real `append_outbox(tx,event)` and transaction; missing binding fails closed. No substitute production outbox. |
@@ -36,18 +51,18 @@ for these standalone checks; integrated benchmark feasibility is still unmeasure
 
 | Owner | Required input/adoption | Work unlocked |
 |---|---|---|
-| Harsh | Real active-SKU/catalogue manifest, dataset/rules/dictionary hashes and reviewed facet values | Actual workload materialization and full independent W-QUALITY; no guessed SKU population or facets. |
-| Aditya | Real `append_outbox`/relay, caller-local migrations and retained recovery behavior | Actual invalid-source/DLQ integration, whole-service readiness and relay portion of T-07. Current notification checks label their doubles. |
-| Jaineel | Reviewed fixture-to-SDK binding and independent oracle; real runner/observer factory using receipts, pinned visibility, sink audit, worker logs/metrics and existing lag/resource readers | Full 100,000-record T-03, complete baseline trace and independently calculated measurements. Do not replace his collectors or oracle. |
-| Harsh + Aditya | Actual catalogue/transaction/projection APIs, seed controls and audit exports | Search-to-checkout-to-Gold G3/G4/T-11 integration and operational invariant checks. |
-| Harsh | Actual `compact_snapshot` candidate generator and query benchmark | Real T-04/compactor adoption; M4 already verifies stale generations, row/content equivalence and pointer safety. |
-| Affected DTO/fixture owners | Review oversized aggregate-money representation and the `wrong_money_type` reason mapping (`INVALID_AMOUNT` provider versus `INVALID_TYPE` fixture expectation) | Shared edge-case agreement. Existing exact private sums/fail-closed DTO limits are retained; no oracle or common DTO is silently widened. |
+| Harsh | Review/adopt the locally generated actual CSV artifacts and facet mapping | The importer is available: 19,998 listings /19,920 active SKUs were loaded into an isolated benchmark namespace. Manifest and source/archive hashes are retained locally; these are no longer missing implementations. |
+| Aditya | Adopt the small relay-ordering correction and compose owner-local migration/reset/startup callbacks; review whole-service recovery | Inventory/Orders/Payments SQL already includes diagnostic/outbox tables. Actual inventory seed and relay integration ran locally; analytics installs its own real outbox. The new guard prevents later aggregate versions overtaking a failed head. |
+| Jaineel | Adopt/review `pipelines.ingestion.quality.QualityMaterializer`, bind its explicit raw-fixture publisher and independent oracle; compose real lifecycle/observer callbacks using receipts, pinned visibility, sink audit and existing collectors | Full 100,000-record T-03, complete baseline trace and independently calculated measurements. The pure SDK materializer now exists; normal publisher validation remains strict. See [binding details](m11_baseline_handoff.md#quality-wire-handoff--6-november-2026). |
+| Harsh + Aditya | Start/review actual service APIs and their audit/lifecycle bindings for the runner; Harsh must include the shared outbox template in catalogue migrations | SQL inspection finds catalogue diagnostics but no catalogue outbox migration. The actual CSV and stock-projection path passed; catalogue event-producing mutations and whole checkout require this local table and owner composition. |
+| Harsh | Query benchmark platform review: this Docker kernel lacks `/proc/self/io` | The actual compactor and query implementation are present; correctness checks run separately. A cold-storage measurement must retain real counters, not substitute zero or a warm timing. |
+| Affected DTO owners | Review oversized aggregate-money representation | Exact private sums/fail-closed DTO limits are retained. The money-type reason conflict is resolved with user approval: `INVALID_TYPE` for wrong types; `INVALID_AMOUNT` for invalid integer amounts. The independent fixture is unchanged. |
 | All database owners + Jaineel | Owner-local reset callbacks and quiescence/lifecycle composition | Complete global `env reset`/migration dispatch. The reset adapter is currently absent; CLI namespace guards alone are not cleanup. |
 
-The latest fetched `origin/main` was inspected during this checkpoint. The
-outbox, catalogue, operational services and compactor paths contain scaffolding
-READMEs there; this does not assert that teammates have no work on other branches.
-Exact inspected revision/paths are retained in local dependency evidence.
+Merged main `f488f637c6a6578188cff53594f2ea6c9f63af4e` contains the actual
+catalogue, operational services, shared outbox and compactor implementations.
+Their presence unlocks real integration; it does not establish full-business
+acceptance or supply the reviewed benchmark lifecycle/observer/oracle binding.
 
 `env reset` must coordinate owner databases and idle workers, preserve unrelated
 namespaces, and account for replay references to source captures/snapshots. M4

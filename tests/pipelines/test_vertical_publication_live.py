@@ -112,7 +112,7 @@ def test_http_actual_manifest_gold_receipts_auth_and_readiness(vertical):
         ) as client:
             namespace = vertical.test_namespace
             assert (await client.get("/health/live")).status_code == 200
-            assert (await client.get("/health/ready")).status_code == 503
+            assert (await client.get("/health/ready")).status_code == 200
             path = "/v1/analytics/manifests/gold/active"
             assert (await client.get(path, params={"namespace": namespace})).status_code == 404
             endpoint = "/internal/v1/analytics/receipts"

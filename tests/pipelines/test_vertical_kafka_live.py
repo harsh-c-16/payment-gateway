@@ -74,6 +74,9 @@ def test_native_sink_commit_before_offset_restart_and_invalid_backpressure(verti
         injector = Producer({"bootstrap.servers": bootstrap})
         injector.produce(topic, key=fact.kafka_key().encode(), value=b"\xff-malformed")
         assert injector.flush(15) == 0
+        import shared.outbox as outbox
+
+        monkeypatch.delattr(outbox, "append_outbox")
         with pytest.raises(OutboxUnavailable):
             read_one(vertical, restarted)
         committed = restarted.consumer.committed([TopicPartition(topic, 0)], timeout=10)[0].offset
@@ -90,7 +93,7 @@ def test_native_sink_commit_before_offset_restart_and_invalid_backpressure(verti
                     "broker_committed_next_offset": committed,
                     "invalid_source_offset": 2,
                     "invalid_missing_outbox": "BLOCKED; no offset advanced",
-                    "real_outbox": "NOT_RUN; absent",
+                    "real_outbox": "EXPLICIT missing-binding injection for backpressure check",
                 },
                 indent=2,
             )

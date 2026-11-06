@@ -42,6 +42,7 @@ def test_allocations_fit_current_engine_and_images_are_pinned():
     lock = json.loads((streaming.ROOT / "infra/images.lock.json").read_text())
     assert sum(s["memory_mib"] for s in profile["services"].values()) == 2176
     assert profile["total_memory_mib"] == 2176 < 4040888320 / 1024**2
+    assert sum(s["cpu_cores"] for s in profile["services"].values()) <= 4
     for name, limits in profile["services"].items():
         service = overlay["services"][name]
         assert service["mem_limit"] == f"{limits['memory_mib']}m"
@@ -54,6 +55,15 @@ def test_allocations_fit_current_engine_and_images_are_pinned():
         overlay["services"]["schema-registry"]["depends_on"]["kafka"]["condition"]
         == "service_healthy"
     )
+
+
+def test_verification_rejects_insufficient_engine_cpus_before_database_checks(monkeypatch):
+    monkeypatch.setattr(postgres, "check_engine", lambda: None)
+    monkeypatch.setattr(
+        postgres, "command", lambda args: str(4 * 1024**3) if "MemTotal" in args[-1] else "1"
+    )
+    with pytest.raises(postgres.SetupError, match="Docker CPUs"):
+        streaming.verify()
 
 
 class AdminDouble:
@@ -109,6 +119,35 @@ def test_existing_correct_topics_are_idempotent(monkeypatch):
     admin = AdminDouble(existing=True)
     monkeypatch.setattr(streaming, "AdminClient", lambda config: admin)
     assert streaming.provision_topics("dev")["partitions"] == 1
+
+
+@pytest.mark.parametrize("stuck", [False, True])
+def test_creation_waits_for_ready_isr_with_a_bounded_failure(monkeypatch, stuck):
+    class WarmingAdmin(AdminDouble):
+        polls = 0
+
+        def list_topics(self, **kwargs):
+            metadata = super().list_topics(**kwargs)
+            self.polls += 1
+            if stuck or self.polls < 3:
+                for topic in metadata.topics.values():
+                    for partition in topic.partitions.values():
+                        partition.isrs = []
+            return metadata
+
+    admin = WarmingAdmin()
+    waits = []
+    ticks = iter([0, 26]) if stuck else iter([0, 1, 2])
+    monkeypatch.setattr(streaming, "AdminClient", lambda config: admin)
+    monkeypatch.setattr(streaming, "monotonic", lambda: next(ticks))
+    monkeypatch.setattr(streaming, "sleep", waits.append)
+    if stuck:
+        with pytest.raises(streaming.TopicNotReady):
+            streaming.provision_topics("dev")
+        assert admin.polls == 1 and not waits
+    else:
+        assert streaming.provision_topics("dev")["partitions"] == 1
+        assert admin.polls == 3 and waits == [0.25, 0.25]
 
 
 def test_only_owned_actions_and_profile_are_exposed(monkeypatch):
