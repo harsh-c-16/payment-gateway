@@ -38,6 +38,8 @@ def _canonical_json(obj) -> bytes:
 
 def _serialise(event: RegisteredRecord) -> tuple[bytes, list[tuple[str, bytes]], str, str, str, str]:
     """Serialise an event into outbox storage fields."""
+    if not isinstance(event, (EventEnvelope, DlqNotice)):
+        raise TypeError("expected EventEnvelope or DlqNotice")
     document = event.model_dump(mode="json", exclude_unset=True)
     raw = _canonical_json(document)
     topic = event.topic()

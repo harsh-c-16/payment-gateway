@@ -6,6 +6,39 @@ the completed M01a/M01b infrastructure and planning notes. Credentials, the raw 
 generated data and local evidence stay outside Git. Earlier "not requested/pushed"
 notes below describe those checkpoints before this standing authorization.
 
+## Inventory seed and outbox corrections — 6 November 2026
+
+The user explicitly authorized fixing the merged Aditya implementation on
+`vichitr`, then excluded CI changes. Base: `f488f637c6a6578188cff53594f2ea6c9f63af4e`.
+Changed paths: `services/inventory/{adapter,seed}.py`, `shared/outbox/__init__.py`,
+`tests/transactions/test_seed.py` and these owner notes. No CI configuration,
+dependency lock, canonical DTO/event schema or SQL migration changed.
+
+The outbox serializer now validates type before accessing event methods. The
+inventory adapter uses the actual CLI result codes, manifest and seed signature,
+and supplies the required nullable session identity. Seeding validates the
+catalogue manifest hash/count/order/namespace/revision, uses the existing SQL
+seed/chunk ledger, and writes simulated `STOCK_UPDATED` events with catalogue
+provenance through the real transactional outbox. Chunks are bounded to 1,000
+rows. Namespace locks serialize concurrent seed attempts; checkpoints permit
+resume without duplicate stock/events. A different manifest/seed/profile requires
+a fresh namespace; repeating an identical seed does not refill changed stock.
+
+Verification: `python -m pytest tests/transactions -q --tb=short` with the real
+PostgreSQL 18 inventory login supplied through `INVENTORY_TEST_DATABASE_URL`:
+**104 passed, zero skipped**, including four live SQL/outbox cases. They cover
+the real adapter, immutable repeat behavior, partial-chunk rollback/resume and
+concurrent seeding. Schema IDs/cache are explicit offline fixtures; no Kafka
+delivery or whole-business integration is claimed. PostgreSQL retains 512 MiB /
+0.5 CPU; all isolated test schemas were removed. Lint/format checks on the seed,
+adapter and new tests, plus `git diff --check`, passed.
+
+Raw evidence: `artifacts/seed-fix-20261106/transactions-live.xml` and
+`environment.json`. The first local attempt's `offline.xml` retains missing
+nullable-session setup errors, corrected before the passing live run. CI test
+selection is deliberately unchanged. The real catalogue import, relay-to-Kafka
+acceptance and whole-service migration/readiness composition remain next work.
+
 ## Independent readiness closure — 2 November 2026
 
 User requested completing remaining work that needs no teammate input. This
