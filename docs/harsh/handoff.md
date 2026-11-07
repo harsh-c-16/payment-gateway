@@ -82,19 +82,29 @@ owner-run numbers, so the official runs still need your runner.
 
 | Need | Detail |
 |---|---|
-| `shared.outbox.append_outbox(tx, event)` | Search and price changes write events in the same transaction through it. Until it exists, those endpoints return 503 and `/health/ready` is not ready, by design |
-| Outbox table in `catalog_db` | Your migration, applied alongside `migrations/catalog/` |
+| `shared.outbox.append_outbox(tx, event)` | Search and price changes write events in the same transaction through it. `tests/catalog/test_outbox_live.py` checks this with your real library |
+| Outbox table in `catalog_db` | `migrations/catalog/005_outbox.sql`, a copy of your `shared/outbox/schema.sql`, as your template asks |
+| A relay for `catalog_db` | Your `relay_once` publishes and marks catalogue rows (tested with a publisher double). No process runs `OutboxRelay` for `catalog_db` yet, so its events reach Kafka only once the composition starts one |
 | Stock events | Absolute snapshots with a stable SKU and increasing `stock_version`. Stale and identical events are no-ops; unknown SKUs wait in `stock_deferred` |
 | Seeding | Run `python -m projectctl projection wait` after your seed so statistics are collected |
 
 I never read Inventory's tables. The catalogue's only stock source is its own consumer group.
+
+Found while reviewing Orders against the catalogue (your code; I changed nothing):
+
+| Finding | Detail |
+|---|---|
+| Quote validity is not checked | Common §5 says Orders checks quote binding and validity. `create_order` uses the quote without comparing `expires_at` with now or `user_id` with the caller. The catalogue returns an expired quote as expired rather than refusing it, by design |
+| The real catalogue is not in the live test | `tests/transactions/test_checkout_live.py` replaces `_fetch_quote`, so Orders has never called the real `/internal/v1/quotes/{id}` |
+| Setting name | Orders reads `CATALOG_URL`; `.env.example` has `CATALOG_BASE_URL` |
 
 ## Vichitr
 
 | Need | Detail |
 |---|---|
 | Compaction | `analytics.compaction.compact.compact_snapshot` builds a candidate from a pinned manifest and hands it to your `publish_candidate`. It never writes `active_datasets` or deletes files, and a stale base generation stays your `STALE_MANIFEST` path |
-| **T-09 on a real broker, please** | This machine has no broker: `CATALOG_TEST_KAFKA_BOOTSTRAP=127.0.0.1:9092 CATALOG_TEST_DATABASE_URL=... pytest tests/catalog/test_projection_kafka_live.py`, with the streaming-local profile running. It is the one required real-broker check I could not run |
+| **T-09 edge cases on a real broker, please** | Your 6 November run covered the normal path: real outbox → Kafka → this projection, 19,920 SKUs at version 1. The T-09 edge cases are still unrun: out-of-order and duplicate versions, conflicts, rebalance, crash before the offset commit. Run `CATALOG_TEST_KAFKA_BOOTSTRAP=127.0.0.1:9092 CATALOG_TEST_DATABASE_URL=... pytest tests/catalog/test_projection_kafka_live.py` with the streaming-local profile running |
+| Cold-cache series without `/proc/self/io` | `--cold` now records `cold_series: NOT_RUN` with the reason and keeps the warm series. It never substitutes zeros or warm timings |
 | Running the service | `infra/compose.catalog.yaml` adds to your streaming stack with `-f`. **It has only been statically checked**, because this machine has no Docker |
 
 ## Everyone: running it

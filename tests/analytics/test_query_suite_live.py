@@ -70,3 +70,15 @@ def test_cold_series_keeps_the_warm_results_and_stays_in_its_own_file(pipeline, 
     assert (tmp_path / "query_results.parquet").is_file()
     series = experiment.summarize_cold(cold_rows, layouts)
     assert all("median_storage_read_bytes" in value for value in series.values())
+
+
+def test_cold_series_is_not_run_where_eviction_cannot_be_proven(tmp_path, monkeypatch):
+    def unavailable():
+        raise OSError("read_bytes is missing from /proc/self/io")
+
+    monkeypatch.setattr(experiment, "storage_read_bytes", unavailable)
+    result = experiment.cold_series({}, tmp_path, None, tmp_path, {})
+    assert result == {
+        "cold_series": {"status": "NOT_RUN", "reason": "read_bytes is missing from /proc/self/io"}
+    }
+    assert not (tmp_path / "query_results_cold.parquet").exists()

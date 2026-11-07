@@ -16,9 +16,9 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 | Task | Deliverable | Status | Checked by |
 |---|---|---|---|
 | H01 | Real CSV ingestion, normalization, staging and promotion, hashed manifests | Real | `test_real_source.py`, `test_import_live.py`, full CLI run below |
-| H02 | Authoritative prices, idempotent quotes, internal lookup, price update | Real PostgreSQL; **outbox is a test double** | `test_quotes_live.py`, `test_price_live.py` |
-| H03 | Exact retrieval with hard filters; five search modes; 50 frozen queries | Real PostgreSQL; **outbox is a test double** | `test_search_live.py`, `test_vector_search_live.py`, 0 violations in every experiment |
-| H04 | Stock consumer, read model, projection wait, freshness receipts | Real PostgreSQL with records through the real codec; **real broker NOT_RUN** | `test_projection_live.py` |
+| H02 | Authoritative prices, idempotent quotes, internal lookup, price update | Real PostgreSQL and Aditya's real outbox; the relay to Kafka is not composed yet | `test_quotes_live.py`, `test_price_live.py`, `test_outbox_live.py` |
+| H03 | Exact retrieval with hard filters; five search modes; 50 frozen queries | Real PostgreSQL and Aditya's real outbox | `test_search_live.py`, `test_vector_search_live.py`, `test_outbox_live.py`, 0 violations in every experiment |
+| H04 | Stock consumer, read model, projection wait, freshness receipts | Real PostgreSQL with records through the real codec. On a real broker, Vichitr ran the normal path; **the edge-case test is NOT_RUN** | `test_projection_live.py`; [Vichitr's run](../vichitr/progress.md) |
 | H05 | I0/I1, B0/O2/P1, exact/HNSW | Owner runs done, with import and search repeated on the SSD; **official runner NOT_RUN** | [experiments.md](experiments.md) §§1–6 |
 | H06 | Compaction candidates, Q1–Q6 through the real publisher, warm and cold series, compaction fault boundary | Owner run done on a synthetic fixture; **official runner NOT_RUN** | `tests/analytics/`, [experiments.md](experiments.md) §7 |
 
@@ -32,7 +32,7 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 | D-04 W-IMPORT I0/I1 | Owner run; official NOT_RUN | Identical digests, [experiments.md](experiments.md) §2 |
 | T-04 layouts | Owner run on a synthetic fixture | Identical query results across layouts |
 | T-06 retrieval | Owner run; official NOT_RUN | Plans, recall by stratum, 0 hard-filter violations |
-| T-09 projection | **Real broker NOT_RUN** | Test exists and is skipped; [handoff.md](handoff.md) has the command |
+| T-09 projection | Normal path on a real broker: run by Vichitr on 6 November, 19,920 SKUs projected. **Edge cases on a real broker: NOT_RUN** | [Vichitr's progress](../vichitr/progress.md); the edge-case command is in [handoff.md](handoff.md#vichitr) |
 
 ## Full CLI run on the real file
 
@@ -49,10 +49,14 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 ## Tests
 
 Full suite on the code of the commit that added this line, with real PostgreSQL for the catalogue and analytics tests:
-**1,268 passed, 314 skipped, 1 expected failure, 1 failed.**
+**1,457 passed, 322 skipped, 1 expected failure, 2 failed**, after merging Aditya's and Vichitr's
+work from `main`.
 
-- **The failure** is `tests/pipelines/test_postgres.py::test_success_evidence_contains_no_credentials`.
-  It is outside my paths and also fails on untouched `main`.
+- **The failures** are outside my paths.
+  - `tests/pipelines/test_postgres.py::test_success_evidence_contains_no_credentials` also fails on
+    untouched `main`.
+  - `tests/conversation/test_http.py::test_missing_shared_event_implementation_is_visible` is new. It
+    expects the shared outbox to be absent, which it no longer is, and CI does not run that folder.
 - **The skips** include my T-09 real-broker test, which needs a Kafka broker, plus other owners' tests
   that need services unavailable on this machine.
 - **The expected failure** is the brand-filter finding in [handoff.md](handoff.md#review-of-your-workflow-against-the-real-service),
@@ -62,9 +66,9 @@ Full suite on the code of the commit that added this line, with real PostgreSQL 
 
 | Item | Why | What it needs |
 |---|---|---|
-| Official W-IMPORT, W-SEARCH, W-ANALYTICS through the P9 runner, frozen limits | The composition module and outbox are not available yet | Jaineel's composition, Aditya's outbox |
-| Search and price events through the real outbox | `shared.outbox` is absent, so the service fails closed with 503 | Aditya's library |
-| T-09 on a real broker | No broker on this machine | [Command in the handoff](handoff.md#vichitr) |
+| Official W-IMPORT, W-SEARCH, W-ANALYTICS through the P9 runner, frozen limits | The composition module is not available yet | Jaineel's composition |
+| Catalogue events reaching Kafka | Rows land in `catalog_db`'s outbox, and the shared relay publishes them in a test; no process runs that relay yet | A relay process in the composition |
+| T-09 edge cases on a real broker | No broker on this machine | [Command in the handoff](handoff.md#vichitr) |
 | `infra/compose.catalog.yaml` running | No Docker on this machine; statically checked only | A machine with Docker |
 | Human relevance labels | Team decision, recorded in [relevance_labels.md](relevance_labels.md) | Label the pool by hand |
 | HNSW and hybrid search at 10× | The clone fixture has no vectors | Clone vectors too |
