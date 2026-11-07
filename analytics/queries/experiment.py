@@ -132,6 +132,23 @@ def measure_cold(layouts, store_root, day, out):
     return rows, digests
 
 
+def cold_series(layouts, store_root, day, out, digests):
+    """Cold timings only where eviction can be proven; otherwise NOT_RUN, never a substitute."""
+    try:
+        storage_read_bytes()
+    except OSError as error:
+        return {"cold_series": {"status": "NOT_RUN", "reason": str(error)}}
+    rows, cold = measure_cold(layouts, store_root, day, out)
+    return {
+        "cold_series": summarize_cold(rows, layouts),
+        "cold_digest_mismatches_against_warm": [
+            query_id
+            for query_id, values in cold.items()
+            if any(values[name] != digests[query_id][name] for name in values)
+        ],
+    }
+
+
 def summarize_cold(rows, layouts):
     series = summarize(rows, layouts)
     for key, value in series.items():
@@ -290,13 +307,7 @@ def main():
             "series": summarize(rows, layouts),
         }
         if arguments.cold:
-            cold_rows, cold_digests = measure_cold(layouts, store_root, day, out)
-            summary["cold_series"] = summarize_cold(cold_rows, layouts)
-            summary["cold_digest_mismatches_against_warm"] = [
-                query_id
-                for query_id, values in cold_digests.items()
-                if any(values[name] != digests[query_id][name] for name in values)
-            ]
+            summary.update(cold_series(layouts, store_root, day, out, digests))
         (out / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
         print(
             json.dumps({k: summary[k] for k in ("layouts", "result_digest_mismatches")}, indent=1)
