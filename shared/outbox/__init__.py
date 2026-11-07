@@ -18,7 +18,7 @@ from uuid import uuid4
 from psycopg.pq import TransactionStatus
 from psycopg.rows import dict_row
 
-from shared.contracts.events import DlqNotice, EventEnvelope, PublishAck, RegisteredRecord
+from shared.contracts.events import DlqNotice, EventEnvelope, RegisteredRecord
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +33,14 @@ def outbox_table_ddl():
 
 def _canonical_json(obj) -> bytes:
     """Deterministic JSON bytes for outbox storage."""
-    return json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return json.dumps(obj, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
+        "utf-8"
+    )
 
 
-def _serialise(event: RegisteredRecord) -> tuple[bytes, list[tuple[str, bytes]], str, str, str, str]:
+def _serialise(
+    event: RegisteredRecord,
+) -> tuple[bytes, list[tuple[str, bytes]], str, str, str, str]:
     """Serialise an event into outbox storage fields."""
     if not isinstance(event, (EventEnvelope, DlqNotice)):
         raise TypeError("expected EventEnvelope or DlqNotice")
@@ -68,9 +72,7 @@ def append_outbox(db_transaction, event: RegisteredRecord) -> int:
 
     tx_status = db_transaction.info.transaction_status
     if tx_status != TransactionStatus.INTRANS:
-        raise OutboxError(
-            f"append_outbox requires an active transaction (got {tx_status!r})"
-        )
+        raise OutboxError(f"append_outbox requires an active transaction (got {tx_status!r})")
 
     raw, headers, topic, key, agg_type, agg_id = _serialise(event)
     event_id = event.event_id
@@ -92,8 +94,15 @@ def append_outbox(db_transaction, event: RegisteredRecord) -> int:
         RETURNING outbox_id
         """,
         (
-            event_id, namespace, agg_type, agg_id,
-            topic, key, raw, headers_json, produced_at,
+            event_id,
+            namespace,
+            agg_type,
+            agg_id,
+            topic,
+            key,
+            raw,
+            headers_json,
+            produced_at,
         ),
     ).fetchone()
 
@@ -161,7 +170,11 @@ def relay_once(db_connection, publisher, *, limit=100, claim_id=None) -> RelayRe
             continue
         event_id = str(row["event_id"])
         topic = row["topic"]
-        key = row["partition_key"].encode("utf-8") if isinstance(row["partition_key"], str) else row["partition_key"]
+        key = (
+            row["partition_key"].encode("utf-8")
+            if isinstance(row["partition_key"], str)
+            else row["partition_key"]
+        )
         raw = bytes(row["payload"]) if not isinstance(row["payload"], bytes) else row["payload"]
 
         try:
@@ -177,7 +190,7 @@ def relay_once(db_connection, publisher, *, limit=100, claim_id=None) -> RelayRe
             continue
 
         try:
-            ack: PublishAck = publisher.publish_event(event, topic, key)
+            publisher.publish_event(event, topic, key)
             result.broker_acked += 1
         except RetryablePublishError as exc:
             blocked_aggregates.add(aggregate)
@@ -211,7 +224,9 @@ class RecoverySummary:
     oldest_pending_at: datetime | None = None
 
 
-def recover_pending_outbox(db_connection, *, service_name="unknown", stale_seconds=60) -> RecoverySummary:
+def recover_pending_outbox(
+    db_connection, *, service_name="unknown", stale_seconds=60
+) -> RecoverySummary:
     """Reclaim abandoned relay claims. No new event IDs or timestamps."""
     cutoff = datetime.now(UTC).timestamp() - stale_seconds
 
@@ -287,9 +302,9 @@ class OutboxRelay:
             self._thread = None
 
     def _run(self):
-        lock_id = int(hashlib.sha256(
-            f"outbox-relay-{self.service_name}".encode()
-        ).hexdigest()[:15], 16)
+        lock_id = int(
+            hashlib.sha256(f"outbox-relay-{self.service_name}".encode()).hexdigest()[:15], 16
+        )
 
         while not self._stop.is_set():
             try:
@@ -320,9 +335,7 @@ class OutboxRelay:
         conn.autocommit = False
         while not self._stop.is_set():
             try:
-                result = relay_once(
-                    conn, self.publisher, limit=self.batch_limit
-                )
+                result = relay_once(conn, self.publisher, limit=self.batch_limit)
                 if result.scanned == 0:
                     time.sleep(self.poll_interval)
             except Exception:

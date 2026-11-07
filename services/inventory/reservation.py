@@ -3,7 +3,7 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
-from services.inventory.errors import conflict, not_found, storage_unavailable
+from services.inventory.errors import conflict, not_found
 
 
 def reserve(db, events, namespace, request, context):
@@ -28,6 +28,10 @@ def reserve(db, events, namespace, request, context):
             (namespace, request.order_id),
         ).fetchone()
         if existing["reservation_id"] != reservation_id:
+            # A retried reserve for the same order (lost response, crash, lease expiry) replays
+            # the live reservation; a RELEASED/EXPIRED row is a tombstone and stays rejected.
+            if existing["state"] in ("ACTIVE", "COMMITTED"):
+                return _snapshot(tx, namespace, existing["reservation_id"], request.order_id)
             raise conflict(
                 "Reservation already exists for this order.",
                 details={"existing_state": existing["state"]},
@@ -192,8 +196,7 @@ def commit_reservation(db, events, namespace, order_id, reservation_id, context)
             """,
             (now, namespace, reservation_id),
         )
-
-    return _snapshot(tx, namespace, reservation_id, order_id)
+        return _snapshot(tx, namespace, reservation_id, order_id)
 
 
 def release_reservation(db, events, namespace, order_id, reason, context):
@@ -227,8 +230,7 @@ def release_reservation(db, events, namespace, order_id, reason, context):
             """,
             (now, namespace, reservation_id),
         )
-
-    return _snapshot(tx, namespace, reservation_id, order_id)
+        return _snapshot(tx, namespace, reservation_id, order_id)
 
 
 def expire_reservations(db, events, context, *, batch_size=50):

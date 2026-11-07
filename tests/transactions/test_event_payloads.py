@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from shared.contracts.events import InventoryEvent, PaymentEvent, OrderEvent, OrderConfirmed
+from shared.contracts.events import InventoryEvent, OrderConfirmed, OrderEvent, PaymentEvent
 
 
 class TestInventoryEventPayloads:

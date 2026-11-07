@@ -6,6 +6,7 @@ from threading import BoundedSemaphore
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg.types.string import TextLoader
 
 from services.orders.errors import storage_unavailable
 
@@ -22,7 +23,10 @@ class Database:
                 return self.idle.get_nowait()
             except Empty:
                 pass
-        return psycopg.connect(self.url, connect_timeout=2, row_factory=dict_row)
+        connection = psycopg.connect(self.url, connect_timeout=2, row_factory=dict_row)
+        # IDs are UUIDText strings on the wire and in comparisons; never uuid.UUID objects.
+        connection.adapters.register_loader("uuid", TextLoader)
+        return connection
 
     def _release(self, connection):
         if self.idle is not None and not connection.closed and not connection.broken:

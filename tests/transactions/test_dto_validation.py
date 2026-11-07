@@ -7,11 +7,8 @@ from shared.contracts.transactions import (
     AuthorizePaymentRequest,
     CreateOrderRequest,
     OrderAccepted,
-    OrderSnapshot,
     PaymentOrderSnapshot,
-    PaymentSnapshot,
     QuoteLine,
-    ReservationSnapshot,
     ReserveItem,
     ReserveRequest,
     StockSnapshot,
@@ -20,22 +17,53 @@ from shared.contracts.transactions import (
 
 class TestQuoteLine:
     def test_valid(self):
-        line = QuoteLine(sku="SKU-001", quantity=2, unit_price_minor=500, line_total_minor=1000, catalog_version=1)
+        line = QuoteLine(
+            sku="SKU-001",
+            quantity=2,
+            unit_price_minor=500,
+            line_total_minor=1000,
+            catalog_version=1,
+        )
         assert line.line_total_minor == 1000
 
     def test_line_total_mismatch(self):
         with pytest.raises(ValidationError, match="line_total"):
-            QuoteLine(sku="SKU-001", quantity=2, unit_price_minor=500, line_total_minor=999, catalog_version=1)
+            QuoteLine(
+                sku="SKU-001",
+                quantity=2,
+                unit_price_minor=500,
+                line_total_minor=999,
+                catalog_version=1,
+            )
 
     def test_quantity_bounds(self):
         with pytest.raises(ValidationError):
-            QuoteLine(sku="SKU-001", quantity=0, unit_price_minor=100, line_total_minor=0, catalog_version=1)
+            QuoteLine(
+                sku="SKU-001",
+                quantity=0,
+                unit_price_minor=100,
+                line_total_minor=0,
+                catalog_version=1,
+            )
         with pytest.raises(ValidationError):
-            QuoteLine(sku="SKU-001", quantity=11, unit_price_minor=100, line_total_minor=1100, catalog_version=1)
+            QuoteLine(
+                sku="SKU-001",
+                quantity=11,
+                unit_price_minor=100,
+                line_total_minor=1100,
+                catalog_version=1,
+            )
 
     def test_extra_fields_forbidden(self):
         with pytest.raises(ValidationError, match="extra"):
-            QuoteLine(sku="SKU-001", quantity=1, unit_price_minor=100, line_total_minor=100, catalog_version=1, extra=1)
+            QuoteLine(
+                sku="SKU-001",
+                quantity=1,
+                unit_price_minor=100,
+                line_total_minor=100,
+                catalog_version=1,
+                extra=1,
+            )
 
 
 class TestCreateOrderRequest:
@@ -71,23 +99,35 @@ class TestReserveRequest:
 class TestStockSnapshot:
     def test_valid(self):
         snap = StockSnapshot(
-            sku="SKU-001", on_hand=100, reserved=20, available=80,
-            stock_version=1, changed_at="2025-01-01T00:00:00Z",
+            sku="SKU-001",
+            on_hand=100,
+            reserved=20,
+            available=80,
+            stock_version=1,
+            changed_at="2025-01-01T00:00:00Z",
         )
         assert snap.available == 80
 
     def test_invariant_violation(self):
         with pytest.raises(ValidationError, match="available"):
             StockSnapshot(
-                sku="SKU-001", on_hand=100, reserved=20, available=90,
-                stock_version=1, changed_at="2025-01-01T00:00:00Z",
+                sku="SKU-001",
+                on_hand=100,
+                reserved=20,
+                available=90,
+                stock_version=1,
+                changed_at="2025-01-01T00:00:00Z",
             )
 
     def test_reserved_exceeds_on_hand(self):
         with pytest.raises(ValidationError):
             StockSnapshot(
-                sku="SKU-001", on_hand=10, reserved=20, available=-10,
-                stock_version=1, changed_at="2025-01-01T00:00:00Z",
+                sku="SKU-001",
+                on_hand=10,
+                reserved=20,
+                available=-10,
+                stock_version=1,
+                changed_at="2025-01-01T00:00:00Z",
             )
 
 
