@@ -124,6 +124,19 @@ class QualityLifecycle:
         frozen = generate_workload("W-QUALITY", context["seed"], self.projection).as_dict()
         if manifest["selected_skus"] != frozen["selected_skus"]:
             raise DependencyError("quality SKU selection differs from verified frozen recipe")
+        # Deployment/resource callbacks need these inputs before they start a worker.
+        context.update(
+            selected_skus=manifest["selected_skus"],
+            dataset_revision=self.projection["dataset_revision"],
+            quality_topics=[
+                context["namespace"] + "." + domain + ".v1"
+                for domain in (
+                    ("inventory-events", "retrieval-events", "conversation-events")
+                    if self.gate == "T-03"
+                    else ("inventory-events",)
+                )
+            ],
+        )
         seed = await self.owners.seed_audit(context)
         write_json(Path(context["evidence_directory"]) / "quality_seed_checks.json", seed)
         if any(
@@ -181,18 +194,6 @@ class QualityLifecycle:
             dataset_revision=self.projection["dataset_revision"],
         )
         self.publisher = QualityPublisher(codec, self.owners.bootstrap_servers)
-        context.update(
-            selected_skus=manifest["selected_skus"],
-            dataset_revision=self.projection["dataset_revision"],
-            quality_topics=[
-                context["namespace"] + "." + domain + ".v1"
-                for domain in (
-                    ("inventory-events", "retrieval-events", "conversation-events")
-                    if self.gate == "T-03"
-                    else ("inventory-events",)
-                )
-            ],
-        )
         self.sources = self.owners.sources_factory(context)
         return proof
 
@@ -234,10 +235,31 @@ class QualityLifecycle:
 
     async def audit(self, context, directory):
         # Revalidate pinned code immediately before adopting the read-only export.
-        verify_review(self.owners.review_path)
+        review = verify_review(self.owners.review_path)
         observed = await asyncio.to_thread(self.sources.export, context)
         observed["binding_review_verified"] = True
         write_json(directory / "quality_raw_audit.json", observed)
+        write_json(
+            directory / "expected.json",
+            {
+                "audit_kind": "W-QUALITY" if self.gate == "T-03" else "G1",
+                "namespace": context["namespace"],
+                "run_id": context["run_id"],
+                "seed": context["seed"],
+                "selected_skus": context["selected_skus"],
+                "dataset_revision": context["dataset_revision"],
+            },
+        )
+        write_json(
+            directory / "observed.json",
+            {
+                "namespace": observed["namespace"],
+                "test_mode": observed["test_mode"],
+                "collection_complete": observed["collection_complete"],
+                "raw_audit_sha256": file_hash(directory / "quality_raw_audit.json"),
+            },
+        )
+        write_json(directory / "binding_review.json", review)
         return reconcile_quality(context, directory, observed, gate=self.gate)
 
     def observer(self, context, directory, kind):
@@ -304,6 +326,7 @@ def build_quality_bindings(config, *, owners=None):
         audit=lifecycle.audit,
         observer_factory=lifecycle.observer,
         dependency_reasons=tuple(reasons),
+        performance_review_path=os.environ.get("PROJECTCTL_PERFORMANCE_REVIEW_PATH"),
         cleanup=owners.cleanup,
     )
 

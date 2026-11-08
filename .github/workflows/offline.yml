@@ -127,12 +127,14 @@ jobs:
         if: always()
         with:
           name: kafka-registry-volume-logs-junit
+          # Recorder logs are direct children. Never traverse the container's
+          # private pytest tmp/cache directories while collecting evidence.
           path: |
             artifacts/ci-kafka/*.json
             artifacts/ci-kafka/**/*.log
             artifacts/ci-kafka/*.xml
             artifacts/ci-volume/*.json
-            artifacts/ci-volume/**/*.log
+            artifacts/ci-volume/*.log
             artifacts/ci-volume/*.xml
             artifacts/ci-stack/*.log
             artifacts/infra/streaming-local/checks/**/*.json

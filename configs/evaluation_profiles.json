@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "PLANNED_NOT_ENFORCED",
+  "machine": "Dedicated Linux x86_64 Docker host; SSD; at least 12 logical CPUs and 32 GiB RAM. Record actual CPU/cores/OS/storage and Docker limits before accepting.",
+  "generator": {"cpu_cores": 1.0, "memory_mib": 1024},
+  "consumer_group_total": {"cpu_cores": 1.5, "memory_mib": 1536},
+  "profiles": {
+    "pipeline-linux4c4g": {
+      "workloads": ["W-PIPE", "W-QUALITY"],
+      "sut": {"cpu_cores": 4.0, "memory_mib": 4096},
+      "processes": [
+        {"name": "postgres", "service": "postgres", "cpu_cores": 0.5, "memory_mib": 512, "roles": ["six databases"]},
+        {"name": "kafka", "service": "kafka", "cpu_cores": 0.75, "memory_mib": 1024, "roles": ["broker"]},
+        {"name": "schema-registry", "service": "schema-registry", "cpu_cores": 0.5, "memory_mib": 640, "roles": ["registry"]},
+        {"name": "analytics-api", "service": "analytics", "cpu_cores": 0.5, "memory_mib": 384, "connections": 2, "roles": ["HTTP API"]},
+        {"name": "analytics-consumer-group", "service": "analytics", "cpu_cores": 1.5, "memory_mib": 1536, "connections": 14, "roles": ["one or three consumers sharing this budget", "worker zero Gold publisher", "worker zero analytics outbox relay"]}
+      ]
+    },
+    "integrated-linux9c8g": {
+      "workloads": ["W-IMPORT", "W-PIPE", "W-QUALITY", "W-SEARCH", "W-CHECKOUT", "W-INTEGRATED", "W-ANALYTICS"],
+      "sut": {"cpu_cores": 9.0, "memory_mib": 8192},
+      "extends": "pipeline-linux4c4g",
+      "processes": [
+        {"name": "catalog-api", "service": "catalog", "cpu_cores": 0.5, "memory_mib": 384, "connections": 4, "roles": ["HTTP API"]},
+        {"name": "catalog-worker", "service": "catalog", "cpu_cores": 0.5, "memory_mib": 384, "connections": 2, "roles": ["stock projection"]},
+        {"name": "catalog-relay", "service": "catalog", "cpu_cores": 0.5, "memory_mib": 384, "connections": 1, "roles": ["shared outbox relay"]},
+        {"name": "conversation-api", "service": "conversation", "cpu_cores": 0.5, "memory_mib": 384, "connections": 3, "roles": ["HTTP API", "intent audit within API connection cap"]},
+        {"name": "conversation-relay", "service": "conversation", "cpu_cores": 0.25, "memory_mib": 256, "connections": 1, "roles": ["shared outbox relay"]},
+        {"name": "orders-api", "service": "orders", "cpu_cores": 0.5, "memory_mib": 384, "connections": 4, "roles": ["HTTP API", "embedded saga thread"]},
+        {"name": "orders-relay", "service": "orders", "cpu_cores": 0.25, "memory_mib": 256, "connections": 1, "roles": ["shared outbox relay"]},
+        {"name": "inventory-api", "service": "inventory", "cpu_cores": 0.5, "memory_mib": 384, "connections": 4, "roles": ["HTTP API", "embedded expiry thread"]},
+        {"name": "inventory-relay", "service": "inventory", "cpu_cores": 0.25, "memory_mib": 256, "connections": 1, "roles": ["shared outbox relay"]},
+        {"name": "payments-api", "service": "payments", "cpu_cores": 0.5, "memory_mib": 384, "connections": 4, "roles": ["HTTP API"]},
+        {"name": "payments-relay", "service": "payments", "cpu_cores": 0.25, "memory_mib": 256, "connections": 1, "roles": ["shared outbox relay"]}
+      ]
+    }
+  }
+}

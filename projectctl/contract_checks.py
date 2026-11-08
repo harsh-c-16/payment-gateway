@@ -1,6 +1,7 @@
 """Offline compatibility inventory. A partial consumer pass cannot complete G0."""
 
 import json
+import os
 from pathlib import Path
 
 import yaml
@@ -30,7 +31,7 @@ PARTICIPANTS = [
 ]
 
 
-def inspect_contracts(root: Path):
+def inspect_contracts(root: Path, *, provider_review=None):
     checks = []
 
     def add(name, owner, status, detail):
@@ -138,33 +139,10 @@ def inspect_contracts(root: Path):
             if present
             else "owner implementation/DTO handoff absent",
         )
-    for folder, owner, interface in [
-        ("shared/outbox", "Aditya", "append_outbox(tx,event)"),
-        ("shared/event_transport", "Vichitr", "build_event/validation/transport"),
-        ("shared/local_diagnostics", "Vichitr", "transactional diagnostic helper"),
-    ]:
-        present = any(path.stat().st_size > 0 for path in (root / folder).rglob("*.py"))
-        add(
-            folder,
-            owner,
-            "UNREVIEWED" if present else "MISSING",
-            interface + "; owner public binding/runtime handoff required",
-        )
-    for folder, owner in [
-        ("contracts/events", "Vichitr"),
-        ("contracts/data/catalog", "Harsh"),
-        ("contracts/dictionaries/catalog", "Harsh"),
-    ]:
-        present = any(
-            path.is_file() and path.name != ".gitkeep" for path in (root / folder).rglob("*")
-        )
-        # Presence alone never proves schema compatibility. Owner must supply the binding adapter.
-        add(
-            folder,
-            owner,
-            "MISSING" if not present else "UNREVIEWED",
-            "event/data/dictionary schemas and compatibility binding require owner handoff",
-        )
+    from projectctl.provider_validation import SURFACES, inspect_surface
+
+    for surface in SURFACES:
+        checks.append(inspect_surface(root, surface, review=provider_review))
     fixtures = root / "contracts/fixtures/p2/pairs.json"
     try:
         pairs = json.loads(fixtures.read_text(encoding="utf-8"))["pairs"]
@@ -209,7 +187,12 @@ def inspect_contracts(root: Path):
 def check(invocation):
     from projectctl.config import ROOT
 
-    checks = inspect_contracts(ROOT)
+    review = os.environ.get("PROJECTCTL_CONTRACT_REVIEW_PATH")
+    if review:
+        from projectctl.config import repo_path
+
+        review = repo_path(review)
+    checks = inspect_contracts(ROOT, provider_review=review)
     code = ExitCode.COMPLETED
     if any(item["status"] == "FAIL" for item in checks):
         code = ExitCode.CORRECTNESS_FAILURE

@@ -43,6 +43,11 @@ def review_input_pins():
             "published_matches_lf_text": published == facts["lf_text_sha256"],
             "published_matches_raw": published == facts["raw_sha256"],
             "status": "REVIEW_REQUIRED",
+            "decision": {
+                "evaluation_pin": "raw_sha256 (exact runtime bytes)",
+                "provider_identity": "lf_text_sha256 (existing dataset revision unchanged)",
+                "freeze_machine": "Regenerate/review the packet on the final execution machine",
+            },
             "conflict": (
                 "file09 section 1 requires exact raw-file bytes; the provider's dictionary "
                 "identity uses universal-newline UTF-8 text. Do not replace dataset_revision."

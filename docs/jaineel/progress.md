@@ -3814,3 +3814,190 @@ Whole-team evaluation, reviewed bindings and benchmark results remain separate
 unfinished deliverables. Manual continuation is the ordinary existing workflow
 on the final push and Vichitr's normal review of the SDK shutdown fix; no new
 CI job, test-case expansion or automatic owner approval is introduced.
+
+## Evaluation handoff after Vichitr PR #12 — 9 November 2026
+
+User requested inspection of the pulled changes and implementation of the
+evaluation-profile, analytics/oracle, provider-validation and input/report
+handoffs. User then explicitly requested **no evaluation now**, and asked for
+instructions to give the executing teammate and a decision/review document for
+Harsh. This checkpoint implements the owned harness changes and prepares those
+handoffs; it does not claim the final whole-team evaluation is ready or passed.
+
+Initial branch `jaineel/j03-telemetry`, HEAD `6e1e633`. The pre-existing change in
+`.github/workflows/offline.yml` is preserved and was not edited here. No other
+owner implementation, shared DTO, canonical specification, application lock,
+Compose file, database, Kafka topic or volume was changed. No commit/push.
+
+Changed paths:
+
+- `projectctl/contract_checks.py`, new `projectctl/provider_validation.py`:
+  execute six provider compatibility validators; consume real byte-pinned
+  owner/consumer receipts instead of unconditional UNREVIEWED. Pending receipts
+  remain UNREVIEWED; stale/malformed approval or failed validation fails.
+- `projectctl/runtime.py`, `projectctl/setup.py`, new `projectctl/team_runtime.py`:
+  lazy M4/operational runtime composition, duplicate guards, concrete M1/M2/M4
+  migration delegates, required owner migration/reset participants and global
+  all-participant preflight. No replacement M3 migration/reset implementation.
+- `benchmarks/quality_binding.py`, `benchmarks/quality_trial.py`: G1 dataset and
+  resource context, topics before deployment, teardown on failure, separate G1
+  module command and performance-review forwarding.
+- `benchmarks/pipeline_audit.py`, `benchmarks/performance.py`, new
+  `benchmarks/analytics_recheck.py`: stricter independent wire/Bronze scope and
+  membership checks; persist M4 audit mappings; rederive saved W-PIPE/W-QUALITY
+  verdicts from raw exports and the actual pinned mapping review. Reject stub
+  exports and changed raw/projection bytes; no fabricated fixture approval.
+- `projectctl/input_pins.py`, new `projectctl/evaluation_packet.py`,
+  `configs/evaluation_profiles.json`: exact-byte evaluation hashes kept separate
+  from Harsh's LF dictionary identity; verified manifests, five available
+  logical recipes, individual worker/process budgets, candidate configs,
+  proposed reviews and explicit missing-case inventory. Everything stays
+  draft/planned/review-pending and performance remains null/NOT_RUN.
+- Tests: new `tests/contracts/test_provider_validation.py`,
+  `tests/projectctl/test_team_handoff.py`,
+  `tests/benchmarks/test_analytics_recheck.py`; extend existing
+  `tests/benchmarks/test_pipeline_audit.py` and `test_quality_lifecycle.py`.
+  Runtime/SQL/registry/review/clock doubles are explicitly labelled; these are
+  software checks, not real service or benchmark acceptance.
+- Documents: `docs/jaineel/VICHITR_REVIEW_2026_11_09.md`,
+  `HARSH_REVIEW_2026_11_09.md`, `EVALUATION_TEAMMATE_RUNBOOK.md`, and this record.
+
+### Commands and actual evidence
+
+All commands from the repo root; `PY` below means `.venv/Scripts/python.exe`.
+
+| Command/check | Actual outcome | Evidence |
+|---|---|---|
+| `git status --short`, `git branch --show-current`, `git log -8 --oneline`, diff inspection | Read pulled Vichitr commits and existing workflow edit before changes | Session transcript; review document |
+| `Get-CimInstance Win32_ComputerSystem` and `Win32_OperatingSystem`, selected nonsecret fields | 12 logical CPUs, 16,802,910,208 bytes RAM, observed free 867,056 KiB | Session transcript; review document. No machine feasibility claim |
+| `PY -m pytest -q tests/contracts/test_provider_validation.py tests/projectctl/test_team_handoff.py tests/projectctl/test_runtime.py tests/benchmarks/test_quality_lifecycle.py tests/benchmarks/test_quality_binding.py tests/benchmarks/test_pipeline_audit.py --basetemp=artifacts/pytest-evaluation-handoff-first --junitxml=artifacts/evaluation-handoff-first.xml` | **102 passed**, zero failures/skips | `artifacts/evaluation-handoff-first.xml` |
+| `PY -m pytest -q tests/projectctl tests/contracts tests/benchmarks tests/oracles tests/integration --basetemp=artifacts/pytest-evaluation-handoff-regression --junitxml=artifacts/evaluation-handoff-regression.xml` | **875 passed**, zero failures/skips, 376.36 s; broad regression before the final saved-audit follow-up | `artifacts/evaluation-handoff-regression.xml` |
+| `PY -m pytest -q tests/contracts/test_provider_validation.py tests/projectctl/test_team_handoff.py tests/projectctl/test_runtime.py tests/benchmarks/test_quality_lifecycle.py tests/benchmarks/test_quality_binding.py tests/benchmarks/test_pipeline_audit.py tests/benchmarks/test_analytics_recheck.py tests/benchmarks/test_performance.py tests/pipelines/test_team_runtime.py tests/pipelines/test_analytics_adapter.py --basetemp=artifacts/pytest-evaluation-handoff-final --junitxml=artifacts/evaluation-handoff-final.xml` | **131 passed**, zero failures/skips, 20.66 s; covers final mapping/recheck code and M4 adapter compatibility | `artifacts/evaluation-handoff-final.xml` |
+| `PY -m projectctl.evaluation_packet --out artifacts/evaluation-handoff/20261109-review` then `--verify artifacts/evaluation-handoff/20261109-review` | Both exit 0; 71 frozen input references, 14 packet files; `INPUTS_PINNED_REVIEW_PENDING`, evaluation NOT_RUN | `artifacts/evaluation-handoff/20261109-review/input_lock.json`, content SHA `0911a658b9c8ac61d358bc3ff11e381d3498668f1a8bc3f4f3eb625809572442` |
+| `PY -m projectctl contracts check --all` | Actual CLI exit/status **4 / NOT_RUN**: all six compatibility validators pass, actual owner review receipts absent. This is expected missing review evidence, not G0 acceptance | `artifacts/projectctl/3778cbe5-de21-4981-a56f-c01604e067f7/{manifest,summary}.json` |
+| `PY -m projectctl.schemas --check`; `PY -m projectctl.conversation_contract --check` | Exit 0; generated contracts current | Session transcript |
+
+The phases overlap; do not sum their counts as unique tests. Earlier formatting
+checks reported line wrapping, corrected before final checks. The first offline
+draft packet `artifacts/evaluation-handoff/20261109-draft-01/` is preserved; its
+pins predate subsequent code edits and it must not be used for execution.
+No live test opt-in, source import, benchmark, generic evaluation suite, Docker
+startup, fault injection, reset or measured report was executed for this task.
+
+Final static commands (the following exact path list is shared by Ruff check
+and format check): `PY -m ruff check projectctl benchmarks/analytics_recheck.py
+benchmarks/performance.py benchmarks/pipeline_audit.py benchmarks/quality_binding.py
+benchmarks/quality_trial.py tests/contracts/test_provider_validation.py
+tests/projectctl/test_team_handoff.py tests/benchmarks/test_pipeline_audit.py
+tests/benchmarks/test_quality_lifecycle.py tests/benchmarks/test_analytics_recheck.py`
+and `PY -m ruff format --check` with that same list; plus `git diff --check`.
+Final outcomes are recorded after the closing verification below.
+
+### Remaining owner handoffs and manual checks
+
+The proposed official integrated budget counts 16 processes at P10 / 18 at P33,
+8.25 allocated cores and 7,808 MiB within a 9-core/8,192-MiB SUT budget. Separate
+pipeline profile: five/seven processes, 3.75 cores/4,096 MiB. Consumer-group total
+is fixed at 1.5 cores/1,536 MiB with API counted separately. Actual machine and
+enforcement remain NOT_RUN; prefer a dedicated >=12-logical-CPU/32-GiB Linux SSD
+host, with separate generator budget. Pair only within the same enforced profile.
+
+The actual packet records three migration participants (conversation/catalog/
+analytics), zero reset participants and **37 unregistered generic integration
+cases**, all NOT_RUN. Existing M4 W-PIPE/quality callbacks and the separate G1
+CLI are connected; missing business/G3/fault/data case bindings are not supplied
+by pretending provider pytest results are whole-team evaluation receipts.
+Orders/Inventory/Payments must supply their migration delegates and operational
+relay/runtime bindings. All owners must provide read-only reset preflights and
+guarded apply callbacks if an explicit reset is later required.
+
+Actual owner mapping approvals, exact seed SKU membership, shared clock proof,
+operational fresh-storage/seed/projection composition, reviewed checkout/integrated
+templates and human relevance labels remain handoffs. Final measurement uses a
+clean committed revision and genuine correctness/resource/readiness evidence.
+The current packet pins this dirty working tree for review only. The executing
+teammate must regenerate/review the final machine's exact-byte pins once, preserve
+them for every comparator, run required gates, and return the raw bundles for
+Jaineel's existing reconcile/compare/report path. No performance conclusion exists.
+
+Give Harsh `HARSH_REVIEW_2026_11_09.md` and the generated packet. Give the executing
+teammate `EVALUATION_TEAMMATE_RUNBOOK.md`, the packet and the eventual reviewed
+commit. It contains exact commands, private deployment input names, prerequisites,
+failure handling and evidence to return. Public contract changes still require
+affected-owner review; no canonical hash/dataset behavior was silently changed.
+
+Closing verification: Ruff check **exit 0**, format check **exit 0** (31 Python
+files already formatted), generated evaluation schemas/OpenAPI **exit 0** and
+`git diff --check` **exit 0**. Packet verification repeats **exit 0** with the
+same content hash above. Final diff inspection confirms the pre-existing workflow
+edit is unchanged and `git diff --quiet -- uv.lock pyproject.toml services
+shared/contracts infra migrations contracts/events contracts/data/catalog
+contracts/dictionaries/catalog configs/evaluation.yaml` returns **exit 0**.
+No owned implementation check is failing at this checkpoint. External approvals,
+37 generic case bindings, full operational setup and measured evaluation remain
+explicit unfinished team deliverables; no false whole-team completion is claimed.
+
+## Reviewed branch push — 9 November 2026
+
+User explicitly authorized review/fixes and commit/push to the current branch,
+then clarified that waiting for CI before pushing is optional. Continue on
+`jaineel/j03-telemetry`, initially `6e1e633`; ordinary `git fetch origin` confirms
+the branch is seven commits ahead of its remote, with no remote-only commits.
+Do not rewrite history or push another teammate's branch.
+
+Review fixes in this pass:
+
+- `projectctl/provider_validation.py`: reject non-object receipts/surfaces/entries,
+  non-integer schema versions and non-list reviewer declarations as explicit FAIL
+  results instead of allowing a malformed file to escape the compatibility check.
+  Extend the existing approval-corruption test with six malformed-shape cases.
+- `configs/evaluation_profiles.json`, `projectctl/evaluation_packet.py`, and the
+  existing team-handoff test: record SQL caps on each process and derive service
+  totals from them. Preserve M1's existing three API/audit plus one relay split
+  (four total), catalogue 4+2+1, M3 4+1 each and M4 12 sink+2 publisher/relay+2 API.
+  P33 worker caps are 6/4/4; API remains two. CPU/RAM allocations are unchanged.
+- `benchmarks/manual/verify_prompt6.py` and its existing environment-isolation
+  test: scrub the new owner-runtime, contract-review, analytics-review and
+  performance-review variables so local deployment inputs cannot affect CI.
+- Add `docs/jaineel/TEAM_MESSAGES_2026_11_09.md` with copyable messages and paths
+  for Harsh, Vichitr and Aditya. Update the teammate runbook's committed-source
+  instructions and exact SQL environment caps; preserve historical evidence.
+- Include the pre-existing `.github/workflows/offline.yml` artifact-upload fix
+  in this authorized push. Its four-line diff is unchanged from the start of
+  the task: collect direct volume logs without traversing private pytest trees.
+
+Verification commands (`PY=.venv/Scripts/python.exe`, all from repo root):
+
+| Exact command/check | Actual outcome | Evidence |
+|---|---|---|
+| `PY -m benchmarks.manual.verify_prompt6 --job offline --out artifacts/jaineel/push-review-20261109/offline-windows` | **PASS, exit 0: 1,700 passed / 529 skipped / 2,229 collected, zero failures/errors.** This complete Windows offline run started before the follow-up review fixes; final changes are covered by the focused run below | `artifacts/jaineel/push-review-20261109/offline-windows/{checks,summary}.json`, raw logs and `pytest.xml` |
+| `PY -m pytest -q tests/contracts/test_provider_validation.py tests/projectctl/test_team_handoff.py tests/projectctl/test_runtime.py tests/benchmarks/test_prompt6_ci.py tests/benchmarks/test_analytics_recheck.py tests/benchmarks/test_pipeline_audit.py tests/benchmarks/test_quality_lifecycle.py --basetemp=artifacts/pytest-push-review-final-20261109 --junitxml=artifacts/jaineel/push-review-20261109/focused-final.xml` | **95 passed**, zero failures/skips, 11.37 s, on the final reviewed code. Earlier overlapping focused pass: 95 passed, `focused.xml` | `artifacts/jaineel/push-review-20261109/focused-final.xml` |
+| `PY -m ruff check projectctl benchmarks services/conversation shared/telemetry dashboards tests/conversation tests/contracts tests/projectctl tests/benchmarks tests/oracles tests/telemetry tests/integration` | Exit 0 | Session transcript |
+| `PY -m ruff format --check` with that same path list | Exit 0, **200 files already formatted** | Session transcript |
+| `PY -m projectctl.schemas --check`; `PY -m projectctl.conversation_contract --check`; `git diff --check` | All exit 0; schemas/current OpenAPI unchanged | Session transcript |
+| `git diff --quiet -- uv.lock pyproject.toml services shared/contracts infra migrations contracts/events contracts/data/catalog contracts/dictionaries/catalog configs/evaluation.yaml` | Exit 0; no provider implementation, public DTO, canonical config/specification or dependency lock changed | Session transcript |
+
+Counts overlap; do not sum them as unique tests. The 529 skips are retained
+service/platform/source/model opt-ins, not new exclusions. Contract review still
+reports dependency NOT_RUN until actual owner receipts exist. No assertions were
+weakened and no fake owner approval, real integration or performance pass is claimed.
+
+No Linux/PostgreSQL/Kafka/volume job was run locally in this follow-up: Docker
+Desktop remains stopped and the laptop had about 2 GiB free RAM. The user explicitly
+allowed pushing without waiting for those CI phases. The existing workflow runs
+automatically on push; a hosted result is not inferred from local software checks.
+No final evaluation, performance matrix, live fault, reset or deployment was run.
+
+Commit only the reviewed source/tests/config/docs and the retained workflow fix;
+do not stage ignored evidence, packets, raw CSV or credentials. The actual commit
+and remote branch equality are recorded after the ordinary push in
+`artifacts/jaineel/push-review-20261109/git-receipt.json`. Fresh packet generation
+and verification after committing use a new ignored directory, preserving the
+older now-stale packets. None of these packets approves the remaining owner gates.
+
+Send the three copyable messages from `docs/jaineel/TEAM_MESSAGES_2026_11_09.md`.
+Harsh reviews source/dictionary/manifests/queries and supplies catalogue/layout
+bindings; Vichitr reviews runtime/audit mappings and enforces counted deployment/
+clock/collector inputs; Aditya supplies M3 migration/runtime/seed/snapshot/fault
+bindings. All required remaining cases stay explicit until real callbacks and
+owner-reviewed evidence exist. The final measured report remains NOT_RUN.
