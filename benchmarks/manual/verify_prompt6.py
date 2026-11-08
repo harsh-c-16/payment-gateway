@@ -76,6 +76,10 @@ def environment(job):
             "M09_BROKER_OUTAGE",
             "PROJECTCTL_ADAPTER_MODULE",
             "PROJECTCTL_RUNTIME_MODULE",
+            "PROJECTCTL_OWNER_RUNTIME_MODULES",
+            "PROJECTCTL_PERFORMANCE_REVIEW_PATH",
+            "PROJECTCTL_CONTRACT_REVIEW_PATH",
+            "ANALYTICS_BINDING_REVIEW_PATH",
             "OPENAI_API_KEY",
         }
     }

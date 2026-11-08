@@ -52,6 +52,8 @@ def test_quality_preparation_adopts_only_frozen_verified_inputs(tmp_path, monkey
 
     async def fresh_double(context):
         calls.append("fresh_namespace")
+        assert len(context["quality_topics"]) == 3
+        assert context["dataset_revision"] == projection["dataset_revision"]
         return {
             "namespace": ctx["namespace"],
             "run_id": ctx["run_id"],
@@ -128,6 +130,43 @@ def test_blocked_g1_records_not_run_without_setup_or_plan(tmp_path):
     assert result["status"] == "NOT_RUN" and result["passed"] is None
     assert result["exit_code"] == 4 and called == []
     assert (out / "summary.json").exists() and not (out / "planned.jsonl").exists()
+
+
+def test_g1_passes_runtime_context_and_cleans_up_after_prepare_failure(tmp_path, monkeypatch):
+    config = load_config()
+    projection = {
+        "active_skus": [f"FK-DOUBLE-{i:05}" for i in range(19920)],
+        "dataset_revision": "explicit-catalogue-double",
+    }
+    called = []
+
+    class LifecycleDouble:
+        publisher = None
+        counts = {"planned": 3, "unique_valid": 1, "duplicate_deliveries": 1, "invalid": 1}
+
+        def __init__(self, *args, **kwargs):
+            pass
+
+        async def prepare(self, context, manifest):
+            assert context["resource_profile"] == config.profile.model_dump()
+            assert context["dataset"] == config.dataset.model_dump()
+            assert context["planned_path"].endswith("planned.jsonl")
+            called.append("prepare")
+            raise DependencyError("explicit setup failure double")
+
+    async def cleanup(context):
+        called.append("cleanup")
+
+    monkeypatch.setattr("benchmarks.quality_trial.preflight", lambda *args: [])
+    monkeypatch.setattr(
+        "benchmarks.quality_trial.build_quality_bindings",
+        lambda *args, **kwargs: SimpleNamespace(dependency_reasons=()),
+    )
+    monkeypatch.setattr("benchmarks.quality_trial.catalog_projection", lambda _: projection)
+    monkeypatch.setattr("benchmarks.quality_trial.QualityLifecycle", LifecycleDouble)
+    result = asyncio.run(run_g1(config, tmp_path / "g1", owners=QualityOwners(cleanup=cleanup)))
+    assert called == ["prepare", "cleanup"]
+    assert result["exit_code"] == 4 and result["passed"] is None
 
 
 @pytest.mark.parametrize(

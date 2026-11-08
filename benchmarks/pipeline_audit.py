@@ -8,7 +8,7 @@ from datetime import datetime
 from uuid import UUID, uuid5
 
 from benchmarks.reconciliation import reconcile_run
-from projectctl.artifacts import canonical_json
+from projectctl.artifacts import canonical_json, write_json
 from shared.event_transport.consumer import raw_fingerprint
 
 
@@ -17,11 +17,17 @@ def rows(path):
         yield from (json.loads(line) for line in stream)
 
 
-def audit_pipeline(context, directory, raw, *, review=None):
+def audit_pipeline(context, directory, raw, *, review=None, persist=True):
     """Expectations come from the frozen plan and emitted bytes, never Gold/Silver totals."""
     failures = []
-    planned = {r["logical_record_id"]: r for r in rows(directory / "planned.jsonl")}
+    plan = list(rows(directory / "planned.jsonl"))
+    planned = {r["logical_record_id"]: r for r in plan}
     emissions = list(rows(directory / "emissions.jsonl"))
+    if len(planned) != len(plan):
+        failures.append("DUPLICATE_PLANNED_ID")
+    emission_ids = [r["record_id"] for r in emissions]
+    if len(set(emission_ids)) != len(emission_ids) or set(emission_ids) != set(planned):
+        failures.append("EMISSIONS_DIFFER_FROM_PLAN")
     receipts = {
         (r["source"]["topic"], r["source"]["partition"], r["source"]["offset"]): r
         for r in raw["receipts"]
@@ -30,12 +36,19 @@ def audit_pipeline(context, directory, raw, *, review=None):
         (r["source"]["topic"], r["source"]["partition"], r["source"]["offset"]): r
         for r in raw["bronze"]
     }
+    if len(bronze) != len(raw["bronze"]):
+        failures.append("DUPLICATE_BRONZE_COORDINATE")
+    if raw.get("run_id") != context["run_id"]:
+        failures.append("WRONG_EXPORT_RUN_ID")
+    acknowledged = set()
     events, documents, dispositions, minutes, visibility = {}, {}, {}, Counter(), []
     complete = raw["collection_complete"] is True
     with (directory / "wire.jsonl").open(encoding="utf-8", newline="\n") as wire:
         for emission in emissions:
             if emission["outcome"] != "acknowledged":
                 complete &= emission["outcome"] != "unresolved"
+                continue
+            if emission["record_id"] not in planned:
                 continue
             logical = planned[emission["record_id"]]
             wire.seek(emission["wire_offset"])
@@ -69,11 +82,18 @@ def audit_pipeline(context, directory, raw, *, review=None):
                 or document["metadata"]["synthetic"] is not True
                 or document["metadata"]["scenario_source"] != "benchmark"
                 or document["payload"] != expected_payload
+                or datetime.fromisoformat(document["event_time"])
+                != datetime.fromisoformat(emission["scheduled_at"])
                 or hashlib.sha256(body).hexdigest() != emission["wire_sha256"]
             ):
                 failures.append("WIRE_DIFFERS_FROM_PLAN:" + emission["record_id"])
             source = emission["source"]
             coordinate = (source["topic"], source["partition"], source["offset"])
+            if coordinate in acknowledged:
+                failures.append("ACKNOWLEDGED_SOURCE_REUSED")
+            acknowledged.add(coordinate)
+            if source["topic"] != context["namespace"] + ".inventory-events.v1":
+                failures.append("ACKNOWLEDGED_WRONG_TOPIC")
             receipt, captured = receipts.get(coordinate), bronze.get(coordinate)
             if receipt is None or captured is None:
                 failures.append("MISSING_ACKNOWLEDGED_SOURCE:" + identity)
@@ -104,6 +124,8 @@ def audit_pipeline(context, directory, raw, *, review=None):
                         "manifest_sha256": raw["gold"]["manifest_sha256"],
                     }
                 )
+    if set(bronze) != acknowledged:
+        failures.append("BRONZE_MEMBERSHIP_DIFFERS_FROM_ACKS")
     actual_minutes = Counter()
     for row in raw["gold"]["rows"]:
         minute = datetime.fromisoformat(row["minute"]).isoformat()
@@ -131,6 +153,7 @@ def audit_pipeline(context, directory, raw, *, review=None):
     if raw["silver_manifest"]["generation"] != raw["gold"]["generation"]:
         failures.append("UNPAIRED_PUBLICATION")
     expected = {
+        "audit_kind": "W-PIPE",
         "namespace": context["namespace"],
         "events": events,
         "source_dispositions": dispositions,
@@ -171,6 +194,14 @@ def audit_pipeline(context, directory, raw, *, review=None):
         "ledger": [],
         "stocks": [],
     }
+    if persist and raw["test_mode"] == "real" and review is not None:
+        write_json(directory / "expected.json", expected)
+        write_json(directory / "observed.json", observed)
+        write_json(directory / "binding_review.json", review)
+    if not persist:
+        for filename, projection in (("expected.json", expected), ("observed.json", observed)):
+            if json.loads((directory / filename).read_text("utf-8")) != projection:
+                failures.append("SAVED_PROJECTION_DIFFERS_FROM_RAW:" + filename)
     report = reconcile_run(expected, observed, binding_review=review)
     report["reconciliation"]["invariant_failures"].extend(failures)
     if failures:

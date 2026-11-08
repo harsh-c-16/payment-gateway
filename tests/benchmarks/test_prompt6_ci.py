@@ -29,6 +29,10 @@ def test_offline_scrubs_local_service_opt_ins(monkeypatch):
         "M09_BROKER_OUTAGE",
         "PROJECTCTL_ADAPTER_MODULE",
         "PROJECTCTL_RUNTIME_MODULE",
+        "PROJECTCTL_OWNER_RUNTIME_MODULES",
+        "PROJECTCTL_PERFORMANCE_REVIEW_PATH",
+        "PROJECTCTL_CONTRACT_REVIEW_PATH",
+        "ANALYTICS_BINDING_REVIEW_PATH",
         "OPENAI_API_KEY",
     ):
         monkeypatch.setenv(key, "must-not-leak")

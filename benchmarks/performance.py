@@ -409,15 +409,25 @@ def validate_outputs(directory, context):
             or observed.get("test_mode") != "real"
         ):
             raise DependencyError("real namespace-scoped audit required")
-        review = validate_review(
-            directory / "binding_review.json", context["namespace"], directory / "expected.json"
-        )
-        if workload in STREAM_WORKLOADS:
+        if expected.get("audit_kind") in {"W-PIPE", "W-QUALITY"}:
+            from benchmarks.analytics_recheck import recheck
+
+            verdict = recheck(directory, context, expected)
+            if verdict.get("passed") is not True:
+                failures.append("independent M4 raw-evidence reconciliation failed")
+                correctness_failed = verdict["status"] == "FAIL"
+        elif workload in STREAM_WORKLOADS:
+            review = validate_review(
+                directory / "binding_review.json", context["namespace"], directory / "expected.json"
+            )
             verdict = reconcile_run(expected, observed, binding_review=review)
             if verdict["reconciliation"]["passed"] is not True:
                 failures.append("independent business/data reconciliation failed")
                 correctness_failed = verdict["status"] == "FAIL"
         else:
+            validate_review(
+                directory / "binding_review.json", context["namespace"], directory / "expected.json"
+            )
             from benchmarks.reconciliation import compare_fixture_output
 
             logical = expected.get("logical_results")

@@ -1,7 +1,9 @@
 """Separately named real G1 trial; never reduces the W-QUALITY/T-03 fixture."""
 
+import argparse
 import asyncio
 import hashlib
+import json
 from uuid import uuid4
 
 from benchmarks.composition import catalog_projection
@@ -11,7 +13,7 @@ from benchmarks.scheduler import Limits, journal, run_schedule
 from benchmarks.workloads import generate_workload
 from projectctl.artifacts import canonical_json, file_hash, write_json
 from projectctl.cli import preflight
-from projectctl.config import resolve_config
+from projectctl.config import load_config, repo_path, resolve_config
 
 
 async def run_g1(config, directory, *, owners=None):
@@ -57,6 +59,9 @@ async def run_g1(config, directory, *, owners=None):
         "workload_id": "G1",
         "variant_id": "B0",
         "parameters": resolved.variants["B0"].config.model_dump(),
+        "dataset": resolved.dataset.model_dump(),
+        "resource_profile": resolved.profile.model_dump(),
+        "planned_path": str(directory / "planned.jsonl"),
         "evidence_directory": str(directory),
     }
     path = directory / "planned.jsonl"
@@ -116,5 +121,29 @@ async def run_g1(config, directory, *, owners=None):
             except Exception as error:
                 result.update(exit_code=4, passed=None, status="INCOMPLETE")
                 result["reasons"].append("publisher close failed: " + type(error).__name__)
+        if owners.cleanup is not None:
+            try:
+                await owners.cleanup(context)
+            except Exception as error:
+                result.update(exit_code=4, passed=None, status="INCOMPLETE")
+                result["reasons"].append("runtime cleanup failed: " + type(error).__name__)
     write_json(directory / "summary.json", result)
     return result
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--config", required=True)
+    parser.add_argument("--out", required=True)
+    args = parser.parse_args(argv)
+    from projectctl.runtime import load_runtime
+
+    result = asyncio.run(
+        run_g1(load_config(args.config), repo_path(args.out), owners=load_runtime().quality)
+    )
+    print(json.dumps(result))
+    return result["exit_code"]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

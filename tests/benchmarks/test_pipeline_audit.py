@@ -57,6 +57,7 @@ def fixture(directory):
         (directory / (name + ".jsonl")).write_text(json.dumps(row) + "\n")
     raw = {
         "namespace": context["namespace"],
+        "run_id": context["run_id"],
         "test_mode": "stub",
         "collection_complete": True,
         "receipts": [
@@ -133,3 +134,77 @@ def test_unreviewed_real_mapping_is_never_declared_passed(tmp_path):
     raw["test_mode"] = "real"
     result = audit_pipeline(context, tmp_path, raw)
     assert result["status"] == "INCOMPLETE" and result["passed"] is None
+
+
+@pytest.mark.parametrize(
+    "corrupt",
+    [
+        "run_id",
+        "extra_bronze",
+        "duplicate_bronze",
+        "missing_emission",
+        "duplicate_emission",
+        "event_time",
+    ],
+)
+def test_reviewed_boundary_cannot_hide_missing_or_foreign_evidence(tmp_path, corrupt):
+    context, raw = fixture(tmp_path)
+    if corrupt == "run_id":
+        raw["run_id"] = "another-run"
+    elif corrupt == "extra_bronze":
+        raw["bronze"].append(
+            raw["bronze"][0] | {"source": raw["bronze"][0]["source"] | {"offset": 99}}
+        )
+    elif corrupt == "duplicate_bronze":
+        raw["bronze"].append(raw["bronze"][0])
+    elif corrupt == "missing_emission":
+        (tmp_path / "emissions.jsonl").write_text("")
+    elif corrupt == "duplicate_emission":
+        path = tmp_path / "emissions.jsonl"
+        path.write_text(path.read_text() * 2)
+    else:
+        # Alter all observed copies consistently: the frozen scheduled time still wins.
+        path = tmp_path / "wire.jsonl"
+        packet = json.loads(path.read_text())
+        document = json.loads(base64.b64decode(packet["body"]))
+        document["event_time"] = "2026-11-08T00:01:00Z"
+        body = canonical_json(document)
+        packet["body"] = base64.b64encode(body).decode()
+        path.write_text(json.dumps(packet) + "\n")
+    assert audit_pipeline(context, tmp_path, raw)["passed"] is False
+
+
+def test_saved_real_projection_rebuilds_from_wire_and_raw_export(tmp_path, monkeypatch):
+    from benchmarks.analytics_recheck import recheck
+    from projectctl.artifacts import write_json
+
+    context, raw = fixture(tmp_path)
+    context["workload_id"] = "W-PIPE"
+    raw["test_mode"] = "real"
+    review = {
+        "namespace": context["namespace"],
+        "review_sha256": "f" * 64,
+        "reviewers": ["Jaineel", "Harsh", "Aditya", "Vichitr"],
+        "contracts": [
+            {"path": path, "sha256": "a" * 64}
+            for path in (
+                "benchmarks/analytics_recheck.py",
+                "benchmarks/pipeline_audit.py",
+                "infra/analytics_runtime.py",
+                "infra/analytics_resources.py",
+                "pipelines/ingestion/adapters.py",
+            )
+        ],
+    }
+    # Explicit review double: no team receipt is produced by this unit test.
+    monkeypatch.setattr("projectctl.config.ROOT", tmp_path)
+    monkeypatch.setattr("benchmarks.analytics_recheck.verify_review", lambda _: review)
+    result = audit_pipeline(context, tmp_path, raw, review=review)
+    assert result["passed"] is True
+    write_json(tmp_path / "analytics_raw_evidence.json", raw)
+    expected = json.loads((tmp_path / "expected.json").read_text("utf-8"))
+    assert recheck(tmp_path, context, expected)["passed"] is True
+    # A later corrupted Gold fact cannot hide behind the previously saved PASS.
+    raw["gold"]["rows"][0]["unique_events"] = 2
+    (tmp_path / "analytics_raw_evidence.json").write_text(json.dumps(raw), encoding="utf-8")
+    assert recheck(tmp_path, context, expected)["passed"] is False
