@@ -279,7 +279,9 @@ class AnalyticsRunner:
         return await self.for_run(context).drain(context, remaining_seconds)
 
     async def stop(self, context):
-        await asyncio.to_thread(self.for_run(context).deployment.stop)
+        run = self.runs.get((context["namespace"], context["run_id"]))
+        if run is not None and run.deployment.path.is_file():
+            await asyncio.to_thread(run.deployment.stop)
 
     async def export(self, context, directory):
         return await self.for_run(context).export(context, directory)
@@ -305,4 +307,5 @@ class AnalyticsRunner:
             audit=independent_audit,
             observer_factory=observer,
             fault=self.fault,
+            cleanup=self.stop,
         )

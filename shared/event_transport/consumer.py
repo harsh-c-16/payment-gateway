@@ -81,6 +81,7 @@ class ConsumerGroup:
         self.ready = deque()
         self.buffer_bytes = 0
         self.paused = False
+        self.operator_paused = False
         self.closed = False
         self.closing = False
         self.last_rebalance_error = None
@@ -130,6 +131,7 @@ class ConsumerGroup:
             self.ledger[key] = OrderedDict()
         self.paused = False
         consumer.assign(partitions)
+        self._pause_if_needed()
 
     def _forget(self, partitions):
         for partition in partitions:
@@ -253,6 +255,7 @@ class ConsumerGroup:
             "native_queue_limit_bytes": self.settings["queued.max.messages.kbytes"] * 1024,
             "native_fetch_limit_bytes": self.settings["fetch.max.bytes"],
             "fetch_paused": self.paused,
+            "operator_paused": self.operator_paused,
             "pause_required": self._pause_required(),
             "peak_pending_records": self.peak_records,
             "peak_pending_raw_bytes": self.peak_bytes,
@@ -261,12 +264,20 @@ class ConsumerGroup:
         }
 
     def _pause_if_needed(self):
-        blocked = self._pause_required()
+        blocked = self.operator_paused or self._pause_required()
         partitions = [TopicPartition(*key) for key in self.assignments]
         if partitions and blocked != self.paused:
             (self.consumer.pause if blocked else self.consumer.resume)(partitions)
             self.paused = blocked
             self.pause_count += int(blocked)
+
+    def set_fetch_paused(self, paused):
+        """Owner-thread pause; heartbeat polling and existing buffer bounds remain active."""
+        self._check_thread()
+        if type(paused) is not bool:
+            raise ValueError("An explicit Boolean pause state is required")
+        self.operator_paused = paused
+        self._pause_if_needed()
 
     def _capture(self, message):
         key = (message.topic(), message.partition())

@@ -244,6 +244,9 @@ def adapter(invocation):
                 ]
             )
             provision_topics("dev")
+            from infra.audit_roles import provision
+
+            provision()
             with httpx.Client(base_url=REGISTRY, timeout=30, trust_env=False) as client:
                 register_schemas(client, SCHEMA_CACHE)
         elif invocation.action == "env down":

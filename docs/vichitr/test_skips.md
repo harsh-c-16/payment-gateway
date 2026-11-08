@@ -1,9 +1,13 @@
 # Implementation checks: 8 November 2026
 
-Focused batching/scaling/lifecycle/relay checks use explicit SQL/Docker doubles;
-see the latest [progress entry](progress.md#remaining-implementation--8-november-2026)
-and [runtime handoff](runtime_implementation.md). No Docker startup, live O1/reset,
-full integration or performance run was executed in this pass. CI selection is unchanged.
+The consumer-control/runtime/cleanup/CI pass covered **223 distinct offline
+cases**, with no skips in its passing reports (`runtime-final.xml`, 221 passed;
+`runtime-reviewed.xml`, 45 passed with overlap). See the latest
+[progress entry](progress.md#consumer-pause-concrete-runtime-and-ci-fix---8-november-2026)
+and [runtime handoff](runtime_implementation.md) for commands and limitations.
+Actual role provisioning, Docker/native CI rerun, full quality/integration,
+benchmarks and reset were not run; the user prioritized implementation.
+CI test selection is unchanged.
 
 ## Historical integration coverage: 6 November 2026
 

@@ -313,7 +313,8 @@ def main(argv=None):
                 "-o",
                 "junit_family=xunit1",
                 f"--junitxml={out / 'pytest.xml'}",
-                f"--basetemp={out / 'tmp'}",
+                # Keep private pytest directories outside the artifact upload tree.
+                f"--basetemp={out.parent / (out.name + '-pytest-tmp')}",
                 "-o",
                 f"cache_dir={out / 'cache'}",
             ],

@@ -14,6 +14,7 @@ from shared.contracts.common import Identifier
 from shared.contracts.events import EVENTS, Namespace
 from shared.event_transport.consumer import ConsumerGroup
 
+from .control import ConsumerControl
 from .notifications import notification_relay
 from .runtime import pipeline_from_env, worker_allocation
 
@@ -46,6 +47,7 @@ def run(pipeline, namespace, run_id, bootstrap):
     TypeAdapter(Namespace).validate_python(namespace)
     TypeAdapter(Identifier).validate_python(run_id)
     workers, worker_index = worker_allocation()
+    control = ConsumerControl(namespace, run_id)
     for attempt in range(4):
         group = ConsumerGroup(
             namespace + ".analytics.v1",
@@ -69,12 +71,15 @@ def run(pipeline, namespace, run_id, bootstrap):
                 deadline += max(1, int((monotonic() - deadline) / 0.250) + 1) * 0.250
 
         # B0 checks cadence after each SQL commit, even within a shared raw capture.
-        # shortcut: worker zero also publishes; split roles before consumer-only pause measurements.
         pipeline.after_sink_commit = publish_if_due if worker_index == 0 else None
         try:
             while True:
                 # Identical capture count/wait controls for B0 and O1; only SQL grouping changes.
-                pipeline.ingest_once(group, run_id=run_id, max_records=100)
+                if control.tick(group):
+                    # Heartbeats without handing out data.
+                    group.consume_records(group.topics, 0, 50)
+                else:
+                    pipeline.ingest_once(group, run_id=run_id, max_records=100)
                 now = monotonic()
                 if now >= observation_deadline:
                     log_buffer(group, run_id)

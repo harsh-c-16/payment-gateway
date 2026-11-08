@@ -132,7 +132,11 @@ def test_fault_guards_and_recovery_on_cancellation(monkeypatch):
         asyncio.run(runtime.fault(context(), "consumer-pause", spec))
     monkeypatch.setenv("BENCHMARK_MODE", "true")
     calls = []
-    monkeypatch.setattr(runtime, "command", lambda *args: calls.append(args))
+    monkeypatch.setattr(
+        runtime,
+        "consumer_control",
+        lambda seconds: calls.append(seconds) or {"observed_at": "2026-11-08T00:00:00Z"},
+    )
 
     async def cancelled(seconds):
         raise asyncio.CancelledError
@@ -140,4 +144,4 @@ def test_fault_guards_and_recovery_on_cancellation(monkeypatch):
     monkeypatch.setattr(deployment.asyncio, "sleep", cancelled)
     with pytest.raises(asyncio.CancelledError):
         asyncio.run(runtime.fault(context(), "consumer-pause", spec))
-    assert calls == [("pause", runtime.workers[0]), ("unpause", runtime.workers[0])]
+    assert calls == [30, 0]

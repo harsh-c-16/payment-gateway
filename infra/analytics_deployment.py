@@ -5,7 +5,8 @@ import copy
 import json
 import math
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import yaml
 from pydantic import TypeAdapter
@@ -71,6 +72,8 @@ def deployment_plan(context, *, worker_memory_mib, worker_cpu_cores):
             SINK_BATCH_MAX_ROWS=str(rows),
             ANALYTICS_WORKERS=str(workers),
             ANALYTICS_WORKER_INDEX=str(index),
+            BENCHMARK_MODE="${BENCHMARK_MODE:-false}",
+            FAULT_INJECTION_ENABLED="${FAULT_INJECTION_ENABLED:-false}",
         )
         # Worker metrics have separate listeners; API and worker registries are not interchangeable.
         service["ports"] = [f"127.0.0.1:{18060 + index}:8006"]
@@ -169,6 +172,26 @@ class AnalyticsDeployment:
         if context["parameters"] != self.context["parameters"]:
             raise ValueError("Deployment parameters changed after resource allocation")
 
+    def consumer_control(self, seconds):
+        request = {
+            "namespace": self.namespace,
+            "run_id": self.run_id,
+            "request_id": str(uuid4()),
+            "pause_seconds": seconds,
+            "expires_at": (datetime.now(UTC) + timedelta(seconds=max(seconds, 10))).isoformat(),
+        }
+        return json.loads(
+            self.command(
+                "exec",
+                "-T",
+                self.workers[0],
+                "python",
+                "-m",
+                "pipelines.ingestion.control",
+                json.dumps(request),
+            )
+        )
+
     async def fault(self, context, profile, spec):
         self.check_context(context)
         isolated_namespace(context["namespace"])
@@ -178,7 +201,7 @@ class AnalyticsDeployment:
         ):
             raise ValueError("Both isolated benchmark fault flags must be enabled")
         allowed = {
-            "consumer-pause": ("analytics-consumer-1", "pause", "unpause", self.workers[:1]),
+            "consumer-pause": ("analytics-consumer-1", None, None, self.workers[:1]),
             "analytics-outage": ("analytics", "stop", "start", self.services),
             "kafka-outage": ("kafka", "stop", "start", ("kafka",)),
         }
@@ -198,6 +221,23 @@ class AnalyticsDeployment:
         ):
             raise ValueError("Invalid scoped fault target/boundary/duration")
         started = datetime.now(UTC).isoformat()
+        if profile == "consumer-pause":
+            try:
+                pause_ack = await asyncio.to_thread(self.consumer_control, duration)
+                await asyncio.sleep(duration)
+            finally:
+                resume_ack = await asyncio.to_thread(self.consumer_control, 0)
+            return {
+                "acknowledged": True,
+                "namespace": self.namespace,
+                "run_id": self.run_id,
+                "fault_profile": profile,
+                "barrier": None,
+                "target": target,
+                "started_at": pause_ack["observed_at"],
+                "recovered_at": resume_ack["observed_at"],
+                "scope": "consumer_fetch_only",
+            }
         command = streaming.compose if profile == "kafka-outage" else self.command
         await asyncio.to_thread(command, action, *services)
         try:

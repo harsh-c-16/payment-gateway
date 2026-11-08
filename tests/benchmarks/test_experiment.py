@@ -1,6 +1,7 @@
 import asyncio
 import json
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 from jsonschema import Draft202012Validator
@@ -13,6 +14,61 @@ from projectctl.artifacts import content_hash, file_hash
 from projectctl.config import InputError, load_config, load_matrix
 from projectctl.models import RunManifest, Summary
 from tests.benchmarks.doubles import LifecycleDouble, SlowPublisher
+
+
+@pytest.mark.parametrize("failure", [None, "prepare", "validate", "cancel"])
+def test_owned_runtime_cleanup_runs_on_success_failure_and_cancellation(experiment_config, failure):
+    lifecycle = LifecycleDouble(fail_stage=failure)
+    calls = []
+
+    async def cleanup(context):
+        calls.append(context["namespace"])
+
+    if failure == "cancel":
+
+        async def cancel(context, manifest):
+            raise asyncio.CancelledError
+
+        lifecycle.validate = cancel
+    manifest = run(experiment_config, lifecycle.bindings(cleanup=cleanup))
+    summary = json.loads((directory(experiment_config, manifest) / "summary.json").read_text())
+    assert len(calls) == 1
+    assert summary["exit_code"] == (0 if failure is None else 4)
+
+
+def test_owned_cleanup_still_runs_if_observer_teardown_is_cancelled(experiment_config):
+    calls = []
+
+    class ObserverDouble:
+        def __init__(self, context, directory, kind):
+            self.config = SimpleNamespace(
+                run_id=context["run_id"],
+                namespace=context["namespace"],
+                workload="W-PIPE",
+                variant="B0",
+                mode="stub",
+                evidence_kind=kind,
+                directory=directory,
+            )
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            raise asyncio.CancelledError
+
+    async def cleanup(context):
+        calls.append(context["namespace"])
+
+    with pytest.raises(asyncio.CancelledError):
+        run(
+            experiment_config,
+            LifecycleDouble().bindings(
+                observer_factory=ObserverDouble,
+                cleanup=cleanup,
+            ),
+        )
+    assert len(calls) == 1
 
 
 @pytest.fixture

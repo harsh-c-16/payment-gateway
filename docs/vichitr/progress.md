@@ -1,6 +1,64 @@
 # Vichitr progress
 
-## Remaining implementation — 8 November 2026
+## Consumer pause, concrete runtime and CI fix - 8 November 2026
+
+Completed the user's two remaining implementation requests and small Jaineel CI
+fix on `vichitr`, starting at `7a31a4e`. No branch was fetched, pulled or merged in
+this pass. The previously integrated main is `a76c1df`.
+
+- Consumer-only pause: owner-thread SDK fetch control, bounded run-scoped private
+  request/ack files and automatic lease expiry. Worker zero retains heartbeat
+  polling, scheduled publication and the independent shared DLQ relay. Recovery
+  runs in `finally`, with actual pause/resume acknowledgements.
+- Concrete `infra.analytics_runtime` registers M4 W-PIPE and W-QUALITY/G1 callbacks
+  through the existing Jaineel composition. It supplies actual SQL/file exports,
+  read-only catalogue/inventory seed proof, real Docker cgroup collectors, strict
+  actual-versus-declared resource checks and a wire/receipt/Silver/Gold projection
+  into the existing independent oracle. No fake owner approval is created.
+- Local streaming `env up` now provisions three restricted SELECT-only audit
+  roles and private ignored credentials. Existing credentials are preserved;
+  missing originals/privileged existing roles fail closed. Runtime audit handles
+  reject writer privileges even if their default transaction is read-only.
+- Optional `cleanup` is forwarded through workload and quality bindings and
+  invoked after observation, also on setup failure/cancellation or earlier
+  teardown failure. It stops only already-staged owned services.
+- The CI failure in main run `42477036723` was uploader EACCES scanning the private
+  Docker-created pytest folder, after test steps passed. The verifier's pytest
+  scratch folder is now a sibling of its output folder. Workflow files, public
+  reports, test selection, specs, evaluation config and the lock are unchanged.
+
+Changed paths: `.env.example`; M4 deployment/runtime/resource/audit-role modules;
+`infra/streaming.py`; ingestion control/worker/adapters; shared consumer pause;
+minimal shared callback/cleanup forwarding; W-PIPE evidence projection;
+`verify_prompt6.py`; affected focused tests and these owner handoff documents.
+See [runtime implementation](runtime_implementation.md) for exact deployment
+inputs and the current profile mismatch.
+
+Focused verification used explicit broker/SQL/container/clock doubles:
+**223 distinct passed cases**, zero skips in the passing reports. Main affected
+cohort: **221 passed**, `artifacts/runtime-final.xml`. After final collector-name
+and teardown hardening: **45 passed**, `artifacts/runtime-reviewed.xml` (43 overlap).
+Commands:
+
+```powershell
+.venv/Scripts/python.exe -m pytest -q tests/pipelines/test_consumer_control.py tests/pipelines/test_team_runtime.py tests/pipelines/test_analytics_deployment.py tests/pipelines/test_consumer_observations.py tests/pipelines/test_worker_metrics.py tests/pipelines/test_streaming.py tests/pipelines/test_transport.py tests/benchmarks/test_pipeline_audit.py tests/benchmarks/test_experiment.py tests/benchmarks/test_prompt6_ci.py tests/benchmarks/test_quality_binding.py tests/benchmarks/test_real_composition.py tests/projectctl/test_composition.py --basetemp=artifacts/pytest-runtime-final --junitxml=artifacts/runtime-final.xml
+.venv/Scripts/python.exe -m pytest -q tests/pipelines/test_team_runtime.py tests/benchmarks/test_experiment.py --basetemp=artifacts/pytest-runtime-reviewed --junitxml=artifacts/runtime-reviewed.xml
+```
+
+Changed Python files (20) pass Ruff lint and format checks; `git diff --check`
+passes. Windows sandbox temporary-directory ACLs require the bounded tests to run
+outside the sandbox. Initial new test fixtures had return-shape/empty-series
+mistakes; these were corrected, assertions retained, and the failed reports kept
+(`runtime-focused.xml`, `runtime-cleanup-final.xml`).
+
+Not executed: Docker startup, actual role provisioning, full live integration,
+100,000-record quality run, reset, benchmark or GitHub native rerun. Existing
+historical passes are not new acceptance. The draft resource profile is neither
+feasible nor correctly inclusive of the extra analytics API; runtime refuses
+that mismatch. Real review/seed/resource/container inputs and other owners'
+whole-application runtime bindings remain required. No RAM limit was increased.
+
+## Historical batching/scaling checkpoint (7a31a4e) — 8 November 2026
 
 User requested latest main plus implementation before benchmarking. `vichitr`
 fast-forwarded from `eae74a7` to main `a76c1df`; no teammate history was rewritten.

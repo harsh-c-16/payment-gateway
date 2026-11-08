@@ -3,8 +3,10 @@
 Updated 8 November 2026, incorporating main `a76c1df` and the remaining M4
 implementation. [Runtime implementation](runtime_implementation.md) describes O1,
 scaling, lifecycle/evidence callbacks, notification relay and guarded cleanup.
-These are implemented; live acceptance/measurement and reviewed team composition
-remain pending. Historical module
+These are implemented, including consumer-only pause, concrete M4 runtime
+composition and guaranteed teardown. Live acceptance/measurement, actual
+credentials/resource/review inputs and other owners' runtime composition remain
+pending. Historical module
 notes describe their own checkpoints; use this file, the current implementation
 plan and canonical specs for remaining work. Evidence/source pins are in
 [progress](progress.md) and [test skips](test_skips.md). No owner approval,
@@ -21,14 +23,16 @@ identifies the inventory/analytics schemas; the Linux volume root is
 **Operational evidence:** the 6 November local Desktop restart/timeouts remain
 historical local limitations. Upstream main's 8 November CI passed native
 Kafka/registry/PostgreSQL/volume test steps; its final failure was artifact upload
-permissions on `artifacts/ci-volume/tmp`. This pass does not change that workflow,
-start Docker or claim live O1/scaling acceptance. The 100,000-packet result below
+permissions on `artifacts/ci-volume/tmp`. The small verifier fix now places
+pytest scratch data outside the upload folder; workflows/test selection remain
+unchanged. No Docker startup or live O1/scaling acceptance is claimed. The 100,000-packet result below
 remains wire-only.
 
 ## What is available
 
 | Provider | Actual binding |
 |---|---|
+| M4 runner | `PROJECTCTL_RUNTIME_MODULE=infra.analytics_runtime` with `projectctl.jaineel`: concrete W-PIPE and W-QUALITY/G1 callbacks, read-only SQL, Docker cgroup collectors and post-observer cleanup. See runtime handoff for required live inputs and profile mismatch. |
 | Infrastructure | `PROJECTCTL_ADAPTER_MODULE=infra.analytics`; `projectctl env up --profile streaming-local`, `projectctl env verify --profile streaming-local`, `projectctl env down`. PostgreSQL/Kafka/registry/file volume and registered current/historical schemas. |
 | Analytics schema | `projectctl db migrate --namespace bench-...` applies analytics migrations 1–10, including the real shared outbox table. Global command still reports dependency exit 4 until other database migration dispatch is composed. |
 | Producer SDK | `shared.event_transport`: configure registered schema cache/source service, build/validate immutable events, publish with real broker acknowledgement. README documents exact keyword calls and fixed settings. |
