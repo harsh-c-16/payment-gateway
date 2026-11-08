@@ -1,5 +1,16 @@
 # M4 integration handoff and remaining gates
 
+8 November startup follow-up: Windows setup/verification now retains per-stage,
+credential-free attempt diagnostics and retries transient failures in repeatable
+probes/provisioning at most three times. A real retained-volume startup exposed
+Kafka Java heap exhaustion after loading 497 partitions. The development heap
+ceiling is now 512 MiB inside the unchanged 1,024-MiB Kafka container; container
+and VM limits, data and offsets are preserved. Cold-start health budgets now
+allow retained-log recovery. See [startup instructions](../../infra/STREAMING.md)
+and [progress](progress.md) for exact commands and actual verification outcomes.
+Historical connection/read failures remain recorded; their original causes were
+not captured precisely enough to attribute retrospectively.
+
 8 November follow-up on `vichitr`: catalogue shared-relay wiring, live Compose
 API/stock-worker/relay acceptance and all four real-broker projection fault
 cases are now implemented/verified. The evidence-path portability bug is fixed;

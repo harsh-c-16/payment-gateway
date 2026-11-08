@@ -108,7 +108,7 @@ def check_engine():
     command(["docker", "compose", "version"])
 
 
-def verify(*, memory_mib=2048, cpu_cores=0.75):
+def verify(*, memory_mib=2048, cpu_cores=0.75, check=None):
     check_engine()
     values = credentials()
     container = compose("ps", "--quiet", "postgres")
@@ -145,7 +145,18 @@ def verify(*, memory_mib=2048, cpu_cores=0.75):
         raise SetupError("Container health, retained volume, loopback port or limits differ.")
     observations = {}
     for service in SERVICES:
-        with psycopg.connect(database_url(service, values), connect_timeout=3) as tx:
+
+        def connect(service=service):
+            return psycopg.connect(
+                database_url(service, values),
+                connect_timeout=3,
+                options="-c statement_timeout=60000 -c lock_timeout=5000",
+            )
+
+        connection = (
+            check("postgres-connect." + service, connect, retry=True) if check else connect()
+        )
+        with connection as tx:
             if not 180000 <= tx.info.server_version < 190000:
                 raise SetupError("PostgreSQL 18 is required.")
             settings = {

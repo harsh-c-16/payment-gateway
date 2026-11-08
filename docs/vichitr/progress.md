@@ -1,5 +1,103 @@
 # Vichitr progress
 
+## Windows startup diagnostics and retained-broker recovery - 8 November 2026
+
+User requested finishing the remaining standalone M4 startup reliability task.
+Work is on `vichitr`, based on `5b5c171`; no teammate branch, main merge,
+workflow/test selection, lock or canonical evaluation configuration changed.
+
+Changes:
+
+- `infra/startup.py` records STARTED before each setup/probe and PASSED,
+  RETRY or FAILED afterward in per-run `startup.jsonl`. Failure reasons retain
+  stage and safe exception type, SQLSTATE or HTTP status without credentials,
+  URLs, raw network exception messages or SQL text.
+- Streaming `env up`/`env verify` apply at most three attempts, with one- and
+  two-second waits, to safe repeatable HTTP/Kafka/PostgreSQL operations only.
+  Authentication, permission, schema/hash, allocation and durability mismatches
+  still fail immediately. Docker lifecycle commands are never retried. Partial
+  topic/schema/role provisioning is repeatable using the existing implementations.
+- PostgreSQL verification separately identifies each database connection and
+  bounds statements to sixty seconds and lock waits to five seconds, retaining
+  the three-second connection timeout and all durability/isolation assertions.
+- The first real run identified `compose-up` failure. The broker log showed
+  `java.lang.OutOfMemoryError: Java heap space` at `SkimpyOffsetMap` /
+  `LogCleaner$CleanerThread` after loading **497 retained logs** in 95,214 ms.
+  Container state reported exit 1 and `OOMKilled=false`: Java exhausted its
+  own heap, rather than a recorded container OOM kill. The old 256-MiB heap
+  was insufficient for this retained volume. Its ceiling is now 512 MiB within
+  the same 1,024-MiB container; VM/container RAM and CPU limits are unchanged.
+  Kafka health startup grace is 180 seconds and Compose health wait is 450
+  seconds within the existing 600-second command budget. No topics, offsets,
+  credentials or volumes were deleted. No compaction/durability control disabled.
+- Focused tests cover transient recovery, bounded failure, immediate invariant
+  failures, safe error evidence, HTTP/SQL/Kafka classification and adapter failure
+  propagation. Test doubles remain explicit. `infra/STREAMING.md` documents the
+  changed startup behavior and correct current `RUN_NAMESPACE=dev` guidance.
+
+Actual focused command:
+
+```powershell
+.venv/Scripts/python.exe -m pytest -q tests/pipelines/test_startup.py tests/pipelines/test_streaming.py tests/pipelines/test_postgres.py tests/pipelines/test_analytics_adapter.py --basetemp=artifacts/pytest-startup-final --junitxml=artifacts/startup-final.xml
+```
+
+Result: **67 passed, zero skips/failures**. Two subsequent Kafka classification
+cases also passed with `pytest -q tests/pipelines/test_startup.py -k kafka
+--basetemp=artifacts/pytest-startup-kafka --junitxml=artifacts/startup-kafka.xml`:
+**69 distinct passing cases** across these two reports, no skips/failures.
+The earlier report is `artifacts/startup-reliability.xml`, also 67 passed.
+Initial real Windows run `1aca4a97-f0fc-4cd1-a212-3d4b7b27f4aa` returned
+dependency exit 4 at `compose-up`; its journal and CLI report are retained under
+`artifacts/infra/streaming-local/checks/` and `artifacts/projectctl/` respectively.
+The broker failure was observed using `docker logs --tail 85` and whitelisted
+container state fields; raw Compose output remains excluded because it can
+include initialization SQL/secrets.
+
+Retained-volume run `13e33d3f-2e06-4809-b22b-43493f734040` brought all three
+containers healthy: Compose took **343.328 seconds**, exceeding the old
+150-second wait. Schema registration then returned HTTP 500 twice and passed
+on the third attempt, exercising real retry recovery. Final SQL verification
+failed with `QueryCanceled`, SQLSTATE `57014`. A safe PostgreSQL log extract
+identified the role-permission SELECT against `pg_roles`; the newly added
+ten-second statement limit was too short under this host's observed conditions.
+Windows reported only 373,204 to 599,240 KiB free physical RAM at the time.
+The final statement limit is sixty seconds. Query cancellation is not retried;
+all role/durability/isolation assertions remain mandatory. This failed attempt
+and its journal are retained, rather than relabelled as a full startup pass.
+
+The old connection/read timeout runs did not retain their exact failing stages;
+this new broker evidence does not prove those older errors had the same cause.
+Full suite, benchmarks, global lifecycle/reset and independent quality/business
+acceptance are outside this focused startup fix. Docker Desktop was started for
+verification; final shutdown and live verification results are recorded below.
+
+Final real Windows commands with `PROJECTCTL_ADAPTER_MODULE=infra.analytics`:
+
+| Command | Actual result | Run ID |
+|---|---|---|
+| `python -m projectctl env up --profile streaming-local` | Exit 0; repeated provisioning, all six DB durability/role/isolation checks, topic settings, schema IDs/hashes, volume and container resource checks passed | `0726d2fd-bf04-48e4-b15f-ae108cbc7d10` |
+| `python -m projectctl env verify --profile streaming-local` | Exit 0; independent host-side verification passed | `222f3d3a-75c1-4db8-bf8d-e2944578e7ef` |
+
+Both retain `startup.jsonl` and successful `streaming.json` under
+`artifacts/infra/streaming-local/checks/<run_id>/`, plus the existing CLI report
+under `artifacts/projectctl/<run_id>/`. These commands verify infrastructure,
+not throughput; the CLI's benchmark metrics correctly remain `NOT_RUN`.
+Cold retained-volume container startup and actual HTTP retry recovery were
+exercised in the earlier attempt; the final successful end-to-end commands used
+those running containers. Repeated cold-boot stress was not run.
+
+Final delivered-code check repeated the same four test files after calibrating
+the SQL timeout: **69 passed in 3.88 seconds**, zero skips/failures,
+`--basetemp=artifacts/pytest-startup-delivered
+--junitxml=artifacts/startup-delivered.xml`. Ruff lint/format and ordinary
+`git diff --check` passed. Generated evidence remains Git-ignored.
+
+Cleanup completed with `infra.streaming.compose('stop', '--timeout', '90',
+'schema-registry', 'kafka', 'postgres')`, then `docker desktop stop`, both exit 0.
+`docker ps` showed no running containers before Desktop shutdown. All named
+volumes, existing stopped containers and credentials are retained; Docker is
+returned to its initial idle state. No VM RAM/CPU setting was changed.
+
 ## Catalogue integration closure - 8 November 2026
 
 User requested closing Harsh's handoff points and remaining feasible M4 coding.

@@ -1,5 +1,18 @@
 # Implementation checks: 8 November 2026
 
+Startup reliability follow-up: **69 distinct focused cases passed**, zero
+skips/failures in the final four-file run, `artifacts/startup-delivered.xml`.
+Earlier preserved reports contain 67 startup/streaming/PostgreSQL/analytics
+adapter cases in `artifacts/startup-final.xml`, plus two Kafka classification
+cases in `artifacts/startup-kafka.xml` (21 deselected, not skipped). These
+reports overlap with the final run and do not add distinct test coverage.
+The first real Windows attempt exposed a retained-broker Java heap failure;
+see [progress](progress.md) for the preserved failure and final live outcomes.
+Final Windows `env up` and separate `env verify` both returned exit 0, with
+all infrastructure assertions retained. Cold container recovery was exercised;
+repeated cold-boot stress was not run.
+No full suite, benchmark or additional CI selection was requested for this fix.
+
 Latest catalogue closure: **45 distinct cases passed**, including all four
 real-broker projection cases and the real three-process Compose round trip;
 no skips in these cohorts. Three actual audit-role permission probes also passed.

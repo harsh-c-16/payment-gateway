@@ -1,5 +1,10 @@
 # Vichitr implementation plan
 
+8 November startup follow-up: implemented stage/attempt evidence, bounded
+transient retries for repeatable setup/probes and retained-broker heap/recovery
+budget corrections without increasing container/VM limits or deleting data.
+See [progress](progress.md) for actual Windows verification results and limits.
+
 8 November closure: remaining catalogue integration code is delivered on
 `vichitr`: shared relay process/Compose binding, evidence-path portability,
 multi-process resource accounting, native broker fault coverage and actual
