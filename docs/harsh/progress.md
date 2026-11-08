@@ -3,8 +3,8 @@
 **Author:** Harsh Chaudhari (B24CM1027)
 **Role:** M2: catalogue, retrieval, quotes, stock read model, Parquet compaction and query benchmarks
 **Brief:** [05_HARSH_CHAUDHARI.md](../specs/05_HARSH_CHAUDHARI.md)
-**Status date:** 2 November 2026
-**Branch:** merged to `main` in PR #3; later work is on `harsh` until merged
+**Status date:** 8 November 2026
+**Branch:** merged to `main` in PRs #3, #4 and #8; later work is on `harsh` until merged
 
 Results: [experiments.md](experiments.md). What teammates need: [handoff.md](handoff.md). How the
 relevance labels were made: [relevance_labels.md](relevance_labels.md).
@@ -15,10 +15,10 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 
 | Task | Deliverable | Status | Checked by |
 |---|---|---|---|
-| H01 | Real CSV ingestion, normalization, staging and promotion, hashed manifests | Real | `test_real_source.py`, `test_import_live.py`, full CLI run below |
+| H01 | Real CSV ingestion, normalization, staging and promotion, hashed manifests | Real; pinned manifests in `data/catalog/flipkart-v1-3a401f32ca99379f8298ce42/` | `test_real_source.py`, `test_import_live.py`, full CLI run below, [handoff evidence](handoff.md#manifests-and-projection-evidence) |
 | H02 | Authoritative prices, idempotent quotes, internal lookup, price update | Real PostgreSQL and Aditya's real outbox; the relay to Kafka is not composed yet | `test_quotes_live.py`, `test_price_live.py`, `test_outbox_live.py` |
 | H03 | Exact retrieval with hard filters; five search modes; 50 frozen queries | Real PostgreSQL and Aditya's real outbox | `test_search_live.py`, `test_vector_search_live.py`, `test_outbox_live.py`, 0 violations in every experiment |
-| H04 | Stock consumer, read model, projection wait, freshness receipts | Real PostgreSQL with records through the real codec. On a real broker, Vichitr ran the normal path; **the edge-case test is NOT_RUN** | `test_projection_live.py`; [Vichitr's run](../vichitr/progress.md) |
+| H04 | Stock consumer, read model, projection wait, freshness receipts, seed audit for the runner | Real PostgreSQL with records through the real codec. On a real broker, Vichitr ran the normal path; **the edge-case test is NOT_RUN** | `test_projection_live.py`; [Vichitr's run](../vichitr/progress.md) |
 | H05 | I0/I1, B0/O2/P1, exact/HNSW | Owner runs done, with import and search repeated on the SSD; **official runner NOT_RUN** | [experiments.md](experiments.md) §§1–6 |
 | H06 | Compaction candidates, Q1–Q6 through the real publisher, warm and cold series, compaction fault boundary | Owner run done on a synthetic fixture; **official runner NOT_RUN** | `tests/analytics/`, [experiments.md](experiments.md) §7 |
 
@@ -48,29 +48,27 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 
 ## Tests
 
-Full suite on the code of the commit that added this line, with real PostgreSQL for the catalogue and analytics tests:
-**1,457 passed, 322 skipped, 1 expected failure, 2 failed**, after merging Aditya's and Vichitr's
-work from `main`.
+Full suite on 8 November, after merging Jaineel's PR #9, with real PostgreSQL for the catalogue and
+analytics tests: **1,723 passed, 348 skipped, 2 failed**.
 
-- **The failures** are outside my paths.
-  - `tests/pipelines/test_postgres.py::test_success_evidence_contains_no_credentials` also fails on
-    untouched `main`.
-  - `tests/conversation/test_http.py::test_missing_shared_event_implementation_is_visible` is new. It
-    expects the shared outbox to be absent, which it no longer is, and CI does not run that folder.
+- **The failures** are outside my paths, and both also fail on untouched `main`.
+  - `tests/pipelines/test_postgres.py::test_success_evidence_contains_no_credentials` fails only in the
+    full run; it passes alone.
+  - `tests/pipelines/test_transport.py::test_m1_keyword_builder_and_existing_transaction_binding`
+    needs M1's pinned schema cache; Jaineel has asked Vichitr to update it.
 - **The skips** include my T-09 real-broker test, which needs a Kafka broker, plus other owners' tests
   that need services unavailable on this machine.
-- **The expected failure** is the brand-filter finding in [handoff.md](handoff.md#review-of-your-workflow-against-the-real-service),
-  which needs a change in Jaineel's workflow.
+- **The brand-filter xfail is gone.** Jaineel fixed the check, so it is a normal passing test now.
 
 ## NOT_RUN, and why
 
 | Item | Why | What it needs |
 |---|---|---|
-| Official W-IMPORT, W-SEARCH, W-ANALYTICS through the P9 runner, frozen limits | The composition module is not available yet | Jaineel's composition |
+| Official W-IMPORT, W-SEARCH, W-ANALYTICS through the P9 runner, frozen limits | Jaineel's composition exists since 8 November; my hooks for it are in [handoff.md](handoff.md#wiring-the-runner), and the other owners' hooks are still missing | Jaineel's runtime module and the other owners' hooks |
 | Catalogue events reaching Kafka | Rows land in `catalog_db`'s outbox, and the shared relay publishes them in a test; no process runs that relay yet | A relay process in the composition |
 | T-09 edge cases on a real broker | No broker on this machine | [Command in the handoff](handoff.md#vichitr) |
 | `infra/compose.catalog.yaml` running | No Docker on this machine; statically checked only | A machine with Docker |
-| Human relevance labels | Team decision, recorded in [relevance_labels.md](relevance_labels.md) | Label the pool by hand |
+| Human-judged relevance | The labels are rule-derived, and Jaineel decided on 8 November that their scores are diagnostic only ([relevance_labels.md](relevance_labels.md)) | A hand-reviewed label file |
 | HNSW and hybrid search at 10× | The clone fixture has no vectors | Clone vectors too |
 
 ## What changed the plan

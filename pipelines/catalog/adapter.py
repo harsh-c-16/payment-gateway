@@ -11,7 +11,7 @@ from time import monotonic, perf_counter, sleep
 import psycopg
 
 from pipelines.catalog import artifacts, load, verify
-from pipelines.catalog.migrate import migrate_catalog
+from pipelines.catalog.migrate import MigrationChanged, migrate_catalog
 from pipelines.catalog.normalize import (
     CsvStructureError,
     load_dictionary,
@@ -300,6 +300,60 @@ def projection_wait_action(invocation):
         return ProviderResult(ExitCode.BAD_INPUT, (type(error).__name__,), "real")
     except psycopg.Error as error:
         return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (type(error).__name__,), "real")
+
+
+def migrate_action(invocation):
+    """catalog_db participant for the runner's MigrationCoordinator; no other database changes."""
+    try:
+        with psycopg.connect(database_url(), autocommit=True, connect_timeout=5) as connection:
+            migrate_catalog(connection)
+    except MigrationChanged as error:
+        return ProviderResult(ExitCode.CORRECTNESS_FAILURE, (str(error),), "real")
+    except (psycopg.Error, OSError, ValueError, KeyError) as error:
+        return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (type(error).__name__,), "real")
+    return ProviderResult(
+        ExitCode.COMPLETED,
+        ("catalogue migrations applied/verified; no other database changed",),
+        "real",
+    )
+
+
+def seed_facts(connection, namespace):
+    """Stock projection over the namespace's active SKUs. A value is None unless uniform."""
+    row = connection.execute(
+        "SELECT count(*), count(s.sku), min(s.on_hand), max(s.on_hand), min(s.reserved), "
+        "max(s.reserved), min(s.stock_version), max(s.stock_version), "
+        "(SELECT count(*) FROM stock_deferred WHERE namespace=%s) "
+        "FROM products p LEFT JOIN stock_projection s ON s.namespace=p.namespace AND s.sku=p.sku "
+        "WHERE p.namespace=%s AND p.active",
+        (namespace, namespace),
+    ).fetchone()
+    uniform = [low if low == high else None for low, high in (row[2:4], row[4:6], row[6:8])]
+    return {
+        "namespace": namespace,
+        "active_sku_count": row[0],
+        "projected_sku_count": row[1],
+        "initial_on_hand": uniform[0],
+        "reserved": uniform[1],
+        "stock_version": uniform[2],
+        "deferred": row[8],
+        "test_mode": "real",
+    }
+
+
+def runner_seed_audit(url=None):
+    """Catalogue half of the runner's seed_audit. Inventory's pending outbox is Aditya's half."""
+
+    def read(namespace):
+        with psycopg.connect(
+            url or database_url(), autocommit=True, connect_timeout=5
+        ) as connection:
+            return seed_facts(connection, namespace)
+
+    async def audit(context):
+        return await asyncio.to_thread(read, context["namespace"])
+
+    return audit
 
 
 def runner_catalog_manifest(path):

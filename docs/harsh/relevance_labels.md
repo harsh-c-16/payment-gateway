@@ -2,8 +2,9 @@
 
 **These labels are rule-derived, not manual.** The specification asks for manual 0–3 labels and allows
 no unreviewed LLM labels (evaluation §3, runbook §6). The team chose not to label 903 rows by hand, so
-this is a deliberate deviation. Any report using these scores must say so, and Jaineel should confirm
-that it is acceptable before recording the hash in `configs/evaluation.yaml`.
+this is a deliberate deviation. **Jaineel decided on 8 November 2026 that these scores are diagnostic
+only.** No report presents them as human relevance, and `retrieval.label_sha256` stays unset. A claim of
+human-judged relevance would need a hand-reviewed label file.
 
 | Item | Value |
 |---|---|
@@ -54,7 +55,7 @@ through the hard filters, and the experiments measured 0 violations.
 
 - **Literal matching.** The rules reward exact title wording, as lexical search does. The key lists
   synonyms, but this still favours `lexical` over `hybrid_*`, so comparing them is indicative only.
-- **The NDCG@5 ≥ 0.70 target cannot be claimed as human-validated.**
+- **The NDCG@5 ≥ 0.70 target is not claimed.** These scores are diagnostic only.
 - **Five queries have no relevant product in their pool** (S01, S09, S12, S15, S19). They are reported
   separately and not scored as zero.
 - **Five queries have one label throughout** (S13, U02, U03, U04, U05) and score 1.0 under any ranking.
