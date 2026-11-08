@@ -1,4 +1,4 @@
-"""All-domain B0 transactional Silver and unique pipeline-minute contributions."""
+"""All-domain transactional Silver with B0/O1 grouping and durable contributions."""
 
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -6,7 +6,7 @@ from time import monotonic
 from typing import Annotated
 
 from psycopg.types.json import Jsonb
-from pydantic import Field, TypeAdapter
+from pydantic import Field, TypeAdapter, field_validator
 
 from pipelines.gold import aggregate_gold
 from pipelines.gold.business import GoldConflict
@@ -31,14 +31,34 @@ class UnsupportedEvent(RuntimeError):
 
 class BatchConfig(WireModel):
     run_id: Identifier
-    sink_batch_max_rows: Annotated[int, Field(strict=True, ge=1, le=1)] = 1
+    sink_batch_max_rows: Annotated[int, Field(strict=True, ge=1, le=100)] = 1
+
+    @field_validator("sink_batch_max_rows")
+    @classmethod
+    def supported_rows(cls, value):
+        if value not in (1, 100):
+            raise ValueError("Use B0 (1 row) or O1 (100 rows)")
+        return value
 
 
 class AnalyticsPipeline:
-    def __init__(self, connect, store, codec, *, code_commit, transform_version="m07-business-v1"):
+    def __init__(
+        self,
+        connect,
+        store,
+        codec,
+        *,
+        code_commit,
+        transform_version="m07-business-v1",
+        sink_batch_max_rows=1,
+    ):
         if not callable(connect):
             raise TypeError("connect must create an autocommit analytics connection")
+        self.sink_batch_max_rows = BatchConfig(
+            run_id="configuration", sink_batch_max_rows=sink_batch_max_rows
+        ).sink_batch_max_rows
         self.connect, self.store, self.codec = connect, store, codec
+        self.after_sink_commit = None
         self.code_commit = TypeAdapter(Identifier).validate_python(code_commit)
         self.transform_version = TypeAdapter(Identifier).validate_python(transform_version)
         self.telemetry = Telemetry(
@@ -76,7 +96,7 @@ class AnalyticsPipeline:
             if not records:
                 raise ValueError("Replay capture has no selected records")
         self.recover_observations(namespace)
-        # Captured rows remain non-final until each B0 sink transaction below commits.
+        # Captured rows remain non-final until their complete sink transaction commits.
         with self.connect() as tx, tx.transaction():
             sink_lock(tx, namespace)
             # Hold the namespace lock while checking that live ingestion cannot claim a replay.
@@ -90,41 +110,24 @@ class AnalyticsPipeline:
                 replay_ingress=replay_ingress,
             )
         counts = dict.fromkeys(("new_valid", "duplicate_delivery", "invalid", "redelivery_noop"), 0)
-        for record in records:
+        for offset in range(0, len(records), config.sink_batch_max_rows):
+            batch = records[offset : offset + config.sink_batch_max_rows]
             started_at = datetime.now(UTC)
             started = monotonic()
+            results = []
+            batch_counts = dict.fromkeys(counts, 0)
             with self.connect() as tx:
                 with tx.transaction():
                     sink_lock(tx, namespace)
-                    stored = one(
-                        tx,
-                        """SELECT * FROM source_receipts WHERE namespace=%s AND topic=%s
-                        AND partition=%s AND offset_number=%s FOR UPDATE""",
-                        (namespace, record.topic, record.partition, record.offset),
-                    )
-                    if stored["disposition"] is not None:
-                        disposition, job, reason = "redelivery_noop", None, None
-                    else:
-                        record = replace(record, ingested_at=stored["ingested_at"])
-                        checked = self.codec.validate_event(
-                            record.value_bytes,
-                            record.headers,
-                            record.topic,
-                            record.key_bytes,
-                            source_record=record,
-                        )
-                        if replay_id is not None and not isinstance(checked, ValidationFailure):
-                            from pipelines.replay.repairs import repair_failure
-
-                            checked = repair_failure(checked, record.raw_sha256, tx) or checked
-                        disposition, job, reason = self._finalize(
-                            tx, stored, record, checked, config
-                        )
+                    for record in batch:
+                        result = self._curate_record(tx, namespace, record, config, replay_id)
+                        results.append(result)
+                        batch_counts[result[0]] += 1
                     sequence = tx.execute(
                         """INSERT INTO sink_batches(namespace,run_id,capture_id,replay_id,
                         code_commit,transform_version,sources,batch_rows,new_valid,duplicate_delivery,
                         invalid,redelivery_noop,started_at)
-                        VALUES (%s,%s,%s,%s,%s,%s,%s,1,%s,%s,%s,%s,%s)
+                        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                         RETURNING batch_sequence""",
                         (
                             namespace,
@@ -135,35 +138,33 @@ class AnalyticsPipeline:
                             self.transform_version,
                             Jsonb(
                                 [
-                                    dict(
-                                        topic=record.topic,
-                                        partition=record.partition,
-                                        offset=record.offset,
-                                    )
+                                    dict(topic=r.topic, partition=r.partition, offset=r.offset)
+                                    for r in batch
                                 ]
                             ),
-                            int(disposition == "new_valid"),
-                            int(disposition == "duplicate_delivery"),
-                            int(disposition == "invalid"),
-                            int(disposition == "redelivery_noop"),
+                            len(batch),
+                            *batch_counts.values(),
                             started_at,
                         ),
                     ).fetchone()[0]
                 duration = monotonic() - started
                 committed_at = datetime.now(UTC)
             observe_sink_batch(self.connect, namespace, sequence, committed_at, duration)
-            if job is not None:
-                self._observe(namespace, job)  # Only after the sink COMMIT acknowledgement.
-            counts[disposition] += 1
-            self.telemetry.record(
-                "source_records_total", 1, pipeline="analytics", disposition=disposition
-            )
-            self.telemetry.record("sink_batch_rows", 1)
+            for disposition, job, reason in results:
+                if job is not None:
+                    self._observe(namespace, job)  # Only after the entire batch commits.
+                counts[disposition] += 1
+                self.telemetry.record(
+                    "source_records_total", 1, pipeline="analytics", disposition=disposition
+                )
+                if disposition == "new_valid":
+                    self.telemetry.record("silver_unique_total", 1)
+                elif disposition == "invalid":
+                    self.telemetry.record("quarantine_total", 1, reason=reason)
+            self.telemetry.record("sink_batch_rows", len(batch))
             self.telemetry.record("sink_flush_duration_seconds", duration)
-            if disposition == "new_valid":
-                self.telemetry.record("silver_unique_total", 1)
-            elif disposition == "invalid":
-                self.telemetry.record("quarantine_total", 1, reason=reason)
+            if self.after_sink_commit is not None:
+                self.after_sink_commit(namespace)
         candidates = {}
         for record in records:
             key = (record.topic, record.partition)
@@ -193,6 +194,29 @@ class AnalyticsPipeline:
             durable_offsets_by_partition=offsets,
             pending_export_count=pending,
         )
+
+    def _curate_record(self, tx, namespace, record, config, replay_id):
+        stored = one(
+            tx,
+            """SELECT * FROM source_receipts WHERE namespace=%s AND topic=%s
+            AND partition=%s AND offset_number=%s FOR UPDATE""",
+            (namespace, record.topic, record.partition, record.offset),
+        )
+        if stored["disposition"] is not None:
+            return "redelivery_noop", None, None
+        record = replace(record, ingested_at=stored["ingested_at"])
+        checked = self.codec.validate_event(
+            record.value_bytes,
+            record.headers,
+            record.topic,
+            record.key_bytes,
+            source_record=record,
+        )
+        if replay_id is not None and not isinstance(checked, ValidationFailure):
+            from pipelines.replay.repairs import repair_failure
+
+            checked = repair_failure(checked, record.raw_sha256, tx) or checked
+        return self._finalize(tx, stored, record, checked, config)
 
     def _finalize(self, tx, stored, record, checked, config):
         failure = checked if isinstance(checked, ValidationFailure) else None
@@ -350,7 +374,9 @@ class AnalyticsPipeline:
         if not records:
             return None
         receipt = BronzeCapture(self.store).ingest_bronze(records)
-        outcome = self.curate_silver(receipt, {"run_id": run_id})
+        outcome = self.curate_silver(
+            receipt, {"run_id": run_id, "sink_batch_max_rows": self.sink_batch_max_rows}
+        )
         for record in records:
             group.mark_durable(record)
         committed = group.commit_offsets(group.durable_next_offsets())

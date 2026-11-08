@@ -1,3 +1,8 @@
+> Updated 8 November: B0 and O1 share validation/reducers/capture controls. O1
+> groups up to 100 available sources into one transaction; failures roll back the
+> complete group. Post-commit observations, metrics and offset eligibility follow
+> the commit. Read [runtime implementation](../../docs/vichitr/runtime_implementation.md).
+
 # Transactional Silver and event-time provider
 
 Owner: Vichitr. See [common §11](../../docs/specs/02_COMMON_SPEC.md) and the
@@ -28,7 +33,7 @@ and never authorizes an offset. No production fake/outbox table is provided.
 
 ingest_once uses the SDK's ownership and contiguous-prefix guards only after SQL
 COMMIT. Close/restart the ConsumerGroup after an exception so unfinished input is
-redelivered. The B0 worker subscribes to all five business topics. It retries storage,
+redelivered. The B0/O1 worker subscribes to all five business topics. It retries storage,
 connection, serialization and deadlock failures at most three times, with fresh
 consumer groups and 250/500/1,000-ms backoff; exhaustion propagates. Missing outbox
 and other permanent errors stop immediately. Errors are not classified as dirty
@@ -41,7 +46,7 @@ four disposition counts, run/capture/replay identity and code/transform pins in
 sink COMMIT acknowledgement, excluding later observation writes. Read a drained run
 with the bounded `read_sink_batches` provider; missing timers cannot be recovered.
 See the [M11 handoff](../../docs/vichitr/m11_baseline_handoff.md) for exact semantics
-and the remaining correctness/benchmark gates. This checkpoint still rejects O1.
+and the remaining correctness/benchmark gates. O1 is opt-in with `sink_batch_max_rows=100`; see the [runtime handoff](../../docs/vichitr/runtime_implementation.md).
 
 The existing `quarantine_total{reason}` metric records only new committed invalid
 source dispositions. Rollback and already-final source redelivery do not increment

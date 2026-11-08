@@ -66,3 +66,9 @@ metrics; the separate analytics API registry cannot serve worker histograms.
 No worker port is published to the host. See the
 [M11 handoff](../../docs/vichitr/m11_baseline_handoff.md#worker-metrics-preparation-checkpoint)
 for lifecycle, reset/missing-sample semantics and collector handoffs.
+
+## Runtime implementation
+
+B0/O1, fixed-budget worker deployment, shared DLQ relay and the real runner
+callbacks are documented in [M4 runtime implementation](../../docs/vichitr/runtime_implementation.md).
+Defaults remain B0. No benchmark profile or live acceptance is implied by selecting O1.

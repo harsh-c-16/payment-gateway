@@ -1,5 +1,54 @@
 # Vichitr progress
 
+## Remaining implementation — 8 November 2026
+
+User requested latest main plus implementation before benchmarking. `vichitr`
+fast-forwarded from `eae74a7` to main `a76c1df`; no teammate history was rewritten.
+This pass changes only M4 implementation/tests/docs. Shared CI workflows,
+evaluation configs, canonical contracts and the dependency lock are unchanged.
+
+- O1 supports 100-source sink transactions; B0 remains one source per transaction.
+  The shared validator/reducers/quarantine path is unchanged. Batch audits retain
+  exact membership and all four counts; failures roll back the current group.
+  Both modes use the same 100-record/50-ms consumer request and 2-MiB/50-ms Bronze
+  controls. Publication cadence is checked between committed sink groups as well
+  as while idle. Offset marks follow successful durable curation.
+- Scoped P10/P30/P33 deployment splits explicit total CPU/RAM, including integer
+  NanoCPU and MiB remainders; it supplies stable worker identities, API DNS alias,
+  separate loopback metrics listeners and bounded SQL session allocations.
+  Worker zero owns publication and binds the existing shared analytics DLQ relay.
+- `AnalyticsRunner` registers before run identity exists and creates per-run real
+  setup/drain/source/pinned-Gold/observer/fault callbacks. Gold evidence preserves
+  exact Decimal money via the existing owner serializer. Independent audits,
+  stock proofs, resource collectors and owner mapping reviews remain team inputs.
+- `infra.analytics.migrate_action` is a successful analytics-only migration
+  participant. The legacy global wrapper still returns incomplete; no partial
+  migration is labelled global success.
+- Explicit reset requires stopped services/readers, final evaluation acceptance,
+  expired retention, no replay pins and no pending/retained outbox entries. Its
+  transaction deletes only the selected analytics namespace, retaining immutable
+  files, other databases, Kafka and evidence. No reset was executed.
+
+Verification: final focused cohort **79 passed**, zero skips/failures, recorded
+in ignored `artifacts/m11-delivery-final-20261108.xml`. Subsequent final scaling
+recheck **7 passed** (overlapping), and final Gold-export/worker-observer checks
+**2 passed** (additional): **81 distinct focused cases** covered in total.
+Reports: `artifacts/m11-scaling-final-20261108.xml` and
+`artifacts/m11-export-observer-final-20261108.xml`. Tests use explicit SQL/Docker/relay
+doubles; this is not live O1/scaling/reset acceptance. Changed Python files pass
+Ruff; ordinary `git diff --check` passes. Windows sandbox pytest temporary-path
+ACL failures were resolved by running this bounded cohort outside the sandbox;
+a new fixture's incorrectly redirected source root was corrected without
+weakening assertions.
+
+No Docker startup, broad suite or benchmark was run. Existing CI's artifact
+upload EACCES on `artifacts/ci-volume/tmp` remains a Jaineel workflow issue.
+Consumer-pause currently pauses worker zero's process, including its publisher
+and relay; it is not a consumer-only fault measurement. Global owner composition,
+failure-path `runner.stop(context)` wiring and reviewed independent gates remain
+open. See [runtime implementation](runtime_implementation.md) for exact bindings
+and operational limits; no baseline freeze or performance improvement is claimed.
+
 Git delivery policy (31 October 2026): the user authorizes committing and pushing
 each completed module to `vichitr` after its checks pass. The first delivery covers
 the completed M01a/M01b infrastructure and planning notes. Credentials, the raw CSV,

@@ -100,11 +100,11 @@ def verify_topics(admin, namespace, partitions=1):
     }
 
 
-def provision_topics(namespace, partitions=1):
+def provision_topics(namespace, partitions=1, *, bootstrap=BOOTSTRAP):
     if type(partitions) is not int or partitions < 1:
         raise ValueError("Partition count must be a positive integer.")
     names = topic_names(namespace)
-    admin = AdminClient({"bootstrap.servers": BOOTSTRAP})
+    admin = AdminClient({"bootstrap.servers": bootstrap})
     futures = admin.create_topics(
         [
             NewTopic(

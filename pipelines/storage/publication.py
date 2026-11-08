@@ -52,7 +52,7 @@ def boundary(point):
 def publisher_session(pipeline, namespace):
     TypeAdapter(Namespace).validate_python(namespace)
     pipeline.recover_observations(namespace)
-    with pipeline.connect() as tx:
+    with getattr(pipeline, "publisher_connect", pipeline.connect)() as tx:
         if not tx.autocommit:
             raise ValueError(
                 "Publisher connection must be autocommit outside explicit transactions"

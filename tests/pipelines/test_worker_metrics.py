@@ -1,5 +1,6 @@
 """Worker entrypoint wiring with explicit server/worker doubles."""
 
+from contextlib import nullcontext
 from types import SimpleNamespace
 
 import pytest
@@ -16,6 +17,7 @@ def test_worker_serves_its_own_registry_and_closes_listener(monkeypatch, fail):
     monkeypatch.setenv("RUN_ID", "explicit-fixture")
     monkeypatch.setenv("KAFKA_BOOTSTRAP_SERVERS", "unused-double")
     monkeypatch.setattr(worker, "pipeline_from_env", lambda: pipeline)
+    monkeypatch.setattr(worker, "notification_relay", lambda *args: nullcontext())
 
     def start(port, *, addr, registry):
         assert port == 8006 and addr == "0.0.0.0" and registry is pipeline.telemetry.registry

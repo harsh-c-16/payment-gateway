@@ -1,4 +1,11 @@
-# Current integration coverage: 6 November 2026
+# Implementation checks: 8 November 2026
+
+Focused batching/scaling/lifecycle/relay checks use explicit SQL/Docker doubles;
+see the latest [progress entry](progress.md#remaining-implementation--8-november-2026)
+and [runtime handoff](runtime_implementation.md). No Docker startup, live O1/reset,
+full integration or performance run was executed in this pass. CI selection is unchanged.
+
+## Historical integration coverage: 6 November 2026
 
 CI selection is unchanged. Evidence is under `artifacts/integration-20261106/`;
 the prior checkpoint reports below remain historical.

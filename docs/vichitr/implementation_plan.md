@@ -1,6 +1,6 @@
 # Vichitr implementation plan
 
-Prepared: 31 October 2026; updated 6 November 2026. Branch: `vichitr`. Actual CSV import, repeat-safe seed, real outbox/Kafka/projection/Bronze/Silver/Gold, repeated full-source replay and compaction passed for 19,920 active SKUs. The owned quality materializer passed all 100,000 wire-only records with approved money-type reasons. Native Docker restart/readiness remains unstable; failed reports are retained. CI selection stays unchanged. Full live W-QUALITY, reviewed baseline measurement, O1/scaling and whole-business gates remain open; see [progress](progress.md), [test skips](test_skips.md) and [team handoff](team_handoff.md).
+Prepared: 31 October 2026; updated 8 November 2026. Branch: `vichitr`, incorporating main `a76c1df`. Core pipeline implementation is present; O1 transaction batching, P10/P30/P33 deployment, concrete analytics lifecycle/evidence/observer adapters, DLQ relay binding and guarded reset/migration participants are now implemented. See [runtime implementation](runtime_implementation.md) for exact interfaces and limits. Full live correctness, baseline freeze, performance comparisons and team deployment composition remain separate pending work; no benchmark was started.
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Verify and record each checkpoint while continuing the user's authorized combined implementation pass; preserve the correctness gates before performance comparisons.
 
@@ -176,14 +176,15 @@ Before implementing M02/M03, resolve any contract mismatch explicitly. In partic
 4. Record paths, exact commands/outcomes, evidence, limitations, review needs and next handoff in `docs/vichitr/progress.md` when implementation begins. Benchmark artifacts stay in the existing ignored result directories.
 5. Stop at the checkpoint for review. The user has authorized committing and pushing each completed module to `vichitr`; do so after its checks pass, excluding credentials, raw data and generated artifacts. Never force-push or merge to `main` without a separate request.
 
-Current checkpoint: **independent readiness closure**. M06–M10 providers, sink
-audit, worker metrics, buffer observations, reason counters and standalone recovery
-checks are implemented/verified. All selected host/Linux regression skips are
-covered by recorded passes; larger fixtures were rerun. Next requires actual
-owner manifests/outbox/providers, reviewed observer/fixture bindings and global
-migration/reset composition, then independent correctness closure and the initial
-B0 trace before M11a/O1 and M11b/scaling. No whole-team gate or performance result
-is implied; see the [team handoff](team_handoff.md).
+Current checkpoint: **remaining M4 implementation delivered; live acceptance deferred**.
+The 8 November implementation adds O1 grouping, fixed-budget scaling deployment,
+real analytics callback exports, the worker-zero DLQ relay and owner-local
+migration/reset participants. Existing core M06?M10 behavior remains shared by
+both sink variants. The current independent gates, deployment/resource/mapping
+reviews, initial B0 trace and performance comparisons remain pending. Global
+composition needs actual owner audit/resource inputs and failure-path cleanup;
+no whole-team acceptance or performance result is implied.
+
 
 ## Source documents
 
