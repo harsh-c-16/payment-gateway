@@ -3,8 +3,8 @@
 **Author:** Harsh Chaudhari (B24CM1027)
 **Role:** M2: catalogue, retrieval, quotes, stock read model, Parquet compaction and query benchmarks
 **Brief:** [05_HARSH_CHAUDHARI.md](../specs/05_HARSH_CHAUDHARI.md)
-**Status date:** 8 November 2026
-**Branch:** merged to `main` in PRs #3, #4 and #8; later work is on `harsh` until merged
+**Status date:** 9 November 2026
+**Branch:** merged to `main` in PRs #3, #4, #8 and #10; later work is on `harsh` until merged
 
 Results: [experiments.md](experiments.md). What teammates need: [handoff.md](handoff.md). How the
 relevance labels were made: [relevance_labels.md](relevance_labels.md).
@@ -27,8 +27,8 @@ See [Vichitr's progress](../vichitr/progress.md) for raw evidence and limitation
 | H02 | Authoritative prices, idempotent quotes, internal lookup, price update | Real PostgreSQL and Aditya's real outbox; M4's new `catalog-relay` Compose binding passed isolated Kafka delivery on 8 November | `test_quotes_live.py`, `test_price_live.py`, `test_outbox_live.py`; M4 Compose evidence |
 | H03 | Exact retrieval with hard filters; five search modes; 50 frozen queries | Real PostgreSQL and Aditya's real outbox | `test_search_live.py`, `test_vector_search_live.py`, `test_outbox_live.py`, 0 violations in every experiment |
 | H04 | Stock consumer, read model, projection wait, freshness receipts, seed audit for the runner | Real PostgreSQL with records through the real codec. M4 verified the normal path and all four broker fault cases | `test_projection_live.py`, `test_projection_kafka_live.py`; [Vichitr's run](../vichitr/progress.md) |
-| H05 | I0/I1, B0/O2/P1, exact/HNSW | Owner runs done, with import and search repeated on the SSD; **official runner NOT_RUN** | [experiments.md](experiments.md) §§1–6 |
-| H06 | Compaction candidates, Q1–Q6 through the real publisher, warm and cold series, compaction fault boundary | Owner run done on a synthetic fixture; **official runner NOT_RUN** | `tests/analytics/`, [experiments.md](experiments.md) §7 |
+| H05 | I0/I1, B0/O2/P1, exact/HNSW | Owner runs done, with import and search repeated on the SSD; runner bindings and the independent W-SEARCH audit ready; **official runner NOT_RUN** | [experiments.md](experiments.md) §§1–6, `test_runtime_live.py`, [9 November checks](handoff.md#checks-on-9-november) |
+| H06 | Compaction candidates, Q1–Q6 through the real publisher, warm and cold series, compaction fault boundary, frozen W-ANALYTICS layouts | Owner run done on a synthetic fixture; layout freeze and audit ready; **frozen snapshot from Vichitr and official runner NOT_RUN** | `tests/analytics/`, [experiments.md](experiments.md) §7 |
 
 ## Evaluation items I own
 
@@ -56,23 +56,16 @@ See [Vichitr's progress](../vichitr/progress.md) for raw evidence and limitation
 
 ## Tests
 
-Full suite on 8 November, after merging Jaineel's PR #9, with real PostgreSQL for the catalogue and
-analytics tests: **1,723 passed, 348 skipped, 2 failed**.
-
-- **The failures** are outside my paths, and both also fail on untouched `main`.
-  - `tests/pipelines/test_postgres.py::test_success_evidence_contains_no_credentials` fails only in the
-    full run; it passes alone.
-  - `tests/pipelines/test_transport.py::test_m1_keyword_builder_and_existing_transaction_binding`
-    needs M1's pinned schema cache; Jaineel has asked Vichitr to update it.
-- **The skips** include my T-09 real-broker test, which needs a Kafka broker, plus other owners' tests
-  that need services unavailable on this machine.
-- **The brand-filter xfail is gone.** Jaineel fixed the check, so it is a normal passing test now.
+Full suite on 9 November, on `main` after PRs #12 and #13 plus this work, with real PostgreSQL for the
+catalogue and analytics tests: **1,894 passed, 352 skipped, 0 failed**. The skips are tests that need
+a Kafka broker, Docker or services unavailable on this machine, including my T-09 broker test, which
+Vichitr ran on his broker on 8 November.
 
 ## NOT_RUN, and why
 
 | Item | Why | What it needs |
 |---|---|---|
-| Official W-IMPORT, W-SEARCH, W-ANALYTICS through the P9 runner, frozen limits | Jaineel's composition exists since 8 November; my hooks for it are in [handoff.md](handoff.md#wiring-the-runner), and the other owners' hooks are still missing | Jaineel's runtime module and the other owners' hooks |
+| Official W-IMPORT, W-SEARCH, W-ANALYTICS through the P9 runner, frozen limits | My bindings are in `pipelines/catalog/runtime.py` ([handoff](handoff.md#runner-bindings)); the execution machine, enforced resources, other owners' bindings and all-owner reviews are still missing | The final Linux machine and the team's reviews |
 | Catalogue events reaching Kafka | Closed by M4's isolated Compose smoke on 8 November | Adopt the `catalog-relay` service from `vichitr` |
 | T-09 edge cases on a real broker | Closed by M4's four-case broker pass on 8 November | Preserve the raw fault evidence |
 | `infra/compose.catalog.yaml` running | Closed for isolated synthetic API/worker/relay startup and round trip on M4's Docker stack | Whole-business/performance acceptance remains separate |
