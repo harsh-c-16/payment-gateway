@@ -1,5 +1,13 @@
 # Vichitr implementation plan
 
+8 November closure: remaining catalogue integration code is delivered on
+`vichitr`: shared relay process/Compose binding, evidence-path portability,
+multi-process resource accounting, native broker fault coverage and actual
+catalogue Compose round trip. Forty-five focused tests and three actual audit
+role checks pass. M4 coding is complete for these handoffs; independent reviews,
+feasible evaluation configuration, other owners' operational setup/reset and
+full quality/business/performance acceptance remain separate. See [progress](progress.md).
+
 Prepared: 31 October 2026; updated 8 November 2026. Branch: `vichitr`, incorporating main `a76c1df`. Core pipeline implementation is present; O1 transaction batching, P10/P30/P33 deployment, concrete analytics lifecycle/evidence/observer adapters, DLQ relay binding and guarded reset/migration participants are now implemented. See [runtime implementation](runtime_implementation.md) for exact interfaces and limits. Consumer-only pause, the concrete M4 W-PIPE/W-QUALITY runtime, SELECT-only audit-role provisioning and failure-path cleanup are also implemented. Full live correctness, baseline freeze, performance comparisons, real deployment inputs/reviews and other owners' runtime composition remain separate pending work; no benchmark was started.
 
 This divides the complete V01–V08 brief into smaller checkpoints. It adds no project scope and does not replace the canonical specifications. Verify and record each checkpoint while continuing the user's authorized combined implementation pass; preserve the correctness gates before performance comparisons.
@@ -182,7 +190,7 @@ real analytics callback exports, the worker-zero DLQ relay and owner-local
 migration/reset participants. Existing core M06?M10 behavior remains shared by
 both sink variants. The current independent gates, deployment/resource/mapping
 reviews, initial B0 trace and performance comparisons remain pending. Global
-composition needs actual owner audit/resource inputs and failure-path cleanup;
+composition needs actual owner audit/resource inputs; failure-path cleanup is wired;
 no whole-team acceptance or performance result is implied.
 
 

@@ -1,5 +1,97 @@
 # Vichitr progress
 
+## Catalogue integration closure - 8 November 2026
+
+User requested closing Harsh's handoff points and remaining feasible M4 coding.
+Work is on `vichitr`, based on `33e6b68`; no teammate branch was pulled or main
+merged. CI selection, workflows, canonical specs/configs and the lock are unchanged.
+
+Implementation:
+
+- `infra.catalog_relay` binds the actual shared `OutboxRelay` and Kafka publisher
+  to the catalogue database. Compose now has `catalog-relay`, handles SIGINT/TERM,
+  and confirms relay shutdown before closing the publisher. No relay algorithm
+  was copied. API pool 4 + worker 2 + relay 1 stays below ten SQL sessions;
+  each process keeps its existing 384-MiB/0.5-CPU limit.
+- Added real-broker conflict, actual two-member rebalance and actual child-process
+  death after SQL COMMIT/before durable marking or offset commit. Recovery checks
+  the broker's uncommitted offset, redelivery, one stored receipt and unchanged
+  stock version. The original ordering/duplicate/graceful-restart test remains.
+  These fault tests use explicit cached schema-ID doubles, real SQL/outbox/Kafka.
+- The opt-in Compose smoke uses the actual registered schema cache and separate
+  running API/worker/relay: real stock publication -> projected HTTP product;
+  real search and price requests -> three catalogue outbox rows -> all three
+  broker deliveries, all three rows marked published. Synthetic fixture only.
+- Evidence formatting now accepts temporary roots outside the checkout in
+  PostgreSQL, streaming and analytics adapters. The original credential-leak
+  assertion is preserved and passes with Linux `/tmp` fixtures. An outdated
+  analytics migration-test reason assertion now checks the exact current global
+  incompleteness message; partial migrations remain dependency exit 4.
+- Runtime resource targets accept one actual container ID or a list per service.
+  API/worker/relay cgroups retain distinct series and are all counted in the
+  service allocation. The current planned evaluation profile is still not
+  frozen/feasible; no resource budget is silently changed.
+- Updated M2/M4 handoffs. Catalogue outbox migration 005 and unavailable-cold-I/O
+  handling were already implemented. Missing-outbox HTTP isolation was already
+  fixed on 4 November and passed again. No bulk image downloads are required
+  or implemented; spec 08 retains URLs only during ingestion.
+
+Actual checks: **45 distinct pytest cases passed**, zero skips/failures in final
+reports. Local evidence is `artifacts/catalog-closure-20261108/`:
+
+| Check | Result | Evidence |
+|---|---|---|
+| Four real-broker projection fault cases + affected offline adapter/relay/Compose/HTTP checks | 32 passed | `broker-tests.xml`, `broker-tests.log` |
+| Concrete resource accounting, collector identity, audit-role unit guards, analytics relay regression | 12 passed | `runtime-resources.xml`, `runtime-resources.log` |
+| Actual three-process catalogue Compose round trip | 1 passed | `catalog-live.xml`, `catalog-live.log`, `catalog-up.log` |
+| Three actual SELECT-only audit roles, default grants on new owner-created test tables and rejected writes | 3 roles passed | `audit-role-live.json`, `audit-role-live.log` |
+
+Actual commands on the Windows controller (private helper reads existing local
+secrets; URLs/tokens are not printed or committed):
+
+```powershell
+docker desktop start
+$env:PROJECTCTL_ADAPTER_MODULE='infra.analytics'
+.venv/Scripts/python.exe -m projectctl env up --profile streaming-local
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py tests
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py prepare
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py start
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py verify
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py stop
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py resources
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py audit
+```
+
+The helper runs tests in the existing locked Linux image, 512 MiB/0.5 CPU, mounts
+source read-only and writes reports outside pytest's private temporary tree.
+Broker tests use only fresh `bench-h-*` topics and per-test catalogue schemas.
+Compose uses a separate `m4_accept_*` schema and synthetic `bench-compose-*`
+namespace retained in ignored `private-context.json`; other catalogue data is
+untouched. Permission probes create/drop only their own uniquely named
+`m4_audit_probe_*` tables. Inventory's public business schema is not populated by
+these probes; production migrations/seed and the correct reviewed audit schema
+remain owner/deployment inputs.
+
+Preserved limitations/failures: host `env up` attempts
+`e5acc252-39d1-46bd-b75c-db6fcb99070e` and
+`30e964e1-b893-41c4-8c38-ec607ec1bd06` returned connection/read timeouts.
+Docker containers nevertheless became healthy and the native isolated checks
+above passed; this does not certify reliable Windows cold startup. The first
+new smoke fixture used a datetime inside JSON payload rather than a UTC string;
+`catalog-live-before-wire-fix.*` retains that failure. Initial permission probes
+targeted a health-check temporary table and then an empty Inventory business
+schema; their logs remain. The final probes verify actual future-table SELECT
+grants and rejected writes without creating business data. A host-only diagnostic
+Python import/stack dump also crashed; no application assertion was weakened.
+Initial host offline report: 26 passed/1 outdated fixture failure, retained at
+`artifacts/catalog-closure-offline.xml`; the corrected final Linux cohort passes.
+
+Changed Python files pass Ruff lint/format; `git diff --check` passes. No full
+suite, benchmark, B0 freeze, performance claim or new global owner approval was
+attempted. M4 implementation for these handoffs is complete; independently
+reviewed runtime/profile inputs, operational migration/seed/reset composition,
+full quality/business acceptance and required measurements remain separate gates.
+
 ## Consumer pause, concrete runtime and CI fix - 8 November 2026
 
 Completed the user's two remaining implementation requests and small Jaineel CI

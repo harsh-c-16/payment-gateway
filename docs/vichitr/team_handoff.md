@@ -1,5 +1,15 @@
 # M4 integration handoff and remaining gates
 
+8 November follow-up on `vichitr`: catalogue shared-relay wiring, live Compose
+API/stock-worker/relay acceptance and all four real-broker projection fault
+cases are now implemented/verified. The evidence-path portability bug is fixed;
+the missing-outbox fixture was already fixed. Resource accounting now includes
+multiple process containers per service. See the latest [progress](progress.md)
+for 45 passing focused cases, three real audit-role checks and startup limits.
+No image download is needed: spec 08 requires preserving image URLs and prohibits
+downloads during ingestion. Cold-query `NOT_RUN` handling and catalogue outbox
+migration 005 are delivered; older handoff requests for those are stale.
+
 Updated 8 November 2026, incorporating main `a76c1df` and the remaining M4
 implementation. [Runtime implementation](runtime_implementation.md) describes O1,
 scaling, lifecycle/evidence callbacks, notification relay and guarded cleanup.
@@ -63,7 +73,7 @@ for these standalone checks; integrated benchmark feasibility is still unmeasure
 | Aditya | Adopt the small relay-ordering correction and compose owner-local migration/reset/startup callbacks; review whole-service recovery | Inventory/Orders/Payments SQL already includes diagnostic/outbox tables. Actual inventory seed and relay integration ran locally; analytics installs its own real outbox. The new guard prevents later aggregate versions overtaking a failed head. |
 | Jaineel | Adopt/review `pipelines.ingestion.quality.QualityMaterializer`, bind its explicit raw-fixture publisher and independent oracle; compose real lifecycle/observer callbacks using receipts, pinned visibility, sink audit and existing collectors | Full 100,000-record T-03, complete baseline trace and independently calculated measurements. The pure SDK materializer now exists; normal publisher validation remains strict. See [binding details](m11_baseline_handoff.md#quality-wire-handoff--6-november-2026). |
 | Harsh + Aditya | Start/review actual service APIs and their audit/lifecycle bindings for the runner; Harsh has included the shared outbox template in catalogue migration 005 | Catalogue outbox migration 005 is now merged. The actual CSV and stock-projection path passed; catalogue event-producing mutations and whole checkout require this local table and owner composition. |
-| Harsh | Query benchmark platform review: this Docker kernel lacks `/proc/self/io` | The actual compactor and query implementation are present; correctness checks run separately. A cold-storage measurement must retain real counters, not substitute zero or a warm timing. |
+| Harsh + Jaineel | Actual cold-storage measurements require a platform exposing `/proc/self/io` | The missing-counter handling is implemented: `--cold` records `NOT_RUN` with a reason and retains warm results. No additional crash-handling implementation is requested from Harsh. |
 | Affected DTO owners | Review oversized aggregate-money representation | Exact private sums/fail-closed DTO limits are retained. The money-type reason conflict is resolved with user approval: `INVALID_TYPE` for wrong types; `INVALID_AMOUNT` for invalid integer amounts. The independent fixture is unchanged. |
 | All database owners + Jaineel | Owner-local reset callbacks and quiescence/lifecycle composition | Complete global `env reset`/migration dispatch. The M4 guarded reset participant now exists; the global coordinator must compose other owners and stop all readers/writers. |
 

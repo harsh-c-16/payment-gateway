@@ -1,5 +1,5 @@
 # Catalogue service and stock consumer. Owner: Harsh; add with -f next to the streaming stack.
-# Not exercised yet on a machine with Docker; see docs/harsh/handoff.md before relying on it.
+# Use catalogue migrations and the same database/schema for all three processes.
 x-catalog: &catalog
   image: group3-m04-storage:local
   pull_policy: never
@@ -11,7 +11,7 @@ x-catalog: &catalog
     RUN_ID: ${RUN_ID:?Supply an explicit run identity}
     QUOTE_TTL_SECONDS: "60"
     CATALOG_REUSE_CONNECTIONS: ${CATALOG_REUSE_CONNECTIONS:-false}
-    CATALOG_MAX_CONNECTIONS: ${CATALOG_MAX_CONNECTIONS:-10}
+    CATALOG_MAX_CONNECTIONS: ${CATALOG_MAX_CONNECTIONS:-4}
     PYTHONPYCACHEPREFIX: /tmp/catalog-pycache
   volumes:
     - ../services:/app/services:ro
@@ -40,3 +40,14 @@ services:
     <<: *catalog
     profiles: [catalog-worker]
     command: [python, -m, services.catalog.worker, --namespace, "${RUN_NAMESPACE:?Supply dev or an isolated namespace}"]
+  catalog-relay:
+    <<: *catalog
+    profiles: [catalog-relay]
+    command: [python, -m, infra.catalog_relay]
+    stop_grace_period: 40s
+    volumes:
+      - ../infra:/app/infra:ro
+      - ../pipelines:/app/pipelines:ro
+      - ../shared:/app/shared:ro
+      - ../contracts:/app/contracts:ro
+      - ../artifacts/infra/streaming-local/registry-manifest.json:/app/schema-cache.json:ro

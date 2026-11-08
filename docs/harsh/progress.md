@@ -13,12 +13,20 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 
 ## Task status
 
+M4 follow-up, 8 November (on `vichitr` until merged): the real-broker T-09 file
+now has four passing cases, including actual rebalance and process death before
+offset commit. The catalogue API/stock worker/new shared outbox relay also passed
+an isolated real HTTP/SQL/Kafka Compose smoke. The missing-outbox HTTP fixture was
+already corrected on 4 November. The evidence-path assumption in the PostgreSQL
+test's provider is now corrected; this does not claim a new full-suite pass.
+See [Vichitr's progress](../vichitr/progress.md) for raw evidence and limitations.
+
 | Task | Deliverable | Status | Checked by |
 |---|---|---|---|
 | H01 | Real CSV ingestion, normalization, staging and promotion, hashed manifests | Real; pinned manifests in `data/catalog/flipkart-v1-3a401f32ca99379f8298ce42/` | `test_real_source.py`, `test_import_live.py`, full CLI run below, [handoff evidence](handoff.md#manifests-and-projection-evidence) |
-| H02 | Authoritative prices, idempotent quotes, internal lookup, price update | Real PostgreSQL and Aditya's real outbox; the relay to Kafka is not composed yet | `test_quotes_live.py`, `test_price_live.py`, `test_outbox_live.py` |
+| H02 | Authoritative prices, idempotent quotes, internal lookup, price update | Real PostgreSQL and Aditya's real outbox; M4's new `catalog-relay` Compose binding passed isolated Kafka delivery on 8 November | `test_quotes_live.py`, `test_price_live.py`, `test_outbox_live.py`; M4 Compose evidence |
 | H03 | Exact retrieval with hard filters; five search modes; 50 frozen queries | Real PostgreSQL and Aditya's real outbox | `test_search_live.py`, `test_vector_search_live.py`, `test_outbox_live.py`, 0 violations in every experiment |
-| H04 | Stock consumer, read model, projection wait, freshness receipts, seed audit for the runner | Real PostgreSQL with records through the real codec. On a real broker, Vichitr ran the normal path; **the edge-case test is NOT_RUN** | `test_projection_live.py`; [Vichitr's run](../vichitr/progress.md) |
+| H04 | Stock consumer, read model, projection wait, freshness receipts, seed audit for the runner | Real PostgreSQL with records through the real codec. M4 verified the normal path and all four broker fault cases | `test_projection_live.py`, `test_projection_kafka_live.py`; [Vichitr's run](../vichitr/progress.md) |
 | H05 | I0/I1, B0/O2/P1, exact/HNSW | Owner runs done, with import and search repeated on the SSD; **official runner NOT_RUN** | [experiments.md](experiments.md) §§1–6 |
 | H06 | Compaction candidates, Q1–Q6 through the real publisher, warm and cold series, compaction fault boundary | Owner run done on a synthetic fixture; **official runner NOT_RUN** | `tests/analytics/`, [experiments.md](experiments.md) §7 |
 
@@ -32,7 +40,7 @@ relevance labels were made: [relevance_labels.md](relevance_labels.md).
 | D-04 W-IMPORT I0/I1 | Owner run; official NOT_RUN | Identical digests, [experiments.md](experiments.md) §2 |
 | T-04 layouts | Owner run on a synthetic fixture | Identical query results across layouts |
 | T-06 retrieval | Owner run; official NOT_RUN | Plans, recall by stratum, 0 hard-filter violations |
-| T-09 projection | Normal path on a real broker: run by Vichitr on 6 November, 19,920 SKUs projected. **Edge cases on a real broker: NOT_RUN** | [Vichitr's progress](../vichitr/progress.md); the edge-case command is in [handoff.md](handoff.md#vichitr) |
+| T-09 projection | Normal path: 19,920 SKUs projected on 6 November. Ordering/duplicate/conflict, actual rebalance and crash-before-offset cases passed on M4's broker on 8 November | [Vichitr's progress](../vichitr/progress.md); command in [handoff.md](handoff.md#vichitr) |
 
 ## Full CLI run on the real file
 
@@ -65,9 +73,9 @@ analytics tests: **1,723 passed, 348 skipped, 2 failed**.
 | Item | Why | What it needs |
 |---|---|---|
 | Official W-IMPORT, W-SEARCH, W-ANALYTICS through the P9 runner, frozen limits | Jaineel's composition exists since 8 November; my hooks for it are in [handoff.md](handoff.md#wiring-the-runner), and the other owners' hooks are still missing | Jaineel's runtime module and the other owners' hooks |
-| Catalogue events reaching Kafka | Rows land in `catalog_db`'s outbox, and the shared relay publishes them in a test; no process runs that relay yet | A relay process in the composition |
-| T-09 edge cases on a real broker | No broker on this machine | [Command in the handoff](handoff.md#vichitr) |
-| `infra/compose.catalog.yaml` running | No Docker on this machine; statically checked only | A machine with Docker |
+| Catalogue events reaching Kafka | Closed by M4's isolated Compose smoke on 8 November | Adopt the `catalog-relay` service from `vichitr` |
+| T-09 edge cases on a real broker | Closed by M4's four-case broker pass on 8 November | Preserve the raw fault evidence |
+| `infra/compose.catalog.yaml` running | Closed for isolated synthetic API/worker/relay startup and round trip on M4's Docker stack | Whole-business/performance acceptance remains separate |
 | Human-judged relevance | The labels are rule-derived, and Jaineel decided on 8 November that their scores are diagnostic only ([relevance_labels.md](relevance_labels.md)) | A hand-reviewed label file |
 | HNSW and hybrid search at 10× | The clone fixture has no vectors | Clone vectors too |
 

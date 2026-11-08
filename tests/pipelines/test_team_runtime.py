@@ -74,6 +74,34 @@ def test_resource_proof_rejects_mismatched_actual_allocation(monkeypatch):
         runtime.resource_proof(context)
 
 
+def test_resource_proof_counts_api_worker_and_relay_together(monkeypatch):
+    runtime = analytics_runtime.TeamAnalyticsRuntime()
+    monkeypatch.setattr(
+        runtime,
+        "resource_readers",
+        lambda context: [
+            SimpleNamespace(
+                name=f"resources-catalog-{index}",
+                read=SimpleNamespace(
+                    service="catalog",
+                    cores=0.5,
+                    memory=384 * 1024**2,
+                ),
+            )
+            for index in range(3)
+        ],
+    )
+    context = {
+        "resource_profile": {
+            "service_allocations": {"catalog": {"cpu_cores": 1.5, "memory_mib": 1152}}
+        }
+    }
+    assert runtime.resource_proof(context) == context["resource_profile"]
+    context["resource_profile"]["service_allocations"]["catalog"]["memory_mib"] = 384
+    with pytest.raises(DependencyError, match="Actual"):
+        runtime.resource_proof(context)
+
+
 @pytest.mark.parametrize("existing", [False, True])
 def test_audit_roles_grant_select_and_preserve_existing_secrets(monkeypatch, tmp_path, existing):
     monkeypatch.setattr(audit_roles.postgres, "RUNTIME", tmp_path)
@@ -123,7 +151,10 @@ def test_existing_audit_role_without_its_secret_is_not_rotated(monkeypatch, tmp_
     assert not list((tmp_path / "secrets").iterdir())
 
 
-def test_concrete_metrics_and_resources_have_distinct_collector_names(monkeypatch, tmp_path):
+@pytest.mark.parametrize("grouped", [False, True])
+def test_concrete_metrics_and_resources_have_distinct_collector_names(
+    monkeypatch, tmp_path, grouped
+):
     context = {
         "namespace": "bench-resources",
         "run_id": "fixture",
@@ -132,6 +163,8 @@ def test_concrete_metrics_and_resources_have_distinct_collector_names(monkeypatc
         "resource_profile": {"services": ["analytics", "kafka"]},
     }
     monkeypatch.delenv("PROJECTCTL_SUT_CONTAINERS", raising=False)
+    if grouped:
+        monkeypatch.setenv("PROJECTCTL_SUT_CONTAINERS", json.dumps({"kafka": ["c" * 64, "d" * 64]}))
     deployment = SimpleNamespace(
         services=("m4-bench-resources-worker-0", "m4-bench-resources-api"),
         workers=("m4-bench-resources-worker-0",),
@@ -164,4 +197,5 @@ def test_concrete_metrics_and_resources_have_distinct_collector_names(monkeypatc
     )
     names = [item.name for item in observation.config.collectors]
     assert "analytics-worker-0" in names and "resources-analytics-worker-0" in names
-    assert "kafka" in names and "resources-kafka" in names
+    assert "kafka" in names
+    assert ("resources-kafka-0" if grouped else "resources-kafka") in names

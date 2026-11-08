@@ -149,7 +149,9 @@ Before a live run, supply these actual deployment inputs:
   remain missing. CPU/RAM totals must match every declared service allocation.
 - `PROJECTCTL_SUT_CONTAINERS`: JSON service-name-to-actual-Docker-ID overrides
   for other SUT services outside the shared Compose project. Analytics containers
-  come only from the scoped deployment; duplicate cgroups are rejected.
+  come only from the scoped deployment; duplicate cgroups are rejected. Values
+  may be lists to include a service's API, worker and relay. Every cgroup has
+  distinct metrics and all of them count toward that service's resource total.
 
 The current draft `local4c8g` evaluation profile is not verified feasible on this
 machine. Its analytics allocation also omits the separately allocated API when
@@ -169,9 +171,16 @@ branch.
 
 ## Verification limits
 
+Follow-up: 45 focused cases now pass, including real broker conflict/rebalance/
+process-death recovery and an actual catalogue API/worker/relay Compose smoke.
+Three audit roles passed real future-table SELECT/write-refusal probes.
+See the latest progress entry. These close those integration handoffs, not
+full quality/business/performance acceptance. Windows host startup still has
+intermittent connection/read timeouts even when native services are healthy.
+
 Focused offline checks exercise batch membership/rollback and offset gating,
 fixed resource division, context isolation, fault guards/recovery, reset refusal,
 missing-lag drain behavior and shared-relay wiring with explicit doubles.
-No Docker stack, real reset, benchmark or live O1/scaling acceptance was run in
-this implementation pass. The upload-path regression is covered offline; a new
+The earlier batching/scaling implementation pass ran no Docker stack, real reset,
+benchmark or live O1/scaling acceptance. The upload-path regression is covered offline; a new
 GitHub native job is still required to confirm the permission fix on its runner.

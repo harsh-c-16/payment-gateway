@@ -261,7 +261,7 @@ def adapter(invocation):
             ExitCode.COMPLETED,
             (
                 "Infrastructure/schema mappings verified; owner reviews and benchmarks pending.",
-                f"Evidence: {out.relative_to(ROOT).as_posix()}/streaming.json",
+                f"Evidence: {postgres.evidence_path(out)}/streaming.json",
             ),
             "real",
         )

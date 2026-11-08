@@ -20,6 +20,11 @@ PROJECT = "group3-postgres-local"
 COMPOSE = ROOT / "infra/compose.yaml"
 
 
+def evidence_path(path):
+    """Tests and explicit runtime bindings may keep evidence outside the source checkout."""
+    return (path.relative_to(ROOT) if path.is_relative_to(ROOT) else path).as_posix()
+
+
 class SetupError(RuntimeError):
     pass
 
@@ -207,7 +212,7 @@ def adapter(invocation):
             ExitCode.COMPLETED,
             (
                 "PostgreSQL-only verification passed; full environment NOT_RUN.",
-                f"Evidence: {out.relative_to(ROOT).as_posix()}/postgres.json",
+                f"Evidence: {evidence_path(out)}/postgres.json",
             ),
             "real",
         )

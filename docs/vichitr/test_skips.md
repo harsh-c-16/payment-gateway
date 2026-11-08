@@ -1,5 +1,13 @@
 # Implementation checks: 8 November 2026
 
+Latest catalogue closure: **45 distinct cases passed**, including all four
+real-broker projection cases and the real three-process Compose round trip;
+no skips in these cohorts. Three actual audit-role permission probes also passed.
+See `artifacts/catalog-closure-20261108/{broker-tests,runtime-resources,catalog-live}.xml`
+and the latest [progress](progress.md). Host startup timeouts remain visible;
+full independent quality/business/performance gates are not inferred from these
+small correctness runs. Workflow/test selection is unchanged.
+
 The consumer-control/runtime/cleanup/CI pass covered **223 distinct offline
 cases**, with no skips in its passing reports (`runtime-final.xml`, 221 passed;
 `runtime-reviewed.xml`, 45 passed with overlap). See the latest

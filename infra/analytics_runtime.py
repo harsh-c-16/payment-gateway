@@ -90,7 +90,13 @@ class TeamAnalyticsRuntime:
             if component == "analytics":
                 services = deployment.services
             elif component in targets:
-                readers.append(DockerResources(targets[component], component))
+                containers = targets[component]
+                containers = [containers] if isinstance(containers, str) else containers
+                if not isinstance(containers, list) or not containers:
+                    raise DependencyError("Each SUT service needs actual container IDs")
+                for index, container in enumerate(containers):
+                    name = component if len(containers) == 1 else f"{component}-{index}"
+                    readers.append(DockerResources(container, name, service=component))
                 continue
             else:
                 services = (component,)
@@ -120,7 +126,9 @@ class TeamAnalyticsRuntime:
         for item in readers:
             reader = item.read
             name = item.name.removeprefix("resources-")
-            component = "analytics" if name.startswith("analytics-") else name
+            component = (
+                "analytics" if name.startswith("analytics-") else getattr(reader, "service", name)
+            )
             cpu, memory = totals.get(component, (0, 0))
             totals[component] = (cpu + round(reader.cores * 1_000_000_000), memory + reader.memory)
         for name, allocation in allocations.items():

@@ -39,7 +39,7 @@ def migrate_action(invocation):
             ExitCode.COMPLETED,
             (
                 "Analytics migrations applied; only analytics database changed.",
-                f"Evidence: {out.relative_to(postgres.ROOT).as_posix()}/analytics-migration.json",
+                f"Evidence: {postgres.evidence_path(out)}/analytics-migration.json",
             ),
             "real",
         )

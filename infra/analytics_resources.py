@@ -12,10 +12,11 @@ from infra import postgres
 class DockerResources:
     mode = "real"
 
-    def __init__(self, container, component):
+    def __init__(self, container, component, *, service=None):
         if not re.fullmatch(r"[a-f0-9]{12,64}", container):
             raise ValueError("An actual Docker container ID is required")
         self.container = container
+        self.service = service or component
         config = json.loads(
             postgres.command(["docker", "inspect", "--format", "{{json .HostConfig}}", container])
         )
@@ -63,6 +64,7 @@ class DockerResources:
                         "memory_limit_bytes": self.memory,
                         "container_id": self.container,
                         "resource_scope": "cgroup_v2",
+                        "service": self.service,
                         "sample_monotonic": perf_counter(),
                         "oom_kill_count": counters["oom_kill"],
                     },
