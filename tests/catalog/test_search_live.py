@@ -130,7 +130,9 @@ def test_search_persists_paired_validated_events(world, database_url):
 
 def test_search_without_shared_outbox_fails_closed(world, db, monkeypatch):
     _, namespace, _ = world
-    monkeypatch.delitem(__import__("sys").modules, "shared.outbox", raising=False)
+    # Removing the cache entry permits a fresh import of the real library.
+    # Explicitly block the import so this case cannot depend on suite order.
+    monkeypatch.setitem(__import__("sys").modules, "shared.outbox", None)
     client = TestClient(create_app(db=db, events=SharedEvents()), raise_server_exceptions=False)
     result = search(client, namespace, expect=503)
     assert result["error"]["code"] == "DEPENDENCY_UNAVAILABLE"

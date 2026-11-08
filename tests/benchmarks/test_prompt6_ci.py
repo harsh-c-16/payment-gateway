@@ -194,6 +194,7 @@ def test_volume_runner_reuses_owner_stack_with_explicit_real_bindings(tmp_path, 
         == "postgresql://test@postgres/analytics_db"
     )
     assert any("/analytics:/app/analytics:ro" in mount for mount in worker["volumes"])
+    assert any("/migrations:/app/migrations:ro" in mount for mount in worker["volumes"])
 
 
 @pytest.mark.parametrize(

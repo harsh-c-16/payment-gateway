@@ -3392,3 +3392,207 @@ Only `.env.example` is tracked among `.env*`; only `.gitkeep` is tracked in the
 raw/output roots scanned. Retain `final-status.txt`, `final-git-review.*.log` and
 `final-whitespace.*.log`. The audit/handoff checkpoint is complete; no
 commit/push was made. Full-team correctness and evaluation remain open.
+
+## Repair the four existing CI jobs — 8 November 2026
+
+The user explicitly requested repairing the failed checks, validating **locally
+only**, adding no CI tests/jobs, then committing/pushing to the **current branch**.
+Initial working tree was clean on `jaineel/j03-telemetry`, HEAD
+`a994f01cbd81daa4687722e7994d39a51a84e61f` (`integrations`), matching its upstream.
+This request authorizes the narrow cross-owner fixture/infrastructure corrections
+needed by these checks; no teammate business implementation or public contract
+was replaced. No manual hosted rerun/dispatch or new test case/job was added.
+
+Historical GitHub run **42455183438** supplies the four actual failure traces:
+both offline OS jobs fail the same M1 event fixture; PostgreSQL fails the stale
+strict brand xfail; streaming startup fails service-role authentication. Logs,
+job metadata and original uploaded evidence were downloaded read-only into
+`artifacts/jaineel/ci-fix-a994f01-20261108/` (`OUT` below). GitHub CLI was absent;
+the read-only REST requests used the existing Git credential helper in memory.
+No credential was printed or persisted by that helper.
+
+### Corrections, preserving existing coverage
+
+- `tests/pipelines/test_transport.py`: the existing transaction-binding case now
+  supplies a temporary, checksum-pinned registry mapping and explicit synthetic
+  dataset revision to M1's process-local codec. Retain transaction identity and
+  wire checks; additionally assert the revision and real codec validation. The
+  required production readiness checks remain strict.
+- `tests/catalog/test_conversation_consumer_live.py`: remove only the stale
+  strict-xfail marker for the repaired brand comparison. The existing test now
+  requires nonempty real HTTP results with the requested brand. No test is
+  deleted, skipped or converted to an expected failure.
+- `infra/postgres/entrypoint.sh`, `infra/compose.yaml`: stage root-readable
+  Compose secrets into a private tmpfs as postgres-owned **0600** files before
+  delegating to the official image entrypoint. The original host-owned **0600**
+  files remain unchanged. Compose explicitly keeps the postgres command, pinned
+  image, init, resources, loopback port, health probe and retained data volume.
+  This fixes Linux bind-mount UID permissions without making secrets public.
+- `infra/postgres/10-databases.sh`: consume the staged paths and read each secret
+  in a separate fail-fast assignment. Previously `cat` failed inside a psql
+  argument, initialization continued, and PostgreSQL cleared the empty role
+  passwords. The original CI log explicitly contains both Permission denied and
+  User has no password assigned. Failed/empty reads now stop initialization.
+- `benchmarks/manual/prompt6_services.py`: the existing volume job needs the
+  whole read-only migration tree, because its existing analytical tests import
+  catalogue migration descriptors during collection. Mount it through the
+  existing CI overlay. Strengthen the existing overlay assertion in
+  `tests/benchmarks/test_prompt6_ci.py`; no new test function or parametrization
+  is introduced. This hidden collection failure was reached only after fixing
+  the earlier streaming startup error.
+
+`.github/workflows/offline.yml` is unchanged. The same four jobs remain: offline
+Windows, offline Ubuntu, PostgreSQL, and Kafka/Registry/Linux volume. All
+existing suites and opt-in/live-test conditions remain in place.
+
+### Local environment and evidence integrity
+
+Docker's local metadata filesystem became read-only when C: had roughly 250 MiB
+free. The first full Windows attempt could not complete and Docker downloads
+were incomplete. Clear only rebuildable uv/pip download caches through their
+own cache commands (verified cache directories), then restart Docker normally;
+pip reported 4,951 MB removed. No installed environment, source, raw dataset,
+model, saved evidence or database volume was deleted. Reacquire the affected
+new Kafka/Registry/tool images at the original SUT pins. Earlier failed attempts
+and diagnostic logs remain in OUT and are not counted as passing checks.
+
+The isolated Linux permission reproduction creates **UID 1001 / mode 0600**
+source files on a new named volume and first proves postgres cannot read them.
+The real entrypoint then authenticates all six non-superuser roles using its
+private copies; originals keep UID 1001 and mode 0600. Evidence:
+`secret-permissions.{json,log}`, command JSON and PostgreSQL log. Only that
+diagnostic database container is stopped afterward; its volumes are retained.
+
+Local Linux mirrors use a disposable worker derived from the existing locked
+image, read-only source, Linux-volume temporary evidence, the actual pinned
+services and explicit private test URLs. Correct two mirror-only environmental
+issues without changing repo behavior: put Ruff's cache on writable storage and
+clear the storage image's inherited `LAKEHOUSE_ROOT` for ordinary host-style
+jobs. Preserve the earlier cache/missing-directory errors as harness errors.
+An overlapping initial database/recreation trial was stopped and invalidated:
+recovery recreates PostgreSQL. Final recovery completes before starting the
+database-backed suites. These intermediate attempts are not provider failures
+or acceptance evidence.
+
+### Executed checks so far
+
+- `PY=.venv/Scripts/python.exe`; `PY -m pytest tests/pipelines/test_transport.py
+  tests/pipelines/test_postgres.py tests/benchmarks/test_prompt6_ci.py -q
+  --tb=short --junitxml=OUT/focused.xml`: **66 passed**, exit 0.
+- After the migration-overlay fix, `PY -m pytest
+  tests/benchmarks/test_prompt6_ci.py -q --tb=short
+  --junitxml=OUT/plumbing.xml`: **18 passed**, exit 0. Counts overlap.
+- `PY -m benchmarks.manual.verify_prompt6 --job offline --out
+  OUT/offline-windows-final`: **1,548 passed / 522 skipped / zero failures/errors**,
+  **2,070 collected**, exit 0. `offline-windows-final.log` and its JUnit/checks.
+- `PY -m projectctl env up --profile streaming-local` with
+  `PROJECTCTL_ADAPTER_MODULE=infra.streaming`: exit 0 after environment recovery;
+  all pinned services, roles, schemas/topics and resources verified.
+  `streaming-up-final.log` and its actual referenced infrastructure receipt.
+- Local Linux invocation of the existing
+  `python -m benchmarks.manual.verify_prompt6 --job kafka --out ...`:
+  **7 passed / zero failures/skips**, exit 0. Includes real PostgreSQL isolation
+  and recreation, Kafka/Registry recreation, schema compatibility, SDK and stock
+  projection. `local-kafka-final/{summary.json,pytest.xml,checks.json}` plus
+  `kafka-final-linux.*`; no live DE/performance gate is inferred from this job.
+
+Linux offline/PostgreSQL/volume final results, final whitespace/scope review and
+the resulting commit/push receipt are recorded in the continuation below once
+their checks complete. The user requires validation before pushing; no push has
+been made during this repair checkpoint yet.
+
+### Completed local validation and cleanup
+
+The continuation supersedes the pending results above. Three further existing
+test fixtures needed corrections exposed by the complete local runs:
+
+- `tests/catalog/test_search_live.py`: removing `shared.outbox` from the module
+  cache allowed a real re-import and made the missing-provider case depend on
+  suite order. Explicitly block the import with the standard `sys.modules`
+  sentinel. Keep all 503, search and readiness assertions.
+- `tests/contracts/test_clients.py`: perform real request-schema validation
+  before starting this transport-only timing probe, then use an explicitly
+  named prevalidated-request double. Retain the original 25 ms deadline,
+  200 ms slow response, 150 ms elapsed bound and exactly-one-request assertion.
+  This fixes schema setup consuming the deadline before any HTTP request.
+- `tests/analytics/test_query_suite_live.py`: the existing optional cold-read
+  case now checks the actual read-byte counter as well as `posix_fadvise`.
+  This local WSL kernel lacks `/proc/self/io`; report an explicit NOT_RUN skip
+  when counters are unavailable, matching the production measurement policy.
+  No fabricated read counters or measured cold results are substituted. The
+  existing unavailable-counter contract test continues to execute.
+
+Final existing job results, all exit 0 with **zero failures and errors**:
+
+| Local execution | Passed | Skipped | Collected | Evidence under OUT unless stated |
+|---|---:|---:|---:|---|
+| Windows offline verifier | 1,548 | 522 | 2,070 | `offline-windows-final/` |
+| Linux offline verifier | 1,565 | 505 | 2,070 | `local-offline-checked/` |
+| Linux PostgreSQL verifier | 757 | 20 | 777 | `local-postgres-ci-checkout/` |
+| Native Kafka/Registry verifier | 7 | 0 | 7 | `local-kafka-final/` |
+| Linux volume verifier | 408 | 10 | 418 | `artifacts/ci-volume/` |
+
+These are overlapping job counts, not a combined unique-test total. Exact local
+commands retained in the ignored helpers and command receipts:
+
+- `PY OUT/run_linux_job.py offline -checked` with
+  `CI_FIX_CLEAN_CHECKOUT=1`; inner command is
+  `python -m benchmarks.manual.verify_prompt6 --job offline --out
+  artifacts/local-ci-runs/ci-fix-offline-checked`.
+- `PY OUT/run_isolated_postgres.py`; inner command invokes the unchanged
+  `benchmarks.manual.verify_prompt6 --job postgres` against a dedicated
+  digest-pinned PostgreSQL replica. Full argv, bindings and stdout/stderr are
+  retained in `postgres-ci-checkout-linux.*`.
+- `PY -m benchmarks.manual.prompt6_services volume`; stdout/stderr in
+  `volume-verified.*`, with the actual existing verifier evidence above.
+- `PY -m pytest tests/contracts/test_clients.py tests/integration/test_g3.py
+  -q --tb=short --junitxml=OUT/http-final.xml`: **115 passed**, exit 0, after
+  the final timing-fixture correction. The full Windows job predates that last
+  fixture edit; these affected suites and the final full Linux job validate it.
+- `PY OUT/final_summary.py`: exit 0; `verified-summary.json` records all five
+  PASS summaries, zero failures/errors and SHA256 evidence hashes, confirms the
+  workflow is unchanged and that no new test cases were introduced.
+- `PY -m ruff check --no-cache` and `PY -m ruff format --check --no-cache`,
+  listing all seven changed Python files: both exit 0, seven files formatted.
+  `git diff --check` and
+  `git diff --exit-code HEAD -- .github/workflows/offline.yml`: exit 0.
+
+The final PostgreSQL replica mirrors the GitHub checkout: ignored raw CSV files
+are absent only inside the disposable container, using a temporary mount. Host
+source data is untouched and no tests are deselected. A prior full-source run
+completed **763 passed / 1 failed / 13 skipped**; its only failure was the
+missing-outbox fixture above, and its raw evidence remains preserved. Earlier
+volume missing-migration/counter and deadline-setup failures also remain in OUT.
+Existing source/model/provider/platform prerequisites explain visible skips;
+these are not claims of full-team correctness or performance completion.
+
+Stop the repair stack with `PROJECTCTL_ADAPTER_MODULE=infra.streaming
+PY -m projectctl env down` (exit 0); retain data volumes and actual logs in
+`streaming-down.log`, `final-services.log` and `postgres-service.log`. The user
+then explicitly requested removing images/containers no longer needed.
+`PY OUT/cleanup_docker.py` and `PY OUT/finish_cleanup.py` removed the two stopped
+local offline workers, four disposable images (`jaineel-ci-local-tests`,
+`jaineel-prompt1-tests`, `docker:29-cli`, `postgres:18.6`) and 1.115 GB of
+rebuildable build cache. A redundant digest-alias removal found the alias already
+removed with its tag; the continuation verified completion. Receipt:
+`docker-cleanup.json`. Final inventory: **zero containers, zero build cache**;
+retain only the current project storage worker and digest-pinned Kafka/pgvector
+images. **No data volume was removed**; all 23 volumes and saved evidence remain.
+The earlier disk recovery also cleared only rebuildable npm download cache.
+
+Changed paths are the seven Python files named above, `infra/compose.yaml`,
+`infra/postgres/{entrypoint.sh,10-databases.sh}`, this progress file and the owned
+`TEAM_HANDOFF_2026_11_08.md` / `PUSH_AUDIT_2026_11_08.md` status notes. No
+credentials, raw source, generated data or benchmark result directories are
+staged. The user authorized committing/pushing to `jaineel/j03-telemetry` after
+local validation. The actual resulting commit and remote synchronization receipt
+are recorded after push in ignored `OUT/git-receipt.json`; an ordinary push may
+automatically trigger the existing GitHub workflow. No manual hosted test run is
+requested or used as local validation.
+
+Jaineel's code-side handoff can be shared. Remaining work is the reviewed owner
+bindings, security/transaction repairs and actual integration/evaluation listed
+in the team handoff, followed by Jaineel's real gates, B0, paired comparisons,
+independent reconciliation and report. A green local CI repair does not complete
+those deliverables. Manual continuation: pull this branch, provide the reviewed
+owner bindings, and execute the existing runbook gates with real resources.

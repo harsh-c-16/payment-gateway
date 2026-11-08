@@ -1,13 +1,14 @@
 # Team handoff — 8 November 2026
 
-Current evidence and push verdict: [pre-push audit](PUSH_AUDIT_2026_11_08.md).
+Current evidence: [completed local CI repair](progress.md#completed-local-validation-and-cleanup)
+and the earlier [pre-push audit](PUSH_AUDIT_2026_11_08.md).
 Jaineel's final owned regression run passes 1,286 tests; sharing the code does not
 mark real integration or evaluation complete. These are messages to copy; none
 has been sent automatically.
 
-**Harsh:** M1's brand/filter fixes now work against the real catalogue. Please
-review/remove the strict brand xfail in `test_conversation_consumer_live.py`,
-return the approved source/normalized/SKU/facet manifests and seed/projection
+**Harsh:** M1's brand/filter fixes now work against the real catalogue; the stale
+strict brand xfail is removed and its real-result assertions pass locally.
+Return the approved source/normalized/SKU/facet manifests and seed/projection
 evidence, and agree the exact-byte versus LF dictionary/query pin policy with
 me and Aditya. Human relevance claims still need a reviewed manual label/pool
 file; existing rule scores stay diagnostic. Your outbox migration 005 is already
@@ -29,10 +30,10 @@ its example budget is three API connections plus one relay. Your PostgreSQL
 transaction tests pass, but their doubled quote/payment controls do not establish
 the missing real catalogue/whole-business cases.
 
-**Vichitr:** Please update `test_m1_keyword_builder_and_existing_transaction_binding`
-to supply M1's explicit pinned schema-cache fixture and synthetic dataset revision;
-patching the global codec no longer configures `SharedEvents`. Then verify the
-locked Kafka/Registry stack and T-09 edge cases, and provide reviewed fresh-storage,
+**Vichitr:** The M1 pinned-cache/revision fixture, Linux PostgreSQL secret staging
+and volume migration mount are repaired; existing native Kafka/Registry and
+volume suites pass locally. Continue the T-09 edge-case review and provide
+reviewed fresh-storage,
 drain, source/receipt/active-Gold exports and observer/fault bindings for real
 G1/T-03/G3. Agree the compaction crash boundary separately from stale-manifest
 rejection. After the correct B0 evidence exists, implement O1 batching and the

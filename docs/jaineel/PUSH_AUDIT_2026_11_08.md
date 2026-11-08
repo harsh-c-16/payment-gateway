@@ -1,7 +1,13 @@
 # Jaineel pre-push audit — 8 November 2026
 
+Update: the later [local CI repair](progress.md#completed-local-validation-and-cleanup)
+resolves the fixture, stale brand marker and infrastructure setup failures below.
+All existing job suites pass locally; the remaining integration/evaluation
+handoffs still apply. Historical counts below retain the original audit evidence.
+
 **Share the implementation on the feature branch through a draft PR. Jaineel's
-final contribution is not finished, and whole-repository CI is not green.** The
+final contribution is not finished; hosted CI has not been rechecked after the
+local repair.** The
 remaining evaluated deliverables include real integration/correctness, a frozen
 baseline, controlled comparisons and the artifact-built report. They follow the
 team's provider handoffs; they are not a reason to withhold the implementation.

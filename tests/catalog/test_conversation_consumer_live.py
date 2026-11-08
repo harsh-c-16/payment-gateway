@@ -12,7 +12,6 @@ import uvicorn
 
 from services.catalog.app import create_app
 from services.conversation.gateway import Gateway
-from services.conversation.provider_contracts import ContractViolation
 from services.conversation.workflow import FixedWorkflow
 from tests.catalog.conftest import make_context
 
@@ -70,13 +69,10 @@ def test_facets_product_and_quote_pass_the_consumer_contract(live):
     assert quote["lines"][0]["sku"] == "FK-SHIRT1"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=ContractViolation,
-    reason="workflow compares the brand key with the displayed brand; see docs/harsh/handoff.md",
-)
 def test_workflow_accepts_a_real_brand_filter(live):
     workflow, namespace = live
-    workflow.structured_search(
+    result = workflow.structured_search(
         {"query_text": "shirt", "brand": "acme"}, session(namespace), key=str(uuid4())
     )
+    assert result["hits"]
+    assert all(hit["brand"].casefold() == "acme" for hit in result["hits"])
