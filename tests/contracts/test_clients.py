@@ -278,6 +278,39 @@ def test_retry_after_cannot_be_shortened_to_fit_deadline(context):
     assert failure.value.retry_after == 10 and len(double.requests) == 1
 
 
+@pytest.mark.parametrize(
+    "header", ["9" * 500, "-1", "+1", "1_0"], ids=["overflow", "negative", "signed", "underscores"]
+)
+def test_invalid_retry_after_fails_closed_without_retry(context, header):
+    double = ScriptedProvider((429, common_error("RATE_LIMITED"), {"Retry-After": header}))
+
+    async def run():
+        async with http_for(double) as http:
+            await OrdersClient(http).status(uid(6), context)
+
+    with pytest.raises(ContractViolation, match="Retry-After"):
+        asyncio.run(run())
+    assert len(double.requests) == 1
+
+
+@pytest.mark.parametrize("status", [200, 503])
+def test_deep_provider_json_is_a_contract_failure_and_stream_closes(context, status):
+    stream = Chunks([b"[" * 2000 + b"0" + b"]" * 2000])
+    requests = []
+
+    def handle(request):
+        requests.append(request)
+        return httpx.Response(status, stream=stream, headers={"content-type": "application/json"})
+
+    async def run():
+        async with http_for(handle) as http:
+            await OrdersClient(http).status(uid(6), context)
+
+    with pytest.raises(ContractViolation):
+        asyncio.run(run())
+    assert len(requests) == 1 and stream.closed
+
+
 @pytest.mark.parametrize("purpose", ["integration", "benchmark"])
 def test_stubs_cannot_be_configured_for_real_runs(purpose):
     with pytest.raises(ValueError, match="contract tests"):

@@ -1,9 +1,10 @@
 """Review a measured C-BEST choice; never manufacture an optimization implementation."""
 
 from benchmarks.comparison import compare_runs
-from benchmarks.performance import checked_ref, read_json
-from projectctl.artifacts import content_hash
+from benchmarks.performance import checked_ref, controls_hash, read_json
+from projectctl.artifacts import content_hash, git_state
 from projectctl.config import repo_path
+from projectctl.models import EvaluationConfig
 from projectctl.providers import DependencyError
 
 
@@ -19,6 +20,7 @@ def load_selection(path, config):
     ):
         raise DependencyError("invalid measured C-BEST selection receipt")
     choices = {}
+    current_git = git_state().model_dump()
     for workload, choice in receipt["choices"].items():
         if (
             set(choice)
@@ -45,6 +47,18 @@ def load_selection(path, config):
                 str(checked_ref(r).parent.relative_to(repo_path("."))).replace("\\", "/")
                 for r in report["runs"]
             ]
+            for ref in report["runs"]:
+                manifest = read_json(checked_ref(ref))
+                try:
+                    same_study = controls_hash(
+                        EvaluationConfig.model_validate(manifest["resolved_config"])
+                    ) == controls_hash(config)
+                except (ValueError, KeyError, TypeError) as exc:
+                    raise DependencyError("selection study identity unavailable") from exc
+                if manifest.get("git") != current_git or not same_study:
+                    raise DependencyError(
+                        "selected comparison belongs to a different study or revision"
+                    )
             if compare_runs(paths[:3], paths[3:]) != report:
                 raise DependencyError("selection comparison differs from raw evidence")
             reports.append(report)

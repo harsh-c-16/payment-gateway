@@ -234,6 +234,7 @@ async def fallback(result, text, dictionary, provider, *, deadline):
     if remaining <= 0:
         return replace(result, reason_code="TURN_DEADLINE_EXCEEDED")
     started, usage, reason = monotonic(), None, "MODEL_INVALID_OUTPUT"
+    rejected_output = None
     schema = output_schema(dictionary)
     protected = copy.deepcopy(result.intent)
     try:
@@ -242,6 +243,8 @@ async def fallback(result, text, dictionary, provider, *, deadline):
                 text, copy.deepcopy(protected), copy.deepcopy(schema), timeout_seconds=remaining
             )
         usage = reply.usage
+        if isinstance(reply.content, str) and len(reply.content.encode("utf-8")) <= 65536:
+            rejected_output = reply.content
         if monotonic() - started >= remaining:
             raise ModelFailure("MODEL_TIMEOUT")
         if reply.refusal:
@@ -285,4 +288,5 @@ async def fallback(result, text, dictionary, provider, *, deadline):
         llm_call_count=1,
         llm_ms=(monotonic() - started) * 1000,
         model_usage=usage,
+        rejected_output=rejected_output if reason == "MODEL_INVALID_OUTPUT" else None,
     )

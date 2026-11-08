@@ -1,5 +1,6 @@
 ﻿schema_version: 1
-# Draft until provider manifests, dictionaries, fixtures and infrastructure locks arrive.
+# Real adapters: PROJECTCTL_ADAPTER_MODULE=projectctl.jaineel. Setup only until owner
+# lifecycle/audit callbacks and enforced resources are supplied; never a performance pass.
 state: draft
 profile:
   name: local4c8g
@@ -26,6 +27,8 @@ dataset:
   expected_sha256: 56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1
   rules_version: flipkart-v1
   dictionary_path: null
+  # Harsh pins LF-normalized text; file09 requires exact raw bytes. Keep both pins
+  # unset until the hash-policy review; see projectctl.input_pins.review_input_pins.
   dictionary_sha256: null
   canonical_manifest: null
   sku_manifest: null

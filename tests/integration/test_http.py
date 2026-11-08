@@ -1,5 +1,6 @@
 import asyncio
 import json
+from dataclasses import replace
 from uuid import uuid4
 
 import httpx
@@ -125,3 +126,46 @@ def test_redirect_cannot_be_presented_as_a_successful_order():
                 await api.create_session(principal(), key="key")
 
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize("fault", ["slow", "oversized", "content-type"])
+def test_m1_harness_bounds_entire_response_and_closes_stream(fault):
+    class Stream(httpx.AsyncByteStream):
+        closed = False
+
+        async def __aiter__(self):
+            yield b'{"value":"'
+            if fault == "slow":
+                await asyncio.sleep(0.2)
+            yield b"x" * (2 * 1024 * 1024 if fault == "oversized" else 1)
+            yield b'"}'
+
+        async def aclose(self):
+            self.closed = True
+
+    stream, seen = Stream(), []
+
+    def handle(request):
+        seen.append(request)
+        return httpx.Response(
+            201,
+            stream=stream,
+            headers={
+                "content-type": "text/plain" if fault == "content-type" else "application/json"
+            },
+        )
+
+    async def run():
+        async with ConversationHTTP(
+            replace(config(), timeout_seconds=0.05),
+            ContractSpyDouble(),
+            transport=httpx.MockTransport(handle),
+        ) as api:
+            expected = DependencyUnavailable if fault == "slow" else ContractViolation
+            with pytest.raises(expected) as error:
+                await api.create_session(principal(), key="original-key")
+            if fault == "slow":
+                assert error.value.outcome_unknown is True
+
+    asyncio.run(run())
+    assert len(seen) == 1 and stream.closed

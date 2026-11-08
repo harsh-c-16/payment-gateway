@@ -52,6 +52,7 @@ class ProviderRegistry:
     def __init__(self):
         self._actions: dict[str, Callable[[Invocation], ProviderResult]] = {}
         self._workloads = {}
+        self._workload_factories = {}
         self._cases = {}
         self.binding_failure = None
 
@@ -69,11 +70,37 @@ class ProviderRegistry:
     def register_workload(self, workload, bindings):
         from projectctl.config import WORKLOADS
 
-        if workload not in WORKLOADS or workload in self._workloads:
+        if (
+            workload not in WORKLOADS
+            or workload in self._workloads
+            or workload in self._workload_factories
+        ):
             raise ValueError("workload binding must be known and registered exactly once")
         self._workloads[workload] = bindings
 
-    def workload(self, workload):
+    def register_workload_factory(self, workload, factory):
+        """Resolve real bindings using each trial's config, never registration-time defaults."""
+        from projectctl.config import WORKLOADS
+
+        if (
+            workload not in WORKLOADS
+            or workload in self._workloads
+            or workload in self._workload_factories
+            or not callable(factory)
+        ):
+            raise ValueError("workload factory must be known and registered exactly once")
+        self._workload_factories[workload] = factory
+
+    def workload(self, workload, config=None):
+        if workload in self._workload_factories:
+            if config is None:
+                raise DependencyError("resolved trial configuration required for workload factory")
+            from benchmarks.experiment import ExperimentBindings
+
+            binding = self._workload_factories[workload](config)
+            if not isinstance(binding, ExperimentBindings) or binding.mode != "real":
+                raise DependencyError("production workload factory must return real bindings")
+            return binding
         return self._workloads.get(workload)
 
     def register(self, action: str, adapter: Callable[[Invocation], ProviderResult]):
@@ -85,6 +112,24 @@ class ProviderRegistry:
         if action not in self._actions:
             return f"adapter unavailable: {action}; required owner: {OWNERS[action]}"
         return None
+
+    def availability(self):
+        """Registration inventory only; it does not assert runtime readiness."""
+        from projectctl.config import WORKLOADS
+
+        return {
+            "actions": {
+                action: {"registered": action in self._actions, "owner": owner}
+                for action, owner in OWNERS.items()
+            },
+            "workloads": {
+                workload: workload in self._workloads or workload in self._workload_factories
+                for workload in sorted(WORKLOADS)
+            },
+            "cases": sorted(self._cases),
+            "binding_failure": self.binding_failure,
+            "runtime_readiness": "NOT_RUN",
+        }
 
     def invoke(self, invocation: Invocation) -> ProviderResult:
         missing = self.missing(invocation.action)
@@ -115,7 +160,11 @@ def default_registry() -> ProviderRegistry:
         try:
             if not re.fullmatch(r"[A-Za-z_]\w*(\.[A-Za-z_]\w*)*", module):
                 raise ValueError("invalid module name")
-            importlib.import_module(module).register(registry)
+            # Stage registrations: a failing composition must not leave usable partial bindings.
+            candidate = ProviderRegistry()
+            candidate._actions = registry._actions.copy()
+            importlib.import_module(module).register(candidate)
+            registry = candidate
         except Exception as exc:
             registry.binding_failure = (
                 f"explicit provider registration failed: {type(exc).__name__}"

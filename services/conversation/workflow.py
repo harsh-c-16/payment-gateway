@@ -5,7 +5,9 @@ owns acceptance, stock/payment work, quote deduplication and finality.
 """
 
 import asyncio
+import hashlib
 from dataclasses import dataclass, replace
+from dataclasses import field as dataclass_field
 from datetime import UTC, datetime
 from time import monotonic
 from uuid import uuid4
@@ -19,7 +21,7 @@ from shared.telemetry.metrics import Telemetry
 
 from .clients import DependencyUnavailable, RemoteError
 from .errors import ServiceError
-from .intent import blank_intent, extract_intent, validate_constraints
+from .intent import blank_intent, canonical_text, extract_intent, validate_constraints
 from .intent_fallback import REASON_CODES, OpenAIIntentProvider, eligible, fallback, output_schema
 from .provider_contracts import ENDPOINTS, ContractUnavailable, ContractViolation
 from .state import canonical_hash, conflict
@@ -58,6 +60,9 @@ def compose_response(intent=None, search_response=None, action_status=None):
 class TurnExecution:
     response: TurnResponse
     diagnostic: dict
+    event_facts: tuple = ()
+    rejection_diagnostic: dict | None = None
+    rejected_output: str | None = dataclass_field(default=None, repr=False)
 
     def model_dump(self, **kwargs):
         return self.response.model_dump(**kwargs)
@@ -101,8 +106,23 @@ class FixedWorkflow:
     def ready(self):
         self.gateway.ready()
 
-    def call(self, name, context, **kwargs):
-        return asyncio.run(self.gateway.call(name, context, **kwargs))
+    def call(self, name, context, *, turn_tools=None, **kwargs):
+        started, outcome = monotonic(), "failure"
+        try:
+            result = asyncio.run(self.gateway.call(name, context, **kwargs))
+            outcome = "success"
+            return result
+        finally:
+            if turn_tools is not None:
+                turn_tools.append(
+                    {
+                        "tool_call_id": str(uuid4()),
+                        "tool_name": name,
+                        "outcome": outcome,
+                        "duration_ms": (monotonic() - started) * 1000,
+                        "event_time": self.clock(),
+                    }
+                )
 
     def dispatch_turn(self, session_id, request, context, key):
         started = monotonic()
@@ -115,18 +135,26 @@ class FixedWorkflow:
         )
 
     def _turn(self, request, context, key, started):
+        turn_tools = []
         parse_ms, search_ms, compose_ms = 0.0, 0.0, 0.0
         intent, search, products = None, None, []
         outcome, source = "clarification", "clarification"
         text = "Use the explicit cart, quote, checkout or status control."
         stage = monotonic()
         result, dictionary, reused_attempt = None, None, False
+        intent_at = None
         attempt_config = None
         try:
             deadline = started + 3.0
             dictionary = self.call(
-                "facets", context, deadline=deadline, params={"namespace": context.namespace}
+                "facets",
+                context,
+                deadline=deadline,
+                params={"namespace": context.namespace},
+                turn_tools=turn_tools,
             )
+            if self.state is not None:
+                self.state.events.check_revision(dictionary["dataset_revision"])
             result = extract_intent(request.text, context, dictionary)
             parse_ms = (monotonic() - stage) * 1000
             if request.mode == "assist" and eligible(result, request.text):
@@ -162,13 +190,16 @@ class FixedWorkflow:
                         )
                 else:
                     result = replace(result, reason_code="MODEL_DISABLED")
+            intent_at = self.clock()
             intent, source = result.intent, result.extractor_source
             if result.outcome != "valid":
                 text = "Please clarify: " + ", ".join(result.missing_fields) + "."
             else:
                 stage = monotonic()
                 try:
-                    search = self._search(intent, dictionary, context, key, deadline)
+                    search = self._search(
+                        intent, dictionary, context, key, deadline, turn_tools=turn_tools
+                    )
                 finally:
                     search_ms = (monotonic() - stage) * 1000
                 products, outcome = search["hits"], "success"
@@ -176,6 +207,8 @@ class FixedWorkflow:
                 text = compose_response(intent, search)
                 compose_ms = (monotonic() - stage) * 1000
         except (DependencyUnavailable, RemoteError, ContractUnavailable, ContractViolation):
+            if turn_tools:
+                turn_tools[-1]["outcome"] = "failure"
             if not parse_ms:
                 parse_ms = (monotonic() - stage) * 1000
             outcome, text, products, search = (
@@ -246,7 +279,65 @@ class FixedWorkflow:
         self.telemetry.record("turn_duration_seconds", elapsed, mode=request.mode)
         if response.outcome == "clarification":
             self.telemetry.record("intent_clarifications_total", 1, reason=result.reason_code)
-        return TurnExecution(response, diagnostic)
+        facts = [
+            {
+                "event_type": "TOOL_CALLED",
+                "event_time": tool["event_time"],
+                "payload": {
+                    "turn_id": response.turn_id,
+                    **{key: value for key, value in tool.items() if key != "event_time"},
+                },
+            }
+            for tool in turn_tools
+        ]
+        rejection = None
+        if result is not None:
+            payload = {"turn_id": response.turn_id, "extractor_version": result.extractor_version}
+            if result.outcome == "valid":
+                facts.append(
+                    {
+                        "event_type": "INTENT_EXTRACTED",
+                        "event_time": intent_at,
+                        "payload": {**payload, "intent": result.intent, "outcome": "valid"},
+                    }
+                )
+            else:
+                reference = "m1-turn:" + response.turn_id
+                facts.append(
+                    {
+                        "event_type": "INTENT_REJECTED",
+                        "event_time": intent_at,
+                        "payload": {
+                            **payload,
+                            "reason_code": result.reason_code,
+                            "restricted_content_reference": reference,
+                        },
+                    }
+                )
+                if result.reason_code == "MODEL_INVALID_OUTPUT":
+                    rejection = {
+                        "diagnostic_id": str(uuid4()),
+                        "namespace": context.namespace,
+                        "run_id": context.run_id,
+                        "source_service": "conversation",
+                        "reason_code": "MODEL_OUTPUT_INVALID",
+                        "correlation_id": context.correlation_id,
+                        "created_at": self.clock(),
+                        "content_hash": (
+                            hashlib.sha256(result.rejected_output.encode("utf-8")).hexdigest()
+                            if result.rejected_output is not None
+                            else canonical_hash(diagnostic)
+                        ),
+                        "restricted_content_reference": reference,
+                        "source_coordinates": None,
+                    }
+        return TurnExecution(
+            response,
+            diagnostic,
+            tuple(facts),
+            rejection,
+            result.rejected_output if result is not None else None,
+        )
 
     def structured_search(self, intent, context, *, key):
         """Python adapter for controls; HTTP structured search is M2 /v1/search.
@@ -269,7 +360,7 @@ class FixedWorkflow:
             )
         return self._search(intent, dictionary, context, key, deadline)
 
-    def _search(self, intent, dictionary, context, key, deadline):
+    def _search(self, intent, dictionary, context, key, deadline, *, turn_tools=None):
         request = {
             "request_id": context.request_id,
             "session_id": context.session_id,
@@ -277,7 +368,9 @@ class FixedWorkflow:
             "top_k": 5,
             "mode": "lexical",
         }
-        result = self.call("search", context, body=request, key=key, deadline=deadline)
+        result = self.call(
+            "search", context, body=request, key=key, deadline=deadline, turn_tools=turn_tools
+        )
         if (
             result["mode"] != "lexical"
             or result["embedding_calls"] != 0
@@ -293,9 +386,13 @@ class FixedWorkflow:
                 raise ContractViolation("search hit rank/availability mismatch")
             if hit["dataset_revision"] != dictionary["dataset_revision"]:
                 raise ContractViolation("search/dictionary revision mismatch")
-            for field in ("category", "size", "colour", "material", "brand"):
+            for field in ("category", "size", "colour", "material"):
                 if intent.get(field) is not None and hit[field] != intent[field]:
                     raise ContractViolation("provider violated explicit hard filter")
+            if intent.get("brand") is not None and (
+                hit["brand"] is None or canonical_text(hit["brand"]) != intent["brand"]
+            ):
+                raise ContractViolation("provider violated explicit brand filter")
             if (
                 intent["max_price_minor"] is not None
                 and hit["price_minor"] > intent["max_price_minor"]
@@ -373,6 +470,9 @@ class FixedWorkflow:
                 if cached is not None:
                     return cached
             else:
+                # Fail before journalling or contacting a mutation provider if
+                # the required event path cannot be initialized.
+                self.state.events.ready()
                 if row["version"] != request.expected_cart_version:
                     raise conflict(ErrorCode.CART_VERSION_CONFLICT)
                 if operation == "request_quote":
@@ -459,6 +559,22 @@ class FixedWorkflow:
                     ),
                 )
                 command = self._command(tx, scope)
+            if operation == "checkout_cart":
+                accepted = tx.execute(
+                    "SELECT response FROM workflow_commands WHERE namespace=%s AND user_id=%s "
+                    "AND operation=%s AND remote_key=%s AND state='complete' LIMIT 1",
+                    (*scope[:3], command["remote_key"]),
+                ).fetchone()
+                if accepted is not None:
+                    # A new transport key aliases an already accepted quote. Replay
+                    # our durable acceptance even if Orders is down or has finalized.
+                    tx.execute(
+                        "UPDATE workflow_commands SET state='complete',response=%s "
+                        "WHERE namespace=%s AND user_id=%s AND operation=%s AND remote_key=%s "
+                        "AND state='pending'",
+                        (Jsonb(accepted["response"]), *scope[:3], command["remote_key"]),
+                    )
+                    return accepted["response"]
         name = "quote" if operation == "request_quote" else "order_create"
         try:
             result = self.call(
@@ -491,6 +607,8 @@ class FixedWorkflow:
             current = self._command(tx, scope)
             cached = self._result(current)
             if cached is not None:
+                if name == "order_create" and cached["order_id"] != result["order_id"]:
+                    raise dependency(unknown=True)
                 return cached
             if name == "quote":
                 if row["version"] != request.expected_cart_version:
@@ -501,6 +619,35 @@ class FixedWorkflow:
                     "quote_payload=%s WHERE namespace=%s AND cart_id=%s",
                     (result["quote_id"], row["version"], Jsonb(result), context.namespace, cart_id),
                 )
+            else:
+                # A fresh HTTP key for this same quote still addresses the same
+                # downstream operation. The session lock serializes first acceptance.
+                accepted = tx.execute(
+                    "SELECT response FROM workflow_commands WHERE namespace=%s AND user_id=%s "
+                    "AND operation=%s AND remote_key=%s AND state='complete' LIMIT 1",
+                    (*scope[:3], command["remote_key"]),
+                ).fetchone()
+                if accepted is None:
+                    accepted_context = RequestContext.model_validate(command["provider_context"])
+                    self.state._event(
+                        tx,
+                        row,
+                        accepted_context,
+                        "CHECKOUT_STARTED",
+                        {
+                            "cart_id": cart_id,
+                            "quote_id": command["provider_input"]["quote_id"],
+                            "order_id": result["order_id"],
+                            "confirmation_id": command["provider_input"]["confirmation_id"],
+                        },
+                        self.clock(),
+                    )
+                else:
+                    if accepted["response"]["order_id"] != result["order_id"]:
+                        raise dependency(unknown=True)
+                    # Another alias completed while this HTTP call was in flight.
+                    # Status may advance; the accepted order identity must not.
+                    result = accepted["response"]
             tx.execute(
                 "UPDATE workflow_commands SET state='complete',response=%s "
                 "WHERE namespace=%s AND user_id=%s AND operation=%s AND remote_key=%s "

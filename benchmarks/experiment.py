@@ -38,6 +38,7 @@ class ExperimentBindings:
     observer_factory: object = None  # optional explicit P5 ObservationSession binding
     telemetry: object = None  # optional shared Telemetry registry exposed by the harness owner
     performance_review_path: str | None = None  # P9 reviewed real evidence; no implicit default
+    dependency_reasons: tuple[str, ...] = ()
 
 
 def admission_reconciliation(directory, manifest):
@@ -226,6 +227,8 @@ async def run_experiment(
         "benchmark run", {"faults": [fault_profile]}, resolved, run_id, namespace
     )
     reasons = list(blocking_reasons)
+    if bindings is not None:
+        reasons.extend(bindings.dependency_reasons)
     reasons.extend(preflight(resolved, workload_id) if mode != "stub" else [])
     review_path = review_path or (bindings.performance_review_path if bindings else None)
     if mode != "stub" and evidence_kind in {"performance", "smoke"}:

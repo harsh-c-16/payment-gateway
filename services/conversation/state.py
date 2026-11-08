@@ -54,7 +54,7 @@ class ConversationState:
 
     def ready(self):
         self.database.ready()
-        self.events.ready()
+        self.events.ready(self.database)
 
     def _lock(self, tx, values):
         # Transaction-scoped lock: serializes even the first request for a new key.
@@ -342,5 +342,17 @@ class ConversationState:
                     },
                     created_at,
                 )
+                for fact in getattr(outcome, "event_facts", ()):
+                    self._event(
+                        tx, row, context, fact["event_type"], fact["payload"], fact["event_time"]
+                    )
+                if getattr(outcome, "rejection_diagnostic", None) is not None:
+                    if outcome.rejected_output is not None:
+                        tx.execute(
+                            "INSERT INTO intent_rejections(namespace,turn_id,restricted_output) "
+                            "VALUES (%s,%s,%s)",
+                            (context.namespace, response.turn_id, outcome.rejected_output),
+                        )
+                    self.events.quarantine(tx, outcome.rejection_diagnostic)
             self._save(tx, scope, digest, response)
             return response
