@@ -357,6 +357,15 @@ def test_revoke_commits_only_durable_prefix_and_fences_old_records():
     with pytest.raises(ValueError, match="revoked"):
         worker.mark_durable(records[1])
     assert not worker.commit_offsets({(TOPIC, 0): 2}).succeeded
+    native_close = worker.consumer.close
+
+    def close_with_queued_assignment():
+        # A native close can drain an assignment already queued by a rebalance.
+        native_close()
+        worker.consumer.callbacks["on_assign"](worker.consumer, [TopicPartition(TOPIC, 0)])
+        assert not worker.assignments
+
+    worker.consumer.close = close_with_queued_assignment
     worker.close()
 
 

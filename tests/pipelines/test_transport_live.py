@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic
@@ -280,6 +281,7 @@ def test_real_rebalance_fences_old_owner_and_redelivers_exact_source():
         namespace + ".analytics.v1", [topic], streaming.BOOTSTRAP, workers=3, worker_index=0
     )
     second = None
+    second_owner = ThreadPoolExecutor(max_workers=1)
     try:
         target_ack = None
         for number in range(1, 65):
@@ -318,26 +320,38 @@ def test_real_rebalance_fences_old_owner_and_redelivers_exact_source():
                 if (record.partition, record.offset) == (2, target_ack.offset):
                     old = record
         assert old is not None
-        second = ConsumerGroup(
-            namespace + ".analytics.v1", [topic], streaming.BOOTSTRAP, workers=3, worker_index=1
-        )
+        # Each real worker owns its consumer thread. Poll both concurrently so
+        # one member's rebalance callback cannot starve the other's rejoin.
+        second = second_owner.submit(
+            ConsumerGroup,
+            namespace + ".analytics.v1",
+            [topic],
+            streaming.BOOTSTRAP,
+            workers=3,
+            worker_index=1,
+        ).result(timeout=10)
         deadline = monotonic() + 40
         while monotonic() < deadline:
+            polling = second_owner.submit(second.consume_records, [topic], 0, 50)
             first.consume_records([topic], 0, 50)
-            second.consume_records([topic], 0, 50)
+            polling.result(timeout=10)
             if not first.is_current(old) and (topic, 2) in second.assignments:
                 break
         assert not first.is_current(old) and (topic, 2) in second.assignments
         with pytest.raises(ValueError, match="revoked"):
             first.mark_durable(old)
-        replacement = read_until(second, 1)[0]
+        replacement = second_owner.submit(read_until, second, 1).result(timeout=45)[0]
         assert (replacement.partition, replacement.offset) == (old.partition, old.offset)
         assert (
             replacement.value_bytes == old.value_bytes and replacement.raw_sha256 == old.raw_sha256
         )
         assert replacement.assignment_epoch != old.assignment_epoch
-        second.mark_durable(replacement)
-        assert second.commit_offsets(second.durable_next_offsets()).succeeded
+        second_owner.submit(second.mark_durable, replacement).result(timeout=10)
+        assert (
+            second_owner.submit(lambda: second.commit_offsets(second.durable_next_offsets()))
+            .result(timeout=15)
+            .succeeded
+        )
         save_evidence(
             "rebalance.json",
             {
@@ -352,7 +366,10 @@ def test_real_rebalance_fences_old_owner_and_redelivers_exact_source():
             },
         )
     finally:
-        first.close()
-        if second is not None:
-            second.close()
-        publisher.close()
+        try:
+            first.close()
+        finally:
+            if second is not None:
+                second_owner.submit(second.close).result(timeout=30)
+            second_owner.shutdown(wait=True)
+            publisher.close()

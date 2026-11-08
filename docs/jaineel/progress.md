@@ -3596,3 +3596,221 @@ in the team handoff, followed by Jaineel's real gates, B0, paired comparisons,
 independent reconciliation and report. A green local CI repair does not complete
 those deliverables. Manual continuation: pull this branch, provide the reviewed
 owner bindings, and execute the existing runbook gates with real resources.
+
+## Merge Harsh's main update and repair CI bootstrap - 8 November 2026
+
+The user explicitly requested inspecting the still-failing CI, then merging
+Harsh's new `main` into the current branch before final checks and push. Keep
+the existing four checks and run validation locally; add no CI jobs/tests.
+Initial branch was `jaineel/j03-telemetry`, HEAD
+`a0d6d239295e723ed5e3ecbf152003f0aec0279f`. The only uncommitted change was the
+in-progress workflow bootstrap repair, preserved before merging.
+
+### Actual hosted failure diagnosis
+
+Read-only inspection of run **42471550974**, for exactly `a0d6d23`, finds
+**Ubuntu offline and PostgreSQL passed**. Windows offline and Kafka/Registry
+failed in `astral-sh/setup-uv@v6`, before dependency sync or any test ran:
+both repeatedly received **HTTP 504** downloading uv **0.10.8** release assets
+from GitHub. Kafka log retention and teardown then failed secondarily because
+`uv` did not exist. This is distinct from the earlier repaired fixture and
+PostgreSQL permission errors. Preserve jobs, logs and uploaded artifacts in
+`artifacts/jaineel/ci-followup-a0d6d23-20261108/` (`FOLLOWUP`).
+`FOLLOWUP/diagnosis.json` records the exact failed steps. No manual hosted
+rerun/dispatch was requested or performed.
+
+### Main integration and preserved contracts
+
+- `git fetch origin` obtained `origin/main` at
+  `fc6b85b545b3736324f37f12a4995be1dba88652` (Harsh's PR #10).
+- `git stash push -m "ci-bootstrap-fix-before-main-merge-20261108" --
+  .github/workflows/offline.yml` preserved the single local change.
+- `git merge --no-edit origin/main` exposed one content conflict in
+  `tests/catalog/test_conversation_consumer_live.py`. Keep both sides' checks:
+  nonempty hits, matching canonical brand and exactly SKU `FK-SHIRT1`.
+  `git add -- tests/catalog/test_conversation_consumer_live.py` and
+  `git commit --no-edit` created merge
+  `7f1b50b1c2643f99a0fff79e0616fe97325ac79b`, with both original parents intact.
+- `git stash apply "stash@{0}"` restored the workflow fix without conflict;
+  drop only that successfully applied task stash afterward.
+- Preserve Harsh's migration/seed-audit hooks, analytics layout bindings,
+  manifests and tests from main. No catalogue business implementation or public
+  DTO/contract was replaced. His tracked `quality_by_category.csv` uses CRLF;
+  the merge whitespace diagnostic reports its line endings. Keep those pinned
+  incoming bytes unchanged instead of rewriting owner evidence to silence it.
+
+### Bootstrap correction and validation scope
+
+`.github/workflows/offline.yml` now sets up Python **3.11** through
+`actions/setup-python@v5` and installs the exact **uv==0.10.8** binary wheel
+from PyPI with no dependencies, five retries and a 60-second request timeout.
+This removes the failing uv GitHub release-asset download path. PyPI installation
+is documented by [Astral](https://docs.astral.sh/uv/getting-started/installation/#pypi);
+Python setup inputs are verified against the official action definition.
+All existing test commands, matrices, image pins, opt-ins, assertions and timeouts
+are retained. There is no continue-on-error around bootstrap or tests.
+
+The existing Kafka log/teardown steps require successful dependency setup so a
+missing tool cannot obscure the original setup error. They still run after an
+infrastructure attempt or test fails, retaining the established cleanup path.
+No new tests are authored here; preserve the tests already merged from main.
+
+Local evidence for the merged checkpoint is
+`artifacts/jaineel/merge-main-fc6b85b-20261108/` (`MERGEOUT`). Explicit isolated
+PostgreSQL/Kafka services and the existing locked Linux worker are used, with
+read-only source and writable test evidence. The dedicated PostgreSQL job has
+its own disposable database/volume so native recreation cannot interrupt it.
+Linux offline/PostgreSQL mirrors hide only the ignored raw CSV inside the
+container, matching a real CI checkout; the host dataset is untouched.
+
+Already executed local setup checks:
+
+- Fresh Windows and Linux Python environments installed **uv 0.10.8** from PyPI
+  successfully; exact argv/versions in `FOLLOWUP/{windows,linux}-bootstrap.json`.
+  The interrupted earlier Windows full run is not counted as completion.
+- The first fresh Linux mirror reached pytest but its read-only artifacts mount
+  stopped pytest configuration. Retain `FOLLOWUP/linux-initial-readonly/`.
+  A later fresh dependency download timed out on the locked PyArrow wheel; its
+  raw failure remains in `FOLLOWUP/linux-sync-locked.stderr.log`, not a pass.
+- `PY MERGEOUT/local_jobs.py linux-sync` audits the actual existing locked Linux
+  image with `uv sync --locked --offline --project /repo` and explicit
+  `UV_PROJECT_ENVIRONMENT=/app/.venv`: **exit 0**, 38 resolved / 35 audited.
+  It does not fabricate a fresh external-package download acceptance result.
+- `PY FOLLOWUP/validate_workflow.py`: **exit 0**; structural comparison verifies
+  the same four checks and unchanged test/service settings beyond bootstrap
+  and unavailable-tool guards. `FOLLOWUP/workflow-validation.json`.
+- Checksum-verified **actionlint v1.7.12**, invoked locally with
+  `-shellcheck= -pyflakes= .github/workflows/offline.yml`: **exit 0**.
+  The optional external shellcheck/pyflakes tools are unavailable and explicitly
+  disabled; actionlint's workflow/expression validation executes.
+- `PY -m ruff check` and `PY -m ruff format --check` on the merged brand test,
+  query-suite test, analytics suite and catalogue adapter: **exit 0**, four files
+  already formatted. `git diff --check` for the remaining repair: exit 0.
+
+Full post-merge job results and push/cleanup receipt follow after completion.
+
+### Native rebalance/shutdown defect found during post-merge validation
+
+Windows offline first completed **1,548 passed / 525 skipped**, zero failures.
+The first Linux offline mirror completed **1,554 passed / 11 failed / 508
+skipped**: every failure was `FileNotFoundError: git` in the existing ignore-rule
+tests. GitHub runners provide Git; the temporary base worker did not. Add Git
+only to a disposable local validation image, keep the original failed evidence
+in `MERGEOUT/offline/`, and rerun the identical verifier. The corrected local
+mirror completed **1,565 passed / 508 skipped**, zero failures. No repository
+assertion was removed or weakened. An initial PostgreSQL worker name collided
+with the dedicated database container before pytest started; the corrected
+isolated invocation is retained separately as `postgres-final`.
+
+The native Kafka job exposed an intermittent **real SDK shutdown defect**.
+The broker recorded a stalled rebalance; the job exceeded its prior 96-second
+runtime substantially. Save raw broker/PostgreSQL logs in
+`hung-native-{broker,postgres}.log`, then intentionally abort only that hung
+local pytest process to collect its enabled faulthandler trace. It reports
+`ConsumerGroup.close -> _on_assign -> consumer.assign`, stuck inside native
+assignment while native close is draining queued rebalance callbacks.
+`native-hang-abort.json` records the diagnostic action. The resulting exit -6
+and null JUnit count in `MERGEOUT/kafka/` are an intentionally aborted diagnostic,
+**not a provider acceptance pass**.
+
+Narrow corrections required by this CI-repair request:
+
+- `shared/event_transport/consumer.py`: mark shutdown in progress before native
+  close and ignore newly queued assignment callbacks during shutdown. Retain
+  durable-prefix revoke/commit behavior, thread ownership, closed-handle checks
+  and final buffer cleanup. No API, DTO or event contract changes.
+- Extend the **existing** revoke/fencing unit case in
+  `tests/pipelines/test_transport.py` with an explicit native-command double
+  that drains a queued assignment while closing. Before the implementation fix,
+  it fails because the closed worker reacquires assignment state:
+  `close-before.xml`. After the fix, the whole existing transport file passes
+  **27 tests**, `transport-after.xml`. This is double evidence only.
+- `tests/pipelines/test_transport_live.py`: keep the second real consumer on its
+  own single-owner executor thread and poll both workers concurrently during
+  rebalance. Run that consumer's read/durable/commit/close calls on its owner
+  thread. Preserve all old-owner fencing, exact source bytes/offsets, assignment
+  epoch and confirmed durable-offset assertions. No new test case or relaxed
+  deadline is introduced.
+
+The complete existing native verifier rerun then passes **7/7 real tests** in
+`MERGEOUT/kafka-fixed/`, with actual PostgreSQL/Kafka/Registry recreation.
+`PY MERGEOUT/local_jobs.py verify` returns exit 0 after recreation. The separate
+PostgreSQL verifier passes **759 / 20 skips / 779 collected**, zero failures or
+errors (`MERGEOUT/postgres-final/`). The two full offline verifiers are rerun
+after the SDK change, followed by the existing Linux volume check. Vichitr should
+review the SDK callback/shutdown correction as part of the normal branch review;
+it does not require a public-interface decision or replacement owner implementation.
+
+### Final post-merge local acceptance
+
+All existing job suites finish with **zero failures and errors**:
+
+| Existing check/phase | Passed | Skipped | Collected | Evidence |
+|---|---:|---:|---:|---|
+| Windows offline, after SDK fix | 1,548 | 525 | 2,073 | `MERGEOUT/offline-windows-final/` |
+| Ubuntu/Linux offline, after SDK fix | 1,565 | 508 | 2,073 | `MERGEOUT/offline-after-sdk/` |
+| PostgreSQL 18, dedicated CI replica | 759 | 20 | 779 | `MERGEOUT/postgres-final/` |
+| Kafka/Registry native and recreation | 7 | 0 | 7 | `MERGEOUT/kafka-fixed/` |
+| Linux SQL/files/publication/replay/analytics volume | 409 | 10 | 419 | `artifacts/ci-volume/` |
+
+These phases overlap and must not be summed as unique tests. The four GitHub
+checks remain the same; Kafka's native and volume phases are listed separately
+to show both executed. Existing missing-source/model/provider/platform skips
+remain explicit; optional cold reads are NOT_RUN on this WSL kernel without
+`/proc/self/io`. No full-team DE gate or performance result is inferred.
+
+Exact final local commands (`PY=.venv/Scripts/python.exe`):
+
+- `uv run --locked python -m benchmarks.manual.verify_prompt6 --job offline
+  --out artifacts/jaineel/merge-main-fc6b85b-20261108/offline-windows-final`.
+- With `CI_LOCAL_WORKER_IMAGE=jaineel-merge-ci-worker:20261108`,
+  `PY MERGEOUT/local_jobs.py offline -after-sdk`,
+  `PY MERGEOUT/local_jobs.py postgres -final` and
+  `PY MERGEOUT/local_jobs.py kafka -fixed`. Each invokes the original
+  `python -m benchmarks.manual.verify_prompt6 --job JOB --out ...` inside the
+  Linux mirror. Exact Docker argv (test URLs redacted), exit codes, raw logs,
+  JUnit and summary/check JSON are retained per phase in MERGEOUT.
+- `PY MERGEOUT/local_jobs.py verify`: exit 0 after native recreation.
+- `PY MERGEOUT/local_jobs.py volume`: invokes unchanged
+  `python -m benchmarks.manual.prompt6_services volume`, rebuilding the locked
+  pinned worker and executing the actual existing Compose/volume job; exit 0.
+  `volume.{stdout,stderr}.log`. Preserve the earlier volume receipt by moving it
+  to `MERGEOUT/previous-ci-volume/` before this invocation; do not overwrite it.
+- `PY MERGEOUT/final_summary.py`: exit 0; `verified-summary.json` checks every
+  final PASS, records counts/evidence hashes and the exact validated source
+  Git blob IDs, and confirms `origin/main` is an ancestor of HEAD.
+- `PY FOLLOWUP/validate_workflow.py`: final exit 0, same four checks and test
+  commands/services, unchanged application lock and unchanged collected test
+  function names in the two edited transport files. Workflow changes are
+  confined to bootstrap and missing-tool cleanup guards.
+- `PY -m ruff check` / `ruff format --check` on the three changed transport
+  Python files: exit 0. Final full owned offline lint/format/schema/contract
+  checks also pass their existing acceptance policy. `git diff --check` passes
+  for the repair diff; incoming pinned CSV bytes remain as committed on main.
+
+Only `.github/workflows/offline.yml`, `shared/event_transport/consumer.py`,
+the two existing transport test files and this owned progress record are changed
+after the merge. Do not stage temporary helpers, credentials, raw data, images,
+test output or benchmark artifacts. Final commit/push is explicitly authorized
+on the current `jaineel/j03-telemetry` branch after these local checks. The
+post-push ignored `MERGEOUT/git-receipt.json` records the actual SHA and remote
+sync result; an ordinary push triggers the existing workflow automatically.
+No manual hosted rerun/dispatch is performed.
+
+Cleanup completes through `PY MERGEOUT/cleanup.py` after the all-PASS receipt.
+Save real service logs, run `PROJECTCTL_ADAPTER_MODULE=infra.streaming
+PY -m projectctl env down`, stop/remove only the dedicated CI PostgreSQL
+container, and remove the temporary Git-equipped worker, superseded worker
+image and unused build cache. Remove only verified task-local bootstrap/cache
+and copied Docker-tool directories; keep all raw evidence. An initial cleanup
+invocation incorrectly supplied `--profile` to `env down` and was rejected with
+exit 2 before stopping anything; retain `cleanup-initial.json` and its stdout,
+then use the supported command above. Final cleanup exits 0 and records
+**zero containers, zero build cache, four current project images retained and
+all 34 data volumes preserved** in `MERGEOUT/cleanup.json`. No volume is deleted.
+
+Checkpoint: merged code and all existing local job phases are ready to push.
+Whole-team evaluation, reviewed bindings and benchmark results remain separate
+unfinished deliverables. Manual continuation is the ordinary existing workflow
+on the final push and Vichitr's normal review of the SDK shutdown fix; no new
+CI job, test-case expansion or automatic owner approval is introduced.
