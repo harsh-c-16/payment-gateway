@@ -11,8 +11,8 @@ def test_provisional_publisher_uses_fixed_ticks_without_waiting_for_watermark(mo
     closed = []
 
     class GroupDouble:
-        def __init__(self, *args):
-            pass
+        def __init__(self, *args, workers, worker_index):
+            assert (workers, worker_index) == (1, 0)
 
         def close(self):
             closed.append(True)
@@ -38,6 +38,7 @@ def test_provisional_publisher_uses_fixed_ticks_without_waiting_for_watermark(mo
             clock[0] += 0.10  # Publishing takes time; the next tick still stays fixed.
 
     monkeypatch.setattr(worker, "ConsumerGroup", GroupDouble)
+    monkeypatch.setattr(worker, "worker_allocation", lambda: (1, 0))
     monkeypatch.setattr(worker, "monotonic", lambda: clock[0])
     with pytest.raises(RuntimeError, match="fixture finished"):
         worker.run(PipelineDouble(), "bench-m09", "explicit-fixture", "unused")

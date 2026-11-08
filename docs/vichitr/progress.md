@@ -1,5 +1,49 @@
 # Vichitr progress
 
+## CI worker-fixture correction - 8 November 2026
+
+Run `42505094144` for `7c1ab54` failed both offline jobs with two failures:
+`test_event_time::test_provisional_publisher_uses_fixed_ticks_without_waiting_for_watermark`
+and `test_silver::test_worker_subscribes_to_five_business_domains_and_closes_on_failure`.
+The earlier `5b5c171` Kafka/Linux-volume job (`42489607957`) failed on the same
+two tests. Both explicit `GroupDouble` constructors predated the worker allocation
+keywords added in `33e6b68`; production `ConsumerGroup` already supports them.
+The earlier focused startup checks did not include these worker fixtures.
+
+Corrected only the two owned test fixtures: accept and assert `workers=1`,
+`worker_index=0`, pin that fixture allocation, and update the Silver test's
+capture bound from 1 to the current shared B0/O1 value of 100. SQL transaction
+batch size is a different control; no production grouping behavior was changed.
+Original fixed publication ticks, topic list, four rejoin/close attempts, retry
+delays and propagated sink-outage assertions are retained. No production code,
+workflow, CI selection, dependency, schema or resource profile changed.
+
+Downloaded redacted GitHub job logs/JUnit are retained locally under
+`artifacts/ci-startup-fix/`; the existing approved GitHub credential was sent
+only to GitHub and never printed or saved. A signed artifact download receives
+no GitHub authentication header. Exact failures reproduced locally: **2 failed,
+26 passed**, `worker-before.xml`. Corrected fixtures plus existing observation
+and consumer-control tests: **41 passed**, zero skips/failures,
+`worker-corrected.xml`. Ruff lint/format and `git diff --check` passed.
+
+Focused command:
+`python -m pytest -q tests/pipelines/test_event_time.py tests/pipelines/test_silver.py tests/pipelines/test_consumer_observations.py tests/pipelines/test_consumer_control.py --basetemp=artifacts/pytest-ci-worker-corrected --junitxml=artifacts/ci-startup-fix/worker-corrected.xml`.
+The full existing offline job is also run with
+`python -m benchmarks.manual.verify_prompt6 --job offline --out artifacts/ci-startup-fix/offline`;
+it returned exit 0: **1,657 passed, zero failures/errors, 529 skipped** out of
+2,186 collected tests. Lint, formatting, schema and conversation-contract checks
+also passed. Shared contract review remains dependency `NOT_RUN` (exit 4), as
+reported and accepted by the existing verifier; this is not a contract approval.
+The service/platform opt-ins remain skipped by the existing offline selection;
+no skip was introduced by this correction. The 41-case focused run overlaps
+with this full offline result. Raw evidence is `offline/{checks,summary}.json`,
+`offline/pytest.xml` and the existing stdout/stderr logs.
+
+Hosted Actions runs independently on push; local success is not a hosted pass.
+The latest hosted result will be retained in the ignored
+`artifacts/ci-startup-fix/github-actions.json` and reported separately. Docker
+Desktop remains stopped; no local live stack or benchmark was started.
+
 ## Windows startup diagnostics and retained-broker recovery - 8 November 2026
 
 User requested finishing the remaining standalone M4 startup reliability task.

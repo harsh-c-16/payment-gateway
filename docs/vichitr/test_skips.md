@@ -1,5 +1,13 @@
 # Implementation checks: 8 November 2026
 
+Worker-fixture CI correction: the exact existing Windows offline job passed
+with **1,657 passed, 529 skipped, zero failures/errors** (2,186 tests), plus
+passing lint/format/schema checks. Skips retain the existing service/platform
+requirements; no skip or CI selection changed. The focused 41-case worker run
+also passed and overlaps with the full result. See `artifacts/ci-startup-fix/`
+and [progress](progress.md). Hosted CI success remains a separate observation;
+offline checks do not certify live broker/SQL/filesystem acceptance or performance.
+
 Startup reliability follow-up: **69 distinct focused cases passed**, zero
 skips/failures in the final four-file run, `artifacts/startup-delivered.xml`.
 Earlier preserved reports contain 67 startup/streaming/PostgreSQL/analytics
