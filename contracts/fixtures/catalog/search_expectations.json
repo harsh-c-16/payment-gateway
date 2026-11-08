@@ -1,0 +1,315 @@
+{
+ "active_rows": 19920,
+ "audit_kind": "W-SEARCH",
+ "catalog_parquet_sha256": "281142d5fa9f59d694ffcca593beab9f3079ae6f3937a8598fddbce95f046a9e",
+ "logical_results": {
+  "B01": {
+   "deterministic_hits": true,
+   "eligible_count": 6170,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B02": {
+   "deterministic_hits": true,
+   "eligible_count": 6170,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B03": {
+   "deterministic_hits": true,
+   "eligible_count": 3522,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B04": {
+   "deterministic_hits": true,
+   "eligible_count": 1225,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B05": {
+   "deterministic_hits": true,
+   "eligible_count": 1097,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B06": {
+   "deterministic_hits": true,
+   "eligible_count": 1010,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B07": {
+   "deterministic_hits": true,
+   "eligible_count": 927,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B08": {
+   "deterministic_hits": true,
+   "eligible_count": 709,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B09": {
+   "deterministic_hits": true,
+   "eligible_count": 700,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B10": {
+   "deterministic_hits": true,
+   "eligible_count": 645,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B11": {
+   "deterministic_hits": true,
+   "eligible_count": 572,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B12": {
+   "deterministic_hits": true,
+   "eligible_count": 528,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B13": {
+   "deterministic_hits": true,
+   "eligible_count": 481,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B14": {
+   "deterministic_hits": true,
+   "eligible_count": 387,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B15": {
+   "deterministic_hits": true,
+   "eligible_count": 329,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B16": {
+   "deterministic_hits": true,
+   "eligible_count": 19920,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B17": {
+   "deterministic_hits": true,
+   "eligible_count": 19920,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B18": {
+   "deterministic_hits": true,
+   "eligible_count": 6170,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B19": {
+   "deterministic_hits": true,
+   "eligible_count": 742,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "B20": {
+   "deterministic_hits": true,
+   "eligible_count": 780,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S01": {
+   "deterministic_hits": true,
+   "eligible_count": 29,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S02": {
+   "deterministic_hits": true,
+   "eligible_count": 3264,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S03": {
+   "deterministic_hits": true,
+   "eligible_count": 541,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S04": {
+   "deterministic_hits": true,
+   "eligible_count": 441,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S05": {
+   "deterministic_hits": true,
+   "eligible_count": 320,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S06": {
+   "deterministic_hits": true,
+   "eligible_count": 442,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S07": {
+   "deterministic_hits": true,
+   "eligible_count": 294,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S08": {
+   "deterministic_hits": true,
+   "eligible_count": 474,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S09": {
+   "deterministic_hits": true,
+   "eligible_count": 69,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S10": {
+   "deterministic_hits": true,
+   "eligible_count": 178,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S11": {
+   "deterministic_hits": true,
+   "eligible_count": 295,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S12": {
+   "deterministic_hits": true,
+   "eligible_count": 134,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S13": {
+   "deterministic_hits": true,
+   "eligible_count": 250,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S14": {
+   "deterministic_hits": true,
+   "eligible_count": 191,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S15": {
+   "deterministic_hits": true,
+   "eligible_count": 128,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S16": {
+   "deterministic_hits": true,
+   "eligible_count": 526,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S17": {
+   "deterministic_hits": true,
+   "eligible_count": 224,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S18": {
+   "deterministic_hits": true,
+   "eligible_count": 133,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S19": {
+   "deterministic_hits": true,
+   "eligible_count": 224,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "S20": {
+   "deterministic_hits": true,
+   "eligible_count": 409,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "U01": {
+   "deterministic_hits": true,
+   "eligible_count": 3,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "U02": {
+   "deterministic_hits": true,
+   "eligible_count": 1,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "U03": {
+   "deterministic_hits": true,
+   "eligible_count": 1,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "U04": {
+   "deterministic_hits": true,
+   "eligible_count": 3,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "U05": {
+   "deterministic_hits": true,
+   "eligible_count": 4,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "Z01": {
+   "deterministic_hits": true,
+   "eligible_count": 0,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "Z02": {
+   "deterministic_hits": true,
+   "eligible_count": 0,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "Z03": {
+   "deterministic_hits": true,
+   "eligible_count": 0,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "Z04": {
+   "deterministic_hits": true,
+   "eligible_count": 0,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  },
+  "Z05": {
+   "deterministic_hits": true,
+   "eligible_count": 0,
+   "hard_filter_violations": 0,
+   "status": "ok"
+  }
+ },
+ "oracle": "pipelines/catalog/search_oracle.py",
+ "queries_sha256": "89d89ac030f10d23e85d6e5084caa125017b5f927a1ed94854aadc3be4762410",
+ "schema_version": 1,
+ "seed": {
+  "on_hand": 10000,
+  "reserved": 0,
+  "stock_version": 1
+ }
+}

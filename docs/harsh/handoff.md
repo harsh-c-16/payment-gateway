@@ -1,8 +1,120 @@
 # M2 handoff
 
-What each teammate needs from the catalogue module. The M2 implementation is on
-`main`; M4's 8 November relay/broker/Compose follow-up below is on `vichitr` until
-its PR is merged. These follow-up observations were recorded by Vichitr.
+What each teammate needs from the catalogue module. Everything below is on `main`. The 8 November
+relay, broker and Compose rows under Aditya and Vichitr were recorded by Vichitr.
+
+## 9 November: answers to the evaluation handoff
+
+This answers `docs/jaineel/HARSH_REVIEW_2026_11_09.md` and Vichitr's 9 November list.
+
+### Inputs confirmed
+
+The packet was generated and verified on Linux at clean commit `f971747`
+(`python -m projectctl.evaluation_packet`): status `INPUTS_PINNED_REVIEW_PENDING`, content hash
+`001d1180…`. **The revision `flipkart-v1-3a401f32ca99379f8298ce42`, the dictionary identity and every
+SKU and business identity stay unchanged.** Jaineel's Windows hashes are the same files with CRLF line
+endings: converting each committed file's LF to CRLF reproduces his four values exactly.
+
+| File | Exact bytes on Linux (= published) | Same file with CRLF (Jaineel's Windows value) |
+|---|---|---|
+| Source CSV | `56f8f699…93ad1` | `56f8f699…93ad1`; the CSV is not in git, so no conversion |
+| Dictionary | `a7d381e9…f9943` | `7de194b5…02a02` |
+| Search queries | `89d89ac0…62410` | `14733547…cd63` |
+| Normalized manifest | `6d9e8139…715dc` | `8fed5a44…8b0e` |
+| SKU manifest | `609e0ea9…bc28c7` | `51632d83…fa75` |
+
+So on the Linux execution machine, the exact-byte pins equal the published values. Regenerate the packet
+there, as the runbook says.
+
+### Provider review
+
+Both catalogue surfaces are approved in `provider_review.json`, made from the proposal in the packet,
+with the other owners' entries left pending. With it, `projectctl contracts check --all` reports
+`contracts/data/catalog` and `contracts/dictionaries/catalog` as PASS. Two notes on the validators:
+
+- The `contracts/data/catalog` validator only checks that each schema is a valid JSON Schema. As review
+  evidence, the pinned source, normalized, SKU and facet manifests, the profile and a load report all
+  validate against their schemas with 0 errors.
+- The surface pins `.py`, `.sql` and `.json` files, so `embedding_requirements.txt` is not pinned. It
+  matters only for the optional vector modes.
+
+### Runner bindings
+
+Set `PROJECTCTL_OWNER_RUNTIME_MODULES=pipelines.catalog.runtime` next to `projectctl.team_runtime`. It
+merges beside M4's bindings without a duplicate, and starts nothing when registered.
+
+| Workload | Callbacks |
+|---|---|
+| W-IMPORT | `fresh_namespace`: no catalogue rows in the namespace. Your lifecycle already runs the importer, drain and import audit |
+| W-SEARCH | `fresh_namespace` (catalogue and Inventory), `seed_audit` (catalogue facts plus Inventory's SKU set, pending outbox and seed run ID; the Inventory SKU set must equal the active catalogue SKUs), `drain` (the catalogue outbox reaches 0 unpublished rows through the relay), `audit`, `observer_factory` |
+| W-ANALYTICS | `fresh_namespace` (analytics), `layout_for` and `query_day` from a frozen layout file, `audit`, `observer_factory` |
+| Reset | `ResetParticipant` for `catalog`: preflight refuses while the outbox holds unpublished rows; apply deletes one bench namespace in one transaction, FK-safe |
+
+Migrations stay on your built-in `projectctl.setup.migrate_catalog`.
+
+**Deployment inputs:**
+- `CATALOG_AUDIT_DATABASE_URL`, `INVENTORY_AUDIT_DATABASE_URL` and `ANALYTICS_AUDIT_DATABASE_URL`:
+  Vichitr's SELECT-only roles. Every check reads through them and refuses a role with write privileges.
+- `CATALOG_METRICS_URL`.
+- `PROJECTCTL_SUT_CONTAINERS`: every profile service must be mapped; nothing is guessed.
+- `CATALOG_BINDING_REVIEW_PATH`.
+- `ANALYTICS_FROZEN_LAYOUTS`.
+
+**The W-SEARCH audit** compares the run against independent expectations frozen before it:
+`contracts/fixtures/catalog/search_expectations.json`, made by `pipelines/catalog/search_oracle.py`.
+The oracle re-applies the hard filters to `catalog.parquet` in plain Python and shares no code with the
+search service. For each query the audit checks four things:
+- the eligible count, which must be identical in every response;
+- 0 hard-filter, stock, revision or count-invariant violations in any hit, read back through SQL;
+- the same hits in every response;
+- that no request is unresolved.
+
+It writes `expected.json`, `observed.json`, `source_fixture.json`, `query_results.parquet`, `plans/`
+(`EXPLAIN ANALYZE` of every query, after the window) and `manifests/`. Ranking quality is not judged:
+the labels stay diagnostic.
+
+**W-ANALYTICS** needs Vichitr's drained snapshot namespace and query day. Freeze them once, before any
+run:
+
+```bash
+python -m analytics.queries.layouts freeze --namespace SNAPSHOT_NS --day YYYY-MM-DD --out FROZEN_JSON
+```
+
+- **What freezing records:** the exact file list, hashes and generations of each layout (small files,
+  compacted, unpartitioned), plus each query's expected digest.
+- **When it refuses:** if any layout gives a different result.
+- **What the runs do:** measured runs only read these lists, and the audit refuses if any frozen file
+  changed.
+- **Limit:** the expected digests are the small-file results under DuckDB. They are independent of the
+  layout under test, not of the engine.
+
+### Checks on 9 November
+
+| Check | Result |
+|---|---|
+| Your `benchmarks.import_audit.audit_import` on a real import of the 20,000-row file | **18 of 18 assertions passed**: 19,920 active, 78 inactive, 2 superseded |
+| Oracle against the real `/v1/search` over HTTP | Eligible counts agree on all 50 frozen queries |
+| W-SEARCH audit over 150 real searches (50 queries × 3) | Passed: complete, 0 violations, every query deterministic; 96 plans |
+| `tests/catalog/test_runtime_live.py`, `tests/analytics/test_layouts_live.py` | 12 passed, including tampered responses and a changed Parquet file, which the audits catch |
+| Contracts check with the review receipt | Both catalogue surfaces PASS; other owners' surfaces still UNREVIEWED |
+
+The raw evidence (packet, review receipt, import audit, search audit with plans, and the owner
+experiments' summaries, plans and query results) is git-ignored and sent separately as
+`harsh-evidence-20261109.tar.gz`.
+
+### Open points for you
+
+1. **The P9 validator cannot accept a review frozen before the run.** For W-IMPORT, W-SEARCH and
+   W-ANALYTICS, `benchmarks/performance.py` requires `binding_review.json`'s `fixture_sha256` to equal
+   the hash of the run's `expected.json`. But `expected.json` must also carry the run's own namespace,
+   so its bytes are new in every run. My audit writes the reviewed expectations unchanged as
+   `source_fixture.json` and validates the review against that, as your integration cases do. Please
+   make the P9 check do the same.
+2. **Checkout and integrated templates are not the catalogue's to freeze.** The catalogue adds no
+   template fields: every SKU in the pinned manifest can be quoted at its catalogue price, and your
+   generator picks the hot-80 SKUs from that manifest. A template that names a SKU would bypass that
+   selection.
+3. **Relevance is unchanged.** `label_sha256` stays null and the rule-based scores stay diagnostic.
 
 ## Jaineel
 
@@ -54,17 +166,14 @@ are among `catalog verify`'s assertions.
    ([experiments.md](experiments.md) §§3, 5).
 3. **Review one change in your test.** One assertion in `tests/contracts/test_contracts.py` now
    expects `catalog.yaml` to PASS, since the contract exists.
-4. **Hash pin policy: please agree it with Aditya.**
-   - **Facts:** git stores the dictionary and query file with LF line endings. So on any LF checkout
-     the published value is both the raw-file hash and the LF-text hash; `review_input_pins` shows
-     both match on Linux. A Windows checkout with `core.autocrlf=true` rewrites them as CRLF, and only
-     then does the raw hash differ.
-   - **My proposal:** pin the exact raw bytes, as file 09 §1 requires, with the values above.
-     Windows runs check out with `git config core.autocrlf false` (or `input`) before running. No file
-     or hash changes, and `dataset_revision` is unaffected: the catalogue reads the dictionary as
-     newline-normalized text, which for these files equals the raw bytes.
+4. **Hash pin policy: settled on 9 November.** Evaluation pins use exact bytes, generated on the
+   execution machine, and the dictionary keeps its LF identity, so `dataset_revision` is unchanged.
+   This matches my proposal. On Linux the two are equal; see the 9 November section.
 
 ### Wiring the runner
+
+For the shared runner, the 9 November bindings above compose these functions. The table stays as their
+reference.
 
 | Need | What to use |
 |---|---|
@@ -100,6 +209,7 @@ same 7 are rejected**. W-SEARCH posts to `/v1/search` directly, so these rejecti
 
 | Need | Detail |
 |---|---|
+| Seed proof (review, please) | The W-SEARCH `seed_audit` reads your `inventory` table (SKU set) and `outbox` (unpublished rows and the seed `run_id` in the payload) for the run's namespace, through `INVENTORY_AUDIT_DATABASE_URL`. The Inventory SKU set must equal the active catalogue SKUs |
 | `shared.outbox.append_outbox(tx, event)` | Search and price changes write events in the same transaction through it. `tests/catalog/test_outbox_live.py` checks this with your real library |
 | Outbox table in `catalog_db` | `migrations/catalog/005_outbox.sql`, a copy of your `shared/outbox/schema.sql`, as your template asks |
 | A relay for `catalog_db` | M4 now supplies `infra.catalog_relay` and the `catalog-relay` Compose service, using the real shared `OutboxRelay` at 25 ms /100 rows. The isolated 8 November Compose smoke verified actual search/price outbox delivery to Kafka. Use the same migrated database/schema as the API; see Vichitr's handoff for evidence and limits |
@@ -120,6 +230,9 @@ Found while reviewing Orders against the catalogue (your code; I changed nothing
 
 | Need | Detail |
 |---|---|
+| Event contracts (reviewed 9 November) | Search writes `SEARCH_REQUESTED` and `PRODUCT_RETRIEVED`, and a price change writes `PRICE_UPDATED`. Each payload carries exactly the schema's required fields, and the codec validates them in `test_outbox_live.py`. The catalogue never emits `PRODUCT_COMPARED`. All three events carry `synthetic: true` with `scenario_source: simulation`, which is right while all traffic is simulated |
+| Pinned snapshot for W-ANALYTICS | Give me your drained snapshot namespace and UTC query day, and freeze the layouts with `analytics.queries.layouts freeze` (see the 9 November section). Compaction publishes through your publisher, so the snapshot's generation advances; the small-file layout stays the earlier generation, whose files you retain |
+| Stale-candidate case | T-12 `stale-compaction` is your `STALE_MANIFEST` path. A candidate for it is `compact_snapshot` on a pinned manifest, published after ingestion advances. `CompactionFaults` is the separate crash boundary |
 | Compaction | `analytics.compaction.compact.compact_snapshot` builds a candidate from a pinned manifest and hands it to your `publish_candidate`. It never writes `active_datasets` or deletes files, and a stale base generation stays your `STALE_MANIFEST` path |
 | T-09 edge cases on a real broker | M4's 8 November run passed all four cases in `tests/catalog/test_projection_kafka_live.py`: ordering/duplicates/restart, conflicting versions with a real diagnostic outbox, actual two-member partition rebalance, and child-process death after SQL COMMIT before offset commit followed by idempotent redelivery. The earlier named test also passed in `broker-focus.xml` on 6 November; that alone did not cover these extra faults. Run with `CATALOG_TEST_KAFKA_BOOTSTRAP` and `CATALOG_TEST_DATABASE_URL` against isolated test schemas on Linux. The broker fault fixtures use explicit schema-cache doubles; the separate Compose smoke uses the actual registered cache |
 | Cold-cache series without `/proc/self/io` | `--cold` now records `cold_series: NOT_RUN` with the reason and keeps the warm series. It never substitutes zeros or warm timings |
