@@ -24,6 +24,14 @@ def invocation(action="env verify", profile="postgres-local"):
     return Invocation(action, {"profile": profile}, None, str(uuid4()), "bench-m01")
 
 
+def test_evidence_display_accepts_scratch_outside_checkout(tmp_path, monkeypatch):
+    monkeypatch.setattr(postgres, "ROOT", tmp_path / "checkout")
+    inside = postgres.ROOT / "artifacts/checks"
+    outside = tmp_path / "private-scratch/checks"
+    assert postgres.evidence_path(inside) == "artifacts/checks"
+    assert postgres.evidence_path(outside) == outside.as_posix()
+
+
 def test_credentials_stable_distinct_and_missing_file_never_rotated(runtime):
     values = postgres.credentials(create=True)
     assert len(set(values.values())) == 7

@@ -23,7 +23,7 @@ services:
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
       KAFKA_LOG_RETENTION_HOURS: 168
       KAFKA_LOG_DIRS: /var/lib/kafka/data
-      KAFKA_HEAP_OPTS: -Xms256m -Xmx256m
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx512m
     ports:
       - "127.0.0.1:9092:19092"
     volumes:
@@ -33,7 +33,7 @@ services:
       interval: 5s
       timeout: 3s
       retries: 40
-      start_period: 40s
+      start_period: 180s
     mem_limit: 1024m
     cpus: 0.75
     pids_limit: 256

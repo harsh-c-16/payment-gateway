@@ -1,6 +1,8 @@
 # M2 handoff
 
-What each teammate needs from the catalogue module. Everything below is on `main`.
+What each teammate needs from the catalogue module. The M2 implementation is on
+`main`; M4's 8 November relay/broker/Compose follow-up below is on `vichitr` until
+its PR is merged. These follow-up observations were recorded by Vichitr.
 
 ## Jaineel
 
@@ -100,7 +102,7 @@ same 7 are rejected**. W-SEARCH posts to `/v1/search` directly, so these rejecti
 |---|---|
 | `shared.outbox.append_outbox(tx, event)` | Search and price changes write events in the same transaction through it. `tests/catalog/test_outbox_live.py` checks this with your real library |
 | Outbox table in `catalog_db` | `migrations/catalog/005_outbox.sql`, a copy of your `shared/outbox/schema.sql`, as your template asks |
-| A relay for `catalog_db` | Your `relay_once` publishes and marks catalogue rows (tested with a publisher double). No process runs `OutboxRelay` for `catalog_db` yet, so its events reach Kafka only once the composition starts one |
+| A relay for `catalog_db` | M4 now supplies `infra.catalog_relay` and the `catalog-relay` Compose service, using the real shared `OutboxRelay` at 25 ms /100 rows. The isolated 8 November Compose smoke verified actual search/price outbox delivery to Kafka. Use the same migrated database/schema as the API; see Vichitr's handoff for evidence and limits |
 | Stock events | Absolute snapshots with a stable SKU and increasing `stock_version`. Stale and identical events are no-ops; unknown SKUs wait in `stock_deferred` |
 | Seeding | Run `python -m projectctl projection wait` after your seed so statistics are collected |
 
@@ -119,9 +121,9 @@ Found while reviewing Orders against the catalogue (your code; I changed nothing
 | Need | Detail |
 |---|---|
 | Compaction | `analytics.compaction.compact.compact_snapshot` builds a candidate from a pinned manifest and hands it to your `publish_candidate`. It never writes `active_datasets` or deletes files, and a stale base generation stays your `STALE_MANIFEST` path |
-| **T-09 edge cases on a real broker, please** | Your 6 November run covered the normal path: real outbox → Kafka → this projection, 19,920 SKUs at version 1. The T-09 edge cases are still unrun: out-of-order and duplicate versions, conflicts, rebalance, crash before the offset commit. Run `CATALOG_TEST_KAFKA_BOOTSTRAP=127.0.0.1:9092 CATALOG_TEST_DATABASE_URL=... pytest tests/catalog/test_projection_kafka_live.py` with the streaming-local profile running |
+| T-09 edge cases on a real broker | M4's 8 November run passed all four cases in `tests/catalog/test_projection_kafka_live.py`: ordering/duplicates/restart, conflicting versions with a real diagnostic outbox, actual two-member partition rebalance, and child-process death after SQL COMMIT before offset commit followed by idempotent redelivery. The earlier named test also passed in `broker-focus.xml` on 6 November; that alone did not cover these extra faults. Run with `CATALOG_TEST_KAFKA_BOOTSTRAP` and `CATALOG_TEST_DATABASE_URL` against isolated test schemas on Linux. The broker fault fixtures use explicit schema-cache doubles; the separate Compose smoke uses the actual registered cache |
 | Cold-cache series without `/proc/self/io` | `--cold` now records `cold_series: NOT_RUN` with the reason and keeps the warm series. It never substitutes zeros or warm timings |
-| Running the service | `infra/compose.catalog.yaml` adds to your streaming stack with `-f`. **It has only been statically checked**, because this machine has no Docker |
+| Running the service | `infra/compose.catalog.yaml` adds API, stock consumer and shared outbox relay with `-f`. M4 started all three on 8 November and passed `tests/catalog/test_compose_live.py` with real HTTP, SQL and Kafka in an isolated synthetic namespace. The test processes were stopped afterward; no production-data or benchmark acceptance is implied |
 
 ## Everyone: running it
 

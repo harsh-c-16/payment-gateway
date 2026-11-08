@@ -39,6 +39,7 @@ class ExperimentBindings:
     telemetry: object = None  # optional shared Telemetry registry exposed by the harness owner
     performance_review_path: str | None = None  # P9 reviewed real evidence; no implicit default
     dependency_reasons: tuple[str, ...] = ()
+    cleanup: object = None
 
 
 def admission_reconciliation(directory, manifest):
@@ -280,6 +281,7 @@ async def run_experiment(
         "evidence_directory": str(directory),
         "topic": namespace + ".inventory-events.v1",
         "fault_profile": fault_profile,
+        "resource_profile": resolved.profile.model_dump(),
     }
     measurement_git = None
     if mode == "real" and evidence_kind in {"performance", "smoke"}:
@@ -447,33 +449,42 @@ async def run_experiment(
             reasons.append(f"{stage} failed: {type(exc).__name__}; no fallback used")
             record("failure", {"stage": stage, "error_type": type(exc).__name__})
         finally:
-            if fault_task:
-                if not fault_task.done():
-                    fault_task.cancel()
-                await asyncio.gather(fault_task, return_exceptions=True)
-            # Reconcile partial journals before the observer freezes its evidence
-            # hashes. Corrupt source files remain untouched and cannot yield rates.
-            if (directory / "emissions.jsonl").is_file() and admission is None:
-                try:
-                    if file_hash(directory / "planned.jsonl") != manifest["planned_sha256"]:
-                        raise InputError("frozen planned journal changed")
-                    admission = admission_reconciliation(directory, manifest)
-                except (OSError, ValueError, KeyError, TypeError) as exc:
-                    reasons.append(f"admission evidence incomplete: {type(exc).__name__}")
-                    admission = {
-                        "passed": None,
-                        "status": "INCOMPLETE",
-                        "reason": "source journals corrupt or frozen plan changed",
-                    }
-                    if code == ExitCode.COMPLETED:
+            try:
+                if fault_task:
+                    if not fault_task.done():
+                        fault_task.cancel()
+                    await asyncio.gather(fault_task, return_exceptions=True)
+                # Reconcile partial journals before the observer freezes its evidence
+                # hashes. Corrupt source files remain untouched and cannot yield rates.
+                if (directory / "emissions.jsonl").is_file() and admission is None:
+                    try:
+                        if file_hash(directory / "planned.jsonl") != manifest["planned_sha256"]:
+                            raise InputError("frozen planned journal changed")
+                        admission = admission_reconciliation(directory, manifest)
+                    except (OSError, ValueError, KeyError, TypeError) as exc:
+                        reasons.append(f"admission evidence incomplete: {type(exc).__name__}")
+                        admission = {
+                            "passed": None,
+                            "status": "INCOMPLETE",
+                            "reason": "source journals corrupt or frozen plan changed",
+                        }
+                        if code == ExitCode.COMPLETED:
+                            code = ExitCode.DEPENDENCY_FAILURE
+                    write_json(directory / "admission.json", admission)
+                if observer:
+                    try:
+                        await observer.__aexit__(None, None, None)
+                    except Exception as exc:
                         code = ExitCode.DEPENDENCY_FAILURE
-                write_json(directory / "admission.json", admission)
-            if observer:
-                try:
-                    await observer.__aexit__(None, None, None)
-                except Exception as exc:
-                    code = ExitCode.DEPENDENCY_FAILURE
-                    reasons.append(f"observation persist failed: {type(exc).__name__}")
+                        reasons.append(f"observation persist failed: {type(exc).__name__}")
+            finally:
+                if bindings.cleanup is not None:
+                    try:
+                        async with asyncio.timeout(60):
+                            await bindings.cleanup(context)
+                    except (Exception, asyncio.CancelledError) as exc:
+                        code = ExitCode.DEPENDENCY_FAILURE
+                        reasons.append(f"runtime cleanup failed: {type(exc).__name__}")
             record("persist")
     if not (directory / "correctness.json").exists():
         write_json(

@@ -85,7 +85,8 @@ def test_worker_subscribes_to_five_business_domains_and_closes_on_failure(monkey
     groups = []
 
     class GroupDouble:
-        def __init__(self, name, topics, bootstrap):
+        def __init__(self, name, topics, bootstrap, *, workers, worker_index):
+            assert (workers, worker_index) == (1, 0)
             assert all(group.closed for group in groups)
             self.closed = False
             groups.append(self)
@@ -100,10 +101,12 @@ def test_worker_subscribes_to_five_business_domains_and_closes_on_failure(monkey
 
     class PipelineDouble:
         def ingest_once(self, group, **kwargs):
-            assert kwargs["max_records"] == 1
+            # B0/O1 share the capture bound; SQL transaction grouping is separate.
+            assert kwargs["max_records"] == 100
             raise OSError("explicit sink outage")
 
     monkeypatch.setattr(worker, "ConsumerGroup", GroupDouble)
+    monkeypatch.setattr(worker, "worker_allocation", lambda: (1, 0))
     monkeypatch.setattr(worker, "sleep", delays.append)
     with pytest.raises(OSError, match="outage"):
         worker.run(PipelineDouble(), "bench-m06", "explicit-fixture", "unused")

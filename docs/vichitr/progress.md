@@ -1,5 +1,346 @@
 # Vichitr progress
 
+## CI worker-fixture correction - 8 November 2026
+
+Run `42505094144` for `7c1ab54` failed both offline jobs with two failures:
+`test_event_time::test_provisional_publisher_uses_fixed_ticks_without_waiting_for_watermark`
+and `test_silver::test_worker_subscribes_to_five_business_domains_and_closes_on_failure`.
+The earlier `5b5c171` Kafka/Linux-volume job (`42489607957`) failed on the same
+two tests. Both explicit `GroupDouble` constructors predated the worker allocation
+keywords added in `33e6b68`; production `ConsumerGroup` already supports them.
+The earlier focused startup checks did not include these worker fixtures.
+
+Corrected only the two owned test fixtures: accept and assert `workers=1`,
+`worker_index=0`, pin that fixture allocation, and update the Silver test's
+capture bound from 1 to the current shared B0/O1 value of 100. SQL transaction
+batch size is a different control; no production grouping behavior was changed.
+Original fixed publication ticks, topic list, four rejoin/close attempts, retry
+delays and propagated sink-outage assertions are retained. No production code,
+workflow, CI selection, dependency, schema or resource profile changed.
+
+Downloaded redacted GitHub job logs/JUnit are retained locally under
+`artifacts/ci-startup-fix/`; the existing approved GitHub credential was sent
+only to GitHub and never printed or saved. A signed artifact download receives
+no GitHub authentication header. Exact failures reproduced locally: **2 failed,
+26 passed**, `worker-before.xml`. Corrected fixtures plus existing observation
+and consumer-control tests: **41 passed**, zero skips/failures,
+`worker-corrected.xml`. Ruff lint/format and `git diff --check` passed.
+
+Focused command:
+`python -m pytest -q tests/pipelines/test_event_time.py tests/pipelines/test_silver.py tests/pipelines/test_consumer_observations.py tests/pipelines/test_consumer_control.py --basetemp=artifacts/pytest-ci-worker-corrected --junitxml=artifacts/ci-startup-fix/worker-corrected.xml`.
+The full existing offline job is also run with
+`python -m benchmarks.manual.verify_prompt6 --job offline --out artifacts/ci-startup-fix/offline`;
+it returned exit 0: **1,657 passed, zero failures/errors, 529 skipped** out of
+2,186 collected tests. Lint, formatting, schema and conversation-contract checks
+also passed. Shared contract review remains dependency `NOT_RUN` (exit 4), as
+reported and accepted by the existing verifier; this is not a contract approval.
+The service/platform opt-ins remain skipped by the existing offline selection;
+no skip was introduced by this correction. The 41-case focused run overlaps
+with this full offline result. Raw evidence is `offline/{checks,summary}.json`,
+`offline/pytest.xml` and the existing stdout/stderr logs.
+
+Hosted Actions runs independently on push; local success is not a hosted pass.
+The latest hosted result will be retained in the ignored
+`artifacts/ci-startup-fix/github-actions.json` and reported separately. Docker
+Desktop remains stopped; no local live stack or benchmark was started.
+
+## Windows startup diagnostics and retained-broker recovery - 8 November 2026
+
+User requested finishing the remaining standalone M4 startup reliability task.
+Work is on `vichitr`, based on `5b5c171`; no teammate branch, main merge,
+workflow/test selection, lock or canonical evaluation configuration changed.
+
+Changes:
+
+- `infra/startup.py` records STARTED before each setup/probe and PASSED,
+  RETRY or FAILED afterward in per-run `startup.jsonl`. Failure reasons retain
+  stage and safe exception type, SQLSTATE or HTTP status without credentials,
+  URLs, raw network exception messages or SQL text.
+- Streaming `env up`/`env verify` apply at most three attempts, with one- and
+  two-second waits, to safe repeatable HTTP/Kafka/PostgreSQL operations only.
+  Authentication, permission, schema/hash, allocation and durability mismatches
+  still fail immediately. Docker lifecycle commands are never retried. Partial
+  topic/schema/role provisioning is repeatable using the existing implementations.
+- PostgreSQL verification separately identifies each database connection and
+  bounds statements to sixty seconds and lock waits to five seconds, retaining
+  the three-second connection timeout and all durability/isolation assertions.
+- The first real run identified `compose-up` failure. The broker log showed
+  `java.lang.OutOfMemoryError: Java heap space` at `SkimpyOffsetMap` /
+  `LogCleaner$CleanerThread` after loading **497 retained logs** in 95,214 ms.
+  Container state reported exit 1 and `OOMKilled=false`: Java exhausted its
+  own heap, rather than a recorded container OOM kill. The old 256-MiB heap
+  was insufficient for this retained volume. Its ceiling is now 512 MiB within
+  the same 1,024-MiB container; VM/container RAM and CPU limits are unchanged.
+  Kafka health startup grace is 180 seconds and Compose health wait is 450
+  seconds within the existing 600-second command budget. No topics, offsets,
+  credentials or volumes were deleted. No compaction/durability control disabled.
+- Focused tests cover transient recovery, bounded failure, immediate invariant
+  failures, safe error evidence, HTTP/SQL/Kafka classification and adapter failure
+  propagation. Test doubles remain explicit. `infra/STREAMING.md` documents the
+  changed startup behavior and correct current `RUN_NAMESPACE=dev` guidance.
+
+Actual focused command:
+
+```powershell
+.venv/Scripts/python.exe -m pytest -q tests/pipelines/test_startup.py tests/pipelines/test_streaming.py tests/pipelines/test_postgres.py tests/pipelines/test_analytics_adapter.py --basetemp=artifacts/pytest-startup-final --junitxml=artifacts/startup-final.xml
+```
+
+Result: **67 passed, zero skips/failures**. Two subsequent Kafka classification
+cases also passed with `pytest -q tests/pipelines/test_startup.py -k kafka
+--basetemp=artifacts/pytest-startup-kafka --junitxml=artifacts/startup-kafka.xml`:
+**69 distinct passing cases** across these two reports, no skips/failures.
+The earlier report is `artifacts/startup-reliability.xml`, also 67 passed.
+Initial real Windows run `1aca4a97-f0fc-4cd1-a212-3d4b7b27f4aa` returned
+dependency exit 4 at `compose-up`; its journal and CLI report are retained under
+`artifacts/infra/streaming-local/checks/` and `artifacts/projectctl/` respectively.
+The broker failure was observed using `docker logs --tail 85` and whitelisted
+container state fields; raw Compose output remains excluded because it can
+include initialization SQL/secrets.
+
+Retained-volume run `13e33d3f-2e06-4809-b22b-43493f734040` brought all three
+containers healthy: Compose took **343.328 seconds**, exceeding the old
+150-second wait. Schema registration then returned HTTP 500 twice and passed
+on the third attempt, exercising real retry recovery. Final SQL verification
+failed with `QueryCanceled`, SQLSTATE `57014`. A safe PostgreSQL log extract
+identified the role-permission SELECT against `pg_roles`; the newly added
+ten-second statement limit was too short under this host's observed conditions.
+Windows reported only 373,204 to 599,240 KiB free physical RAM at the time.
+The final statement limit is sixty seconds. Query cancellation is not retried;
+all role/durability/isolation assertions remain mandatory. This failed attempt
+and its journal are retained, rather than relabelled as a full startup pass.
+
+The old connection/read timeout runs did not retain their exact failing stages;
+this new broker evidence does not prove those older errors had the same cause.
+Full suite, benchmarks, global lifecycle/reset and independent quality/business
+acceptance are outside this focused startup fix. Docker Desktop was started for
+verification; final shutdown and live verification results are recorded below.
+
+Final real Windows commands with `PROJECTCTL_ADAPTER_MODULE=infra.analytics`:
+
+| Command | Actual result | Run ID |
+|---|---|---|
+| `python -m projectctl env up --profile streaming-local` | Exit 0; repeated provisioning, all six DB durability/role/isolation checks, topic settings, schema IDs/hashes, volume and container resource checks passed | `0726d2fd-bf04-48e4-b15f-ae108cbc7d10` |
+| `python -m projectctl env verify --profile streaming-local` | Exit 0; independent host-side verification passed | `222f3d3a-75c1-4db8-bf8d-e2944578e7ef` |
+
+Both retain `startup.jsonl` and successful `streaming.json` under
+`artifacts/infra/streaming-local/checks/<run_id>/`, plus the existing CLI report
+under `artifacts/projectctl/<run_id>/`. These commands verify infrastructure,
+not throughput; the CLI's benchmark metrics correctly remain `NOT_RUN`.
+Cold retained-volume container startup and actual HTTP retry recovery were
+exercised in the earlier attempt; the final successful end-to-end commands used
+those running containers. Repeated cold-boot stress was not run.
+
+Final delivered-code check repeated the same four test files after calibrating
+the SQL timeout: **69 passed in 3.88 seconds**, zero skips/failures,
+`--basetemp=artifacts/pytest-startup-delivered
+--junitxml=artifacts/startup-delivered.xml`. Ruff lint/format and ordinary
+`git diff --check` passed. Generated evidence remains Git-ignored.
+
+Cleanup completed with `infra.streaming.compose('stop', '--timeout', '90',
+'schema-registry', 'kafka', 'postgres')`, then `docker desktop stop`, both exit 0.
+`docker ps` showed no running containers before Desktop shutdown. All named
+volumes, existing stopped containers and credentials are retained; Docker is
+returned to its initial idle state. No VM RAM/CPU setting was changed.
+
+## Catalogue integration closure - 8 November 2026
+
+User requested closing Harsh's handoff points and remaining feasible M4 coding.
+Work is on `vichitr`, based on `33e6b68`; no teammate branch was pulled or main
+merged. CI selection, workflows, canonical specs/configs and the lock are unchanged.
+
+Implementation:
+
+- `infra.catalog_relay` binds the actual shared `OutboxRelay` and Kafka publisher
+  to the catalogue database. Compose now has `catalog-relay`, handles SIGINT/TERM,
+  and confirms relay shutdown before closing the publisher. No relay algorithm
+  was copied. API pool 4 + worker 2 + relay 1 stays below ten SQL sessions;
+  each process keeps its existing 384-MiB/0.5-CPU limit.
+- Added real-broker conflict, actual two-member rebalance and actual child-process
+  death after SQL COMMIT/before durable marking or offset commit. Recovery checks
+  the broker's uncommitted offset, redelivery, one stored receipt and unchanged
+  stock version. The original ordering/duplicate/graceful-restart test remains.
+  These fault tests use explicit cached schema-ID doubles, real SQL/outbox/Kafka.
+- The opt-in Compose smoke uses the actual registered schema cache and separate
+  running API/worker/relay: real stock publication -> projected HTTP product;
+  real search and price requests -> three catalogue outbox rows -> all three
+  broker deliveries, all three rows marked published. Synthetic fixture only.
+- Evidence formatting now accepts temporary roots outside the checkout in
+  PostgreSQL, streaming and analytics adapters. The original credential-leak
+  assertion is preserved and passes with Linux `/tmp` fixtures. An outdated
+  analytics migration-test reason assertion now checks the exact current global
+  incompleteness message; partial migrations remain dependency exit 4.
+- Runtime resource targets accept one actual container ID or a list per service.
+  API/worker/relay cgroups retain distinct series and are all counted in the
+  service allocation. The current planned evaluation profile is still not
+  frozen/feasible; no resource budget is silently changed.
+- Updated M2/M4 handoffs. Catalogue outbox migration 005 and unavailable-cold-I/O
+  handling were already implemented. Missing-outbox HTTP isolation was already
+  fixed on 4 November and passed again. No bulk image downloads are required
+  or implemented; spec 08 retains URLs only during ingestion.
+
+Actual checks: **45 distinct pytest cases passed**, zero skips/failures in final
+reports. Local evidence is `artifacts/catalog-closure-20261108/`:
+
+| Check | Result | Evidence |
+|---|---|---|
+| Four real-broker projection fault cases + affected offline adapter/relay/Compose/HTTP checks | 32 passed | `broker-tests.xml`, `broker-tests.log` |
+| Concrete resource accounting, collector identity, audit-role unit guards, analytics relay regression | 12 passed | `runtime-resources.xml`, `runtime-resources.log` |
+| Actual three-process catalogue Compose round trip | 1 passed | `catalog-live.xml`, `catalog-live.log`, `catalog-up.log` |
+| Three actual SELECT-only audit roles, default grants on new owner-created test tables and rejected writes | 3 roles passed | `audit-role-live.json`, `audit-role-live.log` |
+
+Actual commands on the Windows controller (private helper reads existing local
+secrets; URLs/tokens are not printed or committed):
+
+```powershell
+docker desktop start
+$env:PROJECTCTL_ADAPTER_MODULE='infra.analytics'
+.venv/Scripts/python.exe -m projectctl env up --profile streaming-local
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py tests
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py prepare
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py start
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py verify
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py stop
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py resources
+.venv/Scripts/python.exe artifacts/catalog-closure-20261108/run_live.py audit
+```
+
+The helper runs tests in the existing locked Linux image, 512 MiB/0.5 CPU, mounts
+source read-only and writes reports outside pytest's private temporary tree.
+Broker tests use only fresh `bench-h-*` topics and per-test catalogue schemas.
+Compose uses a separate `m4_accept_*` schema and synthetic `bench-compose-*`
+namespace retained in ignored `private-context.json`; other catalogue data is
+untouched. Permission probes create/drop only their own uniquely named
+`m4_audit_probe_*` tables. Inventory's public business schema is not populated by
+these probes; production migrations/seed and the correct reviewed audit schema
+remain owner/deployment inputs.
+
+Preserved limitations/failures: host `env up` attempts
+`e5acc252-39d1-46bd-b75c-db6fcb99070e` and
+`30e964e1-b893-41c4-8c38-ec607ec1bd06` returned connection/read timeouts.
+Docker containers nevertheless became healthy and the native isolated checks
+above passed; this does not certify reliable Windows cold startup. The first
+new smoke fixture used a datetime inside JSON payload rather than a UTC string;
+`catalog-live-before-wire-fix.*` retains that failure. Initial permission probes
+targeted a health-check temporary table and then an empty Inventory business
+schema; their logs remain. The final probes verify actual future-table SELECT
+grants and rejected writes without creating business data. A host-only diagnostic
+Python import/stack dump also crashed; no application assertion was weakened.
+Initial host offline report: 26 passed/1 outdated fixture failure, retained at
+`artifacts/catalog-closure-offline.xml`; the corrected final Linux cohort passes.
+
+Changed Python files pass Ruff lint/format; `git diff --check` passes. No full
+suite, benchmark, B0 freeze, performance claim or new global owner approval was
+attempted. M4 implementation for these handoffs is complete; independently
+reviewed runtime/profile inputs, operational migration/seed/reset composition,
+full quality/business acceptance and required measurements remain separate gates.
+
+## Consumer pause, concrete runtime and CI fix - 8 November 2026
+
+Completed the user's two remaining implementation requests and small Jaineel CI
+fix on `vichitr`, starting at `7a31a4e`. No branch was fetched, pulled or merged in
+this pass. The previously integrated main is `a76c1df`.
+
+- Consumer-only pause: owner-thread SDK fetch control, bounded run-scoped private
+  request/ack files and automatic lease expiry. Worker zero retains heartbeat
+  polling, scheduled publication and the independent shared DLQ relay. Recovery
+  runs in `finally`, with actual pause/resume acknowledgements.
+- Concrete `infra.analytics_runtime` registers M4 W-PIPE and W-QUALITY/G1 callbacks
+  through the existing Jaineel composition. It supplies actual SQL/file exports,
+  read-only catalogue/inventory seed proof, real Docker cgroup collectors, strict
+  actual-versus-declared resource checks and a wire/receipt/Silver/Gold projection
+  into the existing independent oracle. No fake owner approval is created.
+- Local streaming `env up` now provisions three restricted SELECT-only audit
+  roles and private ignored credentials. Existing credentials are preserved;
+  missing originals/privileged existing roles fail closed. Runtime audit handles
+  reject writer privileges even if their default transaction is read-only.
+- Optional `cleanup` is forwarded through workload and quality bindings and
+  invoked after observation, also on setup failure/cancellation or earlier
+  teardown failure. It stops only already-staged owned services.
+- The CI failure in main run `42477036723` was uploader EACCES scanning the private
+  Docker-created pytest folder, after test steps passed. The verifier's pytest
+  scratch folder is now a sibling of its output folder. Workflow files, public
+  reports, test selection, specs, evaluation config and the lock are unchanged.
+
+Changed paths: `.env.example`; M4 deployment/runtime/resource/audit-role modules;
+`infra/streaming.py`; ingestion control/worker/adapters; shared consumer pause;
+minimal shared callback/cleanup forwarding; W-PIPE evidence projection;
+`verify_prompt6.py`; affected focused tests and these owner handoff documents.
+See [runtime implementation](runtime_implementation.md) for exact deployment
+inputs and the current profile mismatch.
+
+Focused verification used explicit broker/SQL/container/clock doubles:
+**223 distinct passed cases**, zero skips in the passing reports. Main affected
+cohort: **221 passed**, `artifacts/runtime-final.xml`. After final collector-name
+and teardown hardening: **45 passed**, `artifacts/runtime-reviewed.xml` (43 overlap).
+Commands:
+
+```powershell
+.venv/Scripts/python.exe -m pytest -q tests/pipelines/test_consumer_control.py tests/pipelines/test_team_runtime.py tests/pipelines/test_analytics_deployment.py tests/pipelines/test_consumer_observations.py tests/pipelines/test_worker_metrics.py tests/pipelines/test_streaming.py tests/pipelines/test_transport.py tests/benchmarks/test_pipeline_audit.py tests/benchmarks/test_experiment.py tests/benchmarks/test_prompt6_ci.py tests/benchmarks/test_quality_binding.py tests/benchmarks/test_real_composition.py tests/projectctl/test_composition.py --basetemp=artifacts/pytest-runtime-final --junitxml=artifacts/runtime-final.xml
+.venv/Scripts/python.exe -m pytest -q tests/pipelines/test_team_runtime.py tests/benchmarks/test_experiment.py --basetemp=artifacts/pytest-runtime-reviewed --junitxml=artifacts/runtime-reviewed.xml
+```
+
+Changed Python files (20) pass Ruff lint and format checks; `git diff --check`
+passes. Windows sandbox temporary-directory ACLs require the bounded tests to run
+outside the sandbox. Initial new test fixtures had return-shape/empty-series
+mistakes; these were corrected, assertions retained, and the failed reports kept
+(`runtime-focused.xml`, `runtime-cleanup-final.xml`).
+
+Not executed: Docker startup, actual role provisioning, full live integration,
+100,000-record quality run, reset, benchmark or GitHub native rerun. Existing
+historical passes are not new acceptance. The draft resource profile is neither
+feasible nor correctly inclusive of the extra analytics API; runtime refuses
+that mismatch. Real review/seed/resource/container inputs and other owners'
+whole-application runtime bindings remain required. No RAM limit was increased.
+
+## Historical batching/scaling checkpoint (7a31a4e) — 8 November 2026
+
+User requested latest main plus implementation before benchmarking. `vichitr`
+fast-forwarded from `eae74a7` to main `a76c1df`; no teammate history was rewritten.
+This pass changes only M4 implementation/tests/docs. Shared CI workflows,
+evaluation configs, canonical contracts and the dependency lock are unchanged.
+
+- O1 supports 100-source sink transactions; B0 remains one source per transaction.
+  The shared validator/reducers/quarantine path is unchanged. Batch audits retain
+  exact membership and all four counts; failures roll back the current group.
+  Both modes use the same 100-record/50-ms consumer request and 2-MiB/50-ms Bronze
+  controls. Publication cadence is checked between committed sink groups as well
+  as while idle. Offset marks follow successful durable curation.
+- Scoped P10/P30/P33 deployment splits explicit total CPU/RAM, including integer
+  NanoCPU and MiB remainders; it supplies stable worker identities, API DNS alias,
+  separate loopback metrics listeners and bounded SQL session allocations.
+  Worker zero owns publication and binds the existing shared analytics DLQ relay.
+- `AnalyticsRunner` registers before run identity exists and creates per-run real
+  setup/drain/source/pinned-Gold/observer/fault callbacks. Gold evidence preserves
+  exact Decimal money via the existing owner serializer. Independent audits,
+  stock proofs, resource collectors and owner mapping reviews remain team inputs.
+- `infra.analytics.migrate_action` is a successful analytics-only migration
+  participant. The legacy global wrapper still returns incomplete; no partial
+  migration is labelled global success.
+- Explicit reset requires stopped services/readers, final evaluation acceptance,
+  expired retention, no replay pins and no pending/retained outbox entries. Its
+  transaction deletes only the selected analytics namespace, retaining immutable
+  files, other databases, Kafka and evidence. No reset was executed.
+
+Verification: final focused cohort **79 passed**, zero skips/failures, recorded
+in ignored `artifacts/m11-delivery-final-20261108.xml`. Subsequent final scaling
+recheck **7 passed** (overlapping), and final Gold-export/worker-observer checks
+**2 passed** (additional): **81 distinct focused cases** covered in total.
+Reports: `artifacts/m11-scaling-final-20261108.xml` and
+`artifacts/m11-export-observer-final-20261108.xml`. Tests use explicit SQL/Docker/relay
+doubles; this is not live O1/scaling/reset acceptance. Changed Python files pass
+Ruff; ordinary `git diff --check` passes. Windows sandbox pytest temporary-path
+ACL failures were resolved by running this bounded cohort outside the sandbox;
+a new fixture's incorrectly redirected source root was corrected without
+weakening assertions.
+
+No Docker startup, broad suite or benchmark was run. Existing CI's artifact
+upload EACCES on `artifacts/ci-volume/tmp` remains a Jaineel workflow issue.
+Consumer-pause currently pauses worker zero's process, including its publisher
+and relay; it is not a consumer-only fault measurement. Global owner composition,
+failure-path `runner.stop(context)` wiring and reviewed independent gates remain
+open. See [runtime implementation](runtime_implementation.md) for exact bindings
+and operational limits; no baseline freeze or performance improvement is claimed.
+
 Git delivery policy (31 October 2026): the user authorizes committing and pushing
 each completed module to `vichitr` after its checks pass. The first delivery covers
 the completed M01a/M01b infrastructure and planning notes. Credentials, the raw CSV,

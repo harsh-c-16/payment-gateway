@@ -11,6 +11,7 @@ from confluent_kafka import KafkaError, KafkaException
 from confluent_kafka.admin import AdminClient, ConfigResource, NewTopic
 
 from infra import postgres
+from infra.startup import StartupChecks
 from projectctl.models import ExitCode
 from projectctl.providers import ProviderResult
 from shared.event_transport.schemas import SchemaCache, SchemaUnavailable, register_schemas
@@ -100,11 +101,11 @@ def verify_topics(admin, namespace, partitions=1):
     }
 
 
-def provision_topics(namespace, partitions=1):
+def provision_topics(namespace, partitions=1, *, bootstrap=BOOTSTRAP):
     if type(partitions) is not int or partitions < 1:
         raise ValueError("Partition count must be a positive integer.")
     names = topic_names(namespace)
-    admin = AdminClient({"bootstrap.servers": BOOTSTRAP})
+    admin = AdminClient({"bootstrap.servers": bootstrap})
     futures = admin.create_topics(
         [
             NewTopic(
@@ -169,7 +170,19 @@ def container_facts(service, limits, expected_image):
     return state
 
 
-def verify():
+def registry_facts():
+    with httpx.Client(base_url=REGISTRY, timeout=15, trust_env=False) as client:
+        response = client.get("/config")
+        response.raise_for_status()
+        if response.json()["compatibilityLevel"] != "BACKWARD_TRANSITIVE":
+            raise postgres.SetupError("Schema Registry compatibility must be BACKWARD_TRANSITIVE.")
+        response = client.get("/subjects")
+        response.raise_for_status()
+        return response.json(), SchemaCache.load(SCHEMA_CACHE).verify_online(client)
+
+
+def verify(*, check=None):
+    check = check or (lambda name, operation, **options: operation())
     postgres.check_engine()
     profile = json.loads((ROOT / "infra/streaming-profile.json").read_text())
     lock = json.loads((ROOT / "infra/images.lock.json").read_text())
@@ -179,20 +192,26 @@ def verify():
     available_cpus = int(postgres.command(["docker", "info", "--format", "{{.NCPU}}"]))
     if available_cpus < sum(service["cpu_cores"] for service in profile["services"].values()):
         raise postgres.SetupError("Docker CPUs are below the declared development allocations.")
-    database = postgres.verify(**profile["services"]["postgres"])
+    database = check(
+        "postgres-verification",
+        lambda: postgres.verify(
+            **profile["services"]["postgres"],
+            check=check,
+        ),
+        retry=True,
+    )
     containers = {
-        name: container_facts(name, profile["services"][name], lock[name]["image"])
+        name: check(
+            name + "-container",
+            lambda name=name: container_facts(
+                name,
+                profile["services"][name],
+                lock[name]["image"],
+            ),
+        )
         for name in ("kafka", "schema-registry")
     }
-    with httpx.Client(base_url=REGISTRY, timeout=15, trust_env=False) as client:
-        response = client.get("/config")
-        response.raise_for_status()
-        if response.json()["compatibilityLevel"] != "BACKWARD_TRANSITIVE":
-            raise postgres.SetupError("Schema Registry compatibility must be BACKWARD_TRANSITIVE.")
-        response = client.get("/subjects")
-        response.raise_for_status()
-        subjects = response.json()
-        schema_mapping = SchemaCache.load(SCHEMA_CACHE).verify_online(client)
+    subjects, schema_mapping = check("registry-verification", registry_facts, retry=True)
     volume = json.loads(
         postgres.command(
             [
@@ -214,7 +233,14 @@ def verify():
         "postgres": database,
         "containers": containers,
         "registry_subjects": subjects,
-        "topics": verify_topics(AdminClient({"bootstrap.servers": BOOTSTRAP}), "dev"),
+        "topics": check(
+            "topic-verification",
+            lambda: verify_topics(
+                AdminClient({"bootstrap.servers": BOOTSTRAP}),
+                "dev",
+            ),
+            retry=True,
+        ),
         "lakehouse_volume": volume["Name"],
         "domain_schemas": schema_mapping,
         "contract_review": "PENDING_PRODUCER_CONSUMER_REVIEW",
@@ -225,40 +251,52 @@ def verify():
 def adapter(invocation):
     if invocation.arguments.get("profile", "streaming-local") != "streaming-local":
         return ProviderResult(ExitCode.BAD_INPUT, ("Use --profile streaming-local.",), "real")
+    out = RUNTIME / "checks" / invocation.run_id
+    check = StartupChecks(out / "startup.jsonl")
     try:
-        postgres.check_engine()
+        check("docker-engine", postgres.check_engine)
         if invocation.action == "env up":
-            postgres.prepare()
-            compose("config", "--quiet")
-            compose("up", "--detach", "--wait", "--wait-timeout", "150")
-            postgres.command(
-                [
-                    "docker",
-                    "volume",
-                    "create",
-                    "--label",
-                    "group3.owner=vichitr",
-                    "--label",
-                    "group3.checkpoint=M01b",
-                    f"{postgres.PROJECT}_lakehouse_data",
-                ]
+            check("local-credentials", postgres.prepare)
+            check("compose-config", lambda: compose("config", "--quiet"))
+            check(
+                "compose-up", lambda: compose("up", "--detach", "--wait", "--wait-timeout", "450")
             )
-            provision_topics("dev")
-            with httpx.Client(base_url=REGISTRY, timeout=30, trust_env=False) as client:
-                register_schemas(client, SCHEMA_CACHE)
+            check(
+                "lakehouse-volume",
+                lambda: postgres.command(
+                    [
+                        "docker",
+                        "volume",
+                        "create",
+                        "--label",
+                        "group3.owner=vichitr",
+                        "--label",
+                        "group3.checkpoint=M01b",
+                        f"{postgres.PROJECT}_lakehouse_data",
+                    ]
+                ),
+            )
+            check("topic-provisioning", lambda: provision_topics("dev"), retry=True)
+            from infra.audit_roles import provision
+
+            check("audit-role-provisioning", provision, retry=True)
+
+            def registration():
+                with httpx.Client(base_url=REGISTRY, timeout=30, trust_env=False) as client:
+                    return register_schemas(client, SCHEMA_CACHE)
+
+            check("schema-registration", registration, retry=True)
         elif invocation.action == "env down":
             postgres.credentials()
             compose("down", "--timeout", "30")
             return ProviderResult(ExitCode.COMPLETED, ("Stopped; all volumes retained.",), "real")
-        facts = verify()
-        out = RUNTIME / "checks" / invocation.run_id
-        out.mkdir(parents=True, exist_ok=False)
+        facts = check("environment-verification", lambda: verify(check=check))
         (out / "streaming.json").write_text(json.dumps(facts, indent=2), encoding="utf-8")
         return ProviderResult(
             ExitCode.COMPLETED,
             (
                 "Infrastructure/schema mappings verified; owner reviews and benchmarks pending.",
-                f"Evidence: {out.relative_to(ROOT).as_posix()}/streaming.json",
+                f"Evidence: {postgres.evidence_path(out)}/streaming.json",
             ),
             "real",
         )
@@ -271,7 +309,14 @@ def adapter(invocation):
         SchemaUnavailable,
     ) as exc:
         reason = str(exc) if isinstance(exc, postgres.SetupError) else type(exc).__name__
-        return ProviderResult(ExitCode.DEPENDENCY_FAILURE, (reason,), "real")
+        return ProviderResult(
+            ExitCode.DEPENDENCY_FAILURE,
+            (
+                reason,
+                f"Startup diagnostics: {postgres.evidence_path(check.path)}",
+            ),
+            "real",
+        )
 
 
 def register(registry):

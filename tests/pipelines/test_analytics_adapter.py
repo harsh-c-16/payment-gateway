@@ -29,7 +29,9 @@ def test_migration_provider_keeps_its_evidence_outside_cli_owned_directory(tmp_p
     ).exists()
     cli_directory = tmp_path / "artifacts/projectctl/test-m04-evidence"
     cli_directory.mkdir(parents=True, exist_ok=False)
-    assert "Global db migrate is incomplete" in result.reasons[0]
+    assert (
+        "Global db migrate still requires other owners' migration participants." in result.reasons
+    )
 
 
 def test_composition_keeps_existing_environment_providers():

@@ -25,7 +25,8 @@ original 2-GiB PostgreSQL limit and verifies a different allocation.
 | Kafka | 1,024 MiB | 0.75 | 127.0.0.1:9092 | kafka:9092 |
 | Schema Registry | 640 MiB | 0.5 | http://127.0.0.1:8081 | http://schema-registry:8081 |
 
-The three service limits total **2,176 MiB**. Kafka's Java heap is 256 MiB;
+The three service limits total **2,176 MiB**. Kafka's Java heap starts at 256 MiB
+and is capped at 512 MiB within its unchanged 1,024-MiB container limit;
 registry heap starts at 128 MiB and is capped at 256 MiB. These are development
 settings to verify on the current Docker VM, not a claim of measured performance
 or a complete integrated benchmark allocation. Profiles and evidence record the
@@ -58,10 +59,8 @@ G0. See [event contracts](../contracts/events/README.md) and the
 [review handoff](../docs/vichitr/m02_contract_handoff.md). The smoke subject
 `infra-smoke.v1-value` remains an explicit infrastructure fixture.
 
-Use `RUN_NAMESPACE=dev` for future local services. The shared `.env.example`
-currently says `local-dev`, while common §7 specifies `dev` or isolated `bench-`/
-`replay-` namespaces. Jaineel must coordinate that template correction before
-service integration; this module does not silently change the shared contract.
+Use `RUN_NAMESPACE=dev` for local services, or isolated `bench-`/`replay-`
+namespaces for checks, as specified by common §7.
 
 Kafka data uses the named `kafka_data` volume. The named `lakehouse_data` volume is
 used by [M04 FileStore/Bronze](../docs/vichitr/m04_capture_handoff.md); Silver/Gold
@@ -88,6 +87,29 @@ Offline checks remain `python -m pytest tests/pipelines -q`. The PostgreSQL-only
 live test is a different profile; do not enable both live flags in one invocation.
 CLI facts are in `artifacts/infra/streaming-local/checks/<run_id>/streaming.json`,
 with CLI summaries in the existing `artifacts/projectctl/<run_id>/` directories.
+
+`env up` and `env verify` also append `startup.jsonl` in that check directory,
+including a STARTED entry before each operation, stage, attempt, elapsed time,
+and safe exception type/SQLSTATE/HTTP status on failure. Connection strings,
+tokens and raw network exception messages are excluded. Failure reports name
+the stage and preserve dependency exit 4; no final success facts are written.
+
+Safe, repeatable PostgreSQL connection/probe, topic provisioning, audit-role
+provisioning and registry operations allow at most three attempts with one- and
+two-second delays for transient connection/timeouts, retriable Kafka errors,
+HTTP 429 and selected 5xx responses. Authentication, permissions, schema/hash,
+resource and durability mismatches fail immediately. Docker start/stop is never
+automatically repeated. PostgreSQL verification uses a three-second connection
+timeout, sixty-second statement timeout and five-second lock timeout. Registry
+requests retain their 15-second verification/30-second registration timeouts.
+
+Compose waits up to 450 seconds for the stack, within the existing 600-second
+Docker command budget; Kafka's startup health grace is 180 seconds. A retained
+volume with hundreds of partitions can take longer to recover than an empty
+broker. The old 256-MiB heap failed during log-cleaner startup after recovering
+497 partitions on 8 November. The larger heap preserves topics/offsets and
+container/VM resource limits. Check the recorded stage and container health
+before retrying a failed startup; do not delete the volume to make it faster.
 
 Stop these services while retaining all volumes and credentials:
 

@@ -38,6 +38,7 @@ class QualityOwners:
     schema_cache_path: object = None
     registry_url: object = None
     bootstrap_servers: object = None
+    cleanup: object = None
 
 
 def verify_review(path):
@@ -287,7 +288,7 @@ def build_quality_bindings(config, *, owners=None):
     reasons = [
         f"quality owner {name} unavailable"
         for name in owners.__dataclass_fields__
-        if getattr(owners, name) is None
+        if name != "cleanup" and getattr(owners, name) is None
     ]
     projection = catalog_projection(config)
     if projection is None:
@@ -303,6 +304,7 @@ def build_quality_bindings(config, *, owners=None):
         audit=lifecycle.audit,
         observer_factory=lifecycle.observer,
         dependency_reasons=tuple(reasons),
+        cleanup=owners.cleanup,
     )
 
 

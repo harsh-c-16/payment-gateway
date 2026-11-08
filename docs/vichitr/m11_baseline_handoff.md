@@ -1,3 +1,8 @@
+> 8 November update: O1/scaling and real M4 callbacks are now implemented.
+> See [runtime implementation](runtime_implementation.md). Older checkpoint
+> restrictions below describe earlier delivered commits. Correctness/baseline
+> measurement gates and independent reviews remain required before comparisons.
+
 # M11 baseline instrumentation checkpoint
 
 Owner: Vichitr. This is preparation for M11a, not a correct-B0 freeze or a B0/O1

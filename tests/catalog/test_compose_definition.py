@@ -1,4 +1,4 @@
-"""Static checks only: this compose file has not run yet, since this host has no Docker."""
+"""Static wiring checks; live startup evidence is recorded separately by M4."""
 
 from pathlib import Path
 
@@ -18,3 +18,10 @@ def test_service_entry_points_and_declared_port_exist():
     assert callable(create_app)
     # Vichitr's FileStore is not mounted: only the importer archives, and it runs separately.
     assert all("lakehouse" not in volume for volume in catalog["volumes"])
+    relay = document["services"]["catalog-relay"]
+    assert relay["command"] == ["python", "-m", "infra.catalog_relay"]
+    assert (
+        relay["environment"]["CATALOG_DATABASE_URL"]
+        == catalog["environment"]["CATALOG_DATABASE_URL"]
+    )
+    assert relay["stop_grace_period"] == "40s"

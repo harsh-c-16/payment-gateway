@@ -44,6 +44,7 @@ class OwnerCallbacks:
     templates: tuple = ()  # reviewed checkout/integrated request templates
     fault: object = None
     performance_review_path: str | None = None
+    cleanup: object = None  # (context) -> stop owned runtime, also after failed prepare/validate
 
 
 def catalog_projection(config):
@@ -369,4 +370,5 @@ def build_bindings(workload, config, *, registry, owners=None):
         dependency_reasons=tuple(reasons),
         fault=owners.fault,
         performance_review_path=owners.performance_review_path,
+        cleanup=owners.cleanup,
     )

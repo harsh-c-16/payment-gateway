@@ -131,7 +131,7 @@ def test_worker_samples_fixed_ticks_and_final_state_without_inventing_missed_tic
     closed = []
 
     class GroupDouble:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             pass
 
         def buffer_snapshot(self):

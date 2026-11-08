@@ -20,8 +20,8 @@ from pipelines.storage.parquet import (
 from shared.contracts.analytics import FileDescriptor
 
 
-@pytest.mark.parametrize("rows", [True, False, 0, 2, 100, "1"])
-def test_b0_rejects_unsupported_or_coerced_batch_rows(rows):
+@pytest.mark.parametrize("rows", [True, False, 0, 2, 101, "1"])
+def test_sink_rejects_unsupported_or_coerced_batch_rows(rows):
     with pytest.raises(ValidationError):
         BatchConfig.model_validate({"run_id": "explicit-fixture", "sink_batch_max_rows": rows})
 
@@ -30,9 +30,16 @@ def test_runtime_rejects_unpinned_commit_and_unsupported_batching(monkeypatch):
     monkeypatch.setenv("CODE_COMMIT", "unknown")
     with pytest.raises(ValueError, match="actual"):
         pipeline_from_env()
-    monkeypatch.setenv("SINK_BATCH_MAX_ROWS", "100")
+    monkeypatch.setenv("SINK_BATCH_MAX_ROWS", "2")
     with pytest.raises(ValueError, match="B0"):
         pipeline_from_env()
+
+
+@pytest.mark.parametrize("rows", [1, 100])
+def test_b0_and_o1_are_explicit_supported_groupings(rows):
+    assert (
+        BatchConfig(run_id="explicit-fixture", sink_batch_max_rows=rows).sink_batch_max_rows == rows
+    )
 
 
 def test_typed_parquet_zstd_utc_hash_and_count_boundaries():

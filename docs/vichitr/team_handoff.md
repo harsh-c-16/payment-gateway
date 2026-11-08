@@ -1,6 +1,33 @@
 # M4 integration handoff and remaining gates
 
-Updated 6 November 2026 after merging Harsh and Aditya's implementations. Historical module
+8 November startup follow-up: Windows setup/verification now retains per-stage,
+credential-free attempt diagnostics and retries transient failures in repeatable
+probes/provisioning at most three times. A real retained-volume startup exposed
+Kafka Java heap exhaustion after loading 497 partitions. The development heap
+ceiling is now 512 MiB inside the unchanged 1,024-MiB Kafka container; container
+and VM limits, data and offsets are preserved. Cold-start health budgets now
+allow retained-log recovery. See [startup instructions](../../infra/STREAMING.md)
+and [progress](progress.md) for exact commands and actual verification outcomes.
+Historical connection/read failures remain recorded; their original causes were
+not captured precisely enough to attribute retrospectively.
+
+8 November follow-up on `vichitr`: catalogue shared-relay wiring, live Compose
+API/stock-worker/relay acceptance and all four real-broker projection fault
+cases are now implemented/verified. The evidence-path portability bug is fixed;
+the missing-outbox fixture was already fixed. Resource accounting now includes
+multiple process containers per service. See the latest [progress](progress.md)
+for 45 passing focused cases, three real audit-role checks and startup limits.
+No image download is needed: spec 08 requires preserving image URLs and prohibits
+downloads during ingestion. Cold-query `NOT_RUN` handling and catalogue outbox
+migration 005 are delivered; older handoff requests for those are stale.
+
+Updated 8 November 2026, incorporating main `a76c1df` and the remaining M4
+implementation. [Runtime implementation](runtime_implementation.md) describes O1,
+scaling, lifecycle/evidence callbacks, notification relay and guarded cleanup.
+These are implemented, including consumer-only pause, concrete M4 runtime
+composition and guaranteed teardown. Live acceptance/measurement, actual
+credentials/resource/review inputs and other owners' runtime composition remain
+pending. Historical module
 notes describe their own checkpoints; use this file, the current implementation
 plan and canonical specs for remaining work. Evidence/source pins are in
 [progress](progress.md) and [test skips](test_skips.md). No owner approval,
@@ -14,17 +41,19 @@ identifies the inventory/analytics schemas; the Linux volume root is
 `/lakehouse/vichitr-integration-20261106`. Catalogue rows are namespace-scoped in
 `catalog_db`. The normal analytics schema also has migrations 1–10 applied.
 
-**Native operational readiness remains open:** retained-container recreation and
-registry checks encountered SQL/HTTP/controller timeouts. A CPU-only profile trial
-was rejected and reverted; RAM and the committed development CPU limits remain
-unchanged. Docker Desktop's subsequent fresh startup timed out. Rerun these checks
-after the local Docker runtime starts reliably. Exact failed/passing cohorts are
-in [test skips](test_skips.md); the 100,000 quality-packet pass is wire-only.
+**Operational evidence:** the 6 November local Desktop restart/timeouts remain
+historical local limitations. Upstream main's 8 November CI passed native
+Kafka/registry/PostgreSQL/volume test steps; its final failure was artifact upload
+permissions on `artifacts/ci-volume/tmp`. The small verifier fix now places
+pytest scratch data outside the upload folder; workflows/test selection remain
+unchanged. No Docker startup or live O1/scaling acceptance is claimed. The 100,000-packet result below
+remains wire-only.
 
 ## What is available
 
 | Provider | Actual binding |
 |---|---|
+| M4 runner | `PROJECTCTL_RUNTIME_MODULE=infra.analytics_runtime` with `projectctl.jaineel`: concrete W-PIPE and W-QUALITY/G1 callbacks, read-only SQL, Docker cgroup collectors and post-observer cleanup. See runtime handoff for required live inputs and profile mismatch. |
 | Infrastructure | `PROJECTCTL_ADAPTER_MODULE=infra.analytics`; `projectctl env up --profile streaming-local`, `projectctl env verify --profile streaming-local`, `projectctl env down`. PostgreSQL/Kafka/registry/file volume and registered current/historical schemas. |
 | Analytics schema | `projectctl db migrate --namespace bench-...` applies analytics migrations 1–10, including the real shared outbox table. Global command still reports dependency exit 4 until other database migration dispatch is composed. |
 | Producer SDK | `shared.event_transport`: configure registered schema cache/source service, build/validate immutable events, publish with real broker acknowledgement. README documents exact keyword calls and fixed settings. |
@@ -54,10 +83,10 @@ for these standalone checks; integrated benchmark feasibility is still unmeasure
 | Harsh | Review/adopt the locally generated actual CSV artifacts and facet mapping | The importer is available: 19,998 listings /19,920 active SKUs were loaded into an isolated benchmark namespace. Manifest and source/archive hashes are retained locally; these are no longer missing implementations. |
 | Aditya | Adopt the small relay-ordering correction and compose owner-local migration/reset/startup callbacks; review whole-service recovery | Inventory/Orders/Payments SQL already includes diagnostic/outbox tables. Actual inventory seed and relay integration ran locally; analytics installs its own real outbox. The new guard prevents later aggregate versions overtaking a failed head. |
 | Jaineel | Adopt/review `pipelines.ingestion.quality.QualityMaterializer`, bind its explicit raw-fixture publisher and independent oracle; compose real lifecycle/observer callbacks using receipts, pinned visibility, sink audit and existing collectors | Full 100,000-record T-03, complete baseline trace and independently calculated measurements. The pure SDK materializer now exists; normal publisher validation remains strict. See [binding details](m11_baseline_handoff.md#quality-wire-handoff--6-november-2026). |
-| Harsh + Aditya | Start/review actual service APIs and their audit/lifecycle bindings for the runner; Harsh must include the shared outbox template in catalogue migrations | SQL inspection finds catalogue diagnostics but no catalogue outbox migration. The actual CSV and stock-projection path passed; catalogue event-producing mutations and whole checkout require this local table and owner composition. |
-| Harsh | Query benchmark platform review: this Docker kernel lacks `/proc/self/io` | The actual compactor and query implementation are present; correctness checks run separately. A cold-storage measurement must retain real counters, not substitute zero or a warm timing. |
+| Harsh + Aditya | Start/review actual service APIs and their audit/lifecycle bindings for the runner; Harsh has included the shared outbox template in catalogue migration 005 | Catalogue outbox migration 005 is now merged. The actual CSV and stock-projection path passed; catalogue event-producing mutations and whole checkout require this local table and owner composition. |
+| Harsh + Jaineel | Actual cold-storage measurements require a platform exposing `/proc/self/io` | The missing-counter handling is implemented: `--cold` records `NOT_RUN` with a reason and retains warm results. No additional crash-handling implementation is requested from Harsh. |
 | Affected DTO owners | Review oversized aggregate-money representation | Exact private sums/fail-closed DTO limits are retained. The money-type reason conflict is resolved with user approval: `INVALID_TYPE` for wrong types; `INVALID_AMOUNT` for invalid integer amounts. The independent fixture is unchanged. |
-| All database owners + Jaineel | Owner-local reset callbacks and quiescence/lifecycle composition | Complete global `env reset`/migration dispatch. The reset adapter is currently absent; CLI namespace guards alone are not cleanup. |
+| All database owners + Jaineel | Owner-local reset callbacks and quiescence/lifecycle composition | Complete global `env reset`/migration dispatch. The M4 guarded reset participant now exists; the global coordinator must compose other owners and stop all readers/writers. |
 
 Merged main `f488f637c6a6578188cff53594f2ea6c9f63af4e` contains the actual
 catalogue, operational services, shared outbox and compactor implementations.
@@ -104,11 +133,11 @@ authority for cross-restart reconciliation.
    dependencies. Keep all failed/raw evidence and unresolved cohorts visible.
 3. Freeze a correct B0 commit/config/resource budget. Collect the initial trace
    and identify where backlog/time accumulates.
-4. Implement/correctness-test O1 (100 rows or 50 ms) with identical raw capture,
+4. Close live correctness for the implemented O1 (100 rows or 50 ms) with identical raw capture,
    producer settings, validation, durability and 250-ms publication cadence.
 5. Run the three paired comparisons through Jaineel's runner, then P10/P30/P33,
    skew, stress and integrated recovery trials with fixed total worker resources.
 
-O1/scaling implementation and performance evidence remain Vichitr work after
-the ordered correctness/baseline gates close. Independent readiness does not mark
+O1/scaling implementation is now available. Live verification and performance
+evidence remain Vichitr work after the ordered correctness/baseline gates close. Independent readiness does not mark
 M11/M12 or whole-team G0–G6 complete. Neutral/negative measured results remain valid.

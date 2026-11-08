@@ -242,3 +242,32 @@ def test_unavailable_linux_job_is_not_a_database_pass(tmp_path, monkeypatch):
     summary = json.loads((out / "summary.json").read_text())
     assert summary["status"] == "NOT_RUN" and summary["pytest"] is None
     assert "Linux" in summary["dependencies"]["reason"]
+
+
+def test_private_pytest_temp_is_outside_uploaded_reports(tmp_path, monkeypatch):
+    from benchmarks.manual import verify_prompt6 as verifier
+
+    monkeypatch.setattr(verifier, "ROOT", tmp_path)
+    commands = []
+
+    def run_double(self, label, command, **kwargs):
+        self.checks.append({"passed": True})
+        commands.append(command)
+        if label == "pytest":
+            (self.out / "pytest.xml").write_text(
+                '<testsuites><testsuite><testcase name="explicit-double"/></testsuite></testsuites>'
+            )
+        return True
+
+    monkeypatch.setattr(verifier.Recorder, "run", run_double)
+    out = tmp_path / "artifacts/ci-offline"
+    assert verifier.main(["--job", "offline", "--out", str(out)]) == 0
+    from pathlib import Path
+
+    temp = Path(
+        next(
+            arg.split("=", 1)[1] for cmd in commands for arg in cmd if arg.startswith("--basetemp=")
+        )
+    )
+    assert temp.parent == out.parent and not temp.is_relative_to(out)
+    assert (out / "pytest.xml").is_file()

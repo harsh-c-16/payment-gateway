@@ -7,7 +7,21 @@ wire contract: [contracts/http/catalog.yaml](../../contracts/http/catalog.yaml),
 ```bash
 CATALOG_DATABASE_URL=... INTERNAL_API_TOKEN=... uvicorn --factory services.catalog.app:create_app --port 8002
 python -m services.catalog.worker --namespace bench-smoke   # stock consumer, its own Kafka group
+python -m infra.catalog_relay                               # separate shared-outbox relay
 ```
+
+`infra/compose.catalog.yaml` also starts these as `catalog`, `catalog-worker` and
+`catalog-relay`. Add it to the PostgreSQL/streaming Compose files and explicitly
+start all three after migrations. They must share the same private catalogue
+database URL/schema; inside Compose use `postgres:5432`, not host loopback.
+The relay uses the existing shared worker's 25-ms poll/100-row pass and one SQL
+connection, with acknowledged shutdown before publisher close. It never publishes
+inside an HTTP transaction. API pool 4 + stock worker 2 + relay 1 stays within the
+ten-session service ceiling. Each process retains its 384-MiB/0.5-CPU cap; count
+the whole group in a reviewed evaluation profile.
+
+M4 verified real HTTP/SQL/Kafka on 8 November using an isolated synthetic catalogue,
+then stopped the test processes. See [M4 evidence](../../docs/vichitr/progress.md).
 
 Requests carry the headers in `RequestContext.headers()` (`X-Namespace`, `X-User-ID`, ...). Internal
 routes need `Authorization: Bearer <INTERNAL_API_TOKEN>`. Mutations need `Idempotency-Key`.

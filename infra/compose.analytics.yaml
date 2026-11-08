@@ -10,8 +10,10 @@ x-analytics: &analytics
     KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     RUN_NAMESPACE: ${RUN_NAMESPACE:?Supply dev or an isolated namespace}
     RUN_ID: ${RUN_ID:?Supply an explicit run identity}
-    SINK_BATCH_MAX_ROWS: "1"
+    SINK_BATCH_MAX_ROWS: ${SINK_BATCH_MAX_ROWS:-1}
     SINK_BATCH_MAX_WAIT_MS: "50"
+    ANALYTICS_WORKERS: ${ANALYTICS_WORKERS:-1}
+    ANALYTICS_WORKER_INDEX: ${ANALYTICS_WORKER_INDEX:-0}
     PYTHONPYCACHEPREFIX: /tmp/analytics-pycache
   volumes:
     - lakehouse_data:/lakehouse

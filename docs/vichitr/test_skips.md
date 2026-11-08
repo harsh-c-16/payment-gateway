@@ -1,4 +1,44 @@
-# Current integration coverage: 6 November 2026
+# Implementation checks: 8 November 2026
+
+Worker-fixture CI correction: the exact existing Windows offline job passed
+with **1,657 passed, 529 skipped, zero failures/errors** (2,186 tests), plus
+passing lint/format/schema checks. Skips retain the existing service/platform
+requirements; no skip or CI selection changed. The focused 41-case worker run
+also passed and overlaps with the full result. See `artifacts/ci-startup-fix/`
+and [progress](progress.md). Hosted CI success remains a separate observation;
+offline checks do not certify live broker/SQL/filesystem acceptance or performance.
+
+Startup reliability follow-up: **69 distinct focused cases passed**, zero
+skips/failures in the final four-file run, `artifacts/startup-delivered.xml`.
+Earlier preserved reports contain 67 startup/streaming/PostgreSQL/analytics
+adapter cases in `artifacts/startup-final.xml`, plus two Kafka classification
+cases in `artifacts/startup-kafka.xml` (21 deselected, not skipped). These
+reports overlap with the final run and do not add distinct test coverage.
+The first real Windows attempt exposed a retained-broker Java heap failure;
+see [progress](progress.md) for the preserved failure and final live outcomes.
+Final Windows `env up` and separate `env verify` both returned exit 0, with
+all infrastructure assertions retained. Cold container recovery was exercised;
+repeated cold-boot stress was not run.
+No full suite, benchmark or additional CI selection was requested for this fix.
+
+Latest catalogue closure: **45 distinct cases passed**, including all four
+real-broker projection cases and the real three-process Compose round trip;
+no skips in these cohorts. Three actual audit-role permission probes also passed.
+See `artifacts/catalog-closure-20261108/{broker-tests,runtime-resources,catalog-live}.xml`
+and the latest [progress](progress.md). Host startup timeouts remain visible;
+full independent quality/business/performance gates are not inferred from these
+small correctness runs. Workflow/test selection is unchanged.
+
+The consumer-control/runtime/cleanup/CI pass covered **223 distinct offline
+cases**, with no skips in its passing reports (`runtime-final.xml`, 221 passed;
+`runtime-reviewed.xml`, 45 passed with overlap). See the latest
+[progress entry](progress.md#consumer-pause-concrete-runtime-and-ci-fix---8-november-2026)
+and [runtime handoff](runtime_implementation.md) for commands and limitations.
+Actual role provisioning, Docker/native CI rerun, full quality/integration,
+benchmarks and reset were not run; the user prioritized implementation.
+CI test selection is unchanged.
+
+## Historical integration coverage: 6 November 2026
 
 CI selection is unchanged. Evidence is under `artifacts/integration-20261106/`;
 the prior checkpoint reports below remain historical.
