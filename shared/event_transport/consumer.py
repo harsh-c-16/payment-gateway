@@ -82,6 +82,7 @@ class ConsumerGroup:
         self.buffer_bytes = 0
         self.paused = False
         self.closed = False
+        self.closing = False
         self.last_rebalance_error = None
         self.peak_records = self.peak_bytes = self.pause_count = self.overflow_rejections = 0
         # A quarter-budget native queue + a fetch response leaves byte headroom
@@ -118,6 +119,10 @@ class ConsumerGroup:
             raise RuntimeError("consumer handle is closed or used from another worker thread")
 
     def _on_assign(self, consumer, partitions):
+        # close() drains queued rebalance callbacks. Re-entering native assign
+        # from that shutdown callback can deadlock; no new work is owned then.
+        if self.closing:
+            return
         self.epoch += 1
         for partition in partitions:
             key = (partition.topic, partition.partition)
@@ -342,6 +347,7 @@ class ConsumerGroup:
 
     def close(self):
         self._check_thread()
+        self.closing = True
         try:
             self.consumer.close()
         finally:

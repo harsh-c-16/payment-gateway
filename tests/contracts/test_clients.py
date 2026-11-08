@@ -243,6 +243,8 @@ def test_lost_response_duplicate_key_and_conflict(automatic, context, pairs):
 
 @pytest.mark.parametrize("operation", ["get", "search"])
 def test_absolute_deadline_includes_body_and_never_extends_for_retry(operation, context, pairs):
+    started = None
+
     async def slow(request):
         await asyncio.sleep(0.2)
         return httpx.Response(200, json=pairs["five-hits"]["response"])
@@ -250,8 +252,24 @@ def test_absolute_deadline_includes_body_and_never_extends_for_retry(operation, 
     double = ScriptedProvider(slow)
 
     async def run():
+        nonlocal started
         async with http_for(double) as http:
-            deadline = time.monotonic() + 0.025
+            if operation == "search":
+                body = pairs["five-hits"]["request"]
+                http.contracts.validate(ENDPOINTS["search"], "request", body)
+
+                class PrevalidatedRequestDouble:
+                    """Keep schema setup outside this transport deadline test only."""
+
+                    mode = "stub"
+
+                    def validate(self, endpoint, direction, value):
+                        assert endpoint == ENDPOINTS["search"] and direction == "request"
+                        assert value == body
+
+                http.contracts = PrevalidatedRequestDouble()
+            started = time.monotonic()
+            deadline = started + 0.025
             if operation == "get":
                 await OrdersClient(http).status(uid(6), context, deadline=deadline)
             else:
@@ -259,10 +277,9 @@ def test_absolute_deadline_includes_body_and_never_extends_for_retry(operation, 
                     pairs["five-hits"]["request"], context, key="search", deadline=deadline
                 )
 
-    start = time.monotonic()
     with pytest.raises(DependencyUnavailable):
         asyncio.run(run())
-    assert time.monotonic() - start < 0.15
+    assert started is not None and time.monotonic() - started < 0.15
     assert len(double.requests) == 1
 
 

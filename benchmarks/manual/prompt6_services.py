@@ -52,6 +52,9 @@ def main():
                         "volumes": [
                             f"{ROOT.as_posix()}/benchmarks:/app/benchmarks:ro",
                             f"{ROOT.as_posix()}/analytics:/app/analytics:ro",
+                            # Existing analytics tests import catalogue adapters
+                            # that resolve their owning migration paths at import.
+                            f"{ROOT.as_posix()}/migrations:/app/migrations:ro",
                             f"{ROOT.as_posix()}/artifacts:/app/artifacts",
                         ],
                     }

@@ -78,7 +78,7 @@ def diagnostic():
     )
 
 
-def test_m1_keyword_builder_and_existing_transaction_binding(codec, monkeypatch):
+def test_m1_keyword_builder_and_existing_transaction_binding(codec, monkeypatch, tmp_path):
     outbox = ModuleType("shared.outbox")
     appended = []
     outbox.append_outbox = lambda tx, event: appended.append((tx, event))
@@ -92,7 +92,19 @@ def test_m1_keyword_builder_and_existing_transaction_binding(codec, monkeypatch)
         session_id=uid(10),
     )
     tx = object()
-    SharedEvents().append(
+    # M1 owns a process-local verified cache; patching the SDK singleton does not
+    # supply its required schema mapping or dataset provenance.
+    cache_path = tmp_path / "explicit-registry-mapping-double.json"
+    cache_path.write_text(
+        json.dumps(
+            {
+                "compatibility": "BACKWARD_TRANSITIVE",
+                "schemas": list(codec.cache.entries.values()),
+            }
+        ),
+        encoding="utf-8",
+    )
+    SharedEvents(cache_path=cache_path, dataset_revision=codec.dataset_revision).append(
         tx,
         event_type="CONVERSATION_TURN",
         payload=event().payload,
@@ -103,6 +115,8 @@ def test_m1_keyword_builder_and_existing_transaction_binding(codec, monkeypatch)
     assert appended[0][0] is tx
     built = appended[0][1]
     assert built.source_service == "conversation" and built.aggregate_id == request.session_id
+    assert built.metadata.dataset_revision == "synthetic-v1"
+    assert isinstance(codec.validate_event(*codec.encode(built)), ValidEvent)
     assert codec.encode(built)[0] == codec.encode(built)[0]
 
 
@@ -343,6 +357,15 @@ def test_revoke_commits_only_durable_prefix_and_fences_old_records():
     with pytest.raises(ValueError, match="revoked"):
         worker.mark_durable(records[1])
     assert not worker.commit_offsets({(TOPIC, 0): 2}).succeeded
+    native_close = worker.consumer.close
+
+    def close_with_queued_assignment():
+        # A native close can drain an assignment already queued by a rebalance.
+        native_close()
+        worker.consumer.callbacks["on_assign"](worker.consumer, [TopicPartition(TOPIC, 0)])
+        assert not worker.assignments
+
+    worker.consumer.close = close_with_queued_assignment
     worker.close()
 
 

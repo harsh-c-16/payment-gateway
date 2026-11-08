@@ -4,6 +4,8 @@ services:
     # Reap orphaned probes without PostgreSQL mistaking them for failed server children.
     init: true
     image: pgvector/pgvector:0.8.1-pg18-trixie@sha256:2fd905ba95f99a51be207d0ff0b8d5b8538cbce7e9083b3ccfa65b93bb28b938
+    entrypoint: [bash, /usr/local/bin/group3-postgres-entrypoint.sh]
+    command: [postgres]
     environment:
       POSTGRES_USER: group3_admin
       POSTGRES_DB: postgres
@@ -13,7 +15,10 @@ services:
       - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql
+      - ./postgres/entrypoint.sh:/usr/local/bin/group3-postgres-entrypoint.sh:ro
       - ./postgres/10-databases.sh:/docker-entrypoint-initdb.d/10-databases.sh:ro
+    tmpfs:
+      - /run/group3-postgres-secrets:rw,noexec,nosuid,size=64k,mode=0700
     secrets:
       - admin_password
       - conversation_password

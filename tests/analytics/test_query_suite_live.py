@@ -59,6 +59,12 @@ def test_query_suite_returns_empty_when_no_files_exist():
 
 @pytest.mark.skipif(not hasattr(os, "posix_fadvise"), reason="NOT_RUN: eviction needs Linux")
 def test_cold_series_keeps_the_warm_results_and_stays_in_its_own_file(pipeline, tmp_path):
+    # posix_fadvise alone does not establish that this kernel exposes actual
+    # read-byte counters. Keep an unavailable cold measurement visibly NOT_RUN.
+    try:
+        experiment.storage_read_bytes()
+    except OSError as error:
+        pytest.skip(f"NOT_RUN: real cold-read counters unavailable ({type(error).__name__})")
     fixture.build(pipeline, pipeline.test_namespace, publications=2, events_per_publication=20)
 
     class Layout:

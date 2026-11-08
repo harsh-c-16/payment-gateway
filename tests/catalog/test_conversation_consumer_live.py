@@ -74,4 +74,6 @@ def test_workflow_accepts_a_real_brand_filter(live):
     result = workflow.structured_search(
         {"query_text": "shirt", "brand": "acme"}, session(namespace), key=str(uuid4())
     )
+    assert result["hits"]
+    assert all(hit["brand"].casefold() == "acme" for hit in result["hits"])
     assert [hit["sku"] for hit in result["hits"]] == ["FK-SHIRT1"]
