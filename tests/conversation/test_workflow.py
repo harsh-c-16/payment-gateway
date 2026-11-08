@@ -265,6 +265,72 @@ def test_checkout_input_conflict_and_unconfirmed_rejection(workflow, context, pr
     assert accepted["status"] == "PENDING" and len(provider.accepted) == 1
 
 
+@pytest.mark.parametrize("backend", ["final", "unavailable"])
+def test_new_checkout_key_replays_durable_acceptance_without_backend(
+    workflow, context, provider, database, backend
+):
+    created, quote, body = quoted(workflow, context)
+    accepted = workflow.checkout_cart(created.cart_id, body, context, "first")
+    calls = provider.count("/v1/orders")
+    if backend == "final":
+        provider.accepted[quote["quote_id"]]["status"] = "CONFIRMED"
+    else:
+        provider.orders_unavailable = True
+    restarted = FixedWorkflow(
+        ConversationState(database, events=workflow.state.events), provider.gateway()
+    )
+    assert restarted.checkout_cart(created.cart_id, body, context, "second") == accepted
+    assert restarted.checkout_cart(created.cart_id, body, context, "second") == accepted
+    assert provider.count("/v1/orders") == calls
+    with database.transaction() as tx:
+        assert (
+            tx.execute(
+                "SELECT count(*) AS n FROM p6_test_event_capture "
+                "WHERE event_type='CHECKOUT_STARTED'"
+            ).fetchone()["n"]
+            == 1
+        )
+
+
+@pytest.mark.parametrize("conflicting_order", [False, True])
+def test_inflight_checkout_alias_keeps_accepted_identity_and_allows_finality(
+    workflow, context, provider, database, monkeypatch, conflicting_order
+):
+    created, quote, body = quoted(workflow, context)
+    original = workflow.call
+    nested = []
+    in_nested = False
+
+    def interleaved(name, principal, **kwargs):
+        nonlocal in_nested
+        result = original(name, principal, **kwargs)
+        if name == "order_create" and not in_nested:
+            in_nested = True
+            provider.accepted[quote["quote_id"]]["status"] = "CONFIRMED"
+            nested.append(workflow.checkout_cart(created.cart_id, body, context, "second"))
+            if conflicting_order:
+                result["order_id"] = str(uuid4())
+                result["status_url"] = "/v1/orders/" + result["order_id"]
+        return result
+
+    monkeypatch.setattr(workflow, "call", interleaved)
+    if conflicting_order:
+        assert_code(
+            "DEPENDENCY_UNAVAILABLE",
+            lambda: workflow.checkout_cart(created.cart_id, body, context, "first"),
+        )
+    else:
+        assert workflow.checkout_cart(created.cart_id, body, context, "first") == nested[0]
+    with database.transaction() as tx:
+        assert (
+            tx.execute(
+                "SELECT count(*) AS n FROM p6_test_event_capture "
+                "WHERE event_type='CHECKOUT_STARTED'"
+            ).fetchone()["n"]
+            == 1
+        )
+
+
 def test_quote_expired_before_first_checkout_is_rejected(workflow, context, provider, database):
     created, quote, body = quoted(workflow, context)
     with database.transaction() as tx:

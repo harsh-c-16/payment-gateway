@@ -19,6 +19,7 @@ MIGRATIONS = (
     MIGRATION,
     MIGRATION.with_name("002_workflow.sql"),
     MIGRATION.with_name("003_intent_diagnostics.sql"),
+    MIGRATION.with_name("004_shared_events.sql"),
 )
 
 
@@ -32,10 +33,21 @@ def storage_unavailable():
 
 
 class Database:
-    def __init__(self, url: str):
+    def __init__(self, url: str, *, max_connections=None):
         self.url = url
-        # Preserve the ten-connection budget; one slot is reserved for durable intent audit.
-        self.slots = BoundedSemaphore(9)
+        if max_connections is None:
+            configured = os.environ.get("CONVERSATION_MAX_CONNECTIONS", "10")
+            try:
+                max_connections = int(configured)
+            except ValueError as exc:
+                raise ValueError(
+                    "CONVERSATION_MAX_CONNECTIONS must be an integer in [2,10]"
+                ) from exc
+        if type(max_connections) is not int or not 2 <= max_connections <= 10:
+            raise ValueError("CONVERSATION_MAX_CONNECTIONS must be an integer in [2,10]")
+        self.max_connections = max_connections
+        # Reserve one slot inside the configured budget for durable intent audit.
+        self.slots = BoundedSemaphore(max_connections - 1)
         self.intent_slots = BoundedSemaphore(1)
 
     @contextmanager
@@ -104,6 +116,13 @@ class Database:
             tx.execute("SELECT 1 FROM sessions, carts, cart_items, turns, operation_keys LIMIT 0")
             tx.execute("SELECT intent_diagnostic FROM turns LIMIT 0")
             tx.execute("SELECT 1 FROM intent_attempts LIMIT 0")
+            tx.execute(
+                "SELECT outbox_id,event_id,namespace,aggregate_type,aggregate_id,topic,"
+                "partition_key,payload,headers,schema_subject,produced_at,published_at,"
+                "relay_claim,relay_claimed_at,created_at FROM outbox LIMIT 0"
+            )
+            tx.execute("SELECT 1 FROM local_diagnostics LIMIT 0")
+            tx.execute("SELECT restricted_output FROM intent_rejections LIMIT 0")
 
 
 def main():
@@ -117,10 +136,7 @@ def main():
     except ServiceError:
         print("M1 migration failed: STORAGE_UNAVAILABLE (connection details withheld).")
         return 4
-    print(
-        "M1 state/workflow/intent migrations 1-3 applied/verified; "
-        "shared outbox/local-diagnostic DDL remains owner-supplied."
-    )
+    print("M1 migrations 1-4 applied/verified, including shared outbox/local-diagnostic templates.")
     return 0
 
 

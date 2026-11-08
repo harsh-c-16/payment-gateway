@@ -12,6 +12,8 @@ ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from benchmarks.manual.verifier_state import Preservation  # noqa: E402
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -104,6 +106,7 @@ def main():
         )
     records = []
     environment = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+    preservation = Preservation(commands, ROOT, out)
     for command, expected in commands:
         completed = subprocess.run(
             command,
@@ -120,7 +123,8 @@ def main():
             "actual_exit": completed.returncode,
             "stdout": completed.stdout,
             "stderr": completed.stderr,
-            "matched": completed.returncode == expected,
+            "matched": completed.returncode == expected
+            and preservation.matches(command, completed.stdout),
         }
         records.append(record)
         (out / "checks.json").write_text(json.dumps(records, indent=2), encoding="utf-8")
@@ -131,7 +135,7 @@ def main():
         "checks_matched": matched,
         "database": "real PostgreSQL 18" if database_configured else "NOT_RUN",
         "database_binding": "explicit external; see outer Docker harness for container provenance",
-        "events_outbox": "explicit test doubles; real shared event path NOT_RUN",
+        "events_outbox": "capture doubles and real local shared-codec/outbox tests; Kafka NOT_RUN",
         "provider_contracts": "incomplete; expected contracts command exit 4",
         "p7": "NOT_RUN",
         "status": "verified state/checkpoint; shared gate incomplete"

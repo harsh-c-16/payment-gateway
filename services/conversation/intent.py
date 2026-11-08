@@ -5,11 +5,13 @@ extraction. Unknown explicit constraints require clarification before retrieval.
 """
 
 import re
+import unicodedata
 from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from decimal import Decimal, InvalidOperation
 from time import monotonic
 
-VERSION = "rules-p7-v1"
+VERSION = "rules-p7-v2"
 SLOTS = ("category", "size", "colour", "material", "max_price_minor", "occasion")
 SIZE_ALIASES = {
     "small": "S",
@@ -19,6 +21,74 @@ SIZE_ALIASES = {
     "free size": "FREE_SIZE",
     "one size": "ONE_SIZE",
 }
+# This is extraction grammar, not a catalogue vocabulary. Uncued source values
+# such as "skin", "104" or product nouns stay in query_text. Every accepted
+# modifier must still match a whole value in the provider's dictionary.
+IMPLICIT_MODIFIERS = {
+    "colour": set(
+        "black white blue red green yellow orange pink purple brown grey gray beige "
+        "navy maroon violet indigo cyan magenta gold golden silver multicolor "
+        "light dark pale bright".split()
+    ),
+    "material": set(
+        "cotton lycra wool silk linen polyester nylon rayon viscose elastane spandex "
+        "leather suede denim velvet satin acrylic wooden wood steel stainless metal "
+        "plastic glass ceramic rubber blend blended pure 100%".split()
+    ),
+}
+FACET_CUES = {
+    "brand": "brand|by",
+    "colour": "colou?r",
+    "material": "material|fabric|made of",
+    "size": r"(?<!free )(?<!one )size",
+    "category": "category",
+}
+
+
+def canonical_text(value):
+    """Consumer key comparison follows file 08: NFC, whitespace, casefold."""
+    return " ".join(unicodedata.normalize("NFC", value).split()).casefold()
+
+
+def explicit_facets(text, maps):
+    """Bind cued whole values and mask them from unrelated slot extraction.
+
+    A recognized prefix cannot swallow an unsupported compound (size M/L,
+    material cotton unknown). Separate constraints with a cue or a clause.
+    """
+    pattern = (
+        r"\b(?:"
+        + "|".join(f"(?P<{field}>{cue})" for field, cue in FACET_CUES.items())
+        + r")\b(?:\s*(?:=|:)\s*|\s+(?:is\s+)?)?"
+    )
+    next_clause = (
+        r"(?:for|in|under|below|at most|up to|within a budget of|brand|by|"
+        r"colou?r|material|fabric|made of|size|category)\b"
+    )
+    boundary = r"\s*(?:$|[,;.!?]|\b(?:and\s+)?" + next_clause + ")"
+    values, missing, masked, consumed = {}, [], list(text), 0
+    for cue in re.finditer(pattern, text):
+        if cue.start() < consumed:
+            continue
+        field = cue.lastgroup
+        tail = text[cue.end() :]
+        found = next(
+            (
+                phrase
+                for phrase in sorted(maps[field], key=len, reverse=True)
+                if re.match(re.escape(phrase) + r"(?!\w)", tail)
+            ),
+            None,
+        )
+        if found is None or not re.match(boundary, tail[len(found) :]):
+            missing.append(field)
+            end = cue.end() + len(re.split(r"[,;.!?]|\band\b", tail, maxsplit=1)[0])
+        else:
+            values.setdefault(field, set()).add(maps[field][found])
+            end = cue.end() + len(found)
+        masked[cue.start() : end] = " " * (end - cue.start())
+        consumed = end
+    return values, missing, "".join(masked)
 
 
 @dataclass(frozen=True)
@@ -33,6 +103,7 @@ class IntentResult:
     parse_ms: float = 0
     llm_ms: float | None = None
     model_usage: dict | None = None
+    rejected_output: str | None = dataclass_field(default=None, repr=False)
 
 
 def blank_intent(text):
@@ -83,7 +154,7 @@ def extract_intent(text, context, dictionary):
     """Parse real input deterministically; context is identity, never a label lookup."""
     started = monotonic()
     intent, missing = blank_intent(text), []
-    normalized = " ".join(text.casefold().split())
+    normalized = canonical_text(text)
 
     def finish():
         return IntentResult(
@@ -120,50 +191,44 @@ def extract_intent(text, context, dictionary):
         missing.append("category")
     maps = {
         "category": {
-            alias.casefold(): root["id"]
+            canonical_text(alias): root["id"]
             for root in dictionary["roots"]
             for alias in (root["id"], root["label"])
         },
-        "colour": {v.casefold(): v for v in dictionary["colours"]},
-        "material": {v.casefold(): v for v in dictionary["materials"]},
+        "colour": {canonical_text(v): v for v in dictionary["colours"]},
+        "material": {canonical_text(v): v for v in dictionary["materials"]},
         "brand": {
-            alias.casefold(): b["key"]
+            canonical_text(alias): b["key"]
             for b in dictionary["brands"]
             for alias in (b["key"], b["label"])
         },
-        "size": {v.casefold(): v for v in dictionary["allowed_apparel_sizes"]},
+        "size": {canonical_text(v): v for v in dictionary["allowed_apparel_sizes"]},
     }
     maps["size"].update(
         {k: v for k, v in SIZE_ALIASES.items() if v in dictionary["allowed_apparel_sizes"]}
     )
     if "grey" in dictionary["colours"]:
         maps["colour"]["gray"] = "grey"
+    explicit, issues, source = explicit_facets(normalized, maps)
+    missing.extend(issues)
     for field, mapping in maps.items():
-        # Bare single-letter sizes are recognized only after an explicit size cue.
-        source = normalized
+        # Brands always need a cue. Uncommon facet values stay loose query terms
+        # unless the user names the slot, avoiding noisy dictionary collisions.
+        implicit_source = source if field != "brand" else ""
         if field == "size":
-            source = re.sub(r"\b[a-z]\b", " ", source)
-            for explicit in re.finditer(r"\bsize(?:\s*(?:=|:)\s*|\s+)([a-z]+)\b", normalized):
-                source += " " + explicit[1]
-        found = phrases(source, mapping)
+            implicit_source = re.sub(r"\b[a-z]\b", " ", implicit_source)
+        found = phrases(implicit_source, mapping) if implicit_source.strip() else set()
+        if field in IMPLICIT_MODIFIERS:
+            found = {
+                value
+                for value in found
+                if set(canonical_text(value).split()) <= IMPLICIT_MODIFIERS[field]
+            }
+        found.update(explicit.get(field, ()))
         if len(found) == 1:
             intent[field] = found.pop()
         elif found:
             missing.append(field)
-    for field, cue in (
-        ("size", "size"),
-        ("colour", "colou?r"),
-        ("material", "material|fabric"),
-        ("brand", "brand"),
-        ("category", "category"),
-    ):
-        for explicit in re.finditer(
-            r"\b(?:" + cue + r")(?:\s*(?:=|:)\s*|\s+(?:is\s+)?)(\w+)", normalized
-        ):
-            if intent[field] is None or not any(
-                phrase.split()[0] == explicit[1] for phrase in maps[field]
-            ):
-                missing.append(field)
     if intent["size"] is not None and intent["category"] != "clothing":
         missing.append("category")
     # Unsupported explicit attributes cannot be silently passed as loose keywords.

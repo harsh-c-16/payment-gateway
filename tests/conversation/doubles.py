@@ -29,11 +29,25 @@ class EventCaptureDouble:
                 "event jsonb NOT NULL, UNIQUE(namespace,session_id,aggregate_version))"
             )
 
-    def ready(self):
+    def ready(self, database=None):
         pass
 
+    def check_revision(self, revision):
+        pass
+
+    def quarantine(self, tx, diagnostic):
+        # Explicit diagnostic-helper double; real helper coverage lives separately.
+        return diagnostic["diagnostic_id"]
+
     def append(self, tx, *, event_type, payload, context, version, event_time):
-        assert event_type in {"ADD_TO_CART", "CONVERSATION_TURN"}
+        assert event_type in {
+            "ADD_TO_CART",
+            "CONVERSATION_TURN",
+            "INTENT_EXTRACTED",
+            "INTENT_REJECTED",
+            "TOOL_CALLED",
+            "CHECKOUT_STARTED",
+        }
         assert "text" not in payload and "response_text" not in payload
         event = {
             "event_id": str(uuid4()),

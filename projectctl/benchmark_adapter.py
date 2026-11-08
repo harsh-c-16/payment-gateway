@@ -79,7 +79,11 @@ def execute_benchmarks(args, registry, config):
             stress = trial.order.get("stress_tier")
             if stress and stress > 500 and blocked_tiers:
                 blocking.append("previous stress tier failed/incomplete; escalation NOT_RUN")
-            bindings = registry.workload(trial.workload)
+            try:
+                bindings = registry.workload(trial.workload, trial.config)
+            except Exception as exc:
+                bindings = None
+                blocking.append(f"workload composition unavailable: {type(exc).__name__}")
             from benchmarks.performance import review_blockers
 
             qualified = (

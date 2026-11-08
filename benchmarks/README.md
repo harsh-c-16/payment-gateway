@@ -17,3 +17,9 @@ are described in [Jaineel's P4 handoff](../docs/jaineel/p4_workloads.md).
 Run `python -m benchmarks.manual.slow_publisher` for the explicit slow test
 publisher, or `python benchmarks/manual/verify_p4.py` for the recorded checkpoint.
 Real G1 and performance results remain `NOT_RUN` pending provider adapters.
+
+The current [unified runtime composition](../projectctl/README.md#unified-runtime-composition)
+connects all seven required workload drivers, the shared SDK W-PIPE transport,
+real public HTTP clients, existing G3/correctness adapters and actual collectors.
+The team supplies its concrete deployment hooks through `RuntimeBindings`;
+missing hooks remain dependency evidence rather than implicit test doubles.

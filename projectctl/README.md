@@ -127,3 +127,131 @@ seeded paired plans. Missing workload adapters return dependency exit 4 with
 saved evidence. See [P4 bindings and verification](../docs/jaineel/p4_workloads.md).
 The default registry never loads a test double. Comparison/report execution
 remains assigned to later milestones.
+
+## Roadmap Prompt 3: real composition
+
+Select the explicit composition with
+`$env:PROJECTCTL_ADAPTER_MODULE = 'projectctl.jaineel'`. It calls the existing
+`infra.analytics.register` (which registers streaming once),
+`pipelines.catalog.adapter.register`, and `services.inventory.adapter.register`.
+Registration is transactional: a failed import/registration discards partial
+bindings, retaining the built-in contract/fixture actions and dependency evidence.
+
+Workload factories bind each trial's own resolved configuration to Harsh's
+`runner_importer`, `runner_query_adapter` and verified `runner_catalog_manifest`.
+The search consumer uses the real public HTTP contracts and a client per request.
+The frozen catalogue settings are `CATALOG_MAX_CONNECTIONS=4` and
+`CATALOG_REUSE_CONNECTIONS=false`; apply them to the actual catalogue process.
+The planned evaluation resource profile remains unverified and draft.
+
+`benchmarks.composition.OwnerCallbacks` contains explicit harness handoff slots.
+No owner module is assumed to export them. Fresh storage acknowledgement,
+seed/projection audit, downstream drain, independent service audits, pinned query
+day/layout and complete SUT observers remain unavailable. W-IMPORT has an
+independent CSV/Parquet money/selection/disposition audit and generator observer;
+it still needs a real fresh-namespace provider before it may write. W-SEARCH
+sequences migration, import, verification, seed, projection wait (including the
+owner's ANALYZE), then independent seed checks. Missing/partial results stop the
+sequence. Existing global migration still reports analytics-only incompleteness;
+`env reset` and the required real lifecycle inputs remain unavailable by default.
+The unified composition below now also connects W-PIPE, W-QUALITY, W-CHECKOUT and
+W-INTEGRATED. A registered driver is not a ready deployment.
+
+Run the bounded checkpoint without a benchmark or Docker startup:
+
+```powershell
+.venv/Scripts/python.exe -m benchmarks.manual.verify_prompt3 --out artifacts/jaineel/prompt3-NEW
+```
+
+It retains actual registrations, independent source/profile checks, CLI contract
+checks, hash-policy evidence and unavailable callbacks. Exit 4 means the full
+setup remains incomplete even if the real CSV profile and contracts pass.
+No import/seed/measurement is attempted without the owner preparation handoff.
+The generator observer does not claim SUT resource coverage.
+
+`projectctl.input_pins.review_input_pins()` reports raw bytes and LF-text hashes
+separately. Harsh's published pins match normalized LF text; the frozen runbook
+requires raw-file hashes. Raw checks are unchanged, evaluation dictionary/query
+pins remain null, and the approved dataset revision is preserved. Harsh/Jaineel
+and the SKU consumer must review the exact policy conflict before filling pins.
+Rule-generated relevance labels stay unselected; optional model/ANN runs remain
+unconfigured. Docker containers created for a checkpoint should be removed after
+use; retain volumes, evidence and unrelated containers.
+
+## Roadmap Prompt 7: baseline prerequisite checkpoint
+
+```powershell
+.venv/Scripts/python.exe -m benchmarks.manual.verify_prompt7 --out artifacts/jaineel/prompt7-NEW
+.venv/Scripts/python.exe -m pytest tests/benchmarks/test_prompt7.py tests/benchmarks/test_performance.py -q
+```
+
+This read-only checkpoint saves `readiness.json`, `resolved_config.json`,
+`checkpoint.md` and the actual `uv sync --locked --check` logs. It inventories
+the explicit Jaineel composition without calling adapters or workload factories.
+It checks every required workload's preflight, current Git state, exact local
+file hashes, unresolved raw/LF hash policy, missing human relevance review,
+session-reuse exclusion, three repetitions and the existing correctness/resource,
+smoke and baseline-diagnosis validators. `--readiness PATH` consumes an existing
+owner-reviewed receipt through the runner's validator; it creates no approval.
+Discovered image/schema files are observations and do not populate config pins.
+
+Exit 4 is incomplete prerequisite evidence; exit 2 is invalid input, including
+a changed frozen hash. Both leave setup, smoke, B0, comparisons and C-BEST
+`NOT_RUN`, with null metrics. Use a fresh output directory on every invocation.
+This command does not freeze B0 or certify service readiness. Current hash-policy
+and human-label review remain external handoffs. Follow canonical runbook
+[sections 2 and 5–7](../docs/specs/09_EVALUATION_RUNBOOK.md) after those gates close:
+setup/smoke, real correctness, frozen B0, diagnosis, three paired randomized
+repetitions, independent drain/reconciliation, measured selection and artifact
+reporting. Harsh's owner-run samples and rule-derived labels cannot supply those
+missing results.
+
+## Unified runtime composition
+
+`projectctl.jaineel` now registers all seven required workload factories. It
+connects the existing SDK, HTTP drivers, owner importer/query adapter, independent
+audits and optional G3/correctness bindings through one explicit runtime input.
+The optional assistant workload remains outside the required matrix.
+
+Keep `PROJECTCTL_ADAPTER_MODULE=projectctl.jaineel`. For an actual team deployment,
+an explicitly selected Python module can expose `runtime_bindings()` returning
+`projectctl.runtime.RuntimeBindings`. Set `PROJECTCTL_RUNTIME_MODULE` to that
+module's import name. This is the harness's new input interface; it is not a claim
+that a teammate already exports a function with that name. No runtime module is
+automatically discovered, imported or started when this setting is empty.
+
+The returned object supplies:
+
+- `workloads`: workload name to the existing `OwnerCallbacks` (fresh storage,
+  seed/projection audit, drain, read-only audit, observer, reviewed templates and
+  layout). Checkout/integrated setup now uses the same ordered public import,
+  verification, seed and projection barrier as search.
+- `quality`: the existing `QualityOwners`. The legacy
+  `benchmarks.quality_binding` entry point forwards to the unified composition.
+- `g3`: case IDs to existing real `G3Binding` objects; `cases`: other canonical
+  case IDs to real `CaseBinding` objects. Their existing independent fixture and
+  execution-time review checks still apply.
+- `setup_actions`: optional reviewed global `db migrate`/`env reset`
+  coordinators. `projectctl.setup.MigrationCoordinator` delegates one participant
+  per database and refuses partial success. `migrate_conversation` is the concrete
+  M1 participant. Other owners supply their own participants; the harness does
+  not execute their SQL files or implement their business migrations.
+
+`benchmarks.runtime_observer.RuntimeObserver` connects explicit API/worker
+Prometheus targets, existing Kafka lag/Gold readers and resource collectors.
+Worker and API targets remain separate. Missing SUT targets or stub collectors
+fail; missing individual samples stay missing. Clock sharing must be explicitly
+declared from the actual deployment, and readiness/resource receipts are still
+required for measurements.
+
+W-PIPE materializes valid synthetic fixture facts through the shared codec and
+publisher, with fixed source identity/provenance, 10,000 verified SKUs, immutable
+timestamps and approximately 1-KiB payloads. It cannot use the invalid-quality
+bypass or mutate operational Inventory. The publisher closes on normal drain and
+exceptional observer exit. Required owner inputs remain explicit dependencies;
+this wiring does not authorize measurements or manufacture a passing real gate.
+
+For M1's separate shared-outbox process, see the
+[service commands](../services/conversation/README.md). Current team handoff and
+the latest exact test/evidence results are recorded in
+[Jaineel's progress](../docs/jaineel/progress.md).

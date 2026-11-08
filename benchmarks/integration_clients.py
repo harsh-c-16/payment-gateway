@@ -1,5 +1,6 @@
 """Real M1 HTTP consumer for IntegratedDriver, with explicit contract-test transport."""
 
+import asyncio
 from urllib.parse import quote
 
 import httpx
@@ -47,12 +48,18 @@ class ConversationHTTP:
             raise ValueError("session/context identity mismatch")
         self.contracts.validate(endpoint, "request", body)
         try:
-            response = await self.http.request(
-                method, path, json=body, headers=context.headers(key)
-            )
-        except httpx.TransportError as exc:
+            async with (
+                asyncio.timeout(self.config.timeout_seconds),
+                self.http.stream(method, path, json=body, headers=context.headers(key)) as response,
+            ):
+                raw = bytearray()
+                async for chunk in response.aiter_bytes():
+                    if len(raw) + len(chunk) > 2 * 1024 * 1024:
+                        raise ContractViolation("M1 response exceeds bounded client buffer")
+                    raw.extend(chunk)
+                value = strict_json(raw)
+        except (httpx.TransportError, TimeoutError) as exc:
             raise DependencyUnavailable(outcome_unknown=True) from exc
-        value = strict_json(response.content)
         if response.status_code != status:
             if response.status_code < 400:
                 raise ContractViolation("unexpected M1 success/redirect status")
@@ -61,6 +68,8 @@ class ConversationHTTP:
             except ValueError as exc:
                 raise ContractViolation("invalid M1 error contract") from exc
             raise RemoteError(response.status_code, error)
+        if response.headers.get("content-type", "").split(";")[0].strip() != "application/json":
+            raise ContractViolation("expected application/json from M1")
         self.contracts.validate(endpoint, "response", value)
         return value
 

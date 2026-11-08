@@ -1970,3 +1970,1425 @@ release, human label review/freeze, live assistant quality/cost and hosted CI re
 unverified. Rebuild/reconcile new real results with P10; do not relabel old blocked
 or synthetic runs as passing. The final local ownership, whitespace, index and
 publication checks are recorded alongside the verifier evidence.
+
+## Roadmap Prompt 1 — M1 search and intent regressions (7 November 2026)
+
+Checkpoint: **implemented and tested**. Stopped at Prompt 1; Prompt 2 was not
+started. Branch remains `jaineel/j03-telemetry`; no commit or push was requested
+or performed. Existing untracked roadmap and P1–P7/P1–P9 audits were preserved.
+
+### Changed paths and consumer behavior
+
+- `services/conversation/workflow.py`: compare a displayed brand with the
+  dictionary key using the file 08 NFC/whitespace/casefold rule. Missing or
+  genuinely different brands still fail closed. Other whole-value facet,
+  price, provenance, rank and availability checks remain strict.
+- `services/conversation/intent.py`: version `rules-p7-v2`. Bind brands only
+  with `brand` or `by` cues. Recognize explicit whole dictionary values before
+  uncued terms, and mask those spans from unrelated slots: `brand Blue` must
+  not additionally mean `colour=blue`. An unsupported suffix, conflicting
+  values, an empty cue, or a partial compound such as `size M/L` or `size M
+  and L` requires clarification before any search.
+- Uncued colour/material extraction now intersects the provider's whole-value
+  dictionary with a bounded modifier grammar. No new catalogue values are
+  invented. Noisy values such as `skin`, `104`, `paper` and product nouns stay
+  in the original `query_text` unless explicitly cued. `blue cotton shirt`
+  retains its colour/material and has no brand; `laptop skin` remains text
+  without an invented brand/colour. Uncued brand names also remain query text.
+  Harsh/Jaineel should review this explicit free-text policy at the checkpoint;
+  expanding the grammar later requires regression review, not dictionary edits.
+- `tests/conversation/test_search_regressions.py`: **38 regression cases**
+  using explicit synthetic HTTP/model doubles. Covers display/key case and
+  Unicode normalization, word collisions, cued brands/facets, compounds,
+  unknown/ambiguous constraints, zero-call fixed behavior, no search on
+  clarification, and rejection of wrong/null provider brands.
+- `docs/jaineel/progress.md`: this checkpoint and evidence/handoff record.
+
+No canonical DTO, API, reviewed scenario, fixture label, dataset revision,
+teammate implementation or catalogue test was changed. SHA-256 checks verify
+the frozen 60-scenario file, application lock, both preserved audits and Harsh's
+consumer test are byte-for-byte unchanged (`preserved-files-check.json`).
+
+### Exact checks and retained evidence
+
+Evidence root: `artifacts/jaineel/prompt1-20261107/` (ignored). Each test/check
+has its exact argument array and exit code in `<label>.command.json`, raw
+output in `<label>.log`, and JUnit XML where applicable. Here `PY` denotes
+`.venv/Scripts/python.exe` and `OUT` denotes that evidence root; the command
+JSON records the expanded executable and paths.
+
+| Command | Actual outcome / evidence |
+|---|---|
+| `uv sync --locked` | Exit 0; Python 3.11.15, 38 resolved / 37 audited; `uv.lock` unchanged |
+| `PY -m pytest tests/conversation/test_intent.py tests/conversation/test_search_regressions.py -q --tb=short -o cache_dir=OUT/pytest-cache --junitxml=OUT/red-corrected.xml` (before implementation) | Exit 1; **20 failed, 52 passed**; `red-corrected.*` |
+| `PY -m pytest tests/conversation -q -ra --tb=short -o junit_family=legacy -o cache_dir=OUT/pytest-cache --basetemp=OUT/conversation-checkpoint-tmp --junitxml=OUT/conversation-checkpoint.xml` | Exit 0; **361 passed, 0 failed/errors/skipped**, 73.72 s; `conversation-checkpoint.*` |
+| `PY -m ruff check services/conversation tests/conversation` | Exit 0; `lint-checkpoint.*` |
+| `PY -m ruff format --check services/conversation tests/conversation` | Exit 0; all 28 files formatted; `format-checkpoint.*` |
+| `PY -m projectctl.schemas --check` | Exit 0; no schema mismatches; `schemas.*` |
+| `PY -m projectctl.conversation_contract --check` | Exit 0; current conversation OpenAPI; `conversation-contract.*` |
+| `PY -m pytest tests/catalog/test_conversation_consumer_live.py -q -ra --tb=short -o cache_dir=OUT/pytest-cache --basetemp=OUT/catalogue-consumer-tmp --junitxml=OUT/catalogue-consumer.xml` (native Windows) | Exit 1; **5 setup errors**, `DurabilityUnavailable: Directory fsync requires the Linux data volume`; `catalogue-consumer.*` |
+| `docker build --file infra/storage.Dockerfile --tag jaineel-prompt1-tests:20261107 OUT/linux-build-context` | Build exit 0; existing owner Dockerfile, unchanged copied application lock, pinned Python 3.11.15 base and uv 0.10.8; `linux-build.*` |
+| Linux worker: `python -m pytest tests/catalog/test_conversation_consumer_live.py -q -ra --tb=short -o cache_dir=/testdata/cache --basetemp=/testdata/linux-catalogue-consumer --junitxml=/out/linux-catalogue-consumer.xml` | Exit 1; **4 passed + 1 XPASS(strict)**; `linux-catalogue-consumer.*` |
+| Linux worker: `python -m pytest tests/catalog/test_conversation_consumer_live.py::test_workflow_accepts_a_real_brand_filter --runxfail -q -ra --tb=short -o cache_dir=/testdata/cache --basetemp=/testdata/linux-catalogue-brand-runxfail --junitxml=/out/linux-catalogue-brand-runxfail.xml` | Exit 0; **1 passed**; `linux-catalogue-brand-runxfail.*` |
+
+Docker was initially stopped (`docker ps` could not reach the Linux engine);
+`docker desktop start` succeeded. A new isolated test container was provisioned
+from the exact PostgreSQL/pgvector image in `infra/images.lock.json`; existing
+containers/databases were untouched. `database.json` records PostgreSQL **18.2**,
+pgvector **0.8.1**, the pinned digest and all three durability settings **on**.
+Tests used fresh `p6_test_` / `h_test_` schemas and cleaned only their own schemas.
+The Linux worker mounted repository source read-only and used its own named
+Linux data volume; its full Docker argument arrays, image ID and runtime names
+are retained in `linux-*.command.json` and `linux-runtime.json`.
+
+Earlier red/intermediate/full transcripts were retained, including the initial
+test-harness session-ID omission, corrected pre-fix run, formatter corrections,
+native Windows catalogue errors and successful reruns. The build command exited
+0; an initial host-wrapper print hit a cp1252 UnicodeEncodeError after saving
+its logs. The resulting image was verified and both Linux test runs executed.
+Final pytest retains one upstream Starlette/httpx deprecation warning; no
+assertion, timeout or dependency requirement was weakened to pass.
+
+`summary.json` and `assistant_turns.jsonl` were derived from final JUnit evidence:
+all **60 fixed + 60 assist frozen scenarios passed**, with **zero model attempts
+for each frozen scenario**. Other eligible-assist tests exercise explicit model
+spies; no live generative call was made. Scenario SHA-256 remains
+`441c5becdcd7462972027f567c6cc419010d1b5770d21a3ae4ce85ead1f9dac9`.
+
+### Harsh handoff, limits and manual verification
+
+Harsh should review
+`tests/catalog/test_conversation_consumer_live.py::test_workflow_accepts_a_real_brand_filter`
+and remove its strict-xfail marker after reviewing this fix. Its exact unchanged
+marker result is `[XPASS(strict)] workflow compares the brand key with the
+displayed brand; see docs/harsh/handoff.md`. This causes the original suite's
+exit 1; it is not reported as a green suite. Running that same test with
+`--runxfail` passed. **The marker/file were left untouched.** After Harsh's
+change, rerun the ordinary five-test consumer suite on Linux without
+`--runxfail` and expect all five assertions to pass.
+
+The Linux binding exercised real M1 Gateway/FixedWorkflow, real catalogue HTTP,
+import/search/quote logic and PostgreSQL against Harsh's **small synthetic row
+fixture**. Its event/outbox captures and schema cache are explicit test doubles;
+this is not a full historical-catalogue, Kafka, real outbox or end-to-end
+checkout integration claim. Those checks and live model quality remain
+**NOT_RUN** here. The owned conversation suite uses real PostgreSQL with
+explicit catalogue/Orders/event/model doubles and preserves checkout controls.
+No benchmark or performance result was produced. Dictionary hash policy,
+frozen W-SEARCH label/key questions and later roadmap prompts remain outside
+this checkpoint.
+
+For manual review, inspect `summary.json`, both Linux logs/XML files and the
+120 `assistant_turns.jsonl` records. The isolated PostgreSQL container is stopped
+after verification; its data and Linux test volume are retained. To rerun, use
+the exact commands in the command JSON files, restart only the container named
+in `database.json`, inspect `docker port <container> 5432` and refresh the saved
+local port if Docker remaps it. `local-database.json` contains ignored local test
+credentials and must not be committed. Reuse neither these synthetic fixtures
+nor earlier owner sample measurements as certified quality/performance results.
+## Roadmap Prompt 2 — contract review before implementation (7 November 2026)
+
+Scope: M1 only, on `jaineel/j03-telemetry`; preserve Prompt 1 and both audits.
+Common §7, the six conversation payloads in `shared/contracts/events.py`, and
+Vichitr's pinned conversation schema define the existing wire shapes. Current
+consumers are M4's ingestion/Silver/Gold path and Jaineel's reconciliation.
+M02's producer review asks Jaineel to confirm UUID tool-call IDs and restricted
+intent diagnostic references. This implementation accepts those existing shapes;
+Vichitr/Jaineel should review emitted examples at this checkpoint. No schema,
+DTO, topic, or M2-owned retrieval fact changes are authorized or needed.
+
+`ADD_TO_CART` and `CONVERSATION_TURN` already have local transaction boundaries.
+Add existing `INTENT_EXTRACTED` / `INTENT_REJECTED` and actual turn `TOOL_CALLED`
+facts to that same transaction. `CHECKOUT_STARTED` requires `order_id`: emit on
+validated Orders acceptance, with the local command-completion transaction;
+before acceptance retain the pending command/confirmation, never invent an ID.
+No canonical SESSION_CREATED or QUOTE_CREATED fact exists. Shared outbox DDL
+and local diagnostic DDL are owner-supplied templates, to be installed by a
+new forward migration in conversation storage only. Aditya owns relay behavior;
+Kafka publishing is outside M1 request handling. Approved catalogue handoff
+identifies `flipkart-v1-3a401f32ca99379f8298ce42`; runtime must explicitly bind
+`CATALOG_DATASET_REVISION` and verify returned facet revisions rather than use
+the stale `.env.example` revision. No dataset/hash policy is changed here.
+
+### Prompt 2 checkpoint — implemented and tested
+
+Stopped at Prompt 2. Branch remains `jaineel/j03-telemetry`; no commit/push or
+work on Prompt 3. Existing Prompt 1 changes, roadmap and audits are preserved.
+`preserved-files-check.json` verifies both audits, frozen assistant scenarios,
+application lock, Harsh's consumer test and migrations 001–003 are unchanged.
+
+Changed paths for this milestone:
+
+- `services/conversation/events.py`: use Vichitr's public `EventCodec` and
+  `SchemaCache.load`, with conversation producer identity and an explicit
+  dataset revision. Load/check all pinned schemas once under a lock. Missing,
+  malformed, incomplete or tampered mappings fail with dependency 503. Cached
+  verified schemas continue working without Registry or cache-file access.
+  `ready(database)` builds a schema-valid probe and calls Aditya's actual
+  `append_outbox` inside a rolled-back savepoint; unusable outbox storage fails
+  readiness. No probe is committed and no Kafka publisher is constructed.
+  Real SQL errors retain `STORAGE_UNAVAILABLE`; other append/schema failures
+  remain `DEPENDENCY_UNAVAILABLE`. Normal facts include dataset revision,
+  `synthetic=true` and benchmark/simulation provenance.
+- `migrations/conversation/004_shared_events.sql`: forward-only snapshot of
+  the exact shared outbox and local-diagnostic templates, plus the M1-private
+  bounded `intent_rejections` table. No earlier migration was rewritten.
+- `services/conversation/database.py`: register migration 004, verify it and
+  the required tables/columns at readiness, and update migration CLI output.
+- `services/conversation/workflow.py`: collect actual turn tool calls with
+  UUID identity, outcome and monotonic duration; emit the existing intent
+  outcome shapes with private diagnostic references. Bind event provenance to
+  returned facet revision before extraction/search. Record accepted checkout
+  once, including the original request correlation, quote, cart, confirmation
+  and Orders ID. Session locking and the durable downstream operation key
+  prevent duplicate facts across concurrent/repeated transport keys. If append
+  fails after remote acceptance, completion rolls back and the original command
+  remains pending for recovery. Quote/session creation invent no domain event;
+  M2 retains ownership of retrieval facts.
+- `services/conversation/state.py`: commit turn response, tool/intent facts,
+  event versions, private rejection storage, diagnostic/DLQ append and operation
+  key in the same caller-owned transaction. Existing cart atomicity is retained.
+  The deliberately separate model-attempt audit survives rollback as before.
+- `services/conversation/intent.py`, `intent_fallback.py`: carry bounded
+  malformed reply text privately, excluded from representations; retain it only
+  in M1 diagnostic storage, never in responses/events/logs. `MODEL_OUTPUT_INVALID`
+  uses Vichitr's helper and registered DLQ notice; private content hashes match
+  retained content. Provider protocol failures with no returned reply retain
+  finite diagnostics, without inventing unavailable raw bytes or usage.
+- `services/conversation/README.md`: migration, cache/revision configuration,
+  retry semantics, private references and exact test scope.
+- `tests/conversation/doubles.py`: explicitly labelled capture double accepts
+  the six existing M1 facts and declares its revision/diagnostic test bindings.
+- `tests/conversation/test_shared_events.py`: 27 cases against the real shared
+  codec, append, diagnostic helper and isolated PostgreSQL. Registry IDs and
+  catalogue/Orders/model inputs are explicitly doubled. Tests cover missing
+  schema/cache/configuration, checksum failure, ready/unready HTTP behavior,
+  real insert rejection, schema validation, full rollback, private diagnostic
+  atomicity, idempotency, checkout recovery, and upgrade from migrations 001–003
+  while preserving existing carts, responses and historical migration hashes.
+- `docs/jaineel/progress.md`: producer review and this evidence/handoff record.
+
+### Executed checks and raw evidence
+
+Evidence: `artifacts/jaineel/prompt2-20261107/` (ignored). `PY` below is
+`.venv/Scripts/python.exe`; `OUT` is that absolute evidence directory. Each
+named check retains exact expanded argument arrays/exit code in
+`<label>.command.json`, raw output in `<label>.log`, and JUnit XML for tests.
+
+| Exact command | Actual outcome / evidence |
+|---|---|
+| `docker start jaineel-prompt1-6bc91382e721` | Exit 0; restarted only the existing isolated Prompt 1 database |
+| `uv sync --locked` | Exit 0, lock unchanged; `uv-sync.*` |
+| `PY -m pytest tests/conversation/test_http.py tests/conversation/test_intent.py tests/conversation/test_search_regressions.py -q --tb=short` (exploratory, before DB binding) | Exit 1: 18 failed, 93 passed, 4 skipped. The new revision check assumed persistence state in standalone workflow tests; corrected it to check configured state. Raw output is in this session's tool transcript; final checks below supersede this exploratory run |
+| `PY -m pytest tests/conversation/test_shared_events.py tests/conversation/test_http.py tests/conversation/test_search_regressions.py -q -ra --tb=short -o cache_dir=OUT/pytest-cache --basetemp OUT/focused-tmp --junitxml OUT/focused.xml` | Exit 1: **1 failed, 95 passed**; retained `focused.*` proves the duplicate-checkout-fact regression before the operation-key fix |
+| `PY -m pytest tests/conversation -q -ra --tb=short -o cache_dir=OUT/pytest-cache --basetemp OUT/conversation-checkpoint-tmp --junitxml OUT/conversation-checkpoint.xml` | Exit 0: **386 passed, 0 failures/errors/skips**, 71.95 s; `conversation-checkpoint.*` |
+| `PY -m pytest tests/conversation/test_shared_events.py -q -ra --tb=short -o cache_dir=OUT/pytest-cache --basetemp OUT/shared-events-final-tmp --junitxml OUT/shared-events-final.xml` | Exit 0: **27 passed, 0 failures/errors/skips**, 11.47 s; final focused run includes two subsequently added migration/HTTP checks; `shared-events-final.*` |
+| `PY -m ruff check services/conversation tests/conversation` | Exit 0; `lint.*` |
+| `PY -m ruff format --check services/conversation tests/conversation` | Exit 0; 29 files formatted; `format.*` |
+| `PY -m projectctl.schemas --check` | Exit 0, no mismatches; `schemas.*` |
+| `PY -m projectctl.conversation_contract --check` | Exit 0, OpenAPI current; `conversation-contract.*` |
+| `PY OUT/capture_examples.py` with `PYTHONPATH` set to repo root | Exit 0; real M1/codec/outbox writes, explicit mapping/provider/model doubles. `capture-examples.*`, `review-examples/events.json`, `review-examples/summary.json` |
+| `git diff --check` | Final exit 0; `diff-check.*`. An earlier trailing blank line in this progress entry was corrected |
+
+`summary.json` reconciles the JUnit test identities: **388 distinct tests** passed
+across the full suite and final focused run; overlapping tests are not counted
+twice. Full-suite JUnit used the default xunit2 family, producing 120 existing
+`record_property` compatibility warnings; the focused run has the one upstream
+Starlette/httpx deprecation warning. No assertions or dependency checks were
+weakened and no strict-xfail was removed. Intermediate lint findings were fixed.
+
+PostgreSQL is **18.2**, from the exact `infra/images.lock.json` pgvector image
+digest, with `fsync`, `synchronous_commit`, and `full_page_writes` all **on**.
+`container.json` and `database-and-smoke.json` retain image/runtime evidence.
+Tests created/dropped only their own `p6_test_` schemas; the example capture
+created/dropped only its own `p2_smoke_` schema. No production database was
+migrated or reset. The restarted container is stopped after verification and
+its data volume is retained. Ignored `local-database.json` contains test
+credentials; do not commit it or any generated evidence/cache.
+
+The review capture retains all six existing M1 event types plus one registered
+DLQ notice: 1 cart fact, 1 checkout fact, 2 turn summaries, 3 tool facts, 1 valid
+intent and 1 rejected intent. All 10 original outbox payloads validate with the
+shared pinned codec and remain unpublished. There are zero fixed-mode model
+calls; the malformed-assist case uses one explicit model spy, no live model.
+The earlier `event-examples.json`, `outbox-packets.json` and migration history
+are also retained. These synthetic examples are owner-review evidence, not
+catalogue quality, throughput, live Registry or end-to-end integration results.
+
+### Owner handoffs, visible limits and manual verification
+
+- **Vichitr/Jaineel:** review `review-examples/events.json` against common §7
+  and M02/M03, including UUID tool IDs, `m1-turn:<turn_id>` restricted references
+  and the producer's existing enum values. Supply/mount a real complete verified
+  schema mapping for deployment. The default runtime cache is absent here:
+  **fresh-service readiness with live Registry mapping = NOT_RUN**. The tests'
+  schema definitions and hashes are real pins; their registry IDs are doubles.
+- **Aditya/Jaineel:** compose the existing shared relay for conversation storage
+  outside requests, then verify original stored identity/content on retries.
+  **Real conversation outbox → Kafka → M4/Gold = NOT_RUN**. No relay or teammate
+  code was implemented/edited here. Kafka downtime alone does not prevent local
+  append with a verified cache and usable database.
+- **Harsh/Jaineel:** bind `CATALOG_DATASET_REVISION` to the approved imported
+  revision documented above; real catalogue provenance binding is **NOT_RUN**
+  in this milestone. The stale root `.env.example`, dictionary hash review,
+  relevance labels and provider concerns from Prompt 1 are untouched.
+- Forward migration does not fabricate missing historical turn/checkout facts.
+  Existing completed commands remain completed; accepted-checkout event coverage
+  applies to new completions after deployment. Optional upstream HTTP/model
+  protocol failures do not expose or invent raw bodies.
+
+Manual replay: restart only the isolated container in `container.json`, refresh
+the port in ignored `local-database.json` if Docker remaps it, set
+`P6_TEST_DATABASE_URL` from its `url`, and rerun the final focused command above.
+For emitted examples, set `PYTHONPATH` to repo root and run the retained
+`capture_examples.py`. Inspect `review-examples/events.json`, migration history,
+the rollback/idempotency JUnit cases and `summary.json`. For deployment, follow
+the owned README: explicitly run the conversation migration CLI against its own
+database, mount the real cache and set the approved revision, then check
+`/health/ready`; removing required cache before a fresh process must yield 503.
+Live provider/relay checks remain incomplete until the named handoffs are bound.
+
+## Roadmap Prompt 3 — real projectctl composition (7 November 2026)
+
+Implemented only roadmap Prompt 3 on the existing `jaineel/j03-telemetry`
+branch. No commit, push, branch change, full benchmark, service startup, stock
+seed, operational import, namespace reset or cross-service database write was
+performed. Existing Prompt 1/2 work, both audit documents and the roadmap were
+preserved. The `.env.example` edit is the explicit exception named inside Prompt 3.
+
+**Code/setup checkpoint:** real existing registrations compose successfully;
+all owned checks below pass. The actual original CSV profile passes. **Complete
+live setup/readiness remains INCOMPLETE**, with unexecuted work NOT_RUN, because
+owner namespace/migration/audit handoffs and the hash-policy review are missing.
+Registration and explicit test doubles are not full-service integration passes.
+
+### Changed paths and behavior
+
+- `projectctl/jaineel.py`: explicit `register(registry)` composes
+  `infra.analytics.register` (already calls streaming),
+  `pipelines.catalog.adapter.register` and `services.inventory.adapter.register`.
+  It does not additionally register postgres/streaming and cause duplicates.
+- `projectctl/providers.py`, `projectctl/benchmark_adapter.py`: factories resolve
+  workload bindings from each trial's config. Binding/factory duplicates are
+  rejected; production factories must return real bindings. Failed module
+  registration discards partial registrations. Factory failures retain dependency
+  evidence without copying arbitrary exception text. Registration inventory is
+  explicitly separate from runtime readiness.
+- `benchmarks/composition.py`, `benchmarks/experiment.py`: actual importer,
+  public HTTP search and Q1–Q6 query adapters are connected to their drivers.
+  The catalogue projection uses Harsh's `runner_catalog_manifest` hash check,
+  canonical owner DTO validation and consumer checks for source/rules, 19,920
+  sorted unique active SKUs, listing identity, dataset revision and matching
+  normalized-manifest digest. Missing explicit lifecycle slots are saved as
+  dependencies before preparation, rather than filled by no-op callbacks.
+  Source validation precedes fresh namespace acknowledgement. The search setup
+  sequence is migrate → import → verify → seed → projection wait/ANALYZE →
+  independent seed proof. Deferred records, wrong versions/counts, pending outbox
+  and boolean values substituted for integer stock fields are rejected.
+- `benchmarks/import_audit.py`: independent read-only CSV/Parquet reconciliation
+  for selected observation identity, integer prices, activity, all exclusive
+  source dispositions, active membership and hashes. No production normalizer
+  or reducer is imported by the oracle. Facet normalization remains separately
+  NOT_RUN. Import drain delegates to the actual owner verification adapter;
+  the observer measures only the generator process, with no claim of SUT coverage.
+- `projectctl/input_pins.py`: reports raw and LF-text hashes separately. It does
+  not normalize the existing raw-file preflight or replace dataset identity.
+- `.env.example`, `configs/evaluation.yaml`: evaluation already had four catalogue
+  connections; the owner runtime example now also has `CATALOG_MAX_CONNECTIONS=4`
+  and `CATALOG_REUSE_CONNECTIONS=false`. The approved catalogue revision, B0 row
+  load mode, Orders' actual URL setting names, lakehouse root and optional model
+  directory are reflected in the example. Existing `QUOTE_TTL_SECONDS=60` stays.
+  Frozen matrix values and null dictionary/query/label pins remain unchanged;
+  the draft/resource limitations are documented instead of declaring readiness.
+- `projectctl/README.md`, `benchmarks/manual/verify_prompt3.py`: bounded checkpoint
+  procedure, actual registration inventory, source/profile, contract/schema and
+  dependency evidence. The verifier starts no Docker services or workloads.
+- `tests/projectctl/test_composition.py`,
+  `tests/benchmarks/test_real_composition.py`,
+  `tests/benchmarks/test_import_source_audit.py`,
+  `tests/integration/test_prompt3_setup.py`: explicit registration, factory,
+  preflight, lifecycle ordering, seed/barrier failure, provenance, cross-platform
+  hashing and corruption tests. Lifecycle/provider effects in unit tests are
+  explicit doubles. The integration test calls the real catalogue profile
+  adapter on the actual CSV and compares the independent source check; its scope
+  is source/profile only, with no PostgreSQL/Kafka/service claim.
+
+### Executed checks and evidence
+
+Evidence root: `artifacts/jaineel/prompt3-20261107/` (ignored).
+`PY` below is `.venv/Scripts/python.exe`. The checkpoint retains per-command
+argument arrays, exit codes and separate stdout/stderr. The final check driver
+also retains raw output, exact commands and JUnit. No evidence is committed.
+
+| Command | Actual outcome / evidence |
+|---|---|
+| `uv sync --locked` | Exit 0; 38 packages resolved /37 audited; lock unchanged; tool transcript |
+| `PY -m pytest tests/projectctl tests/benchmarks tests/integration -q -ra --tb=short --junitxml artifacts/jaineel/prompt3-20261107/owned-tests.xml` | Exit 0: **503 passed, no skips**, 131.28 s; `owned-tests.xml`, `owned-tests.tool-output.log` |
+| `PY artifacts/jaineel/prompt3-20261107/run_checks.py` | Exit 0; exact expanded check argv and raw output in `*-final.command.json`, `*.stdout.log`, `*.stderr.log` |
+| `PY -m pytest tests/projectctl/test_composition.py tests/benchmarks/test_real_composition.py tests/benchmarks/test_import_source_audit.py tests/integration/test_prompt3_setup.py -q -ra --tb=short --junitxml artifacts/jaineel/prompt3-20261107/focused-final.xml` | Exit 0: **41 passed, no skips**, 8.52 s; `focused-final.*`. This final run includes the subsequently tightened integer-money/stock-proof checks; counts overlap the broader run and must not be added |
+| `PY -m ruff check projectctl benchmarks tests/projectctl tests/benchmarks tests/integration` | Exit 0; `lint-final.*` |
+| `PY -m ruff format --check projectctl benchmarks tests/projectctl tests/benchmarks tests/integration` | Exit 0; 99 files already formatted; `format-final.*` |
+| `PY -m projectctl.schemas --check` | Exit 0; all five schemas current; `schemas-final.*` |
+| `PY -m benchmarks.manual.verify_prompt3 --out artifacts/jaineel/prompt3-20261107/checkpoint` | Expected dependency result **4/INCOMPLETE**; `checkpoint/summary.json`, `readiness.json`, `registrations.json`, `hash-review.json`, source checks and command logs |
+| Checkpoint `PY -m projectctl --help` | Exit 0; `checkpoint/help.*` |
+| Checkpoint `PY -m projectctl contracts check --all` | Exit **4**, not pass: available OpenAPI endpoints/examples validate, but shared outbox/transport/diagnostic/schema handoff review remains UNREVIEWED and real G0 smoke NOT_RUN; `checkpoint/contracts.*` links the original CLI evidence directory |
+| Checkpoint `PY -m projectctl catalog profile --source data/raw/flipkart_com-ecommerce_sample.csv --rules flipkart-v1 --out artifacts/jaineel/prompt3-20261107/checkpoint/profile` | Exit 0; actual 20,000 observations, 19,998 canonical, 19,920 active, 78 inactive and 2 superseded; `checkpoint/catalog-profile.*`, `checkpoint/profile/` |
+| Checkpoint `PY -m projectctl env reset --namespace bench-prompt3` | Expected dependency exit **4**, no reset; `checkpoint/missing-reset.*` |
+| `git diff --check` | Exit 0; `diff-final.*`; rechecked after this progress entry |
+
+Exploratory focused tests first encountered a duplicate test basename during
+collection, then **6 fixture failures /17 passes**: the new fixture omitted
+canonical descriptor fields and attempted to overwrite an exclusive evidence
+file. The test file was renamed and the fixtures corrected without weakening
+schema checks. The next run passed **32 tests**. Final focused coverage adds
+strict integer/boolean and seed/pool cases. Early formatting/lint findings were
+fixed. Exploratory output remains in the tool transcript; final saved runs above
+are the reproducible checkpoint. No required assertion or provider check was skipped.
+
+### Exact conflicts and remaining owner handoffs
+
+1. **Harsh/Jaineel and affected SKU/provenance consumers:** file09 §1 says raw-file
+   hashes cover exact bytes. `pipelines/catalog/normalize.py:load_dictionary`
+   instead hashes universal-newline UTF-8 text and uses that value in
+   dataset_revision. On this Windows checkout dictionary raw SHA is
+   `7de194b5f49538e84a43ce91e734acae2182a0c96e3b743d668695ad6c6c2a02`,
+   while LF-text/published SHA is
+   `a7d381e90986b23f801eca537a689f2d3e056fa0b58040ecb7c182e2be2f9943`.
+   Query raw SHA is
+   `14733547c0ce5690a79e3ea633d2b5ecdb0b5a133fd30e3fffcc175cf0ffcd63`,
+   while LF-text/published SHA is
+   `89d89ac030f10d23e85d6e5084caa125017b5f927a1ed94854aadc3be4762410`.
+   The cross-platform test proves raw hashes differ while text identity matches.
+   Review a canonical-byte distribution policy or an explicitly versioned split
+   between raw artifact hashes and semantic identity before filling pins. No
+   unilateral raw-preflight/spec/dictionary/revision change was made. Rule labels
+   are not selected or certified as human-reviewed; session reuse stays disabled.
+2. **All storage owners/Jaineel:** supply reviewed fresh benchmark namespace
+   preparation and owner-local migration coordination. `infra.analytics.migrate`
+   still reports only analytics migrated and exit 4. There is no global reset
+   provider. Missing implementations were not invented or replaced with SQL.
+3. **Aditya/Harsh:** expose/adopt complete initial stock, version, deferred and
+   relay acknowledgement audits. The current catalogue projection adapter counts
+   projected rows; it does not by itself prove every initial value/version or
+   reject a nonzero deferred backlog. The consumer therefore requires the
+   independent seed proof after the owner's real projection barrier.
+4. **Harsh/Vichitr/Jaineel:** supply reviewed frozen snapshot/layout/query-day,
+   downstream drain, independent read-only service audit and SUT collectors.
+   W-PIPE/W-QUALITY publisher composition and all real integration case bindings
+   remain unavailable. W-ANALYTICS uses the actual query adapter only after these
+   bindings exist; it does not choose an empty snapshot or infer the query day
+   from a publication timestamp. The current adapter's DuckDB connection lifetime
+   and complete query evidence still need lifecycle review before execution.
+5. **Infrastructure/config owners:** the environment adapter accepts
+   `streaming-local`, while frozen evaluation names planned `local4c8g`.
+   No alias pretending resources were enforced was added. Freeze/verify the real
+   profile, schema cache and exact locks before marking evaluation config ready.
+
+Manual reproduction: run the bounded verifier into a **new** output directory,
+inspect the registration/hash/readiness files and real profile. Run the final
+focused command above and inspect JUnit. After owner callbacks/reviews arrive,
+compose them explicitly using the documented harness slots; apply the pool/env
+settings to the actual catalogue process, use a fresh `bench-*` namespace and
+follow file09 §2 in order. Retain each setup result and stop at the first missing
+dependency. Independent audit failures must remain failures. Real import/seed,
+stock projection, PostgreSQL/Kafka smoke, full correctness and all performance
+measurements remain **NOT_RUN** in this checkpoint. Stop before Prompt 4.
+
+### Docker cleanup and continuing preference
+
+The user requested removing containers no longer needed after this and later
+prompts. No new container was needed here. After the tests, re-inspected the
+three remaining, stopped Jaineel Prompt 1/2 containers and saved safe metadata
+plus their stdout/stderr. Ran `PY artifacts/jaineel/prompt3-20261107/cleanup_containers.py`,
+which executed `docker rm` only for these exact verified stopped containers:
+
+- `jaineel-prompt1-7660a7233f0c-linux-catalogue-brand-runxfail`
+- `jaineel-prompt1-7660a7233f0c-linux-catalogue-consumer`
+- `jaineel-prompt1-6bc91382e721`
+
+Exit 0. `docker-before.json`, `docker-cleanup.json`, `docker-rm.*` and
+`docker-after.log` retain evidence. Final `docker ps -a` is empty. Both mounted
+data volumes were independently verified retained: the named
+`jaineel-prompt1-7660a7233f0c-data` and PostgreSQL volume
+`ec6e8327617d0e19d7f19999c7da412abdd70ffa6b1ae6c2f58bc6c6a73b14e7`.
+No volume/image prune ran. Three older P6 containers from the first inventory
+were already absent on reinspection; they were not removed by this command.
+Earlier instructions to `docker start` the deleted database container are now
+superseded: recreate it with the retained volume and original pinned image/local
+credential record when a later database test needs it. For later prompts remove
+only verified obsolete task containers, retain data/evidence and leave unrelated
+containers alone.
+
+## Roadmap Prompt 4 — quality bindings checkpoint (7 November 2026)
+
+**Harness/offline checks passed; real G1, T-03/W-QUALITY and performance remain
+NOT_RUN. Checkpoint INCOMPLETE, dependency exit 4.** Stopped before Prompt 5.
+
+Stayed on `jaineel/j03-telemetry`, inspected status/diff first, and preserved all
+pre-existing dirty work, the roadmap and both audit documents. No commit/push,
+branch change, provider implementation, public contract, schema, dataset revision,
+evaluation config, application lock or Docker configuration was changed here.
+
+### Changed paths
+
+- `benchmarks/quality_binding.py`: explicit owner callback slots; real lifecycle
+  checks for verified Harsh manifests, frozen 10,000-SKU selection, exact source,
+  complete scoped seed/projection, fresh empty quality namespace/topics, locked
+  PostgreSQL/Kafka/registry and actual resources/parameters. Adopts Vichitr's
+  `QualityMaterializer`, online-verified `SchemaCache` and actual B0 group/topic
+  offsets. Observer reuses existing generator/lag/Gold collectors and requires
+  declared owner SUT collectors. Registration composes Prompt 3 and W-QUALITY
+  once. Missing callbacks have no fabricated implementations.
+- `benchmarks/quality_publisher.py`: normal events retain SDK validation and
+  `KafkaPublisher.publish_event`. Only independently identified invalid fixture
+  ordinals/subcases with the expected SDK rejection may use the explicit raw
+  publisher. Both retain frozen producer settings. Persisted bytes/headers/key,
+  identity and actual broker coordinates are checked; same-ID concurrent sends
+  cannot collapse through SDK pending-ID coalescing. Uncertain sends are not retried.
+- `benchmarks/quality_sources.py`: bounded public owner receipt/quarantine/sink
+  readers, `load_capture`/`read_bronze`, verified Parquet and pinned-generation
+  membership. Requires a default-read-only analytics connection; no corrective
+  write, reducer, cleaner, publication or offset commit. Re-reads post-drain
+  evidence from zero; preserves missing timers and restart-capture consistency.
+- `benchmarks/quality_audit.py`: independent fixture labels/counts, complete frozen
+  plan, physical delivery/source accounting, persisted duplicates, original Bronze
+  key/value/headers, dispositions/reasons/quarantine, logical content/Silver,
+  pinned active Gold IDs/minute totals, offsets and sink membership/dispositions.
+  Distinguishes SDK key/value/header fingerprints from body-only wire hashes.
+  Arrow's unrelated payload fields must be null; expected stock fields must match.
+- `benchmarks/quality_trial.py`: separately named three-delivery real G1 path with
+  its own recipe hash, using the same setup/transport/audit controls. It cannot
+  reduce or pass the separate 100,000-record T-03 assertions.
+- `benchmarks/manual/verify_prompt4.py`: bounded readiness checkpoint with locked
+  environment and read-only Docker probes; never starts a partial live fixture.
+- `tests/benchmarks/test_quality_binding.py`,
+  `tests/benchmarks/test_quality_sources.py`,
+  `tests/benchmarks/test_quality_lifecycle.py`: **52 new offline checks**. Explicit
+  transport/registry/SQL/setup doubles; every invalid subcase, scheduler duplicate
+  reuse, deliberately wrong evidence, actual Arrow type conversion with synthetic
+  values, read-only/paging bounds, setup/seed guards, drain and missing dependencies.
+- `docs/jaineel/progress.md`: this evidence and handoff record.
+
+### Exact commands and actual results
+
+`PY` means `.venv/Scripts/python.exe`. Evidence root:
+`artifacts/jaineel/prompt4-20261107/`. Each final command has exact argv/exit-code
+JSON plus raw stdout/stderr. Results and generated evidence remain ignored by Git.
+
+| Command | Actual result / evidence |
+|---|---|
+| `PY artifacts/jaineel/prompt4-20261107/run_final_checks.py` | Exit 0; orchestrates final checks below, `final/checks.json` |
+| `PY -m pytest tests/benchmarks/test_quality_binding.py tests/benchmarks/test_quality_sources.py tests/benchmarks/test_quality_lifecycle.py tests/pipelines/test_quality_materializer.py -q -ra --tb=short --junitxml artifacts/jaineel/prompt4-20261107/final/focused.xml` | Exit 0: **68 passed, no skips**, 9.98 s; `final/focused.*`; includes Vichitr's unchanged 16 offline wire checks |
+| `PY -m pytest tests/benchmarks tests/projectctl tests/oracles tests/integration -q -ra --tb=short --junitxml artifacts/jaineel/prompt4-20261107/final/owned.xml` | Exit 0: **614 passed, no skips**, 146.96 s; `final/owned.*`; overlaps focused tests, counts must not be added |
+| `PY -m ruff check benchmarks tests/benchmarks tests/projectctl tests/integration tests/oracles` | Exit 0; `final/lint.*` |
+| `PY -m ruff format --check benchmarks tests/benchmarks tests/projectctl tests/integration tests/oracles` | Exit 0; 100 files formatted; `final/format.*` |
+| `PY -m projectctl.schemas --check` | Exit 0; all five schemas current; `final/schemas.*` |
+| `PY -m benchmarks.manual.verify_prompt4 --out artifacts/jaineel/prompt4-20261107/final/checkpoint` | Expected **4 / INCOMPLETE**; correctness null; G1/T-03/performance NOT_RUN; `final/checkpoint/{summary,readiness}.json`, `g1/summary.json` |
+| Checkpoint `uv sync --locked --check` | Exit 0; 38 resolved /37 audited, would make no changes; `final/checkpoint/lock.*` |
+| Checkpoint `docker ps -a --format "{{.Names}} {{.Status}}"` | Exit 0, empty inventory; `final/checkpoint/docker.*`; no container created or cleanup needed |
+| `PY artifacts/jaineel/prompt4-20261107/probe_eval.py` | Wrapper exit 0 verifies the next command's expected child exit 4; `eval-t03.command.json`, `eval-t03.stdout.log`, `eval-t03.stderr.log` |
+| With `PROJECTCTL_ADAPTER_MODULE=benchmarks.quality_binding`: `PY -m projectctl eval run --suite T-03 --config configs/evaluation.yaml` | **4 / NOT_RUN**; draft prerequisites and no selected reviewed evaluation case binding; `benchmarks/results/7cd1280b-0bfb-4baa-bc30-4a51627b4179/`. Earlier equivalent direct-shell evidence retained at `benchmarks/results/a774bfce-0a30-403e-a1d9-4e8dba4fea0d/` |
+| `git diff --check` | Exit 0; `final/diff.*`; repeated after this entry |
+
+The earlier owned run (611 passed) and focused logs are retained at the evidence
+root. Review tightened source fingerprints, the actual conversation topic, Arrow
+nullable payload projection and batch/receipt agreement before the final runs.
+Initial lint/format findings were fixed. No required assertion/test/provider
+marker was weakened. None of these offline checks proves real broker/SQL G1.
+
+### Blockers, conflict and owner handoffs
+
+1. Config remains `draft`, with planned resources. Infrastructure/event-schema
+   lock path/hash, dictionary path/hash, canonical/SKU manifests and generator/
+   W-QUALITY recipe pins are missing. Prompt 3's exact-byte versus LF dictionary
+   hash-policy review remains open; no pin or revision was invented.
+2. This harness has no configured schema-cache path, registry URL or Kafka
+   bootstrap; Docker has no containers. Online registry, PostgreSQL/Kafka trial,
+   import/seed/projection and performance checks are NOT_RUN. The application
+   lock check alone does not establish a ready locked environment.
+3. **All affected owners/Jaineel:** supply reviewed fresh namespace/resource
+   setup, complete independent seed/projection audit, read-only `QualitySources`
+   factory and declared SUT collectors. `QualityOwners` are harness slots, not
+   claimed teammate exports. The mapping/API/code-byte review requires Jaineel,
+   Harsh, Aditya and Vichitr; no approval file was fabricated. Existing generic
+   `T-03/quality` and `smoke/G1` evaluation case bindings remain unregistered until
+   their independent fixture/export mapping is reviewed. Separate adversarial
+   conflict/null/version/UTC cases remain unexecuted; their facts must not be set
+   true merely because the finite recipe passed offline checks.
+4. **Seed/quality collision — Aditya/Vichitr/Harsh/Jaineel review required.**
+   File03 §5.3 requires "all 98,500 unique valid events accepted" and "all 1,000
+   duplicate deliveries suppressed"; file09 §2 requires import, seed and complete
+   initial projection before fixture evaluation. The materializer uses
+   `version = ordinal // 10000 + 1`, starting at 1 per SKU.
+   `services/inventory/seed.py` emits a distinct `STOCK_UPDATED` event with stock/
+   aggregate version 1; `pipelines/curation/__init__.py` rejects a new event ID at
+   an existing aggregate version with `AGGREGATE_VERSION_CONFLICT`. Processing
+   both in one analytics namespace can violate the frozen counts. These exact
+   producer/consumer paths and values are a code-level handoff, not a claimed
+   live failure. Review namespace/cohort setup before providing callbacks. The
+   harness requires empty quality topics/analytics and retains seed proof scope;
+   it does not choose a new namespace policy, skip seed events, renumber facts,
+   change counts or patch an owner's producer/consumer to hide the conflict.
+
+Manual continuation: rerun the verifier into a **new** output directory. After
+reviewed manifests, locks, seed namespace policy and callbacks exist, supply
+`QualityOwners` explicitly to `build_quality_bindings(config, owners=...)` or
+`run_g1(config, new_directory, owners=...)`. A reviewed deployment adapter can
+register that factory. The default `benchmarks.quality_binding` registration
+currently exposes dependency evidence, not callback discovery. Retain G1's three
+physical deliveries/one logical effect separately; then run all 100,000 W-QUALITY
+records with unchanged 98,500/1,000/500 assertions. Missing source, archive,
+offset, disposition, active membership or audit evidence must block a real pass.
+Keep NULL timers and unexecuted stages visible. Stop here before Prompt 5.
+
+## Roadmap Prompt 5 — G3 transaction binding and recovery checkpoint (7 November 2026)
+
+**Status:** G3 consumer binding and offline regression checkpoint implemented.
+Real `smoke/G3-success`, `smoke/G3-decline`, quote-expiry regression and recovery
+trials remain **NOT_RUN**. There is no owner-reviewed real composition/fixture,
+and no live transaction or fault was attempted. No performance claim. Stop at
+Prompt 5; Prompt 6 was not started.
+
+Stayed on `jaineel/j03-telemetry`. Preserved all pre-existing dirty work, both
+audit documents and the roadmap. No branch switch, commit, push, service patch,
+contract change, dataset change or implicit reset. Initial status/diff and
+preservation evidence are under `artifacts/jaineel/prompt5-20261107/`.
+
+### Changed paths and implementation
+
+- `benchmarks/g3.py`: `G3Binding` implements the existing `CaseBinding` interface
+  for the existing success/decline cases. `register_g3(registry, bindings)` is
+  called explicitly by a reviewed deployment composition. No real bindings are
+  registered by default. `G3Owners` contains named, currently unavailable
+  fresh-namespace/simulator, drain, producer-receipt and analytics-audit callback
+  slots; these are harness requirements, not claimed exports from owner modules.
+- The flow uses public M1 session/fixed turn/cart/quote/explicit checkout APIs,
+  followed by public Orders status. It freezes request/user/session/cart/version,
+  quote and confirmation identity. A lost checkout response retries exactly the
+  same body/key; after two lost responses, read-only Orders audit may establish
+  admission. An absent/ambiguous backend match remains UNKNOWN. Pending and
+  MANUAL_REVIEW cannot become cancellation or success because a deadline elapsed.
+  Unresolved finality timing stays null. Every state transition, request, response
+  and observed order snapshot is retained before later validation.
+- `benchmarks/g3_http.py`: bounded HTTP, canonical owner DTO response validation,
+  no automatic mutation retry, explicit real/test transports, safe identity
+  headers and exact base64 response bytes with SHA-256. Tokens remain outside
+  journals. There are no imports of service implementations or cross-database
+  writes in these new modules.
+- `benchmarks/g3_audit.py`: consumes documented read-only Orders, Inventory,
+  Payments and Catalogue HTTP snapshots. Namespace lists catch extra transaction
+  effects; capped/truncated lists cannot pass. Reads immutable order lines and
+  totals, reservation state, payment attempts/guard, individual ledger entries,
+  authoritative stock and catalogue projection. The current ledger export uses
+  positive magnitudes for DEBIT and REVERSAL: this reviewed mapping candidate
+  converts reversals to negative exactly once and ignores the clamped aggregate
+  `net_debit_minor`. The existing independent oracle checks totals, signed ledger,
+  inventory conservation, source dispositions, exact Silver/active-Gold membership,
+  manifest generation, monetary totals and frozen Gold business rows. Projection
+  counts, version and change time must match Inventory. A decline needs an actual
+  FAILED/DECLINED payment, not just any cancelled order.
+- Producer expectations are bound before the separate sink audit. Raw outbox
+  envelopes and broker coordinates establish immutable event IDs/hashes;
+  independently frozen logical counts and order/quote identities constrain the
+  cohort. Physical duplicates retain the identical envelope and separate source
+  coordinates. Replenishment must have explicit independent evidence. The sink
+  callback never receives the expected fixture and cannot overwrite transaction
+  snapshots or business expectations. Missing ledger, receipts or active Gold
+  blocks a pass.
+- `benchmarks/g3_recovery.py`: HTTP consumer regression for original-key and
+  new-key retries of an already accepted quote after expiry, new/unconsumed
+  expired quote rejection, and changed-input conflict on the original key. It
+  requires backend expired quotes; it does not rewrite service clocks or fix Orders.
+- `benchmarks/manual/verify_prompt5.py`: read-only dependency checkpoint, raw
+  Docker/lock probe logs, separate NOT_RUN status for both G3 cases and the two
+  recovery handoffs. It returns exit 4 and attempts no transaction writes.
+- `tests/integration/g3_double.py`, `tests/integration/test_g3.py`: explicitly
+  scripted HTTP/producer/analytics doubles. Cover success and decline; one/two
+  lost checkout responses; unchanged identities/keys; saved-evidence recheck;
+  corrupt totals, duplicate debits, stock/projection mismatch; missing evidence;
+  unresolved finality; frozen quote safety; producer count/hash/scope conflicts;
+  signed reversal mapping; exact invalid response byte retention; and the expiry
+  regression. These fixtures are **not** real catalogue or transaction fixtures.
+
+Imported canonical contracts: `shared.contracts.common.RequestContext/ErrorResponse`,
+M1 `SessionCreated/TurnResponse/CartSnapshot`, catalogue `Quote/ProductResponse`,
+transaction `CreateOrderRequest/OrderAccepted/OrderSnapshot/PaymentOrderSnapshot/
+StockSnapshot`, and `events.EventEnvelope`. Runtime mapping review must pin the
+four HTTP contracts, these DTOs, the harness/oracle files and the concrete owner
+callback implementations, plus the exact independent fixture bytes. Existing
+`validate_review` requires actual Jaineel/Harsh/Aditya/Vichitr review; no approval
+record was generated here.
+
+### Exact commands and actual outcomes
+
+`PY` below is `.venv/Scripts/python.exe`; `OUT` is
+`artifacts/jaineel/prompt5-20261107`. `checks.json` records the exact executable,
+argument arrays, exit codes and elapsed times. Named stdout/stderr logs and JUnit
+are retained next to it.
+
+| Command | Actual result / evidence |
+|---|---|
+| `uv sync --locked --check` | Exit 0; 38 resolved, 37 audited, would make no changes; `lock.*.log` |
+| `PY -m pytest tests/integration tests/oracles tests/benchmarks tests/projectctl -q -ra --tb=short --junitxml=OUT/regression.xml --basetemp=OUT/test-tmp -o cache_dir=OUT/pytest-cache` | Exit 0; **644 passed, 0 skips**, 142.07 s; `regression.xml`, `regression.*.log`. Explicit offline/double coverage, not live G3 |
+| `PY -m pytest tests/integration/test_g3.py -q -ra --tb=short --junitxml=OUT/focused-final.xml --basetemp=OUT/focused-tmp -o cache_dir=OUT/focused-cache` | Exit 0; **33 passed, 0 skips**, 14.85 s. Includes the last three invalid-byte cases and the less timing-sensitive test deadline; overlaps the broader run, do not add counts |
+| `PY -m ruff check benchmarks/g3.py benchmarks/g3_http.py benchmarks/g3_audit.py benchmarks/g3_recovery.py benchmarks/manual/verify_prompt5.py tests/integration/g3_double.py tests/integration/test_g3.py` | Exit 0; `lint-final.*.log` |
+| `PY -m ruff format --check benchmarks/g3.py benchmarks/g3_http.py benchmarks/g3_audit.py benchmarks/g3_recovery.py benchmarks/manual/verify_prompt5.py tests/integration/g3_double.py tests/integration/test_g3.py` | Exit 0; seven files formatted; `format-final.*.log` |
+| `PY -m benchmarks.manual.verify_prompt5 --out OUT/readiness-final` | Actual subprocess exit **4**; both G3 cases NOT_RUN, correctness null; `readiness-final/readiness.json`, `readiness.*.log` |
+| Verifier's `docker ps -a --format "{{.Names}} {{.Status}}"` | Exit 0, empty output: Docker reachable, no containers reported. No PostgreSQL/Kafka/registry trial |
+| SHA-256 preservation check | All five unchanged: both audits, roadmap, `benchmarks/integration_cases.py`, `uv.lock`; `preservation.json` |
+
+Initial focused development execution recorded 11 failures/16 passes in
+`focused-initial.xml`: the new binding reused the exclusive-create artifact writer
+for changing state views. Fixed that by retaining append-only state/order journals
+and updating only the latest convenience views. The second and third focused runs
+each passed 27 tests (`focused-second.xml`, `focused-third.xml`). Final results
+above supersede those runs without deleting their evidence. No assertions were
+weakened. Extra final checks independently cover raw signed reversals, source/order
+binding, genuine decline evidence and invalid JSON/UTF-8 bytes.
+
+### Remaining owner review and manual continuation
+
+1. **Real G3 setup and exports — all owners.** Current preflight records draft
+   config, unenforced resource profile, missing infrastructure/event-schema locks,
+   unpinned dictionary, absent canonical/SKU manifests and absent logical fixture
+   hash. All six `G3Owners` fields are unavailable. Harsh supplies the verified
+   catalogue/quote/seed-projection binding; Aditya supplies deterministic SUCCESS
+   and DECLINED simulator controls, namespace workers and reviewed transaction/
+   response-loss/fault evidence; Vichitr supplies broker/outbox delivery, complete
+   source/active Silver/Gold exports and publication/replay/fault bindings. Existing
+   `services/payments/authorize.py` uses `random.random()`; no deterministic real
+   outcome control is inferred from unit-test monkeypatches. Normal domain facts
+   must be emitted by actual transactions, never fabricated by this binding.
+   Audit row shapes/sign conventions and complete producer cohort (including seed
+   facts) need explicit review. In particular, source `run_id` must be preserved:
+   the Orders background worker currently constructs `run_id="saga-worker"` in
+   `services/orders/app.py`; do not relabel its envelopes in the harness to pass.
+
+2. **Compaction — Harsh/Vichitr/Jaineel.** Read
+   `analytics/compaction/faults.py`: boundary
+   `after_candidate_files_before_publish`, target `compaction`; its child creates
+   candidate files, acknowledges, then waits to be killed before publication.
+   `T-12/stale-compaction` instead uses `before_manifest_swap` /
+   `compaction-publisher` while ingestion advances. Common §13 requires
+   STALE_MANIFEST for an advanced base; these are different trials. The proposed
+   crash-recovery case must prove candidate absence from active membership,
+   unchanged active generation after the killed attempt, retained volume/files,
+   equal logical digest/row count/currency totals for a replacement, and exactly
+   one successor generation from the unchanged pinned base. Those proposed facts
+   are captured in readiness evidence. Affected owner review is unavailable, so
+   **no case was added and no existing case was remapped**. Candidate recovery,
+   stale-generation rejection and any real retained-volume fault remain NOT_RUN.
+
+3. **Quote-expiry/idempotency handoff — Aditya, Harsh and Jaineel.** Exact existing
+   requirements: common §5 says Orders checks quote "binding and validity";
+   common §8 says "Check prior idempotency/quote consumption before rejecting a
+   retry because the original quote has since expired." Common Appendix A says
+   repeated accepted quotes resolve to the existing order and bind a new transport
+   key; a new expired quote is rejected. Common §3 requires same key/different
+   input to return 409. `services/orders/commands.py:create_order` currently calls
+   `_fetch_quote` before consulting existing quote consumption, checks no expiry/
+   user binding after that fetch, and resolves conflict only on
+   `(namespace,user_id,quote_id)`. The Orders HTTP route does not consume the
+   Idempotency-Key. These are **code-level findings**, not a real regression trial.
+   Merely adding an expiry check before replay lookup would break the accepted
+   retry rule. Consumer scripts detect expired retry rejection, fresh expired
+   acceptance and changed-input key reuse independently. Aditya must review/fix
+   Orders and its canonical behavior; Harsh reviews real internal quote lookup.
+   No owner service or contract was edited here.
+
+After those handoffs, author an independent one-SKU fixture for each G3 outcome
+with frozen prices, quantity, opening stock, full logical event counts and Gold
+aggregates; use runtime `@id:order`, `@id:quote`, `@id:session` tokens only for
+generated identities. Supply real reviewed `G3Owners` and a real `G3HTTP` factory
+to `G3Binding`, register with `register_g3` in the approved composition, and run
+the existing `projectctl eval run --suite smoke --config REVIEWED_CONFIG` in fresh
+namespaces after the canonical setup sequence. Preserve G1 separately. Inspect
+`http.jsonl`, `state.jsonl`, `order_snapshots.jsonl`, `producer_receipts.json`,
+`drain.json`, `analytics_raw.json`, `observed.json`, `bound_fixture.json` and
+`correctness.json`; then use `projectctl benchmark reconcile --run-dir RUN_DIR`.
+Run the expiry probe only with actual previously accepted and fresh-unconsumed
+expired quotes and the original request/key evidence. Run recovery trials only
+after exact hooks, recovery invariants and owner acknowledgements are reviewed.
+No missing provider, ledger, Gold membership, timer, hook or review may become a
+real pass. **Prompt 5 checkpoint reached with the external real gate still open.**
+
+## Roadmap Prompt 6 — truthful repository CI (7 November 2026)
+
+Stayed on `jaineel/j03-telemetry`; no commit, push, branch change, provider-code
+edit, contract change or benchmark measurement. Initial status and tracked diff
+are retained in `artifacts/jaineel/prompt6-20261107/{initial-status.txt,initial.diff}`.
+All prior work, both audits and the roadmap are preserved. This checkpoint is
+repository coverage, **not** a G0/G1/G3 or performance certification.
+
+### Changes and job dependencies
+
+- `.github/workflows/offline.yml`: Ubuntu/Windows offline jobs now collect all
+  eleven suites: conversation, catalogue, analytics, pipelines, transactions,
+  contracts, projectctl, benchmarks, oracles, telemetry and integration. Owned
+  lint/format and schema checks run too. Service opt-ins/URLs are removed for
+  offline execution; missing real dependencies remain JUnit skips with reasons.
+- The separate PostgreSQL job provisions the exact pgvector/PostgreSQL 18 image
+  from `infra/images.lock.json`, initializes vector in its disposable database,
+  and runs M1/catalogue/transaction suites. Each owner fixture retains its isolated
+  schemas and declared HTTP/model/registry-ID/event doubles. These tests do not
+  establish six-service database-role isolation or broker delivery.
+- The Kafka job provisions and verifies the owner's `streaming-local` profile
+  through `infra.streaming`: digest-pinned PostgreSQL, Kafka and registry, real
+  roles/topics/schema cache. Native PostgreSQL/Kafka recreation, registry, SDK and
+  catalogue projection tests run serially. After re-verification, the owner's
+  pinned storage worker runs all pipeline and analytics suites with real SQL,
+  Kafka and a Linux named volume. Independent job failures are never suppressed.
+  The two external broker-pause controller cases remain explicitly unavailable;
+  CI supplies no fabricated outage controller. Raw dataset/model-dependent tests
+  skip when their actual inputs are absent; CI does not download substitute data
+  or install a second embedding dependency lock.
+- `benchmarks/manual/verify_prompt6.py`: exact command/exit/time logs, JUnit counts
+  (pass/fail/error/skip/xfail), complete skip reasons, dependency probes and a
+  separate NOT_RUN status for DE gates. PostgreSQL probes require major 18,
+  durability on, and installed pgvector 0.8.1 for catalogue. Exit 4 from contract
+  inventory is accepted only with matching NOT_RUN/MISSING/UNREVIEWED evidence and
+  no FAIL; it never becomes a provider pass. Malformed evidence, correctness
+  failures, strict XPASS, absent XML and timeouts fail the checker.
+- `benchmarks/manual/prompt6_services.py`: bind the actual owner-generated CI
+  catalogue URL and extend the existing storage-check Compose configuration with
+  read-only benchmark/analytics sources and writable evidence. Build context holds
+  only the existing Dockerfile, pyproject and uv.lock. Worker failures propagate.
+  Credentials/overlays stay ignored and are excluded from artifact uploads.
+- `benchmarks/manual/verifier_state.py` and `verify_p5.py`, `verify_p6.py`,
+  `verify_p7.py`: replace the obsolete clean-HEAD protected-path expectation with
+  an invocation-time tracked-diff snapshot. Pre-existing edits are preserved;
+  changes during verification fail. Tests still require their original exit codes.
+  `verify_p6` now labels its added real local shared-codec/outbox coverage correctly
+  while keeping Kafka NOT_RUN. Reviewed `verify_p11.py`: exit 0/4 for optional real
+  bindings and rejection of executed correctness exit 3 remain appropriate; no
+  change needed. The fixed-only P7 extraction already handles combined fixed/assist
+  traces; its failure-verdict tests are retained.
+- `tests/benchmarks/test_prompt6_ci.py`: explicit subprocess/database/Compose/XML
+  doubles test dependency rejection, skip/xfail/strict-XPASS counting, malformed
+  contract evidence, timeout logs, URL redaction, dirty-work preservation, real
+  volume bindings and worker failure propagation. Workflow checks verify pinned
+  provisioning and always-uploaded logs/JUnit. These are labelled offline tests.
+- Every CI job uploads logs/JUnit/summary even on failure, including nested server
+  logs. Generated credentials, `.env` and private Compose overlays are excluded.
+  No `continue-on-error`, removed strict marker or weakened assertion was added.
+
+### Executed checks and retained evidence
+
+Below, `OUT=artifacts/jaineel/prompt6-20261107`, `PY=.venv/Scripts/python.exe`.
+The new verifiers retain argument arrays, exit codes and elapsed durations in
+`checks.json`; stdout/stderr and JUnit are adjacent. Counts overlap across runs.
+
+| Command | Actual result / evidence |
+|---|---|
+| `uv sync --locked --check` | Exit 0; 38 resolved / 37 audited, no changes |
+| `PY -m pytest tests -q -ra --tb=short --junitxml=OUT/baseline.xml --basetemp=OUT/baseline-tmp -o cache_dir=OUT/baseline-cache` | Exit 1; **1,454 passed, 1 failed, 515 skipped**; `baseline.log`, `baseline.xml`. Failure is Vichitr's stale M1 codec fixture below |
+| `uv run --locked python -m benchmarks.manual.verify_prompt6 --job offline --out OUT/offline` | Exit 1; **1,422 passed, 32 failed, 12 errors, 515 skipped**; `offline/{checks.json,pytest.xml,pytest.stdout.log,summary.json}`. Besides the same transport failure, writes encountered ENOSPC; this run is not relabelled as pass |
+| `uv run --locked python -m pytest tests/conversation tests/catalog tests/analytics tests/pipelines tests/transactions tests/contracts tests/projectctl tests/benchmarks tests/oracles tests/telemetry tests/integration --lf --last-failed-no-failures=none -q -ra --tb=short --junitxml=OUT/offline-recheck.xml --basetemp=artifacts/p6-recheck-tmp -o cache_dir=OUT/offline/cache` | Exit 1; **43 passed, 1 failed** in 9.23 s. All ENOSPC-affected cases passed using shorter scratch; transport failure reproduces. Original failures remain in XML/logs. No confirmed storage root cause is claimed; drive snapshot reported about 1.67 GB free after the run |
+| `PY -m pytest tests/benchmarks/test_prompt6_ci.py tests/benchmarks/test_verifier_evidence.py -q --tb=short --junitxml=OUT/verifier-final.xml` | Exit 0; **28 passed**, zero skips; `verifier-final.log`, `verifier-final.xml` |
+| `PY -m ruff check benchmarks projectctl services/conversation shared/telemetry dashboards tests/conversation tests/contracts tests/projectctl tests/benchmarks tests/oracles tests/telemetry tests/integration` | Exit 0; `owned-lint-final.log` |
+| Same owned paths with `PY -m ruff format --check` | Exit 0; `owned-format-final.log` |
+| Schema and conversation contract checks from offline verifier | Both exit 0; `offline/{schemas,conversation-contract}.{stdout,stderr}.log` |
+| `PY -m projectctl contracts check --all` | Exit **4**, NOT_RUN; actual inventory reports six unreviewed shared/schema bindings, not an executed correctness failure. Raw JSON in `offline/contracts.stdout.log`; the old verifiers' expected 4 is still current |
+| `PY -m benchmarks.manual.p6_smoke --out OUT/legacy-p6-smoke` with explicit Docker test URL | Exit 0; `legacy-p6-smoke/{smoke.json,server.log}`, `legacy-p6-smoke.log`; real PostgreSQL, event capture double |
+| `PY -m benchmarks.manual.p7_smoke --test-double-providers --confirm-checkout --out OUT/legacy-p7-smoke` | Exit 0; **16/16 assertions**, real PostgreSQL and explicit providers/events doubles; `legacy-p7-smoke/smoke.json`, `legacy-p7-smoke.log` |
+| Local Kafka and volume readiness invocations (`--job kafka`, `--job volume`) | Each exit **4**, NOT_RUN: respective catalogue/analytics test URL is absent; `kafka-readiness/summary.json`, `volume-readiness/summary.json`. No Kafka, registry or volume execution is claimed |
+
+Local PostgreSQL uses the workflow's exact digest-pinned image in a newly created
+container `jaineel-prompt6-pg-20261107`, loopback ephemeral port and disposable test
+credentials; `postgres-container.json` stores selected non-secret provenance.
+The first port-discovery template failed; `postgres/summary.json` correctly records
+ConnectionTimeout/NOT_RUN and no tests. Corrected discovery used `docker port`.
+The first real PostgreSQL job produced **628 passed, 113 errors, 13 skipped**
+(`postgres-real/pytest.xml`): the image had vector installed but the new database
+lacked `CREATE EXTENSION`. Fixed CI provisioning with
+`CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public`; local exact command
+was `docker exec jaineel-prompt6-pg-20261107 psql -U ci_test -d ci_test -c 'CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public'`
+(`pgvector-setup.log`, exit 0). Added fail-closed extension readiness coverage.
+The corrected-extension rerun, exact command
+`uv run --locked python -m benchmarks.manual.verify_prompt6 --job postgres --out OUT/postgres-final`,
+returned exit **1**: **630 passed, 25 failed, 86 errors, 13 skipped** in 266.81 s.
+Per-suite JUnit counts: M1 **387 passed / 1 failed**, transactions **127 passed**,
+catalogue **116 passed / 24 failed / 86 errors / 13 skipped**. Raw evidence:
+`postgres-final/{checks.json,summary.json,pytest.xml,pytest.stdout.log}`.
+Catalogue ingestion uses the real FileStore and requires Linux directory fsync;
+Windows correctly raises `pipelines.storage.DurabilityUnavailable`. Import fault
+children also exit before the barrier for that reason. No fake Windows durability
+or skipped provider assertion was added. The Linux-only workflow is configured
+correctly; this host cannot certify its catalogue/volume job. Added an explicit
+Linux precondition to all service-job selections and a regression test: the final
+local `--job postgres --out OUT/platform-readiness` returns **4 / NOT_RUN**, with
+the platform dependency recorded instead of starting unsupported fixtures.
+Earlier failed attempts remain evidence, not passes.
+
+M1's single later failure was
+`test_search_receives_remaining_total_deadline_and_never_retries`: elapsed 3.797 s
+exceeded its unchanged 3.5-s ceiling while the broad checks ran. Its isolated exact
+rerun, `uv run --locked python -m pytest tests/conversation/test_assist.py::test_search_receives_remaining_total_deadline_and_never_retries -q --tb=short --junitxml=OUT/m1-timing-recheck.xml --basetemp=artifacts/p6-timing-tmp -o cache_dir=OUT/timing-cache`,
+passed (**1 passed**, 9.95 s including fixture/setup). Original failure and warning
+remain in `postgres-final/pytest.xml`; rerun evidence is `m1-timing-recheck.{xml,log}`.
+No deadline, assertion or implementation was changed. The first real PostgreSQL
+run already executed all **388 M1 tests** and **127 transaction tests** successfully;
+only catalogue setup errored in that earlier run. These runs overlap; do not sum
+them into a new full-suite pass.
+
+### Owner handoffs and manual continuation
+
+1. **Vichitr / M1 test consumer:**
+   `tests/pipelines/test_transport.py::test_m1_keyword_builder_and_existing_transaction_binding`
+   line 95 injects `sdk._codec` and an outbox double, then calls `SharedEvents()`.
+   Prompt 2's M1 adapter deliberately owns a pinned `SchemaCache`/`EventCodec` and
+   requires catalogue provenance; the global codec injection no longer configures
+   it. Observed `services/conversation/events.py:44` validates null
+   `CATALOG_DATASET_REVISION`, then returns DEPENDENCY_UNAVAILABLE. Common spec
+   event provenance/readiness and Prompt 2 require fail-closed behavior. Update
+   the owned fixture to supply an explicit synthetic revision and real schema
+   cache fixture (registry IDs may remain labelled doubles), retaining the same
+   transaction identity and schema/encode assertions. Do not loosen production
+   M1 readiness to satisfy this obsolete fixture. Its smallest exact reproducer
+   is `uv run --locked python -m pytest tests/pipelines/test_transport.py::test_m1_keyword_builder_and_existing_transaction_binding -q --tb=short`.
+2. **Harsh / Jaineel:** strict brand xfail remains untouched in
+   `tests/catalog/test_conversation_consumer_live.py`. PostgreSQL rerun determines
+   whether its current assertion XPASSes; only Harsh may review/remove that marker.
+   On this host the live fixture errors on Linux durability before reaching the
+   assertion, so its actual post-fix verdict remains **NOT_RUN**, not XPASS or pass.
+   Run it in the workflow's Linux PostgreSQL job and preserve strict XPASS evidence
+   for Harsh if the marker is stale. No consumer contract was changed here.
+3. **Infrastructure/runtime:** GitHub-hosted workflow and local Linux-volume/
+   Kafka jobs have not executed in this session. Review uploaded per-job skips,
+   particularly optional ONNX/model/raw CSV and externally controlled broker
+   outages. Those skips and the whole-business gates remain open. No historical
+   `docs/vichitr/test_skips.md` pass was imported as current evidence.
+
+After owner changes, run the same offline command with a fresh `--out`, then the
+PostgreSQL workflow on its pinned disposable database. Native Kafka recreation
+tests require the dedicated CI stack; do not point them at ongoing application
+work. The workflow provisions/validates the reviewed owner stack before selecting
+live flags and revalidates after recreation before running the volume worker.
+Inspect all JUnit failures/skips and `summary.json`, not only the workflow badge.
+
+## Roadmap Prompt 7 — baseline prerequisite checkpoint (7 November 2026)
+
+**Checkpoint: blocked before setup/measurement; B0 and comparisons NOT_RUN.**
+Stayed on `jaineel/j03-telemetry`, preserving the dirty working tree, roadmap,
+both audits and other owners' implementations. No commit, push, branch change,
+service startup, reset, import, seed, smoke, live correctness trial or performance
+run was attempted. Initial tracked changes and status are retained in
+`artifacts/jaineel/prompt7-20261107/{initial.diff,initial-status.txt}`.
+This follows Prompt 7's explicit alternative checkpoint: report the specific
+unmet gate and stop before expensive measurements. It is not a completed G4/G5.
+
+### Changed paths
+
+- `benchmarks/manual/verify_prompt7.py`: repeatable read-only prerequisite
+  inventory. Reuses `projectctl.cli.preflight`, `review_input_pins` and the
+  existing performance receipt validators, including real correctness/resources,
+  B0 smoke and baseline/diagnosis requirements. Records all required workload
+  preflights, Git state, actual local file hashes, provider registration gaps,
+  session-reuse exclusion and three repetitions. It never invokes registered
+  providers or workload factories, generates approvals, changes pins or selects
+  C-BEST. Stores resolved config, JSON/Markdown checkpoint and the actual
+  read-only application-environment probe/logs. Failure output remains immutable;
+  each rerun requires a new directory. Metrics and correctness remain null.
+- `benchmarks/manual/test_prompt7.py`: offline regression tests with explicit
+  Git/process/receipt fixtures. Test missing dependencies, zero provider/factory
+  invocation, null results, unchanged config, session-reuse/repetition exclusion,
+  rejection of a changed application lock, observed-versus-pinned owner locks,
+  diagnostic-only rule labels, subprocess failures/timeouts and evidence retention.
+  Tests live within the prompt's allowed `benchmarks/` scope; the exact manual
+  pytest command is documented rather than expanding the prior CI milestone.
+- `projectctl/README.md`: commands, evidence scope, exit semantics and ordered
+  continuation through the canonical runbook. Prior composition documentation is
+  preserved.
+- `docs/jaineel/progress.md`: this record. Evaluation config, core matrix,
+  canonical contracts, application lock and provider code were not changed.
+
+### Actual prerequisite evidence
+
+`OUT=artifacts/jaineel/prompt7-20261107`; `PY=.venv/Scripts/python.exe` below.
+Authoritative current inventory: `OUT/readiness-final/readiness.json` and
+`checkpoint.md`; local files are observations, not approval receipts.
+
+- The code revision is dirty. No authorization to commit was given; existing
+  work was not committed or discarded to satisfy the gate.
+- Actual source CSV raw SHA-256 matches spec 08:
+  `56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1`.
+  Actual `uv.lock` bytes match the configured
+  `05d066056e90caf4733415f7cbfb80cba30f99b211a27eaaf665544e3150b2dd`.
+  `uv sync --locked --check` exits 0, resolves 38/audits 37 packages and reports
+  no changes. These checks establish local input identity, not service readiness.
+- `infra/images.lock.json` and `contracts/events/manifest.json` exist, with
+  observed raw hashes in the inventory. Evaluation infrastructure/event-schema
+  lock references remain null; neither discovery nor historical SMOKE_TESTED
+  strings certify current runtime or affected-owner approval.
+- Evaluation config remains draft; resources are planned, not verified/enforced.
+  Configured normalized/SKU manifests, dictionary pins, generator/workload hashes,
+  query hash and human relevance-label hash are absent. Complete current
+  seed/outbox/projection proof and owner-reviewed correctness/resource receipt
+  are unavailable. No missing quantity is represented as zero.
+- Explicit Jaineel composition registers import/search/analytics factories but
+  has no global reset, W-PIPE/W-QUALITY/W-CHECKOUT/W-INTEGRATED binding or real
+  registered mandatory correctness cases. Registration alone proves no runtime
+  readiness; factories are not called by this checker. Prior lifecycle/audit,
+  deterministic payment, active Gold and recovery handoffs remain open.
+- Frozen controls observed: three repetitions and session reuse disabled. No
+  new variant or optional session reuse, live model or unreviewed relevance
+  result entered the core matrix. Harsh's sample owner runs were not imported.
+
+### Exact hash-policy conflict and required review
+
+Runbook 09 §1: **“raw-file hashes always cover exact bytes.”** Existing catalogue
+handoff/`projectctl.input_pins` identifies the provider dictionary using
+universal-newline UTF-8 text. This checkout has CRLF. The actual dictionary raw
+hash is `7de194b5f49538e84a43ce91e734acae2182a0c96e3b743d668695ad6c6c2a02`,
+while its LF-text/published identity is
+`a7d381e90986b23f801eca537a689f2d3e056fa0b58040ecb7c182e2be2f9943`.
+Queries likewise have raw
+`14733547c0ce5690a79e3ea633d2b5ecdb0b5a133fd30e3fffcc175cf0ffcd63`
+versus published LF-text
+`89d89ac030f10d23e85d6e5084caa125017b5f927a1ed94854aadc3be4762410`.
+The checker preserves both meanings; it does not normalize files, replace raw
+hash checks or recalculate the published dataset revision. **Harsh/Jaineel and
+Aditya as SKU consumer must review** the exact-byte evaluation artifacts versus
+dictionary identity and a cross-platform reproduction policy. A contract/matrix
+change requires the canonical affected-owner process, not a local workaround.
+
+Runbook 09 §6 requires **“Label relevance 0–3 manually”** and says unjudged
+candidates are not automatically irrelevant. `docs/harsh/relevance_labels.md`
+explicitly says its labels are rule-derived, changed after held-out inspection,
+and ANN unjudged results count as zero. No reviewed human-labelled replacement
+or row-level human review exists in this handoff. Human relevance certification
+therefore stays NOT_RUN; the checker identifies the existing scores as diagnostic
+and never copies their hash into evaluation config. Harsh/Jaineel must supply the
+reviewed file/pool and agree unjudged handling before certified quality claims.
+
+### Commands, outcomes and continuation
+
+| Exact command (using PY/OUT above) | Actual outcome / evidence |
+|---|---|
+| `PY -m benchmarks.manual.verify_prompt7 --out OUT/readiness` | Exit 4, INCOMPLETE, performance NOT_RUN; initial checker evidence/log retained |
+| `PY -m benchmarks.manual.verify_prompt7 --out OUT/readiness-final` | Exit 4, INCOMPLETE; final exact file observations, null B0/C-BEST, zero service writes; `readiness-final.log`, `readiness-final/{readiness.json,resolved_config.json,checkpoint.md,lock.stdout.log,lock.stderr.log}` |
+| Internal `uv sync --locked --check` | Exit 0, no changes; command/exit in readiness JSON and raw lock logs |
+| `PY -m pytest benchmarks/manual/test_prompt7.py tests/benchmarks/test_performance.py tests/benchmarks/test_experiment.py tests/benchmarks/test_comparison.py tests/benchmarks/test_selection.py -q -ra --tb=short --junitxml=OUT/focused-second.xml --basetemp=artifacts/p7-tmp2 -o cache_dir=OUT/cache` | Exit 0; **75 passed**, zero skips; `focused-second.{log,xml}`. Before final added local-file observation regression |
+| `PY -m pytest benchmarks/manual/test_prompt7.py tests/benchmarks tests/projectctl tests/oracles tests/telemetry tests/integration -q -ra --tb=short --junitxml=OUT/regression.xml --basetemp=artifacts/p7-reg-tmp -o cache_dir=OUT/reg-cache` | Exit 0; **726 passed**, zero failures/errors/skips, 145.13 s; `regression.{log,xml}`. Includes final local-file regression; suites overlap the focused run, so do not sum counts. Offline evidence/doubles, not a live G1/G3 pass |
+| `PY -m ruff check --no-cache benchmarks projectctl dashboards` | Exit 0; `lint-final.log`. Earlier cached pass logged a cache permission warning; no-code-change no-cache run is clean |
+| `PY -m ruff format --check benchmarks projectctl dashboards` | Exit 0; 80 files formatted; `format.log` |
+| `PY -m projectctl.schemas --check` | Exit 0; config/run/summary/fixture/report schemas match; `schemas.log` |
+| `git diff --check` | Exit 0; existing CRLF conversion warnings only |
+
+Initial focused invocation mistakenly named nonexistent
+`tests/benchmarks/test_planning.py`: no tests ran (pytest input exit 4), retained
+in `focused.log`/`focused.xml`. Corrected selection uses the existing experiment
+suite; no assertion was weakened and no failed input invocation is called pass.
+
+Continue only after the recorded prerequisites close: use runbook 09 §2 setup
+on a fresh namespace, run real contracts/data/smoke and the full required
+correctness suite (including T-10/D-05/T-11), obtain the reviewed resource/input
+receipt, then commit/freeze the approved B0 revision through a separately
+authorized Git action. Capture and reconcile real B0 after drain, diagnose its
+stage/resource evidence, and run registered paired comparisons with three
+repetitions and recorded random order. Preserve every offer/failure/timing and
+collector gap. Use existing `benchmark reconcile`, `benchmark compare`, measured
+selection/interaction checks and `report build` to generate results from artifacts.
+Do not start the full matrix, stress escalation or optional trials from this
+checkpoint. The specific unmet gates remain explicit and B0 is not frozen.
+
+## Jaineel scope, bug and push audit — 8 November 2026
+
+The user authorized an audit of Jaineel's complete contribution and repairs in
+owned paths. This is one audit checkpoint, not authorization to commit/push or
+change another owner's implementation/contracts. Stayed on
+`jaineel/j03-telemetry`, preserved existing work and both old audits. The detailed
+findings/completion assessment are in [AUDIT_2026_11_08.md](AUDIT_2026_11_08.md);
+copyable paragraphs are in [TEAM_HANDOFF_2026_11_08.md](TEAM_HANDOFF_2026_11_08.md).
+
+After a successful read-only `git fetch origin`, HEAD equals `origin/main`:
+`git rev-list --left-right --count origin/main...HEAD` returns `0 0`. The old
+feature upstream is 87 commits behind HEAD. New work remains modified/untracked;
+it will not be included by `git push` until committed. Sharing reviewed code as a
+draft feature branch is reasonable; two owner test corrections and real
+integration/evaluation gates prevent a green merge/release/completion claim.
+There was no commit, push, force operation, branch change, production namespace
+reset or benchmark matrix execution.
+
+### Repairs and changed paths in this audit
+
+- `services/conversation/workflow.py`: durable accepted checkout aliases now
+  replay locally without depending on Orders availability or its advanced status.
+  Concurrent aliases retain the persisted acceptance for the same order; a
+  different in-flight order ID fails closed. No second checkout event/purchase.
+  `tests/conversation/test_workflow.py` adds outage/finality and controlled
+  interleaving/identity regressions. Initial two-case red result is preserved.
+- `services/conversation/database.py`: configurable integer API connection cap
+  2–10 with one reserved audit connection *inside* that cap. Default operational
+  cap remains ten. `tests/conversation/test_database_budget.py` checks invalid
+  budgets and real PostgreSQL ordinary-slot saturation, audit availability and
+  recovery. `.env.example` uses three API connections plus one separately
+  composed relay to fit the frozen total of four, and corrects the invalid event
+  namespace `local-dev` to `dev`. `services/conversation/README.md` documents the
+  process/relay allocation and durable acceptance semantics.
+- `benchmarks/selection.py` and `tests/benchmarks/test_selection.py`: selected
+  C-BEST comparisons must match current Git and frozen study controls, including
+  seed/resources. Three previously accepted foreign-study cases were reproduced
+  before fixing them. Existing evidence recomputation and interaction/cost
+  requirements remain in place.
+- `benchmarks/integration_clients.py`, `benchmarks/g3_http.py`,
+  `tests/integration/test_http.py`, `tests/integration/test_g3.py`: whole-response
+  deadlines, bounded streamed M1 response bodies and JSON media validation;
+  timeout remains unknown, finality null, stream closed, no implicit retry.
+  Four red boundary cases were retained before the fix.
+- Move `benchmarks/manual/test_prompt7.py` to
+  `tests/benchmarks/test_prompt7.py`, so the normal CI benchmark suite collects
+  these regressions. `projectctl/README.md` uses the new path.
+  `tests/projectctl/test_composition.py` validates the example namespace against
+  the canonical event type and verifies API plus relay connection allocation.
+- This progress entry and the two new audit/handoff documents. No business
+  provider, canonical DTO/event/data contract, dictionary/query/label, historical
+  migration, application lock or evaluation/core matrix was changed.
+
+### Commands, actual outcomes and evidence
+
+`OUT=artifacts/jaineel/audit-20261108`, `PY=.venv/Scripts/python.exe`.
+Counts overlap across checks; do not add them into a new combined pass.
+
+| Exact command | Outcome / raw evidence |
+|---|---|
+| `uv run --locked python -m benchmarks.manual.verify_prompt6 --job offline --out OUT/offline-baseline` | Exit 1: 1,472 passed, 1 failed, 515 skipped; all eleven suites collected. Initial working-tree audit, not a frozen revision; edits continued during this run. `offline-baseline/{checks.json,summary.json,pytest.xml,pytest.stdout.log}` |
+| `uv run --locked python -m benchmarks.manual.verify_prompt6 --job offline --out OUT/offline-final` | Exit 1: **1,503 passed, 1 failed, 520 skipped**, 258.48 s. All executed owned tests pass; the failure is Vichitr's stale M1 codec fixture. Complete skip reasons/logs/JUnit in `offline-final/`. The last standalone example-contract test was added after collection and passed below |
+| `PY -m pytest tests/conversation tests/contracts -q -ra --tb=short --junitxml=OUT/m1-postgres.xml --basetemp=artifacts/a8-m1-tmp -o cache_dir=OUT/m1-cache` with explicit isolated test URL | Exit 0: **505 passed**, zero skips; real PostgreSQL with declared HTTP/model/registry-ID doubles. `m1-postgres.{log,xml}`. Before final two interleaving regressions |
+| `PY -m pytest tests/conversation/test_workflow.py::test_new_checkout_key_replays_durable_acceptance_without_backend tests/conversation/test_workflow.py::test_inflight_checkout_alias_keeps_accepted_identity_and_allows_finality tests/conversation/test_database_budget.py -q --tb=short -o junit_family=xunit1 --junitxml=OUT/m1-regressions-final.xml --basetemp=artifacts/a8-m1-reg-tmp -o cache_dir=OUT/m1-cache` with explicit isolated test URL | Exit 0: **16 passed**; `m1-regressions-final.{log,xml}` |
+| `PY -m pytest tests/benchmarks/test_selection.py tests/benchmarks/test_prompt7.py -q --tb=short --junitxml=OUT/selection-checkpoint.xml --basetemp=artifacts/a8-unit-tmp -o cache_dir=OUT/cache` | Exit 0: **23 passed**, no skips; `selection-checkpoint.{log,xml}` |
+| `PY -m pytest tests/integration/test_http.py tests/integration/test_g3.py -q --tb=short --junitxml=OUT/http-final.xml --basetemp=artifacts/a8-http-tmp -o cache_dir=OUT/cache` | Exit 0: **41 passed**, no skips; `http-final.{log,xml}` |
+| `PY -m pytest tests/projectctl/test_composition.py -q --tb=short --junitxml=OUT/composition-final.xml --basetemp=artifacts/a8-compose-tmp -o cache_dir=OUT/cache` | Exit 0: **7 passed**, no skips; `composition-final.{log,xml}` |
+| `PY -m ruff check --no-cache benchmarks projectctl services/conversation shared/telemetry dashboards tests/conversation tests/contracts tests/projectctl tests/benchmarks tests/oracles tests/telemetry tests/integration` | Exit 0; `owned-lint-final.log` plus the offline verifier's lint log |
+| Same owned paths with `PY -m ruff format --check` | Exit 0; **179 files** formatted; `owned-format-final.log` |
+| `PY -m projectctl.schemas --check`, `PY -m projectctl.conversation_contract --check` | Both exit 0 in final verifier; raw logs under `offline-final/` |
+| `PY -m benchmarks.manual.verify_prompt7 --out OUT/readiness-final` | Exit **4 / INCOMPLETE**; performance NOT_RUN, null B0/C-BEST, exact prerequisite reasons and actual application lock check. This does not freeze/approve any inputs |
+| `inspect_source(Path('data/raw/flipkart_com-ecommerce_sample.csv'))` using `benchmarks.dataset_checks` and exclusive `write_json` | Actual independent source-profile **PASS**; `source-profile.json`. Original source bytes/rules retained; no performance or provider-normalization claim |
+| `PY OUT/check_scope.py`, `git diff --check`, `git ls-files .env 'data/raw/*' 'data/catalog/*' 'benchmarks/results/*' '*.pem' '*.key'` | No unexpected tracked-path changes since audit start, no scanned credential-pattern matches, no whitespace errors; only raw `.gitkeep` tracked. `scope-and-secret-check.json`, `diff-check.log`. Pattern scan is narrow and not proof of secret absence |
+
+The red commands use the same pytest/evidence options with the targeted new test
+IDs: checkout replay **2 failures** (`checkout-red.{xml,log}`), foreign selection
+**3 failures** (`selection-red.{xml,log}`), HTTP bounds **4 failures**
+(`http-red.{xml,log}`). After the fixes, the unchanged assertions pass. All failed
+evidence remains; no test was weakened or skipped to manufacture a green result.
+
+### Real Linux and ownership evidence
+
+Started only a new audit PostgreSQL container, loopback ephemeral port 59363,
+using Vichitr's exact `pgvector/pgvector:0.8.1-pg18-trixie` digest from
+`infra/images.lock.json`. The earlier `jaineel-prompt6-pg-20261107` container was
+already stopped and was not reused. Test credentials are disposable and private
+service credentials were not read/copied. The database extension command was
+`docker exec jaineel-audit-pg-20261108 psql -U audit_test -d audit_test -c 'CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public'` (exit 0).
+
+`PY OUT/run_linux.py` creates its own network/named data volume and uses the
+already built, lock-matching owner storage-worker image
+`sha256:285a497c4237cd65cbfc7c02bcb560d6df7c718e02be2e5461c21f5e97a67766`.
+Source is mounted read-only; temporary data uses the Linux named volume, avoiding
+fake Windows directory durability. Complete Docker argv and exit codes are in
+`postgres-linux.command.json` and the helper script, stdout/stderr and XML.
+Inner exact pytest command:
+
+`python -m pytest tests/conversation tests/catalog tests/transactions tests/contracts -q -ra --tb=short -o junit_family=xunit1 --junitxml=/out/postgres-linux.xml --basetemp=/testdata/pytest -o cache_dir=/testdata/cache`
+
+Actual result: exit 1, **851 passed / 2 failed / 20 skipped** in 223.01 s. Per-suite:
+M1 **404 passed**, contracts **103 passed**, transactions **127 passed**, catalogue
+217 passed/2 failed/20 skipped. One failure is the strict brand XPASS below; the
+other is **my audit mount omission** (`/app/infra/compose.catalog.yaml` absent).
+The worker omitted `infra/`; this is not a provider defect. Original logs remain.
+`PY OUT/run_linux_catalog.py` repeats the catalogue suite with the missing mount
+corrected and the unchanged actual source CSV explicitly mounted read-only.
+The final catalogue command/skip/output evidence is stored separately, preserving
+the original failed run. No optional embedding lock/model was installed to hide
+the ONNX skips; no Kafka broker was substituted.
+
+Corrected exact inner command:
+`python -m pytest tests/catalog -q -ra --tb=short -o junit_family=xunit1 --junitxml=/out/catalogue-linux-final.xml --basetemp=/testdata/catalogue-final -o cache_dir=/testdata/catalogue-cache`.
+Actual exit **1**, **225 passed / 1 failed / 13 skipped**, 339.64 s. The only
+failure is the preserved strict brand XPASS. The missing-mount case and all
+actual-source cases execute successfully; remaining skips are optional
+ONNX/model dependencies and the unconfigured real broker. Evidence:
+`catalogue-linux-final.{command.json,stdout.log,stderr.log,xml}`. Counts overlap
+the original Linux job. `PY OUT/summarize.py` writes `junit-summary.json` from
+all raw JUnit files with per-suite counts and failed IDs.
+
+Current exact external failures/handoffs:
+
+1. **Vichitr** owns
+   `tests/pipelines/test_transport.py::test_m1_keyword_builder_and_existing_transaction_binding`.
+   Global codec injection does not initialize M1's own cache/revision binding;
+   missing revision fails at `services/conversation/events.py:_bindings` with
+   DEPENDENCY_UNAVAILABLE. Update the owned fixture with pinned schema mapping
+   and explicit synthetic revision, as in the shared-event M1 test fixture. Do
+   not weaken readiness. Final offline CI remains failed for this exact case.
+2. **Harsh** owns
+   `tests/catalog/test_conversation_consumer_live.py::test_workflow_accepts_a_real_brand_filter`.
+   Actual Linux HTTP catalogue execution yields **XPASS(strict)**, because M1's
+   brand comparison is fixed. Only Harsh reviews/removes the stale marker; it was
+   preserved and is not a passing job or an unresolved brand-search failure.
+3. **Aditya** must close quote validity/user binding and transport idempotency,
+   original saga run identity and controlled payment scenario behavior. These
+   remain current code-inspection findings; transaction unit/live tests double
+   quote/payment controls and cannot certify real G3. Exact files/contracts and
+   executable owned consumer expiry probes are linked in the audit/handoff.
+4. **All owners/Jaineel** must review the dictionary/raw-byte policy, manual
+   labels, actual manifests, migrations/fresh-storage/audit/observation/fault
+   lifecycle. The current B0-only ingestion runtime rejects O1. No new provider
+   exports/approvals were invented, and catalogue outbox migration 005 is already
+   present, superseding that older missing-table handoff.
+
+The remaining Jaineel work is real composition/case registration and execution,
+correctness, baseline, controlled comparisons and the artifact-built report.
+Ownership of that glue has not been transferred to teammates. Human reproduction,
+hosted CI, native Kafka/registry/recreation and whole-business Gold/recovery
+evidence remain NOT_RUN. A plain code/test pass is not the final contribution.
+
+After test completion, `docker stop jaineel-audit-pg-20261108` stops only this
+audit's disposable database. Worker containers use `--rm` and have exited; retain
+the audit's named Linux data volume/network and stopped database for inspection.
+No previous container, development data or raw CSV was deleted. Final tracked
+scope/whitespace inspection remains clean, and no source change followed the
+final passing checks except documentation and the separately passed example test.
+
+## Finish Jaineel's code-side handoff — 8 November 2026
+
+The user clarified the scope: complete Jaineel's implementation/tests, then hand
+it over so the other three owners can continue. This is separate from declaring
+the later full-team evaluation finished. The current handoff is
+[CODE_HANDOFF.md](CODE_HANDOFF.md). No new owner inputs were assumed, and no
+commit/push was authorized or performed. Stayed on `jaineel/j03-telemetry` and
+preserved prior working-tree changes, both audits, contracts and owner code.
+Initial status/diff: `artifacts/jaineel/finish-20261108/{initial-status.txt,initial.diff}`.
+
+### Implemented in owned paths
+
+- `projectctl/jaineel.py`, new `projectctl/runtime.py`: one production composition
+  now registers all seven required workload factories. Explicit `RuntimeBindings`
+  supplies existing per-workload callbacks, `QualityOwners`, real G3/correctness
+  adapters and reviewed migration/reset coordinators. A named optional runtime
+  module is loaded only when configured; bad types, unknown cases/workloads,
+  duplicate cases and stub results fail closed. Default missing owner operations
+  remain dependencies; factories are not executed at registration. The old
+  quality composition forwards to this one and cannot double-register.
+- New `projectctl/setup.py`: a concrete M1 migration participant and an ordered
+  six-database coordinator. Missing participants cause no partial writes. Each
+  actual migration delegates to its owning participant, preserves failures and
+  requires real typed results. It never reads/executes another owner's SQL file.
+- `benchmarks/composition.py`, new `benchmarks/http_adapters.py`: real public
+  quote/order and full M1 HTTP adapters now connect CheckoutDriver and
+  IntegratedDriver. Search/checkout/integrated lifecycle uses migration, import,
+  verification, stock seed, projection barrier and independent seed checks.
+  Reviewed templates, fault hook and performance-review path propagate to the
+  runner. Clients close after each operation, preserving the no-reuse baseline.
+- New `benchmarks/pipeline_transport.py`: W-PIPE materialization/publishing through
+  the real shared codec and SDK. Frozen valid synthetic stock facts use only the
+  verified 10,000-SKU set; identity/version/time/provenance remain stable.
+  The approximately 1-KiB payload is padded without truncating an envelope.
+  Invalid-quality and operational facts are refused; no Inventory tables are
+  written. Publisher closes on drain, observer failure and exceptional exit.
+- New `benchmarks/runtime_observer.py`: actual collector composition from declared
+  worker/API metrics, Kafka lag, pinned Gold and SUT resource targets; uses the
+  existing readers. Missing SUT/stream inputs and stub collectors fail. Clock
+  sharing is explicit and missing samples remain missing.
+- New `services/conversation/relay.py`, `events.py:event_codec`: separate M1 relay
+  process using the shared `OutboxRelay` and `KafkaPublisher`, with one connection
+  and frozen 25-ms/100-row pass controls. Real local schema/append readiness runs
+  before publisher construction. SIGINT/SIGTERM shutdown delegates to the shared
+  lifecycle. There is no second relay algorithm or publisher in HTTP handling.
+- `.env.example` names the optional runtime module. Offline CI explicitly scrubs
+  `PROJECTCTL_RUNTIME_MODULE` so developer deployment hooks cannot leak into an
+  offline test. Existing core matrix, dependency lock, public contracts and data
+  pins were preserved. Documentation in projectctl/benchmarks/conversation now
+  describes the current commands and interface rather than the old missing code.
+- Tests: new `tests/projectctl/test_runtime.py`,
+  `tests/benchmarks/test_pipeline_transport.py`, `test_http_adapters.py`,
+  `tests/telemetry/test_runtime_observer.py`, `tests/conversation/test_relay.py`;
+  extend composition/CI-isolation tests. Doubles are explicitly labelled. The
+  real PostgreSQL relay/migration checks use an isolated M1 schema and actual
+  shared library code, with registry-ID and broker acknowledgements doubled.
+
+### Exact checks and evidence
+
+`OUT=artifacts/jaineel/finish-20261108`; `PY=.venv/Scripts/python.exe`.
+Counts overlap; no new combined pass count is fabricated.
+
+| Command | Actual outcome |
+|---|---|
+| `PY -m pytest tests/projectctl/test_runtime.py tests/projectctl/test_composition.py tests/benchmarks/test_pipeline_transport.py tests/benchmarks/test_real_composition.py tests/conversation/test_relay.py -q --tb=short --junitxml=OUT/focused.xml --basetemp=artifacts/f8-tmp -o cache_dir=OUT/cache` | Exit 0, **57 passed**; `focused.{log,xml}` |
+| `PY -m pytest tests/projectctl tests/benchmarks tests/telemetry tests/integration tests/contracts tests/oracles -q -ra --tb=short --junitxml=OUT/regression.xml --basetemp=artifacts/f8-reg-tmp -o cache_dir=OUT/cache` | Exit 0, **869 passed**, zero skips, 153.79 s; `regression.{log,xml}` |
+| `PY -m pytest tests/conversation -q -ra --tb=short -o junit_family=xunit1 --junitxml=OUT/conversation-postgres.xml --basetemp=artifacts/f8-pg-tmp -o cache_dir=OUT/pg-cache` with explicit isolated test URL | Exit 0, **411 passed**, zero skips, 78.26 s; `conversation-postgres.{log,xml}`. Includes real shared relay SQL/thread/restart checks with explicit broker-ack double |
+| `PY -m pytest tests/projectctl/test_runtime.py tests/benchmarks/test_pipeline_transport.py tests/benchmarks/test_http_adapters.py tests/telemetry/test_runtime_observer.py -q --tb=short --junitxml=OUT/new-final.xml --basetemp=artifacts/f8-new-tmp -o cache_dir=OUT/cache` | Exit 0, **32 passed** after final strict-result/padding adjustments; `new-final.{log,xml}` |
+| `PY -m pytest tests/benchmarks/test_prompt6_ci.py tests/benchmarks/test_pipeline_transport.py tests/projectctl/test_runtime.py -q --tb=short --junitxml=OUT/final-safety.xml --basetemp=artifacts/f8-safe-tmp -o cache_dir=OUT/cache` | Exit 0, **39 passed**, including the final runtime-env isolation change; `final-safety.{log,xml}` |
+| `PY -m ruff check --no-cache benchmarks projectctl services/conversation shared/telemetry dashboards tests/conversation tests/contracts tests/projectctl tests/benchmarks tests/oracles tests/telemetry tests/integration` | Exit 0; `lint-final.log` |
+| Same owned paths with `PY -m ruff format --check` | Exit 0, **190 files** formatted; `format.log` |
+| `PY -m projectctl.schemas --check`, `PY -m projectctl.conversation_contract --check` | Both exit 0; `schemas.log`, `conversation-contract.log` |
+| `PY -m services.conversation.relay --help` | Exit 0; no producer/runtime startup |
+| `PY -m benchmarks.manual.verify_prompt7 --out OUT/team-run-readiness-final` | Exit **4 / INCOMPLETE**, performance NOT_RUN, null baseline/C-BEST; `team-run-readiness-final.log` and its saved JSON/Markdown/lock logs. This is the later team-run gate, not a failed implementation unit test |
+| `PY -m pytest tests/pipelines/test_transport.py::test_m1_keyword_builder_and_existing_transaction_binding -q --tb=short --junitxml=OUT/peer-fixture.xml --basetemp=artifacts/f8-peer-tmp -o cache_dir=OUT/cache` | Exit 1, **1 failure** in Vichitr's unchanged fixture: missing explicit M1 cache/revision. Raw failure retained; no skip or readiness weakening |
+
+PostgreSQL used only the new `jaineel-finish-pg-20261108` container, loopback
+ephemeral port 64925, disposable test credentials and the exact digest-pinned
+pgvector/PostgreSQL image in `infra/images.lock.json`. The earlier audit/developer
+containers were not reused. Tests create/drop only their own M1 schemas; no
+full-team database reset or source-data change occurred. Runtime metadata and
+final JUnit summaries are retained alongside the logs. The container is stopped
+after testing, retaining its database for inspection.
+
+### Handoff checkpoint
+
+Jaineel's standalone implementation and its tested runtime connections are ready
+to share as an implementation branch. Peers can supply their component-specific
+operations through the documented input interface; no additional registration
+glue is required for those supplied bindings. This does not certify missing
+deployments, owner approvals, full-system correctness or performance.
+
+Harsh's stale strict brand xfail and Vichitr's old codec fixture remain owner
+corrections; Aditya's actual quote/idempotency, worker provenance and payment
+scenario controls remain required for integrated runs. Their exact next tasks
+are in CODE_HANDOFF.md. Full-team G0/G1/G3, reviewed hashes/manual relevance,
+enforced resources, committed B0, measured comparisons and the reproducible final
+report follow integration. Metrics stay null until they actually execute.
+Do not start Prompt 7 or performance runs from this checkpoint.
+
+Final owned lint/format and `git diff --check` pass. The dedicated local test
+container is stopped after retaining its PostgreSQL log; no container, volume,
+schema evidence or unrelated filesystem work is deleted. **Prompt 6 implementation
+checkpoint reached with the reproduced Vichitr fixture failure and unexecuted
+Linux/Kafka jobs visibly open.** GitHub execution itself remains NOT_RUN until the
+user publishes this existing branch through their normal process; no push was made.
+
+## Pre-push repository audit and owned bug fixes — 8 November 2026
+
+User request: audit the repository, determine whether Jaineel can share his work,
+fix owned bugs and provide concise team handoffs. This is the audit/handoff
+checkpoint; no later performance milestone was started. Read ownership, Jaineel's
+brief, relevant context/common/evaluation/source/runbook requirements and current
+owner handoffs. No subagents, commit, push or teammate messages were used.
+
+Initial branch/status/diff were retained before edits in
+`artifacts/jaineel/push-audit-20261108/{initial-status.txt,initial.diff}`.
+`git fetch origin` succeeded; `git rev-list --left-right --count HEAD...origin/main`
+returned **0 0** and the corresponding old feature upstream returned **87 0**.
+The branch is still `jaineel/j03-telemetry`. Existing modified/untracked work was
+preserved. A plain push would omit that uncommitted work.
+
+### Changes in owned/coordinated paths
+
+- `services/conversation/clients.py`: convert JSON decoder recursion failures
+  into canonical consumer contract failures; reject malformed/unbounded
+  `Retry-After` values without extra attempts, retaining valid delay/date and
+  absolute-deadline behavior.
+- `tests/contracts/test_clients.py`: six failing-before/passing-after consumer
+  regressions cover deeply nested success/error JSON and overflow/negative/signed/
+  underscore Retry-After values. Assertions also retain one-attempt and stream
+  closure requirements. No public DTO or owner schema changed.
+- `.env.example`: include the actual generated `EVENT_SCHEMA_CACHE_PATH` required
+  by both the API and relay. No secret or generated schema mapping is committed.
+- `benchmarks/manual/verify_transaction_boundaries.py`: opt-in, shareable
+  ASGI/SQL-double reproducer for M3 principal/token/fault-guard failures. It does
+  not start app lifespans/workers or perform real network/database/payment writes.
+  Its failures remain failures; it does not add CI xfails or change owner tests.
+- `docs/jaineel/PUSH_AUDIT_2026_11_08.md`: current push verdict, code versus final
+  completion, exact findings and repro/handoffs. Refresh `CODE_HANDOFF.md` and
+  `TEAM_HANDOFF_2026_11_08.md` with current owned results and M3 findings. Earlier
+  audit documents/evidence remain historical and unchanged.
+
+### Commands and actual outcomes
+
+`PY=.venv/Scripts/python.exe`, `OUT=artifacts/jaineel/push-audit-20261108`.
+These are shorthand for the actual argv retained in `final-commands.json`, the
+offline verifier's `checks.json`, and the Linux command JSON. Counts overlap;
+do not add them to manufacture a total.
+
+| Exact command (with shorthand expanded as above) | Actual outcome / evidence |
+|---|---|
+| `uv sync --locked` | Exit 0; uv 0.10.8, unchanged 37 installed locked packages |
+| `PY -m benchmarks.manual.verify_prompt6 --job offline --out OUT/offline` | Exit 1: **1,541 passed / 1 failed / 522 skipped**, 268.24 s; `offline.log`, `offline/{checks.json,summary.json,pytest.xml,pytest.stdout.log}`. The one failure is Vichitr's unchanged M1 cache/revision fixture. This run preceded the new client regressions |
+| `PY -m pytest tests/conversation tests/contracts -q -ra --tb=short -o junit_family=xunit1 --junitxml=OUT/conversation-postgres.xml --basetemp=artifacts/pa8-pg-tmp -o cache_dir=OUT/cache` with isolated `P6_TEST_DATABASE_URL`, fixed/zero-model environment | Exit 0: **514 passed**, zero skips, 125.55 s; `conversation-postgres.{log,xml}`. Initial database-backed check before the two HTTP fixes |
+| `PY -m pytest tests/contracts/test_clients.py -k 'invalid_retry_after or deep_provider' -q --tb=short --junitxml=OUT/http-before.xml` | Exit 1: **6 failed** before the fix; `http-before.{log,xml}` |
+| `PY -m pytest tests/contracts/test_clients.py -q --tb=short --junitxml=OUT/http-after.xml` | Exit 0: **81 passed**, 2.29 s; `http-after.{log,xml}` |
+| `PY OUT/run_owned.py` invokes `PY -m pytest tests/conversation tests/contracts tests/projectctl tests/benchmarks tests/oracles tests/telemetry tests/integration -q -ra --tb=short -o junit_family=xunit1 --junitxml=OUT/owned-regression.xml --basetemp=artifacts/pa8-owned-tmp -o cache_dir=OUT/final-cache` | Exit 0: **1,286 passed**, zero failures/skips, 249.71 s; `owned-regression.{stdout.log,stderr.log,xml}`, exact command/env-family metadata in `final-commands.json` |
+| `PY OUT/run_linux.py` invokes the retained exact `docker run` argv in `OUT/postgres-linux.command.json`; inner command: `python -m pytest tests/conversation tests/catalog tests/transactions tests/contracts -q -ra --tb=short -o junit_family=xunit1 --junitxml=/out/postgres-linux.xml --basetemp=/testdata/pytest -o cache_dir=/testdata/cache` | Exit **1**: **872 passed / 1 failed / 13 skipped**, 687.16 s. M1 **411 passed**, contracts **109 passed**, transactions **127 passed**; catalogue **225 passed / 1 strict XPASS failure / 13 skipped**. Only failure is Harsh's stale brand marker. Optional ONNX/model and real Kafka requirements explain the skips. `postgres-linux.{command.json,stdout.log,stderr.log,xml}`; per-suite results in `junit-summary.json` |
+| `PY -m ruff check --no-cache benchmarks projectctl services/conversation shared/telemetry dashboards tests/conversation tests/contracts tests/projectctl tests/benchmarks tests/oracles tests/telemetry tests/integration` | Exit 0; `owned-lint.stdout.log` |
+| Same owned path list with `PY -m ruff format --check` | Exit 0, **191 files** formatted; `owned-format.stdout.log` |
+| `PY -m projectctl.schemas --check`; `PY -m projectctl.conversation_contract --check` | Both exit 0; `schemas.*.log`, `conversation-contract.*.log` |
+| `PY -c "...inspect_source(Path('data/raw/flipkart_com-ecommerce_sample.csv'))..."` (full exact argv in `final-commands.json`) | Exit 0, PASS: source SHA matches; **20,000 raw / 19,998 canonical / 19,920 active / 78 inactive / 2 superseded / 0 mandatory rejected**. Independent source checks, not performance; `source-checks.stdout.log` |
+| `PY -m benchmarks.manual.verify_prompt7 --out OUT/readiness` | Exit **4 / INCOMPLETE**, B0/C-BEST/performance NOT_RUN with null metrics. Draft/missing pins, owner inputs, unenforced resources and dirty revision remain visible; `readiness/*`, `readiness.stdout.log` |
+| `PY -m benchmarks.manual.verify_transaction_boundaries --out OUT/transaction-boundaries` | Exit **1**, **6 failed** explicit ASGI/SQL-double assertions, all actual HTTP 200; `transaction-boundaries/boundaries.json` plus stdout/stderr logs. A shareable failing owner handoff, not a live acceptance test |
+| `PY -m benchmarks.manual.verify_transaction_boundaries --out OUT/transaction-boundaries-final` | Exit **1**, **7 failed / 1 passed** after strengthening fault probes: supply a valid token and test each flag/namespace independently. Disabling BENCHMARK_MODE correctly returns 403; missing fault-injection guard and unisolated dev access still return 200. `transaction-boundaries-final/boundaries.json`, stdout/stderr |
+| `PY -m ruff check --no-cache .` | Exit **1**, **22 existing E501 errors** in Aditya-owned service/test paths; `repo-lint-final.stdout.log`. Owned lint is clean |
+| `git diff --check`; `PY OUT/git_review.py` | Whitespace exit 0; scope scan finds no unexpected owner path and no narrow key-pattern matches. Only `data/raw/.gitkeep` is tracked in scanned sensitive/output roots. `git-review.json`, `push-paths.txt`; pattern scanning is not a guarantee of no secret |
+
+The first ignored ASGI diagnostic fixture lacked the payment-ledger row's `kind`
+field. Its initial raw failure is preserved in `peer-boundaries.{log,xml}`;
+that KeyError was a probe-double error, not a provider defect. After correcting
+the synthetic row, `peer-boundaries-final.{log,xml}` proves all six intended
+denial assertions fail with HTTP 200. The committed manual verifier reproduces
+those findings independently and records explicit `test_mode=stub`. The final
+eight-case version separates fault flag/scope checks with valid authorization,
+so a future token-only fix cannot hide a missing guard. Seven fail; the existing
+benchmark-disabled case passes. Earlier evidence is retained unchanged.
+
+### Scope, handoff and manual verification
+
+The canonical final definition of done is not met: real G0/G1/G3/correctness,
+reviewed concrete deployment hooks, frozen inputs/resources, B0, three paired
+comparisons, teammate reproduction and final report remain team-dependent work
+coordinated by Jaineel. The implementation is ready to share through a draft
+feature PR; this does not assert green CI or complete J06/J07. Neither raw owner
+experiment numbers nor test doubles were promoted to integrated evidence.
+
+Aditya must fix public snapshot/SSE user binding, internal token enforcement and
+both-flags/isolated-namespace fault guards; the exact routes and normative common
+§§2–3/5 conflicts are in the audit. Also retain accepted quote retries while
+adding fresh quote expiry/user validation and scoped HTTP idempotency, original
+saga run identity and deterministic payment outcome/delay controls. Harsh's real
+quote getter already enforces user binding and deliberately returns expiry for
+Orders to check. His strict brand xfail needs removal/review, not another M1 brand
+fix. Vichitr must update the cache/revision fixture and supply verified actual
+Kafka/registry and scoped M4 lifecycle/observer/fault inputs. All owners review
+hash policy, manifests, manual labels and resource receipts; Jaineel assembles
+the supplied runtime bindings and runs the gates. See the updated copyable team
+paragraphs; none was sent automatically.
+
+Manual verification: commit/review only owned changes including new files; rerun
+the locked offline and Linux PostgreSQL commands after owner fixes; expect the
+boundary verifier to deny all eight disallowed accesses. Configure actual cache/revision and
+database/HTTP origins, migrate M1, start API plus its separate shared relay, then
+verify readiness and replay the explicit quote/cart confirmation scenario. Run
+real setup/smoke/correctness only with owner-reviewed scoped bindings. Do not
+start performance or fill result values while readiness is incomplete. Hosted
+CI, native Kafka/registry/recreation, live complete business Gold/recovery and
+human reproduction remain NOT_RUN in this audit.
+
+Final Linux checks finish with the known strict brand XPASS only. The full-file
+row/COPY import and real-source search-strata checks both finish successfully;
+their intermediate duration was not treated as a pass or a measured performance
+result. No assertion or owner code was changed to accelerate the run. The worker
+uses the existing locked image
+`sha256:285a497c4237cd65cbfc7c02bcb560d6df7c718e02be2e5461c21f5e97a67766`
+and read-only service/shared/pipeline/analytics/contracts/config/tests/migrations/
+docs/infra/source mounts; actual state and fsync work use the new Linux volume.
+PostgreSQL is the exact digest-pinned pgvector image from `infra/images.lock.json`
+(observed server 18.2), new container `jaineel-push-audit-pg-20261108`, loopback
+test port 60651, disposable credentials and new test database only. `CREATE
+EXTENSION IF NOT EXISTS vector WITH SCHEMA public` was applied only there.
+Native M1 and Linux provider tests create/drop their isolated per-test schemas.
+
+After the final verifier refinement, owned lint and formatting were rerun and
+pass (`owned-lint-final.log`, `owned-format-final.log`, 191 files); the verifier
+also passes its focused lint/format checks. Source changes after the full owned
+regression were confined to that independently executed diagnostic verifier and
+documentation. No tests were rerun merely to change the known peer outcomes.
+
+`docker logs jaineel-push-audit-pg-20261108` was saved to `OUT/postgres.log`, then
+`docker stop jaineel-push-audit-pg-20261108` stopped only this new database. Its
+data, the dedicated `jaineel-push-audit-20261108-data` volume/network and all raw
+evidence are retained. The `--rm` Linux worker has exited. Earlier/development
+containers and volumes were not touched. Final scope/whitespace review was
+repeated after the documentation updates: **81 changed paths**, no unexpected
+owner path, no narrow credential-pattern match, and `git diff --check` exit 0.
+Only `.env.example` is tracked among `.env*`; only `.gitkeep` is tracked in the
+raw/output roots scanned. Retain `final-status.txt`, `final-git-review.*.log` and
+`final-whitespace.*.log`. The audit/handoff checkpoint is complete; no
+commit/push was made. Full-team correctness and evaluation remain open.

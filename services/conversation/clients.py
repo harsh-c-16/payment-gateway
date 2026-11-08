@@ -89,7 +89,7 @@ def strict_json(value):
 
     try:
         return json.loads(value, parse_constant=invalid, object_pairs_hook=unique)
-    except (ValueError, UnicodeError) as exc:
+    except (ValueError, UnicodeError, RecursionError) as exc:
         raise ContractViolation("provider returned malformed JSON") from exc
 
 
@@ -97,12 +97,15 @@ def retry_delay(value):
     if value is None:
         return None
     try:
-        return max(0.0, float(int(value)))
-    except ValueError:
-        try:
-            return max(0.0, (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds())
-        except (ValueError, TypeError, OverflowError):
-            raise ContractViolation("invalid Retry-After header") from None
+        value = value.strip()
+        if re.fullmatch(r"[0-9]+", value):
+            delay = float(value)
+            if not math.isfinite(delay):
+                raise ValueError("unbounded retry delay")
+            return delay
+        return max(0.0, (parsedate_to_datetime(value) - datetime.now(UTC)).total_seconds())
+    except (ValueError, TypeError, OverflowError):
+        raise ContractViolation("invalid Retry-After header") from None
 
 
 def remaining_time(cutoff):

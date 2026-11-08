@@ -9,6 +9,7 @@ import projectctl.config as configuration
 from benchmarks.selection import load_selection
 from projectctl.artifacts import content_hash, file_hash, write_json
 from projectctl.config import load_config
+from projectctl.models import GitState
 from projectctl.providers import DependencyError
 
 
@@ -16,13 +17,23 @@ from projectctl.providers import DependencyError
 def selection_double(tmp_path, monkeypatch):
     config = load_config()
     monkeypatch.setattr(configuration, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        selection, "git_state", lambda: GitState(commit="a" * 40, dirty=False), raising=False
+    )
     reports = {}
     for workload, candidate in (("W-PIPE", "O1"), ("W-SEARCH", "O2"), ("W-INTEGRATED", "O3")):
         refs = []
         for n in range(6):
             path = tmp_path / f"{candidate}-{n}" / "manifest.json"
             path.parent.mkdir()
-            write_json(path, {"explicit_artifact_double": True})
+            write_json(
+                path,
+                {
+                    "explicit_artifact_double": True,
+                    "git": {"commit": "a" * 40, "dirty": False},
+                    "resolved_config": config.model_dump(),
+                },
+            )
             refs.append({"path": path.relative_to(tmp_path).as_posix(), "sha256": file_hash(path)})
         report = {
             "status": "MEASURED",
@@ -85,4 +96,19 @@ def test_unreviewed_unsupported_or_unjustified_choices_rejected(selection_double
     receipt["content_sha256"] = content_hash(receipt)
     (root / "selection.json").write_text(json.dumps(receipt))
     with pytest.raises(DependencyError):
+        load_selection("selection.json", config)
+
+
+@pytest.mark.parametrize("change", ["revision", "seed", "resources"])
+def test_selection_cannot_use_improvements_from_another_study(
+    selection_double, change, monkeypatch
+):
+    config, _, _ = selection_double
+    if change == "revision":
+        monkeypatch.setattr(selection, "git_state", lambda: GitState(commit="b" * 40, dirty=False))
+    elif change == "seed":
+        config.generator.seed += 1
+    else:
+        config.profile.generator.memory_mib += 1
+    with pytest.raises(DependencyError, match="study|revision"):
         load_selection("selection.json", config)

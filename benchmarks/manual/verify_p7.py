@@ -14,6 +14,10 @@ from urllib.parse import urlparse
 import psycopg
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from benchmarks.manual.verifier_state import Preservation  # noqa: E402
 
 
 def scenario_results(junit, fixture_hash):
@@ -192,6 +196,7 @@ def main():
         ),
     ]
     checks = []
+    preservation = Preservation(commands, ROOT, args.out)
     for command, expected in commands:
         result = subprocess.run(
             command,
@@ -209,7 +214,8 @@ def main():
                 "actual_exit": result.returncode,
                 "stdout": result.stdout,
                 "stderr": result.stderr,
-                "matched": result.returncode == expected,
+                "matched": result.returncode == expected
+                and preservation.matches(command, result.stdout),
             }
         )
         (args.out / "checks.json").write_text(json.dumps(checks, indent=2), encoding="utf-8")

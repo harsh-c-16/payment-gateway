@@ -9,6 +9,10 @@ from pathlib import Path
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from benchmarks.manual.verifier_state import Preservation  # noqa: E402
 
 
 def main():
@@ -110,6 +114,7 @@ def main():
     ]
     environment = os.environ.copy()
     environment["PYTHONIOENCODING"] = "utf-8"
+    preservation = Preservation(commands, ROOT, evidence)
     checks = []
     for command, expected in commands:
         try:
@@ -135,7 +140,7 @@ def main():
                 "cwd": str(ROOT),
                 "expected_exit": expected,
                 "actual_exit": actual,
-                "passed": actual == expected,
+                "passed": actual == expected and preservation.matches(command, stdout),
                 "stdout": stdout,
                 "stderr": stderr,
             }
