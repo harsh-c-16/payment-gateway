@@ -1,0 +1,41 @@
+{
+  "acquired_at": "2026-11-02T11:49:44.553441Z",
+  "byte_size": 38114963,
+  "columns": [
+    "uniq_id",
+    "crawl_timestamp",
+    "product_url",
+    "product_name",
+    "product_category_tree",
+    "pid",
+    "retail_price",
+    "discounted_price",
+    "image",
+    "is_FK_Advantage_product",
+    "description",
+    "product_rating",
+    "overall_rating",
+    "brand",
+    "product_specifications"
+  ],
+  "dataset_revision": "flipkart-v1-3a401f32ca99379f8298ce42",
+  "dictionary_sha256": "a7d381e90986b23f801eca537a689f2d3e056fa0b58040ecb7c182e2be2f9943",
+  "licence": null,
+  "original_url": null,
+  "raw_archive_descriptor": {
+    "byte_size": 38114963,
+    "max_event_time": null,
+    "min_event_time": null,
+    "partition_values": {},
+    "path": "raw/catalog/56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1/flipkart_com-ecommerce_sample.csv",
+    "row_count": 0,
+    "schema_name": "opaque-bytes",
+    "schema_version": 1,
+    "sha256": "56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1"
+  },
+  "row_count": 20000,
+  "rules_version": "flipkart-v1",
+  "source_origin": "user_upload",
+  "source_path": "flipkart_com-ecommerce_sample.csv",
+  "source_sha256": "56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1"
+}

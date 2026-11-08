@@ -24,13 +24,14 @@ import pyarrow.parquet as pq
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
-from analytics.compaction.compact import (
-    LayoutConfig,
-    compact_snapshot,
-    rewrite_unpartitioned,
-)
 from analytics.queries import fixture
-from analytics.queries.suite import QUERIES, open_connection, result_digest, run_query
+from analytics.queries.suite import (
+    QUERIES,
+    build_layouts,
+    open_connection,
+    result_digest,
+    run_query,
+)
 from pipelines.catalog.experiments import git_state
 from pipelines.curation import AnalyticsPipeline
 from pipelines.ingestion.receipts import migrate_analytics
@@ -44,13 +45,6 @@ COLD_EXECUTIONS = 5
 def nearest(values, quantile):
     ordered = sorted(values)
     return ordered[max(math.ceil(quantile * len(ordered)), 1) - 1]
-
-
-class Layout:
-    """Minimal manifest view so unpartitioned rewrites share the query path."""
-
-    def __init__(self, files):
-        self.files = files
 
 
 def measure(layouts, store_root, day, out):
@@ -247,43 +241,11 @@ def main():
         print(f"fixture: {built} in {build_seconds:.1f}s", flush=True)
         silver = pipeline.active_manifest(namespace, "silver")
         gold = pipeline.active_manifest(namespace, "gold")
-        base_files = list(silver.files) + list(gold.files)
         print(f"base: {len(silver.files)} silver files, {len(gold.files)} gold", flush=True)
         day = (datetime.now(UTC) - timedelta(days=2)).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
-        config = LayoutConfig()
-        started = perf_counter()
-        silver_candidate = compact_snapshot(
-            pipeline.store,
-            silver,
-            config,
-            output_prefix=f"candidate/{namespace}/{uuid4()}/silver",
-        )
-        compact_seconds = perf_counter() - started
-        published = pipeline.publish_candidate(silver_candidate)
-        print(f"published compacted silver generation {published.generation}", flush=True)
-        gold_now = pipeline.active_manifest(namespace, "gold")
-        gold_candidate = compact_snapshot(
-            pipeline.store,
-            gold_now,
-            config,
-            output_prefix=f"candidate/{namespace}/{uuid4()}/gold",
-        )
-        published_gold = pipeline.publish_candidate(gold_candidate)
-        compact_files = list(published.files) + list(published_gold.files)
-        unpartitioned = rewrite_unpartitioned(
-            pipeline.store, silver, config, f"layout/{namespace}/{uuid4()}"
-        )
-        flat_gold = rewrite_unpartitioned(
-            pipeline.store, gold, config, f"layout/{namespace}/{uuid4()}"
-        )
-        flat_files = [f for group in {**unpartitioned, **flat_gold}.values() for f in group]
-        layouts = {
-            "small_files": Layout(base_files),
-            "compacted": Layout(compact_files),
-            "unpartitioned": Layout(flat_files),
-        }
+        layouts, built_layouts = build_layouts(pipeline, namespace)
         rows, digests = measure(layouts, store_root, day, out)
         mismatches = [q for q, values in digests.items() if len(set(values.values())) != 1]
         summary = {
@@ -291,18 +253,14 @@ def main():
             "profile": "owner-local warm cache; not the frozen profile or the P9 runner",
             "synthetic_fixture": built,
             "fixture_build_seconds": build_seconds,
-            "compaction_seconds_silver": compact_seconds,
+            "compaction_seconds_silver": built_layouts["compaction_seconds_silver"],
             "host": {
                 "git": git_state(),
                 "cpu_count": os.cpu_count(),
                 "platform": platform.platform(),
             },
             "layouts": {name: layout_facts(layout.files) for name, layout in layouts.items()},
-            "candidate": {
-                "row_count": silver_candidate.row_count,
-                "digest": silver_candidate.logical_row_digest,
-                "published_generation": published.generation,
-            },
+            "candidate": built_layouts["candidate"],
             "result_digest_mismatches": mismatches,
             "series": summarize(rows, layouts),
         }

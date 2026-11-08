@@ -7,9 +7,11 @@ import os
 from datetime import timedelta
 from pathlib import Path
 from time import perf_counter
+from uuid import uuid4
 
 import duckdb
 
+from analytics.compaction.compact import LayoutConfig, compact_snapshot, rewrite_unpartitioned
 from pipelines.catalog.artifacts import peak_rss_kib
 
 SILVER = ("silver-events-v1", "silver-conversation-turn")
@@ -139,3 +141,70 @@ def runner_query_adapter(layout_for, store_root, day):
         return {**facts, "result_digest": result_digest(rows)}
 
     return query_adapter
+
+
+class Layout:
+    """Minimal manifest view so unpartitioned rewrites share the query path."""
+
+    def __init__(self, files):
+        self.files = files
+
+
+# (file_layout, partitioning) from the variant's effective config -> layout name.
+LAYOUT_FOR_PARAMETERS = {
+    ("small", "date_type"): "small_files",
+    ("compact", "date_type"): "compacted",
+    ("compact", "unpartitioned"): "unpartitioned",
+}
+
+
+def build_layouts(pipeline, namespace):
+    """Compact the namespace's active Silver and Gold through the publisher, before any query.
+
+    The small-file layout is the snapshot as it was; compaction never deletes its files.
+    """
+    config = LayoutConfig()
+    silver = pipeline.active_manifest(namespace, "silver")
+    gold = pipeline.active_manifest(namespace, "gold")
+    run = uuid4()
+    started = perf_counter()
+    silver_candidate = compact_snapshot(
+        pipeline.store, silver, config, output_prefix=f"candidate/{namespace}/{run}/silver"
+    )
+    compaction_seconds = perf_counter() - started
+    published = pipeline.publish_candidate(silver_candidate)
+    gold_candidate = compact_snapshot(
+        pipeline.store,
+        pipeline.active_manifest(namespace, "gold"),
+        config,
+        output_prefix=f"candidate/{namespace}/{run}/gold",
+    )
+    published_gold = pipeline.publish_candidate(gold_candidate)
+    flat = {
+        **rewrite_unpartitioned(pipeline.store, silver, config, f"layout/{namespace}/{run}/s"),
+        **rewrite_unpartitioned(pipeline.store, gold, config, f"layout/{namespace}/{run}/g"),
+    }
+    layouts = {
+        "small_files": Layout(list(silver.files) + list(gold.files)),
+        "compacted": Layout(list(published.files) + list(published_gold.files)),
+        "unpartitioned": Layout([f for group in flat.values() for f in group]),
+    }
+    facts = {
+        "compaction_seconds_silver": compaction_seconds,
+        "candidate": {
+            "row_count": silver_candidate.row_count,
+            "digest": silver_candidate.logical_row_digest,
+            "published_generation": published.generation,
+        },
+    }
+    return layouts, facts
+
+
+def runner_layout_for(layouts):
+    """layout_for for runner_query_adapter. An unlisted variant fails instead of guessing."""
+
+    def layout_for(context):
+        parameters = context["parameters"]
+        return layouts[LAYOUT_FOR_PARAMETERS[parameters["file_layout"], parameters["partitioning"]]]
+
+    return layout_for

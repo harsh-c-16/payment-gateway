@@ -6,7 +6,15 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 from analytics.queries import experiment, fixture
-from analytics.queries.suite import QUERIES, open_connection, run_query
+from analytics.queries.suite import (
+    LAYOUT_FOR_PARAMETERS,
+    QUERIES,
+    build_layouts,
+    open_connection,
+    result_digest,
+    run_query,
+    runner_layout_for,
+)
 
 
 def active(pipeline, dataset="silver"):
@@ -82,3 +90,22 @@ def test_cold_series_is_not_run_where_eviction_cannot_be_proven(tmp_path, monkey
         "cold_series": {"status": "NOT_RUN", "reason": "read_bytes is missing from /proc/self/io"}
     }
     assert not (tmp_path / "query_results_cold.parquet").exists()
+
+
+def test_runner_layouts_pin_each_frozen_variant_with_identical_results(pipeline):
+    populate(pipeline)
+    layouts, _ = build_layouts(pipeline, pipeline.test_namespace)
+    layout_for = runner_layout_for(layouts)
+    assert len(layouts["compacted"].files) < len(layouts["small_files"].files)
+    day = (datetime.now(UTC) - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    connection = open_connection()
+    for query_id in QUERIES:
+        digests = set()
+        for file_layout, partitioning in LAYOUT_FOR_PARAMETERS:
+            context = {"parameters": {"file_layout": file_layout, "partitioning": partitioning}}
+            rows, _ = run_query(connection, query_id, layout_for(context), pipeline.test_root, day)
+            digests.add(result_digest(rows))
+        assert len(digests) == 1, query_id
+    connection.close()
+    with pytest.raises(KeyError):
+        layout_for({"parameters": {"file_layout": "small", "partitioning": "unpartitioned"}})

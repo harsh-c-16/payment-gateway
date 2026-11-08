@@ -301,3 +301,33 @@ def test_projection_wait_reports_missing_and_completes(
             "SELECT reltuples FROM pg_class WHERE oid='stock_projection'::regclass"
         ).fetchone()
     assert analyzed["reltuples"] > 0
+
+
+def test_seed_audit_reports_uniform_projection_and_none_when_not(world, db, database_url):
+    import asyncio
+
+    namespace = world
+    audit = adapter.runner_seed_audit(database_url)
+    apply(db, namespace, 1, 10000, 0, 1, sku="FK-A1")
+    assert asyncio.run(audit({"namespace": namespace}))["projected_sku_count"] == 1
+    apply(db, namespace, 1, 10000, 0, 2, sku="FK-A2")
+    assert asyncio.run(audit({"namespace": namespace})) == {
+        "namespace": namespace,
+        "active_sku_count": 2,
+        "projected_sku_count": 2,
+        "initial_on_hand": 10000,
+        "reserved": 0,
+        "stock_version": 1,
+        "deferred": 0,
+        "test_mode": "real",
+    }
+    apply(db, namespace, 2, 9000, 1, 3, sku="FK-A1")
+    facts = asyncio.run(audit({"namespace": namespace}))
+    assert facts["initial_on_hand"] is facts["reserved"] is facts["stock_version"] is None
+
+
+def test_migration_participant_is_idempotent_and_reports_real(database_url, monkeypatch):
+    monkeypatch.setenv("CATALOG_DATABASE_URL", database_url)
+    for _ in range(2):
+        result = adapter.migrate_action(None)
+        assert (result.code, result.test_mode) == (ExitCode.COMPLETED, "real")
