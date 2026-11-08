@@ -1,0 +1,61 @@
+{
+  "active_rows": 19920,
+  "canonical_business_digest": "d87f57e638ee1ab75743338516c4cfc1a2acfcc68d8f5493f828e7cfeb9e2bba",
+  "canonical_rows": 19998,
+  "content_sha256": "0d214b4f88f928c9530f7f5838323c08fe2abfa5fc530c07020207c716a9e35b",
+  "dataset_revision": "flipkart-v1-3a401f32ca99379f8298ce42",
+  "dictionary_sha256": "a7d381e90986b23f801eca537a689f2d3e056fa0b58040ecb7c182e2be2f9943",
+  "files": {
+    "catalog": {
+      "byte_size": 6980149,
+      "max_event_time": null,
+      "min_event_time": null,
+      "partition_values": {},
+      "path": "catalog.parquet",
+      "row_count": 19998,
+      "schema_name": "catalog-catalog",
+      "schema_version": 1,
+      "sha256": "281142d5fa9f59d694ffcca593beab9f3079ae6f3937a8598fddbce95f046a9e"
+    },
+    "dispositions": {
+      "byte_size": 658742,
+      "max_event_time": null,
+      "min_event_time": null,
+      "partition_values": {},
+      "path": "dispositions.parquet",
+      "row_count": 20000,
+      "schema_name": "catalog-dispositions",
+      "schema_version": 1,
+      "sha256": "ef9880149ec5a8e59e95329be5fde4942a8845f92ad0388452e56e6d01b8998a"
+    },
+    "issues": {
+      "byte_size": 258919,
+      "max_event_time": null,
+      "min_event_time": null,
+      "partition_values": {},
+      "path": "issues.parquet",
+      "row_count": 18252,
+      "schema_name": "catalog-issues",
+      "schema_version": 1,
+      "sha256": "5d08ee8b583e612bdd9840b2485fa252db22da5635b79855ab4d1aba7de0dbaf"
+    },
+    "observations": {
+      "byte_size": 6186861,
+      "max_event_time": null,
+      "min_event_time": null,
+      "partition_values": {},
+      "path": "observations.parquet",
+      "row_count": 20000,
+      "schema_name": "catalog-observations",
+      "schema_version": 1,
+      "sha256": "e75fc7de4027508ad567030348a9f76624dfe0c56a924d411e77d5ace04048d7"
+    }
+  },
+  "inactive_rows": 78,
+  "raw_rows": 20000,
+  "rejected_rows": 0,
+  "rules_version": "flipkart-v1",
+  "schema_version": 1,
+  "source_manifest_ref": "b90f1de377e7a4a2fd20a10d0bd4c221ba414c92c47b50fdc9d2572840bd2eee",
+  "superseded_rows": 2
+}

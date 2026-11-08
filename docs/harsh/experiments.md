@@ -29,7 +29,7 @@ numbers, so they were not blind predictions.
 | Statistics when a load becomes ready | **Keep** (bug fix) | First-minute search 133 → 29 ms | About 0.9 s per import, 33 ms on stock |
 | I1, COPY into staging | **Adopt** | Staging 3.07 → 0.99 s, same digest | None measured |
 | O2, category and price B-tree | **Adopt, for typical latency only** | Lexical p50 42.7 → 13.5 ms; p95 unchanged | 0.48 MB, 0.8 s build |
-| P1, reused sessions | **Recommend**; needs Jaineel's decision because it is outside the frozen matrix | Capacity 111 → 370 searches/s with O2 | Idle sessions held open |
+| P1, reused sessions | **Owner-run finding only.** It is outside the frozen matrix, and Jaineel's runner requires reuse off for W-SEARCH, so C-BEST gets O2 alone | Capacity 111 → 370 searches/s with O2 | Idle sessions held open |
 | F-COMPACT | **Adopt** | Q1 1,023 → 10 ms warm, 1,853 → 19 ms cold; 11,146 → 91 files; same results | 29 s per run |
 | F-PARTITION, date and type partitions | **Keep existing layout**; a trade-off | Cold Q5 23% faster, cold Q1 and Q6 slower; warm about level | None measured |
 | HNSW (R-ANN) | **Do not adopt** at this size | Full-search p50 level, p95 worse, recall 0.906 | 37 MB, 1.75 s build |
@@ -331,8 +331,8 @@ tests small-file overhead, not behaviour at the target size.
 
 ## 8. Search quality (NDCG@5)
 
-The labels are **rule-derived, not manual**, so read
-[relevance_labels.md](relevance_labels.md) before quoting these.
+The labels are **rule-derived, not manual**, and Jaineel decided these scores are **diagnostic only**.
+Read [relevance_labels.md](relevance_labels.md) before quoting them.
 
 | Mode | Dev (23) | Dev without same-label queries (21) | Held-out (13) | Held-out without same-label queries (10) |
 |---|---|---|---|---|
