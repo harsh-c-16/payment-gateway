@@ -4737,3 +4737,12 @@ lakehouse volumes remain; no volume/image prune or prototype-data reset occurred
 Evidence: `test-container-removed.log`, `docker-containers-after.txt`,
 `docker-desktop-stop.log`. Manual presentation restart uses the updated demo
 runbook; start Docker Desktop first, then run its prepared-machine commands.
+
+Actual publication: source commit **`5dd1838`**, `fix: complete deterministic
+payment handoff and harden prototype`, was created on `jaineel/prototype-demo`.
+`git push origin HEAD:refs/heads/jaineel/prototype-demo` exited **0**, advancing
+the remote from `33ea39e` to `5dd1838` without rewriting history. `git ls-remote
+--heads origin refs/heads/jaineel/prototype-demo` matched local HEAD and the work
+tree was clean. This final documentation receipt is published as a separate small
+commit on the same branch; `git-receipt.json` retains its final local/remote SHA
+and clean status. Hosted CI was not polled and is not claimed green by this run.
