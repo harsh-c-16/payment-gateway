@@ -2,7 +2,12 @@
 
 Mocked unit tests cannot see driver types, transaction scope, envelope rules or cross-service
 headers. Requires INVENTORY_TEST_DATABASE_URL (the same login as test_seed); each service gets
-its own throwaway schema, dropped afterwards. Catalogue quotes and the payment roll are doubles.
+its own throwaway schema, dropped afterwards, migrated through services.orders.m3_setup.
+
+Explicit doubles: the catalogue is a small HTTP server speaking the real
+GET /internal/v1/quotes/{id} contract (service token, 404 unknown, 403 another user's
+quote, canonical Quote JSON with expires_at), so Orders' real HTTP quote path runs; and
+the payment roll. The real catalogue service is not part of this test.
 """
 
 import hashlib
@@ -11,6 +16,7 @@ import os
 import socket
 import threading
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from uuid import uuid4
 
@@ -18,18 +24,20 @@ import httpx
 import psycopg
 import pytest
 import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
 import services.inventory.app as inventory_app
 import services.orders.app as orders_app
-import services.orders.commands as commands
 import services.payments.app as payments_app
 import services.payments.authorize as authorize
 import shared.event_transport as sdk
 from services.inventory.database import Database as InventoryDatabase
 from services.inventory.events import InventoryEvents
 from services.inventory.seed import seed_inventory
+from services.orders import m3_setup
 from services.orders.events import OrderEvents
 from services.payments.events import PaymentEvents
 from shared.contracts.common import RequestContext
@@ -40,6 +48,7 @@ from tests.pipelines.transport_doubles import offline_cache
 ROOT = Path(__file__).resolve().parents[2]
 SERVICES = ("orders", "inventory", "payments")
 TERMINAL = {"CONFIRMED", "CANCELLED", "MANUAL_REVIEW"}
+TOKEN = "live-test-service-token"
 
 
 class PaymentRoll:
@@ -69,6 +78,23 @@ def serve(app):
     return server, f"http://127.0.0.1:{port}"
 
 
+def catalogue_double(quotes):
+    """Explicit double of Harsh's GET /internal/v1/quotes/{quote_id} contract."""
+    app = FastAPI()
+
+    @app.get("/internal/v1/quotes/{quote_id}")
+    def quote(quote_id: str, request: Request):
+        if request.headers.get("Authorization") != f"Bearer {TOKEN}":
+            return JSONResponse({"error": {"code": "UNAUTHORIZED"}}, status_code=401)
+        if quote_id not in quotes:
+            return JSONResponse({"error": {"code": "NOT_FOUND"}}, status_code=404)
+        if quotes[quote_id]["user_id"] != request.headers.get("X-User-ID"):
+            return JSONResponse({"error": {"code": "FORBIDDEN"}}, status_code=403)
+        return quotes[quote_id]
+
+    return app
+
+
 def configured(events):
     events.configured = True
     return events
@@ -91,16 +117,17 @@ def stack():
     try:
         for name, schema in schemas.items():
             urls[name] = make_conninfo(url, options=f"-c search_path={schema}")
-            with psycopg.connect(urls[name]) as tx:
-                for path in sorted((ROOT / f"migrations/{name}").glob("*.sql")):
-                    tx.execute(path.read_text())
+            m3_setup.setup(name, urls[name])
             patch.setenv(f"{name.upper()}_DATABASE_URL", urls[name])
         patch.setattr(
             sdk, "_codec", EventCodec(offline_cache(), dataset_revision="live-test-revision")
         )
         quotes, roll = {}, PaymentRoll()
-        patch.setattr(commands, "_fetch_quote", lambda _url, quote_id, *_: quotes[quote_id])
         patch.setattr(authorize, "random", roll)
+        patch.setenv("INTERNAL_API_TOKEN", TOKEN)
+        catalogue, catalogue_url = serve(catalogue_double(quotes))
+        servers.append(catalogue)
+        patch.setenv("CATALOG_URL", catalogue_url)
 
         inventory, inventory_url = serve(
             inventory_app.create_app(events=configured(InventoryEvents()))
@@ -168,18 +195,26 @@ def namespace(stack):
     return value
 
 
-def headers(namespace):
-    return {
+def headers(namespace, user="live-user", token=None):
+    result = {
         "X-Namespace": namespace,
         "X-Run-ID": "live",
-        "X-User-ID": "live-user",
+        "X-User-ID": user,
         "X-Correlation-ID": str(uuid4()),
         "X-Request-ID": str(uuid4()),
     }
+    if token:
+        result["Authorization"] = f"Bearer {token}"
+    return result
 
 
-def checkout(stack, namespace, lines):
+def utc(moment):
+    return moment.isoformat().replace("+00:00", "Z")
+
+
+def quote(stack, lines, *, owner="live-user", expires_in=60):
     quote_id = str(uuid4())
+    now = datetime.now(UTC)
     quote_lines = [
         {
             "sku": sku,
@@ -191,11 +226,27 @@ def checkout(stack, namespace, lines):
         for sku, quantity, price in lines
     ]
     stack["quotes"][quote_id] = {
+        "quote_id": quote_id,
+        "user_id": owner,
+        "cart_id": str(uuid4()),
+        "cart_version": 1,
         "lines": quote_lines,
         "total_amount_minor": sum(line["line_total_minor"] for line in quote_lines),
+        "currency": "INR",
+        "created_at": utc(now),
+        "expires_at": utc(now + timedelta(seconds=expires_in)),
     }
+    return quote_id
+
+
+def submit(stack, namespace, quote_id, user="live-user"):
     body = {"quote_id": quote_id, "session_id": str(uuid4()), "confirmation_id": str(uuid4())}
-    response = stack["client"].post("/v1/orders", json=body, headers=headers(namespace))
+    response = stack["client"].post("/v1/orders", json=body, headers=headers(namespace, user))
+    return response, body
+
+
+def checkout(stack, namespace, lines):
+    response, body = submit(stack, namespace, quote(stack, lines))
     assert response.status_code == 202, response.text
     return response.json()["order_id"], body
 
@@ -316,23 +367,147 @@ def test_every_service_writes_valid_outbox_events_in_the_order_namespace(stack, 
     assert order_types == {"ORDER_CREATED", "ORDER_CONFIRMED"}
 
 
-@pytest.mark.parametrize(
-    ("service", "path"),
-    [
-        ("orders", "/internal/v1/audit/orders"),
-        ("orders", "/internal/v1/audit/saga-jobs"),
-        ("inventory", "/internal/v1/audit/stock"),
-        ("inventory", "/internal/v1/audit/reservations"),
-        ("payments", "/internal/v1/audit/payments"),
-        ("payments", "/internal/v1/audit/ledger"),
-    ],
-)
-def test_audit_exports_answer(stack, namespace, service, path):
-    base = {
-        "orders": str(stack["client"].base_url),
+def base_url(stack, service):
+    return {
+        "orders": str(stack["client"].base_url).rstrip("/"),
         "inventory": stack["inventory_url"],
         "payments": stack["payments_url"],
     }[service]
-    response = httpx.get(base.rstrip("/") + path, headers=headers(namespace), timeout=5)
+
+
+def order_rows(stack, namespace):
+    return rows(stack, "orders", "SELECT order_id FROM orders WHERE namespace=%s", namespace)
+
+
+def test_expired_quote_is_rejected_without_an_order(stack, namespace):
+    response, _ = submit(stack, namespace, quote(stack, [("FK-LIVE-0", 1, 100)], expires_in=-1))
+
+    assert response.status_code == 409, response.text
+    assert response.json()["error"]["code"] == "QUOTE_EXPIRED"
+    assert order_rows(stack, namespace) == []
+
+
+def test_another_users_quote_is_forbidden_without_an_order(stack, namespace):
+    foreign = quote(stack, [("FK-LIVE-0", 1, 100)], owner="someone-else")
+
+    response, _ = submit(stack, namespace, foreign)
+
+    assert response.status_code == 403, response.text
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+    assert order_rows(stack, namespace) == []
+
+
+def test_unknown_quote_is_not_found(stack, namespace):
+    response, _ = submit(stack, namespace, str(uuid4()))
+
+    assert response.status_code == 404, response.text
+    assert order_rows(stack, namespace) == []
+
+
+def test_retry_of_accepted_quote_returns_same_order_after_expiry(stack, namespace):
+    stack["roll"].value = 0.9
+    quote_id = quote(stack, [("FK-LIVE-1", 1, 500)])
+    first, body = submit(stack, namespace, quote_id)
+    assert first.status_code == 202, first.text
+    stack["quotes"][quote_id]["expires_at"] = utc(datetime.now(UTC) - timedelta(seconds=5))
+
+    retry = stack["client"].post("/v1/orders", json=body, headers=headers(namespace))
+
+    assert retry.status_code == 202, retry.text
+    assert retry.json()["order_id"] == first.json()["order_id"]
+    assert len(order_rows(stack, namespace)) == 1
+
+
+def test_only_the_owner_can_read_status_and_events(stack, namespace):
+    stack["roll"].value = 0.9
+    order_id, _ = checkout(stack, namespace, [("FK-LIVE-2", 1, 300)])
+    settle(stack, namespace, order_id)
+
+    for path in (f"/v1/orders/{order_id}", f"/v1/orders/{order_id}/events"):
+        stranger = stack["client"].get(path, headers=headers(namespace, "intruder"))
+        assert stranger.status_code == 404, (path, stranger.text)
+        assert order_id not in stranger.text
+        owner = stack["client"].get(path, headers=headers(namespace))
+        assert owner.status_code == 200, (path, owner.text)
+
+
+INTERNAL_READS = [
+    ("orders", "/internal/v1/audit/orders"),
+    ("orders", "/internal/v1/audit/saga-jobs"),
+    ("inventory", "/internal/v1/audit/stock"),
+    ("inventory", "/internal/v1/audit/reservations"),
+    ("inventory", "/internal/v1/inventory/FK-LIVE-0"),
+    ("inventory", "/internal/v1/reservations/by-order/{order_id}"),
+    ("payments", "/internal/v1/audit/payments"),
+    ("payments", "/internal/v1/audit/ledger"),
+    ("payments", "/internal/v1/payments/by-order/{order_id}"),
+]
+
+
+@pytest.mark.parametrize(("service", "path"), INTERNAL_READS)
+def test_internal_reads_require_the_service_token(stack, namespace, service, path):
+    url = base_url(stack, service) + path.format(order_id=uuid4())
+    for token in (None, "wrong-token"):
+        refused = httpx.get(url, headers=headers(namespace, token=token), timeout=5)
+        assert refused.status_code == 401, (token, refused.text)
+    allowed = httpx.get(url, headers=headers(namespace, token=TOKEN), timeout=5)
+    assert allowed.status_code in (200, 404), allowed.text
+
+
+@pytest.mark.parametrize(
+    ("service", "path", "body"),
+    [
+        ("inventory", "/internal/v1/reservations", {"order_id": str(uuid4()), "items": []}),
+        ("inventory", "/internal/v1/reservations/by-order/{order_id}/commit", {}),
+        ("inventory", "/internal/v1/reservations/by-order/{order_id}/release", {}),
+        ("payments", "/internal/v1/payments/authorize", {}),
+        ("payments", "/internal/v1/payments/by-order/{order_id}/reverse", {}),
+        ("orders", "/internal/v1/fault-barriers", {}),
+    ],
+)
+def test_internal_commands_refuse_missing_token_before_anything_else(
+    stack, namespace, service, path, body
+):
+    url = base_url(stack, service) + path.format(order_id=uuid4())
+    response = httpx.post(url, json=body, headers=headers(namespace), timeout=5)
+    assert response.status_code == 401, response.text
+
+
+def test_fault_barriers_need_both_flags_and_a_bench_namespace(stack, namespace, monkeypatch):
+    url = base_url(stack, "orders") + "/internal/v1/fault-barriers"
+    body = {"barrier_name": "live.unused-barrier", "enabled": False}
+    auth = headers(namespace, token=TOKEN)
+
+    for benchmark, faults in (("false", "true"), ("true", "false")):
+        monkeypatch.setenv("BENCHMARK_MODE", benchmark)
+        monkeypatch.setenv("FAULT_INJECTION_ENABLED", faults)
+        assert httpx.post(url, json=body, headers=auth, timeout=5).status_code == 403
+
+    monkeypatch.setenv("BENCHMARK_MODE", "true")
+    monkeypatch.setenv("FAULT_INJECTION_ENABLED", "true")
+    dev = httpx.post(url, json=body, headers=headers("dev", token=TOKEN), timeout=5)
+    assert dev.status_code == 403
+    allowed = httpx.post(url, json=body, headers=auth, timeout=5)
+    assert allowed.status_code == 200, allowed.text
+    assert rows(
+        stack, "orders", "SELECT enabled FROM fault_barriers WHERE namespace=%s", namespace
+    ) == [(False,)]
+
+
+def test_setup_is_repeatable_and_records_checksums(stack):
+    for name in SERVICES:
+        again = m3_setup.setup(name, stack["urls"][name])
+        assert again["applied"] == []
+        recorded = rows(stack, name, "SELECT filename FROM m3_schema_migrations ORDER BY version")
+        assert [row[0] for row in recorded] == again["verified"]
+
+
+@pytest.mark.parametrize(
+    ("service", "path"), [read for read in INTERNAL_READS if "/audit/" in read[1]]
+)
+def test_audit_exports_answer(stack, namespace, service, path):
+    response = httpx.get(
+        base_url(stack, service) + path, headers=headers(namespace, token=TOKEN), timeout=5
+    )
     assert response.status_code == 200, response.text
     assert set(response.json()) >= {"items", "count"}

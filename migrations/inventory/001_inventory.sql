@@ -1,6 +1,6 @@
 -- inventory_db: Aditya owns. Isolated credentials; no cross-service FK.
 
-CREATE TABLE inventory (
+CREATE TABLE IF NOT EXISTS inventory (
     namespace       varchar(62) NOT NULL,
     sku             varchar(64) NOT NULL CHECK (sku ~ '^[!-~]{1,64}$'),
     on_hand         bigint      NOT NULL CHECK (on_hand >= 0),
@@ -11,7 +11,7 @@ CREATE TABLE inventory (
     CHECK (reserved <= on_hand)
 );
 
-CREATE TABLE reservations (
+CREATE TABLE IF NOT EXISTS reservations (
     namespace       varchar(62) NOT NULL,
     reservation_id  uuid        NOT NULL UNIQUE,
     order_id        uuid        NOT NULL,
@@ -24,10 +24,10 @@ CREATE TABLE reservations (
     UNIQUE (namespace, reservation_id)
 );
 
-CREATE INDEX reservations_expiry ON reservations (expires_at)
+CREATE INDEX IF NOT EXISTS reservations_expiry ON reservations (expires_at)
     WHERE state = 'ACTIVE';
 
-CREATE TABLE reservation_items (
+CREATE TABLE IF NOT EXISTS reservation_items (
     namespace       varchar(62) NOT NULL,
     reservation_id  uuid        NOT NULL,
     sku             varchar(64) NOT NULL CHECK (sku ~ '^[!-~]{1,64}$'),
@@ -37,7 +37,7 @@ CREATE TABLE reservation_items (
         REFERENCES reservations (namespace, reservation_id)
 );
 
-CREATE TABLE inventory_seeds (
+CREATE TABLE IF NOT EXISTS inventory_seeds (
     namespace       varchar(62)  NOT NULL,
     seed_id         uuid         NOT NULL,
     manifest_hash   char(64)     NOT NULL CHECK (manifest_hash ~ '^[0-9a-f]{64}$'),
@@ -52,10 +52,10 @@ CREATE TABLE inventory_seeds (
     PRIMARY KEY (namespace, seed_id)
 );
 
-CREATE UNIQUE INDEX seeds_manifest ON inventory_seeds (namespace, manifest_hash, profile_hash)
+CREATE UNIQUE INDEX IF NOT EXISTS seeds_manifest ON inventory_seeds (namespace, manifest_hash, profile_hash)
     WHERE status = 'COMPLETE';
 
-CREATE TABLE inventory_seed_chunks (
+CREATE TABLE IF NOT EXISTS inventory_seed_chunks (
     namespace       varchar(62) NOT NULL,
     seed_id         uuid        NOT NULL,
     chunk_no        int         NOT NULL CHECK (chunk_no >= 0),
@@ -70,7 +70,7 @@ CREATE TABLE inventory_seed_chunks (
 -- serves as a tombstone. A delayed reserve for that order_id will find
 -- the existing row and fail.
 
-CREATE TABLE operation_keys (
+CREATE TABLE IF NOT EXISTS operation_keys (
     namespace       varchar(62)  NOT NULL,
     user_id         varchar(128) NOT NULL,
     operation       varchar(64)  NOT NULL,
@@ -81,7 +81,7 @@ CREATE TABLE operation_keys (
     PRIMARY KEY (namespace, user_id, operation, key)
 );
 
-CREATE TABLE local_diagnostics (
+CREATE TABLE IF NOT EXISTS local_diagnostics (
     namespace                     varchar(62)  NOT NULL,
     diagnostic_id                 uuid         NOT NULL,
     run_id                        varchar(128) NOT NULL,
@@ -96,7 +96,7 @@ CREATE TABLE local_diagnostics (
     PRIMARY KEY (namespace, diagnostic_id)
 );
 
-CREATE TABLE outbox (
+CREATE TABLE IF NOT EXISTS outbox (
     outbox_id       bigserial    PRIMARY KEY,
     event_id        uuid         NOT NULL UNIQUE,
     namespace       varchar(62)  NOT NULL,
@@ -114,7 +114,7 @@ CREATE TABLE outbox (
     created_at      timestamptz  NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE INDEX outbox_pending ON outbox (outbox_id)
+CREATE INDEX IF NOT EXISTS outbox_pending ON outbox (outbox_id)
     WHERE published_at IS NULL;
 
-CREATE INDEX outbox_aggregate ON outbox (namespace, aggregate_type, aggregate_id, outbox_id);
+CREATE INDEX IF NOT EXISTS outbox_aggregate ON outbox (namespace, aggregate_type, aggregate_id, outbox_id);

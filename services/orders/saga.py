@@ -24,15 +24,21 @@ BACKOFF_CAP_SECONDS = 2.0
 MANUAL_REVIEW_TIMEOUT_SECONDS = 60
 CLAIM_LEASE_SECONDS = 10
 
-_BENCHMARK_MODE = os.environ.get("BENCHMARK_MODE", "false") == "true"
+
+def fault_injection_allowed(namespace):
+    """Team-wide guard: both flags explicitly on and an isolated bench- namespace."""
+    return all(
+        os.environ.get(flag, "false").lower() == "true"
+        for flag in ("BENCHMARK_MODE", "FAULT_INJECTION_ENABLED")
+    ) and namespace.startswith("bench-")
 
 
 class FaultBarrier:
-    """Controlled crash/delay points for benchmark testing. No-op outside benchmark mode."""
+    """Controlled crash/delay points; a no-op unless fault_injection_allowed(namespace)."""
 
     @staticmethod
     def check(db, namespace, barrier_name):
-        if not _BENCHMARK_MODE:
+        if not fault_injection_allowed(namespace):
             return
         try:
             with db.transaction(statement_timeout_ms=1000) as tx:

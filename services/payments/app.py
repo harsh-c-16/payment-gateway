@@ -1,5 +1,6 @@
 """M3 Payments HTTP adapter. Owner: Aditya Gaurav."""
 
+import hmac
 import logging
 import os
 from time import monotonic
@@ -67,6 +68,17 @@ def request_context(request: Request):
 Context = Annotated[RequestContext, Depends(request_context)]
 
 
+def internal_caller(request: Request):
+    """Common spec §2: /internal/v1 needs the environment service token; fail closed."""
+    token = os.environ.get("INTERNAL_API_TOKEN", "")
+    supplied = request.headers.get("Authorization", "")
+    if not token or not hmac.compare_digest(supplied.encode(), f"Bearer {token}".encode()):
+        raise ServiceError(401, ErrorCode.UNAUTHORIZED, "Valid service token is required.")
+
+
+Internal = Depends(internal_caller)
+
+
 def create_app(*, db=None, events=None):
     db = db or Database(
         os.environ.get("PAYMENTS_DATABASE_URL", ""),
@@ -121,15 +133,15 @@ def create_app(*, db=None, events=None):
         )
         return JSONResponse(failure.response(correlation(request)), status_code=422)
 
-    @app.post("/internal/v1/payments/authorize", status_code=202)
+    @app.post("/internal/v1/payments/authorize", status_code=202, dependencies=[Internal])
     def authorize_payment(body: AuthorizePaymentRequest, context: Context):
         return authorize.authorize(db, events, context.namespace, body, context)
 
-    @app.get("/internal/v1/payments/by-order/{order_id}")
+    @app.get("/internal/v1/payments/by-order/{order_id}", dependencies=[Internal])
     def get_payments(order_id: UUIDText, context: Context):
         return authorize.get_payment_order(db, context.namespace, order_id)
 
-    @app.post("/internal/v1/payments/by-order/{order_id}/reverse")
+    @app.post("/internal/v1/payments/by-order/{order_id}/reverse", dependencies=[Internal])
     def reverse(order_id: UUIDText, body: dict, context: Context):
         reason = body.get("reason")
         if not reason:
@@ -138,7 +150,7 @@ def create_app(*, db=None, events=None):
 
     # ── Audit exports (read-only, used by oracle/benchmark) ──
 
-    @app.get("/internal/v1/audit/payments")
+    @app.get("/internal/v1/audit/payments", dependencies=[Internal])
     def audit_payments(context: Context):
         """Read-only payment snapshot for oracle reconciliation."""
         with db.transaction() as tx:
@@ -161,7 +173,7 @@ def create_app(*, db=None, events=None):
             ).fetchall()
         return {"items": rows, "count": len(rows)}
 
-    @app.get("/internal/v1/audit/ledger")
+    @app.get("/internal/v1/audit/ledger", dependencies=[Internal])
     def audit_ledger(context: Context):
         """Read-only ledger entries for reconciliation."""
         with db.transaction() as tx:

@@ -1,5 +1,6 @@
 """M3 Inventory HTTP adapter with expiry worker. Owner: Aditya Gaurav."""
 
+import hmac
 import logging
 import os
 import threading
@@ -72,6 +73,17 @@ def request_context(request: Request):
 Context = Annotated[RequestContext, Depends(request_context)]
 
 
+def internal_caller(request: Request):
+    """Common spec §2: /internal/v1 needs the environment service token; fail closed."""
+    token = os.environ.get("INTERNAL_API_TOKEN", "")
+    supplied = request.headers.get("Authorization", "")
+    if not token or not hmac.compare_digest(supplied.encode(), f"Bearer {token}".encode()):
+        raise ServiceError(401, ErrorCode.UNAUTHORIZED, "Valid service token is required.")
+
+
+Internal = Depends(internal_caller)
+
+
 EXPIRY_INTERVAL_SECONDS = 0.25
 
 
@@ -131,22 +143,22 @@ def create_app(*, db=None, events=None):
         )
         return JSONResponse(failure.response(correlation(request)), status_code=422)
 
-    @app.post("/internal/v1/reservations", status_code=201)
+    @app.post("/internal/v1/reservations", status_code=201, dependencies=[Internal])
     def create_reservation(body: ReserveRequest, context: Context):
         return reservation.reserve(db, events, context.namespace, body, context)
 
-    @app.get("/internal/v1/reservations/by-order/{order_id}")
+    @app.get("/internal/v1/reservations/by-order/{order_id}", dependencies=[Internal])
     def get_reservation(order_id: UUIDText, context: Context):
         return reservation.get_reservation_by_order(db, context.namespace, order_id)
 
-    @app.post("/internal/v1/reservations/by-order/{order_id}/commit")
+    @app.post("/internal/v1/reservations/by-order/{order_id}/commit", dependencies=[Internal])
     def commit(order_id: UUIDText, body: dict, context: Context):
         rid = body.get("reservation_id")
         if not rid:
             raise ServiceError(400, ErrorCode.BAD_REQUEST, "reservation_id is required.")
         return reservation.commit_reservation(db, events, context.namespace, order_id, rid, context)
 
-    @app.post("/internal/v1/reservations/by-order/{order_id}/release")
+    @app.post("/internal/v1/reservations/by-order/{order_id}/release", dependencies=[Internal])
     def release(order_id: UUIDText, body: dict, context: Context):
         reason = body.get("reason")
         if not reason:
@@ -155,7 +167,7 @@ def create_app(*, db=None, events=None):
             db, events, context.namespace, order_id, reason, context
         )
 
-    @app.get("/internal/v1/inventory/{sku}")
+    @app.get("/internal/v1/inventory/{sku}", dependencies=[Internal])
     def get_stock(sku: Sku, context: Context):
         return reservation.get_stock(db, context.namespace, sku)
 
@@ -190,7 +202,7 @@ def create_app(*, db=None, events=None):
 
     # ── Audit exports (read-only, used by oracle/benchmark) ──
 
-    @app.get("/internal/v1/audit/stock")
+    @app.get("/internal/v1/audit/stock", dependencies=[Internal])
     def audit_stock(context: Context, limit: int = Query(default=1000, ge=1, le=10000)):
         """Read-only stock snapshot for oracle reconciliation."""
         with db.transaction() as tx:
@@ -205,7 +217,7 @@ def create_app(*, db=None, events=None):
             ).fetchall()
         return {"items": rows, "count": len(rows)}
 
-    @app.get("/internal/v1/audit/reservations")
+    @app.get("/internal/v1/audit/reservations", dependencies=[Internal])
     def audit_reservations(context: Context, limit: int = Query(default=1000, ge=1, le=10000)):
         """Read-only reservation snapshot for oracle reconciliation."""
         with db.transaction() as tx:

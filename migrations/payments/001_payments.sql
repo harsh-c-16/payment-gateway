@@ -1,6 +1,6 @@
 -- payments_db: Aditya owns. Isolated credentials; no cross-service FK.
 
-CREATE TABLE payment_orders (
+CREATE TABLE IF NOT EXISTS payment_orders (
     namespace       varchar(62) NOT NULL,
     order_id        uuid        NOT NULL,
     quiesced        boolean     NOT NULL DEFAULT false,
@@ -9,7 +9,7 @@ CREATE TABLE payment_orders (
     PRIMARY KEY (namespace, order_id)
 );
 
-CREATE TABLE payment_attempts (
+CREATE TABLE IF NOT EXISTS payment_attempts (
     namespace       varchar(62) NOT NULL,
     payment_id      uuid        NOT NULL UNIQUE,
     order_id        uuid        NOT NULL,
@@ -30,11 +30,11 @@ CREATE TABLE payment_attempts (
 );
 
 -- At most one PENDING or SUCCESS attempt per order at any time.
-CREATE UNIQUE INDEX one_active_attempt
+CREATE UNIQUE INDEX IF NOT EXISTS one_active_attempt
     ON payment_attempts (namespace, order_id)
     WHERE status IN ('PENDING', 'SUCCESS');
 
-CREATE TABLE ledger_entries (
+CREATE TABLE IF NOT EXISTS ledger_entries (
     namespace       varchar(62) NOT NULL,
     entry_id        uuid        NOT NULL,
     payment_id      uuid        NOT NULL,
@@ -48,16 +48,16 @@ CREATE TABLE ledger_entries (
 );
 
 -- One debit per successful payment.
-CREATE UNIQUE INDEX one_debit_per_payment
+CREATE UNIQUE INDEX IF NOT EXISTS one_debit_per_payment
     ON ledger_entries (namespace, payment_id)
     WHERE kind = 'DEBIT';
 
 -- At most one reversal per successful payment.
-CREATE UNIQUE INDEX one_reversal_per_payment
+CREATE UNIQUE INDEX IF NOT EXISTS one_reversal_per_payment
     ON ledger_entries (namespace, payment_id)
     WHERE kind = 'REVERSAL';
 
-CREATE TABLE operation_keys (
+CREATE TABLE IF NOT EXISTS operation_keys (
     namespace       varchar(62)  NOT NULL,
     user_id         varchar(128) NOT NULL,
     operation       varchar(64)  NOT NULL,
@@ -68,7 +68,7 @@ CREATE TABLE operation_keys (
     PRIMARY KEY (namespace, user_id, operation, key)
 );
 
-CREATE TABLE local_diagnostics (
+CREATE TABLE IF NOT EXISTS local_diagnostics (
     namespace                     varchar(62)  NOT NULL,
     diagnostic_id                 uuid         NOT NULL,
     run_id                        varchar(128) NOT NULL,
@@ -83,7 +83,7 @@ CREATE TABLE local_diagnostics (
     PRIMARY KEY (namespace, diagnostic_id)
 );
 
-CREATE TABLE outbox (
+CREATE TABLE IF NOT EXISTS outbox (
     outbox_id       bigserial    PRIMARY KEY,
     event_id        uuid         NOT NULL UNIQUE,
     namespace       varchar(62)  NOT NULL,
@@ -101,7 +101,7 @@ CREATE TABLE outbox (
     created_at      timestamptz  NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE INDEX outbox_pending ON outbox (outbox_id)
+CREATE INDEX IF NOT EXISTS outbox_pending ON outbox (outbox_id)
     WHERE published_at IS NULL;
 
-CREATE INDEX outbox_aggregate ON outbox (namespace, aggregate_type, aggregate_id, outbox_id);
+CREATE INDEX IF NOT EXISTS outbox_aggregate ON outbox (namespace, aggregate_type, aggregate_id, outbox_id);
