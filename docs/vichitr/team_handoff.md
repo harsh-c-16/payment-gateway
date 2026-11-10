@@ -1,5 +1,27 @@
 # M4 integration handoff and remaining gates
 
+10 November recovery follow-up: **initial catch-up is now complete**. All 19,920
+seed SKUs are projected, zero deferred; all 19,920 stock events reached Gold.
+At 10:53:10 UTC all five business-topic lags, unfinished receipts, pending exports
+and analytics notifications were zero (Silver/Gold generation 269). The public
+Gold API later returned HTTP 200, generation 273, with stock counts
+11,000 + 8,920 = 19,920. Development workers now have bounded `on-failure:3`
+restarts after the real stock-worker connection-timeout exit. Normal prototype
+resource verification passed after restoring the temporary bootstrap CPU cap.
+
+**Current demo blocker for Harsh/Jaineel:** real `POST /v1/search` still returns
+503 `STORAGE_UNAVAILABLE` after drain. PostgreSQL logs identify a two-second
+statement timeout on the eligible-product count joining `products` and
+`stock_projection`. The text turn returns `dependency_error` and no products;
+cart, quote and checkout were not reached. A temporary PostgreSQL CPU increase
+did not make the structured HTTP attempt succeed and was reverted. Separate
+read-only execution plans under both audit and catalogue roles use a hash join
+and finish below two seconds, so the exact difference in the HTTP execution
+context remains unresolved. Harsh should review the real request/SQL path;
+Jaineel should recheck the turn once search succeeds. No deadline, catalogue
+logic or query assertions were changed. Raw local attempts and plans are in
+`artifacts/prototype-recovery-20261110/`; see [progress](progress.md).
+
 10 November prototype update: [prototype-local](../../infra/PROTOTYPE.md) now
 starts/verifies the six APIs, stock/analytics workers and real operational relays
 inside 3.5 GiB of container limits on the current 8-CPU Docker VM. Linux import,

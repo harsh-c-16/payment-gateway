@@ -1,5 +1,13 @@
 # Vichitr implementation plan
 
+10 November recovery follow-up: prototype background-process restart handling is
+delivered; **stock projection and initial analytics catch-up are complete** for
+all 19,920 seed SKUs/events, with zero lag/pending work at the recorded drain.
+The public Gold API exposes the full stock count. Full shopping remains blocked
+by catalogue HTTP search storage timeouts after drain, reflected as M1 dependency
+errors. Harsh/Jaineel's current handoff is in [team_handoff.md](team_handoff.md).
+No evaluation or benchmark runs were performed in this follow-up.
+
 10 November prototype implementation: the owned full-application deployment,
 low-memory development profile, shared-relay process binding, Linux setup helper,
 private configuration, readiness checks and retained-data shutdown are delivered.

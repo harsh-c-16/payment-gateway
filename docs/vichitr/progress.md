@@ -1,5 +1,73 @@
 # Vichitr progress
 
+## Prototype recovery follow-up — 10 November 2026
+
+Scope: finish retained prototype startup/catch-up and diagnose the real shopping
+path. No evaluation suites, benchmark trials, profile qualification, owner
+business changes or CI selection changes.
+
+- Retained startup `15c67074-4ad1-436e-8fcc-947b3c6cbad4` failed verification
+  because the catalogue stock worker exited on `psycopg.errors.ConnectionTimeout`
+  wrapped as `Catalogue storage is unavailable`. It was not OOM-killed.
+- Added development-only `on-failure:3` to the stock worker, analytics worker
+  and operational relay container. Persistent consecutive failures stay bounded;
+  intentional shutdown retains data and does not restart stopped containers.
+  Both normal catalogue/analytics deployment overlays remain unchanged.
+- Applied the overlay to those three containers. All twelve containers then
+  passed `infra.prototype.verify`; Docker inspection confirmed `on-failure`
+  with `MaximumRetryCount=3` on each background container.
+- Existing `projection wait` completed successfully, run
+  `7468a1c2-24ee-4eb2-b99e-773da33b5a8b`: **19,920 expected, 19,920 projected,
+  zero deferred**. It also ran the catalogue owner's existing planner-statistics
+  refresh. No CSV reimport, reseed, offset reset or volume deletion occurred.
+- Focused command: `.venv/Scripts/python.exe -m pytest
+  tests/pipelines/test_prototype.py tests/pipelines/test_catalog_relay.py -q
+  --basetemp=artifacts/pytest-prototype-recovery
+  --junitxml=artifacts/prototype-recovery-20261110/focused.xml`:
+  **30 passed**. Compose config, Ruff lint/format and `git diff --check` passed.
+  These are deployment checks with explicit doubles, not business acceptance.
+
+Raw follow-up evidence stays under `artifacts/prototype-recovery-20261110/`.
+The initial text-turn retry still hit the three-second deadline during catch-up;
+a separate public structured-search attempt returned catalogue storage 503.
+Both are preserved, and neither reached checkout. These attempts do not prove
+the cause of the earlier historical timeouts.
+
+Bootstrap drain completed at **10:53:10 UTC**: all five business-topic lags were
+zero, all **19,920 Inventory stock events** had recorded Gold visibility,
+**19,944 new-valid receipts**, zero unfinished receipts, zero pending exports
+and zero pending analytics notifications. Active Silver/Gold generation was
+**269**. `drain.jsonl` retains broker ends/committed offsets and SQL observations;
+empty order/payment topics had no initialized group offsets and zero log ends.
+Idle APIs, catalogue worker and operational relays were temporarily stopped to
+reduce bootstrap contention. PostgreSQL temporarily used two available VM CPUs
+with its unchanged 512-MiB cap; its normal **0.5-CPU** cap was restored before
+restarting applications. This was untimed development catch-up, not profile
+qualification or a throughput measurement.
+
+After restoring normal caps, `env verify` passed as run
+`27cb8f03-e67f-4093-82ec-b5e29173fd69`. The public pipeline-minute Gold query
+returned HTTP 200, generation **273**, stock counts **11,000 + 8,920 = 19,920**
+(`gold-read.json`). Post-drain text and structured HTTP attempts still failed
+before cart/checkout. Server logs identify the catalogue eligible-count SQL's
+two-second statement timeout. A temporary 1.5-CPU PostgreSQL cap did not make
+the structured request succeed and was restored to 0.5. Read-only execution
+plans under audit and catalogue roles both used hash joins and completed below
+the timeout (`search-execution-plan.json`, `search-owner-execution-plan.json`);
+these single diagnostic executions do not establish the HTTP-path cause or
+performance acceptance. Persistent HTTP request/SQL-context diagnosis is handed
+to Harsh, with Jaineel to recheck the assistant turn after catalogue search works.
+No successful search/cart/quote/order/payment or order-to-Gold claim is made.
+
+Final pre-shutdown drain at **11:00:20 UTC** included the attempted demo traffic:
+**19,952 new-valid receipts**, all five business-topic lags zero, all 19,920
+Inventory stock facts visible, zero unfinished receipts/exports/notifications,
+generation **273**. `env down` completed, run
+`9f61f551-84b7-4630-8508-3d1b4d9b257f`, with an empty `docker ps` afterward;
+all volumes, offsets and credentials are retained. Runtime code was based on
+`aa79e39` with this follow-up's development edits; no clean-source acceptance or
+hosted CI result is claimed.
+
 ## Local prototype deployment — 10 November 2026
 
 Implemented the Vichitr-owned deployment layer on `vichitr`, based on merged main

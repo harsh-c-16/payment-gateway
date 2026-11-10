@@ -107,6 +107,14 @@ existing transaction services to complete the saga. Payment success/decline,
 stock release, retry idempotency and resulting queryable Gold must be observed
 separately. Known transaction behavior fixes remain with Aditya.
 
+The stock worker, analytics worker and operational relay container use
+`on-failure:3` in this development overlay. A transient database or broker error
+can terminate a worker after its own retries; Docker then restarts it from its
+retained state, with at most three retries for consecutive failures. An
+intentional Compose stop does not restart it. Inspect a repeatedly failing
+worker before retrying; this policy does not establish data readiness or repair
+a persistent error.
+
 ## Resources, verification and shutdown
 
 Container RAM ceilings total **3,584 MiB (3.5 GiB)**, plus a required 256 MiB of
@@ -146,6 +154,12 @@ database files, lakehouse files, topics, offsets and secret files remain intact.
 It does not quit Docker Desktop or stop unrelated containers. On startup failure,
 inspect `artifacts/infra/prototype-local/checks/<run-id>/startup.jsonl` and the
 reported streaming check directory; retained state is never deleted to retry.
+
+To release Docker Desktop's VM memory after the stack has stopped:
+
+```powershell
+docker desktop stop --timeout 60
+```
 
 Focused offline checks:
 

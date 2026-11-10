@@ -136,6 +136,7 @@ services:
     mem_limit: 128m
     cpus: 0.75
     init: true
+    restart: "on-failure:3"
     stop_grace_period: 40s
     environment:
       <<: *runtime
@@ -159,6 +160,7 @@ services:
     mem_limit: 320m
     cpus: 1.0
     init: true
+    restart: "on-failure:3"
     stop_grace_period: 40s
     environment:
       <<: *runtime
@@ -171,6 +173,7 @@ services:
   prototype-relays:
     <<: *app
     cpus: 0.5
+    restart: "on-failure:3"
     environment:
       <<: *runtime
       CONVERSATION_DATABASE_URL: ${CONVERSATION_DATABASE_URL:?}

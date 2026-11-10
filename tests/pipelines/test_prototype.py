@@ -43,6 +43,15 @@ def test_missing_token_is_not_silently_rotated(private_runtime):
     assert not token.exists()
 
 
+def test_background_process_restarts_are_bounded_and_development_only():
+    overlay = yaml.safe_load((postgres.ROOT / "infra/compose.prototype.yaml").read_text())
+    for name in ("catalog-worker", "analytics-worker", "prototype-relays"):
+        assert overlay["services"][name]["restart"] == "on-failure:3"
+    for name in ("compose.catalog.yaml", "compose.analytics.yaml"):
+        base = yaml.safe_load((postgres.ROOT / "infra" / name).read_text())
+        assert all("restart" not in service for service in base["services"].values())
+
+
 def test_namespace_change_requires_original_binding(private_runtime, monkeypatch):
     prototype.prepare("first-run")
     monkeypatch.setenv("RUN_NAMESPACE", "bench-other")
