@@ -29,6 +29,8 @@ AUDIT_PATHS = (
     "benchmarks/quality.py",
     "benchmarks/workloads.py",
     "benchmarks/quality_trial.py",
+    "benchmarks/seed_audit.py",
+    "projectctl/team_runtime.py",
     "benchmarks/pipeline_audit.py",
     "benchmarks/reconciliation.py",
     "pipelines/ingestion/quality.py",

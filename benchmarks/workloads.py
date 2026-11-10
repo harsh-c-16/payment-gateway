@@ -33,6 +33,10 @@ class WorkloadManifest:
         workload, seed = spec["workload_id"], spec["seed"]
         rng = random.Random(seed)
         skus, templates = spec["selected_skus"], spec["templates"]
+        transaction = workload in {"W-CHECKOUT", "W-INTEGRATED"}
+        scenario_version = spec.get("transaction_scenario_version", 1)
+        if transaction and (type(scenario_version) is not int or scenario_version not in {1, 2}):
+            raise InputError("unsupported transaction scenario identity version")
         ordinal = 0
         versions = {}
         if workload == "W-QUALITY":
@@ -48,11 +52,13 @@ class WorkloadManifest:
         for phase in ("warmup", "measurement"):
             count = spec["phase_counts"].get(phase, 0)
             order = list(range(len(templates)))
+            declined_positions = set()
             for index in range(count):
                 if templates and index % len(templates) == 0:
                     rng.shuffle(order)
                 template = templates[order[index % len(templates)]] if templates else {}
                 scenario = template.get("scenario_id", template.get("query_id", f"case-{index:06}"))
+                scenario_id = f"{phase}:{scenario}"
                 payload = dict(template)
                 if skus:
                     # Exact 80% of each block of ten hits one hot key.
@@ -63,11 +69,28 @@ class WorkloadManifest:
                         if sku not in skus:
                             raise InputError("cart template SKU is absent from active manifest")
                     payload |= {"sku": sku, "quantity": 1}
-                if workload in {"W-CHECKOUT", "W-INTEGRATED"}:
-                    # Stable scenario ID, independent of runtime UUID/wall clock/variant.
-                    bucket = int(digest({"scenario": scenario, "seed": seed})[:16], 16) % 100
+                if transaction:
+                    if scenario_version == 2:
+                        # A cart template is reused by many logical purchases.
+                        # Seed its ordinal in an exact 95/5 block independently
+                        # of runtime identity and the template shuffle.
+                        scenario_id = f"{phase}:{index:06}:{scenario}"
+                        payload["scenario_id"] = scenario_id
+                        if index % 100 == 0:
+                            block_seed = int(
+                                digest({"seed": seed, "phase": phase, "block": index // 100})[:16],
+                                16,
+                            )
+                            declined_positions = set(
+                                random.Random(block_seed).sample(range(100), 5)
+                            )
+                        declined = index % 100 in declined_positions
+                    else:
+                        # Reconstruct historical version-1 evidence exactly.
+                        bucket = int(digest({"scenario": scenario, "seed": seed})[:16], 16) % 100
+                        declined = bucket >= 95
                     payload |= {
-                        "payment_outcome": "success" if bucket < 95 else "decline",
+                        "payment_outcome": "decline" if declined else "success",
                         "payment_delay_ms": 100,
                     }
                 if workload == "W-PIPE":
@@ -94,7 +117,7 @@ class WorkloadManifest:
                     "record_ordinal": ordinal,
                     "logical_record_id": f"source-{ordinal:06}",
                     "logical_event_id": f"event-{ordinal:06}" if workload == "W-PIPE" else None,
-                    "scenario_id": f"{phase}:{scenario}",
+                    "scenario_id": scenario_id,
                     "phase": phase,
                     "offset_seconds": offset,
                     "payload": payload,
@@ -218,4 +241,8 @@ def generate_workload(
             "invalid": 500 if workload_id == "W-QUALITY" else 0,
         },
     }
+    if workload_id in {"W-CHECKOUT", "W-INTEGRATED"}:
+        # Pin the changed materialization policy in new recipe hashes. Previously
+        # saved recipes still reconstruct their original v1 evidence unchanged.
+        spec["transaction_scenario_version"] = 2
     return WorkloadManifest(canonical_json(spec))

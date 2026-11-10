@@ -1,5 +1,6 @@
 """Lifecycle/result doubles; no service startup, reset or measured evaluation."""
 
+import asyncio
 import json
 import sys
 from dataclasses import replace
@@ -39,6 +40,33 @@ def test_team_composes_m4_and_independent_operational_runtime_lazily(monkeypatch
     assert set(team.setup_actions) == {"db migrate", "env reset"}
     result = team.setup_actions["db migrate"](None)
     assert result.code == ExitCode.DEPENDENCY_FAILURE  # Missing owners block every write.
+
+
+def test_team_quality_seed_collects_exact_membership_without_replacing_provider_scope(monkeypatch):
+    from benchmarks.quality_binding import QualityOwners
+    from benchmarks.seed_audit import MEMBERSHIPS
+
+    calls = []
+
+    async def seed(context):
+        calls.append("owner")
+        return {"namespace": "bench-original-seed", "run_id": "original-run"}
+
+    def collect(namespace):
+        calls.append(namespace)
+        return {field: ["FK-A"] for field in MEMBERSHIPS}
+
+    monkeypatch.delenv("PROJECTCTL_OWNER_RUNTIME_MODULES", raising=False)
+    monkeypatch.setattr(
+        "infra.analytics_runtime.runtime_bindings",
+        lambda: RuntimeBindings(quality=QualityOwners(seed_audit=seed)),
+    )
+    monkeypatch.setattr("benchmarks.seed_audit.collect_membership", collect)
+    team = runtime_bindings()
+    assert calls == []
+    result = asyncio.run(team.quality.seed_audit({"namespace": "bench-measurement"}))
+    assert calls == ["owner", "bench-original-seed"]
+    assert result["run_id"] == "original-run" and result["inventory_skus"] == ["FK-A"]
 
 
 @pytest.mark.parametrize("field", ["workloads", "migrations", "quality", "cases", "resets"])

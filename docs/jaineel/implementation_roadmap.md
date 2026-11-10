@@ -8,7 +8,7 @@ Use one prompt per coding session, in order. Each prompt ends at a checkpoint so
 - **Session reuse:** Keep `CATALOG_REUSE_CONNECTIONS=false` for the frozen baseline. Session reuse is outside the registered matrix. Evaluate it later as a separately reviewed extension with frozen controls and interaction evidence; do not silently call it C-BEST.
 - **Natural-language brand parsing:** Do not turn every dictionary match into a brand constraint. Accept clearly cued brand filters; for ambiguous collisions, clarify or retain the phrase as query text. Preserve existing frozen assistant scenarios and document any intended semantic change for review.
 - **Dataset hashes:** Harsh's dictionary hash is for LF-normalized text. This Windows checkout reads CRLF bytes, while evaluation preflight uses raw-byte hashes. Resolve and verify cross-platform hash policy before pinning the dictionary in evaluation config. Do not silently replace the dataset revision or published hash.
-- **Current branch:** Work on the checked-out `jaineel/j03-telemetry` branch. Do not switch or create a branch. Do not commit unless explicitly asked.
+- **Current branch:** Current follow-ups use `jaineel/prototype-demo`, as explicitly requested by the user. Stay on that branch and push only when requested. Earlier `jaineel/j03-telemetry` references describe historical checkpoints.
 - **Existing work:** Preserve `docs/jaineel/P1_P7_AUDIT.md` and `docs/jaineel/P1_P9_AUDIT.md`. Keep changes within Jaineel's owned paths. For a provider defect, capture the smallest failing consumer case and give the owning teammate the exact file, contract and observed behavior; do not implement their service.
 - **Evidence:** For each checkpoint, record changed paths, exact commands and results, evidence locations, visible skips, unresolved owner handoffs and manual steps in `docs/jaineel/progress.md`. Never present test doubles as live integration or NOT_RUN as pass.
 
@@ -115,5 +115,10 @@ Reconcile every planned offer/result after drain. Retain raw timings, resource s
 **Checkpoint:** a reproducible, independently reconciled B0 and required comparisons exist, or the specific unmet gate remains explicit. Optional session reuse, live model trials and unreviewed relevance quality stay outside certified results until separately approved and measured.
 
 ## Starting rule
+
+Current completion and remaining work are recorded in the
+[10 November audit](PENDING_WORK_AUDIT_2026_11_10.md). Prompts above are an ordered
+historical plan; do not rebuild tasks already implemented or treat a successful
+prototype as the completed formal evaluation.
 
 Begin with Prompt 1 only. At the end of each prompt, review the diff, test evidence and progress entry before starting the next. If an implementation exposes a contract conflict, stop that module, quote both requirements in the progress note, and name the owner/consumer review needed. Do not solve the conflict by changing public behavior in passing.

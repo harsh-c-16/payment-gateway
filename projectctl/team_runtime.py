@@ -21,10 +21,26 @@ from projectctl.setup import (
 
 
 def runtime_bindings():
+    from benchmarks.seed_audit import with_seed_membership
     from infra.analytics import migrate_action
     from infra.analytics_runtime import runtime_bindings as analytics_bindings
 
-    bindings = [analytics_bindings()]
+    analytics = analytics_bindings()
+    analytics = replace(
+        analytics,
+        workloads={
+            name: replace(callbacks, seed_audit=with_seed_membership(callbacks.seed_audit))
+            if callbacks.seed_audit is not None
+            else callbacks
+            for name, callbacks in analytics.workloads.items()
+        },
+        quality=replace(
+            analytics.quality, seed_audit=with_seed_membership(analytics.quality.seed_audit)
+        )
+        if analytics.quality is not None and analytics.quality.seed_audit is not None
+        else analytics.quality,
+    )
+    bindings = [analytics]
     modules = os.environ.get("PROJECTCTL_OWNER_RUNTIME_MODULES", "")
     for name in filter(None, (part.strip() for part in modules.split(","))):
         if name == __name__ or not re.fullmatch(r"[A-Za-z_]\w*(\.[A-Za-z_]\w*)*", name):

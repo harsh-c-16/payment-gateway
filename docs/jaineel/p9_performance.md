@@ -5,7 +5,9 @@ real B0, G4/G5, a winning optimization, or a sustainable rate. Follow the canoni
 [P9 scope](../specs/10_JAINEEL_CODEX_PLAYBOOK.md#p9--baseline-and-controlled-optimization-experiments),
 [evaluation protocol](../specs/03_EVALUATION_SPEC.md), and
 [matrix](../specs/09_EVALUATION_RUNBOOK.md#5-performance-commands-and-matrix).
-P10 report/release work is not implemented.
+P10 report/rehearsal code is now implemented; see [its handoff](p10_report.md).
+Measured results and the real release remain incomplete. See the
+[current audit](PENDING_WORK_AUDIT_2026_11_10.md) for the remaining prerequisites.
 
 ## Provider composition
 

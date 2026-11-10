@@ -233,6 +233,7 @@ def test_search_setup_orders_real_barrier_after_seed_and_requires_strict_proof(
     config = load_config()
     registry, calls = ProviderRegistry(), []
     ctx = context(tmp_path)
+    expected_skus = [f"FK-FIXTURE-{i:05}" for i in range(19920)]
 
     def action_double(invocation):
         calls.append(invocation.action)
@@ -266,6 +267,9 @@ def test_search_setup_orders_real_barrier_after_seed_and_requires_strict_proof(
             "stock_version": 1,
             "pending_outbox": 0,
             "deferred": 0,
+            "catalog_skus": expected_skus,
+            "inventory_skus": expected_skus,
+            "projected_skus": expected_skus,
         }
         if bad_seed == "boolean_version":
             report["stock_version"] = True
@@ -274,7 +278,9 @@ def test_search_setup_orders_real_barrier_after_seed_and_requires_strict_proof(
         return report
 
     monkeypatch.setattr("benchmarks.composition.inspect_source", lambda path: {"status": "PASS"})
-    monkeypatch.setattr("benchmarks.composition.catalog_projection", lambda cfg: {"fixture": True})
+    monkeypatch.setattr(
+        "benchmarks.composition.catalog_projection", lambda cfg: {"active_skus": expected_skus}
+    )
     owners = OwnerCallbacks(fresh_namespace=fresh_double, seed_audit=seed_double)
     lifecycle = Lifecycle("W-SEARCH", config, registry, owners)
     if bad_seed:

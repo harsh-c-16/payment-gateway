@@ -6,6 +6,9 @@ explicit owner handoffs below. No evaluation was run on Jaineel's laptop.
 Use [the canonical evaluation runbook](../specs/09_EVALUATION_RUNBOOK.md) for test
 requirements and [P9](p9_performance.md)/[P10](p10_report.md) for receipt/report
 formats. The steps below identify the actual implementation and remaining work.
+See the [10 November audit](PENDING_WORK_AUDIT_2026_11_10.md) for the current
+J01–J07 responsibility register. The successful local prototype is separate
+from the formal evaluation described here.
 
 ## 1. Freeze machine and source
 
@@ -30,7 +33,7 @@ zero and two API slots. At P33 the worker caps are 6/4/4; the API remains separa
 Every process's proposed cap is recorded in `configs/evaluation_profiles.json`;
 these declarations do not prove that an unconfigured API's defaults were changed.
 
-Start from the reviewed committed revision shared on `jaineel/j03-telemetry`;
+Start from the reviewed committed revision shared on `jaineel/prototype-demo`;
 use the final agreed revision for every comparator. A dirty tree is rejected by
 the real runtime. Install using the unchanged application lock:
 
@@ -84,6 +87,14 @@ registration is lazy. Duplicate registrations fail rather than replacing M4.
 | Harsh | Confirm input manifests/hashes; connect real catalogue seed/projection/layout/query callbacks, pinned query day/generation, independent import/query expectations, and reviewed request templates. Human relevance review is pending. |
 | Jaineel + affected owners | Bind and review each missing D/T/G case listed in `integration_inventory.json`. M4 workload callbacks do not automatically become general suite case adapters. Connect G3 to the actual public services and immutable producer evidence. Preserve the independent expected answer. |
 
+The owned seed auditor now enforces exact active SKU membership across Catalogue,
+Inventory and stock projection. The team runtime extends the original M4 seed
+callback through `benchmarks.seed_audit.with_seed_membership`; it uses the original
+seed namespace and existing restricted SELECT-only readers. Review these mappings
+and audit roles as part of the byte-pinned analytics review. Operational extensions
+must supply complete unique `catalog_skus`, `inventory_skus` and `projected_skus`
+lists or use the same wrapper; count-only evidence fails before emission.
+
 For resets, **all six owner participants** and all read-only preflights must be
 present before apply. M4's existing apply helper additionally enforces original
 context, quiescence, acceptance, 30-day retention and replay/outbox guards.
@@ -121,6 +132,11 @@ secrets out of config, review documents, logs and version control.
    runbook §2 for the catalogue commands and private deployment instructions.
 4. Freeze real checkout/integrated templates and their logical hashes. Retain
    nulls for missing human labels or providers; do not fill them with sample data.
+   New transaction recipes pin `transaction_scenario_version=2`: every logical
+   purchase has a distinct stable scenario ID and seeded 95/5 outcomes per block
+   of 100 offers, with 100-ms delay. Regenerate and review the packet/recipe hashes
+   before comparison. Historical version-1 recipes preserve their original
+   materialization and cannot share controls with the corrected recipes.
 5. Create a new reviewed execution config from the candidate once resources are
    actually enforced and inputs/callbacks are complete. Set `ready/enforced`
    only with evidence. Regenerate/review an input packet if any input changes;

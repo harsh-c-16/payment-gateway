@@ -176,6 +176,10 @@ class Lifecycle:
             await self.action("projection wait", context)
             seed = await self.owners.seed_audit(context)
             write_json(Path(context["evidence_directory"]) / "seed_checks.json", seed)
+            from benchmarks.seed_audit import verify_seed_membership
+
+            membership = verify_seed_membership(seed, projection)
+            write_json(Path(context["evidence_directory"]) / "seed_membership.json", membership)
             if any(
                 type(seed.get(name)) is not type(wanted) or seed[name] != wanted
                 for name, wanted in {
