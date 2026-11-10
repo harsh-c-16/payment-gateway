@@ -9,7 +9,8 @@ from infra import catalog_relay
 
 
 @pytest.mark.parametrize("alive", [False, True])
-def test_shared_relay_binding_and_confirmed_shutdown(monkeypatch, alive):
+@pytest.mark.parametrize("service", ["catalog", "conversation", "orders", "inventory", "payments"])
+def test_shared_relay_binding_and_confirmed_shutdown(monkeypatch, alive, service):
     calls = []
     connection = SimpleNamespace(execute=lambda sql: calls.append("ready"))
     monkeypatch.setattr(catalog_relay.psycopg, "connect", lambda *a, **kw: nullcontext(connection))
@@ -24,7 +25,7 @@ def test_shared_relay_binding_and_confirmed_shutdown(monkeypatch, alive):
     class Relay:
         def __init__(self, pool, publisher, **options):
             assert options == {
-                "service_name": "catalog",
+                "service_name": service,
                 "poll_interval_ms": 25,
                 "batch_limit": 100,
             }
@@ -41,10 +42,14 @@ def test_shared_relay_binding_and_confirmed_shutdown(monkeypatch, alive):
     monkeypatch.setattr(catalog_relay, "OutboxRelay", Relay)
     if alive:
         with pytest.raises(RuntimeError, match="unconfirmed"):
-            with catalog_relay.catalog_relay("url-double", "codec-double", "broker-double"):
+            with catalog_relay.catalog_relay(
+                "url-double", "codec-double", "broker-double", service_name=service
+            ):
                 pass
         assert calls == ["ready", "start", "stop"]
     else:
-        with catalog_relay.catalog_relay("url-double", "codec-double", "broker-double"):
+        with catalog_relay.catalog_relay(
+            "url-double", "codec-double", "broker-double", service_name=service
+        ):
             calls.append("run")
         assert calls == ["ready", "start", "run", "stop", "close"]
