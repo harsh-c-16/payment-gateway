@@ -41,6 +41,12 @@ Actual setup and evidence:
   returned exit 0, run `8908518d-c35f-4189-bf99-158065a38aa0`; raw process/resource
   proof is under `artifacts/infra/prototype-local/checks/<run-id>/prototype.json`.
   These receipts acknowledge process health, not whole-business acceptance.
+  After pushing implementation `595ab94`, startup passed again at that clean
+  deployed revision, run `67c792d2-0614-442a-91f8-be5e975c4e5a`. A real public
+  Gold read returned HTTP 200, generation 139 and three pipeline-minute rows;
+  `artifacts/prototype-20261110/gold-read.json` retains the response. The query
+  uses today's UTC date and tomorrow's exclusive end date. An initial same-date
+  range was correctly rejected with 400; that was a smoke-request error.
 - Initial read-only checks found empty public Conversation/M3 schemas and the
   missing catalogue outbox migration. One-off local setup invoked M1's existing
   migration helper, Harsh's existing migration helper, and applied Aditya's existing

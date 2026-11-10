@@ -123,6 +123,20 @@ configuration, not a B0/O1 comparison.
 
 ```powershell
 .venv/Scripts/python.exe -m projectctl env verify --profile prototype-local
+```
+
+Read the currently published pipeline totals while the stack is running. The
+date range is half-open; the end date must follow the start date:
+
+```powershell
+$from = (Get-Date).ToUniversalTime().Date
+$url = 'http://127.0.0.1:8006/v1/analytics/gold/pipeline_minute?namespace=' + $env:RUN_NAMESPACE + '&date_from=' + $from.ToString('yyyy-MM-dd') + '&date_to=' + $from.AddDays(1).ToString('yyyy-MM-dd')
+Invoke-RestMethod $url
+```
+
+Stop the stack when finished:
+
+```powershell
 .venv/Scripts/python.exe -m projectctl env down
 ```
 
