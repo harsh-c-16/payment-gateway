@@ -72,6 +72,9 @@ def csv_values(value):
 def parser():
     root = Parser(prog="python -m projectctl", description=__doc__)
     groups = root.add_subparsers(dest="group", required=True)
+    from projectctl.demo import add_arguments
+
+    add_arguments(groups.add_parser("demo", help="interactive fixed-mode shopping client"))
     actions = {}
     for action, owner in OWNERS.items():
         group, command = action.split()
@@ -329,6 +332,10 @@ def execute(args, registry: ProviderRegistry):
 def main(argv=None, *, registry=None):
     try:
         args = vars(parser().parse_args(argv))
+        if args["group"] == "demo":
+            from projectctl.demo import command
+
+            return command(argparse.Namespace(**args))
         validate_arguments(args)
         outputs = execute(args, registry if registry is not None else default_registry())
         code = max(item["exit_code"] for item in outputs)

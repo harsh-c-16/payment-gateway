@@ -255,3 +255,17 @@ For M1's separate shared-outbox process, see the
 [service commands](../services/conversation/README.md). Current team handoff and
 the latest exact test/evidence results are recorded in
 [Jaineel's progress](../docs/jaineel/progress.md).
+
+## Interactive prototype demo
+
+After starting the [existing prototype deployment](../infra/PROTOTYPE.md), run:
+
+```powershell
+.venv/Scripts/python.exe -m projectctl demo --namespace dev --user-id demo-jaineel --query "shirt"
+```
+
+Select a result and quantity, review the quote, then explicitly type the displayed
+`CONFIRM <quote-id>` to purchase. Fixed mode makes zero LLM calls. The client saves
+identity, cart versions and retry keys; use `demo --resume <printed-state-path>`
+after an interruption. See [the demo runbook](../docs/jaineel/PROTOTYPE_DEMO.md)
+for setup, recovery, evidence and the remaining owner acceptance checks.

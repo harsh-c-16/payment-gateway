@@ -110,9 +110,15 @@ All authoritative specifications and runbooks are maintained in [`docs/specs/`](
 
 ## 4. Getting Started
 
-The P1 Python 3.11 CLI/configuration foundation is implemented. Follow the
-[locked install and offline checks](projectctl/README.md). Provider actions remain
-unavailable until owner adapters are supplied; they return exit 4 and save evidence.
+For the connected shopping demonstration, start the
+[prototype deployment](infra/PROTOTYPE.md), then run
+`.venv/Scripts/python.exe -m projectctl demo --namespace dev --query "shirt"`.
+The [demo runbook](docs/jaineel/PROTOTYPE_DEMO.md) covers product selection, cart,
+quote review, explicit confirmation, checkout, final status and safe resume.
+
+Follow the Python 3.11 [locked install and offline checks](projectctl/README.md).
+Provider-dependent commands require the documented owner bindings and running
+services; unavailable dependencies return exit 4 and save evidence.
 See [Jaineel's progress](docs/jaineel/progress.md) for the actual checkpoint results.
 
 1. **Environment Setup:**
