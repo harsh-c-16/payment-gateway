@@ -4001,3 +4001,117 @@ bindings; Vichitr reviews runtime/audit mappings and enforces counted deployment
 clock/collector inputs; Aditya supplies M3 migration/runtime/seed/snapshot/fault
 bindings. All required remaining cases stay explicit until real callbacks and
 owner-reviewed evidence exist. The final measured report remains NOT_RUN.
+
+## Connected prototype client checkpoint — 10 November 2026
+
+**Status: client implemented and verified; real prototype/provider acceptance
+NOT_RUN.** User requested Vichitr's connected demonstration handoff: search →
+selection → cart → authoritative quote display → explicit confirmation → checkout
+→ final order status. The current checkout already contains merged PR #15 at
+`453a190111b3eb257073404032364a2c11ce6559`. Starting status/diff was clean on
+`jaineel/j03-telemetry`; created the small feature branch
+`jaineel/prototype-demo`. No commit or push was requested or performed.
+
+Read ownership, Jaineel's brief and relevant common/context/dataset/evaluation
+specifications. This checkpoint implements the M1/M0 client only. Harsh's search
+repair and Aditya's transaction/setup/authentication work remain with their
+owners. No canonical DTO, public API, frozen deadline, dependency lock, provider
+implementation or infrastructure configuration changed.
+
+Changed paths:
+
+- `projectctl/demo.py`: runnable interactive fixed-mode client, also exposed
+  through `python -m projectctl demo`. Uses canonical OpenAPI validation and
+  RequestContext. Displays numbered real hits, selection/quantity, exact quoted
+  lines/total, cart version and UTC expiry. Only `CONFIRM <quote-id>` records
+  explicit purchase confirmation. There is no auto-confirm/model option.
+- `projectctl/cli.py`: adds the demo entry point without changing provider or
+  evaluation command dispatch. M1 calls use a 5-second **client** response timeout
+  so its existing 3-second turn budget can finish; Orders reads use 2 seconds.
+  Backend catalogue and turn limits remain 2 and 3 seconds respectively.
+- `tests/projectctl/test_demo.py`: explicit HTTP doubles with canonical schemas;
+  success/cancellation, missing confirmation, no results/clarification, stable
+  retries across session/cart/quote/checkout response loss, resume after expiry,
+  stale cart, changed principal, malformed hits, zero-model policy, conflict,
+  definitive expiry rejection and manual-review coverage.
+- `tests/conversation/test_demo_process.py`: the client runs through an actual
+  loopback M1 process and isolated PostgreSQL schemas, including accepted-provider
+  response loss. Catalogue/Orders acceptance and order finality are explicitly
+  doubled. Both terminal statuses, one durable confirmation, one checkout command
+  and a persisted zero-call turn are asserted; this is not a real M3 saga pass.
+- `docs/jaineel/PROTOTYPE_DEMO.md`, `projectctl/README.md`, root `README.md`:
+  copyable startup/demo/resume instructions, failure interpretation and owner
+  acceptance checks. This progress entry records the checkpoint and limitations.
+
+Client state is atomically replaced/flushed before mutation dispatch. It retains
+namespace/user/run/correlation/session identity, cart version, quote, confirmation,
+exact business input, request ID and key. At most two automatic retries preserve
+that same input/identity. Pending checkout recovery does not reinterpret expiry
+as proof that no purchase occurred. Only a definitive `409 QUOTE_EXPIRED` permits
+requote plus fresh human confirmation. Completed dependency-error turns use a new
+turn identity for the next user search. Order polling validates identity, exact
+immutable quote contents and monotonically increasing versions. Unresolved or
+manual-review outcomes remain exit 4. Raw HTTP response bytes and timings are
+retained beside the ignored local state. Exclusive locks prevent concurrent use.
+
+Verification (all from repository root; `PY=.venv/Scripts/python.exe`):
+
+| Exact command/check | Actual result | Evidence |
+|---|---|---|
+| `PY -m pytest tests/projectctl/test_demo.py tests/projectctl/test_cli.py -q -o cache_dir=artifacts/pytest-cache-demo --basetemp=artifacts/pytest-demo-client-release-20261110 --junitxml=artifacts/jaineel/demo-20261110/client-release.xml` | **71 passed**, no failures/errors/skips, 47.12 s | `artifacts/jaineel/demo-20261110/client-release.xml` |
+| With isolated `P6_TEST_DATABASE_URL`: `PY -m pytest tests/conversation -q --tb=short --basetemp=artifacts/pytest-demo-postgres-20261110 --junitxml=artifacts/jaineel/demo-20261110/m1-postgres.xml` | **413 passed**, no failures/errors/skips, 91.53 s. Existing dependency/JUnit warnings and a local pytest-cache permission warning remain visible | `m1-postgres.xml`, `m1-postgres.log` in the same evidence directory |
+| After the final client expiry/requote refinement, with the same isolated URL: `PY -m pytest tests/conversation/test_demo_process.py -q --tb=short -o cache_dir=artifacts/pytest-cache-demo --basetemp=artifacts/pytest-demo-process-release-20261110 --junitxml=artifacts/jaineel/demo-20261110/m1-process-release.xml` | **2 passed**, no skips, 6.51 s; overlaps the full M1 run above | `m1-process-release.xml`, `m1-process-release.log` |
+| `PY -m ruff check projectctl/demo.py projectctl/cli.py tests/projectctl/test_demo.py tests/conversation/test_demo_process.py`; `PY -m ruff format --check` with the same four paths | Both exit 0; four files formatted | `final-checks.json` |
+| `PY -m projectctl.conversation_contract --check`; `git diff --check` | Both exit 0; canonical M1 contract unchanged | `final-checks.json` |
+| `git diff --quiet -- infra services/catalog services/orders services/inventory services/payments shared/contracts shared/outbox shared/event_transport migrations docs/specs uv.lock pyproject.toml` | Exit 0; other owners' code and shared contracts untouched | `final-checks.json` |
+| `PY -m projectctl demo --help` | Exit 0; runnable command/options displayed | Session transcript |
+| `PY -m projectctl demo --state artifacts/jaineel/demo-20261110/unavailable/state.json --namespace dev --user-id demo-probe --query shirt` | **Expected exit 4**: actual API connection unavailable; exactly two same-key retries, retained session request, no invented completion | `unavailable-cli.json`, `unavailable-cli.log`, `unavailable/state.json.http.jsonl` |
+| `$env:PROJECTCTL_ADAPTER_MODULE='infra.prototype'`; `PY -m projectctl env verify --profile prototype-local` | Application summary **exit_code 4, NOT_RUN**: `schema-prerequisites` failed with ConnectionTimeout. This PowerShell wrapper returned 1. No real checkout inferred | `artifacts/projectctl/eee9c3f0-11e3-4648-8e0d-5a9957e5e23a/`, linked startup diagnostics |
+
+`artifacts/jaineel/demo-20261110/verification.json` indexes the final JUnit counts
+and explicit live NOT_RUN states. Earlier failed/overlapping trials were retained:
+the initial new-client test run had one fixture selector counting both session
+creation and its turn URL; its corrected selector still requires all four exact
+same-key mutation deliveries and one effect. No product assertion was weakened.
+
+Docker Desktop was initially stopped. Started it hidden for verification, then
+created only an isolated 512-MiB PostgreSQL test container using the existing
+P6 harness's generated Compose document and the existing pinned PostgreSQL 18 /
+pgvector image in `infra/images.lock.json`. Setup files and credentials remain
+private under `artifacts/jaineel/demo-20261110/postgres/`; never copy them into Git
+or chat. Per-test owned schemas are removed by the existing fixture. The generated
+test container is stopped at the end; its volume/evidence are retained. This
+setup is not the complete prototype deployment.
+
+Additional read-only diagnosis used the existing catalogue normalizer/artifact
+builder on the actual local CSV to obtain the observed API facet dictionary,
+then timed M1 extraction for three simple queries. Saved SHA/counts and raw
+measurements in `observed-facets.json` / `intent-before.json`: roughly 31–63 ms.
+This is a parser diagnostic, not search latency, catalogue-import validation,
+streaming throughput or a performance result. It gives no basis for changing
+M1's turn deadline. Docker VM budget inspection passed (8,141,934,592 bytes,
+12 CPUs; prototype ceilings 3,584 MiB plus 256 MiB headroom); the complete local
+prototype was not started. The host had about 1.2 GiB free at the last check.
+
+Remaining handoffs / manual verification:
+
+1. On the already prepared deployment, use the exact retained namespace and run
+   the new CLI. Harsh must fix/verify the reported real eligible-count HTTP query
+   failure without changing its contract or 2-second timeout. Do not hide it by
+   bypassing search with a hardcoded SKU. This checkout has no running prototype
+   application endpoints/private prototype bindings, so that provider result is
+   **NOT_RUN**, not an observed fix or a newly measured 503.
+2. Aditya must complete the repeatable M3 setup, new-order quote-expiry checks,
+   status/SSE ownership and internal-token checks, then resolve any actual saga
+   terminal-state blocker. M1 consumes the existing public contracts and keeps
+   the original checkout identity on uncertainty; no M3 replacement was added.
+3. Follow `PROTOTYPE_DEMO.md`: exercise one terminal checkout, resume the same
+   completed state (same order), and decline confirmation in a fresh session
+   (no checkout). Preserve the real HTTP evidence. Real transaction conservation,
+   payment ledger reconciliation, event delivery and active Gold remain **NOT_RUN**
+   here and require the existing G3 harness/owner evidence.
+
+For this basic connected-demo milestone, a web UI, live LLM, real bank integration,
+additional data ingestion and a benchmark matrix are unnecessary. Existing
+prototype setup plus the named owner fixes and an actual live smoke are required.
+Stop at this checkpoint; do not claim a full release or measured DE baseline.
