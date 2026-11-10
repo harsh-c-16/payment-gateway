@@ -4115,3 +4115,247 @@ For this basic connected-demo milestone, a web UI, live LLM, real bank integrati
 additional data ingestion and a benchmark matrix are unnecessary. Existing
 prototype setup plus the named owner fixes and an actual live smoke are required.
 Stop at this checkpoint; do not claim a full release or measured DE baseline.
+
+## Live prototype startup and checkout correction — 10 November 2026
+
+The user correctly requested fixing the local database/startup failure rather
+than ending with doubled-provider evidence. The earlier demo-client checkpoint's
+**live checkout NOT_RUN is superseded by a real CONFIRMED checkout below**. Its
+earlier raw evidence remains unchanged. Full-team correctness/performance gates
+are still separate.
+
+Starting tree was clean on `jaineel/prototype-demo`, HEAD `52d8d78` (`demo entry
+point`, committed between turns). Re-read ownership and the prototype runbook.
+No commit/push was requested or performed in this follow-up. Changed source paths
+are `projectctl/demo.py`, `tests/projectctl/test_demo.py` and these Jaineel-owned
+runbook/progress documents. All provider source, migrations, canonical DTOs and
+infrastructure configuration remain unchanged.
+
+Root cause and local setup:
+
+- The previous command was `env verify` while the prototype infrastructure was
+  stopped. Verification does not start a database. Running the existing
+  `infra.prototype` **env up** restored PostgreSQL, Kafka and Registry and fixed
+  connectivity. It then correctly reported missing tables: every operational
+  service database on this machine was empty. Read-only preflight facts are in
+  `artifacts/jaineel/live-demo-20261110/prerequisites.json`.
+- Applied the existing M1 `Database.migrate()` and Harsh's existing
+  `migrate_catalog()` with each service's own generated connection string.
+  For the verified-empty Orders, Inventory and Payments databases, executed
+  their existing `migrations/<service>/*.sql` in filename order, each service's
+  complete SQL set in one transaction. The one-time bootstrap refused a database
+  with any existing public table. No SQL was modified or invented. SQL paths and
+  exact-byte SHA-256 values are preserved in `bootstrap.json`. Aditya's requested
+  repeatable migration participant remains his deliverable; this local bootstrap
+  does not claim that coordinator exists or apply SQL to a nonempty database.
+- Built the existing locked image with `infra.prototype.build_image()`. Used the
+  documented Linux `prototype-setup` helper for real catalogue import, catalogue
+  verification, Inventory seeding and the SKU-manifest copy. Import promoted
+  **19,998 canonical / 19,920 active / 78 inactive** rows; catalogue verification
+  passed **19 assertions**. Inventory seed completed **19,920 SKUs, zero skipped**.
+  These are actual local setup facts, independent of Vichitr's earlier machine.
+- Retried the normal `env up`; **all 12 containers were healthy** with their
+  existing enforced limits. No reset, volume deletion, sample replacement,
+  provider source edit or timeout relaxation was used. The development deployment
+  is retained running for the user's demo.
+
+The first live CLI attempt found a genuine Windows client issue. The verification
+driver briefly read the saved state while the client atomically replaced it;
+Windows returned `PermissionError` / `winerror=5`. A separate held-reader probe
+reproduced that exact behavior and succeeded immediately after the reader closed
+(`state-sharing-before.json`). `Journal.save()` now retries only that rename for
+Windows sharing/access-denied codes 5/32/33 at 50/100/200 ms, keeping the identical
+flushed snapshot. Permanent/non-Windows errors still fail. No HTTP mutation is
+dispatched before the state save succeeds. Added a real Windows held-reader test
+and a persistent-permission-failure test that asserts zero HTTP requests.
+
+Actual connected verification:
+
+- Ran the real CLI search `shirt` through M1, returning five actual catalogue
+  hits. Its saved turn reports **0 LLM calls**, parse 583.25 ms, search 998.14 ms
+  and total **1,618.50 ms**. These are one local smoke observations, not latency
+  quantiles or a performance conclusion. The 2-second catalogue and 3-second
+  turn limits are unchanged. Raw response is in `first-probe/state.json`.
+- Resumed that actual user/session/cart, selected result 1 and quantity 1. The
+  initial quote expired during diagnosis; the CLI correctly required `REQUOTE`,
+  displayed a new authoritative quote for **80,500 INR minor units** and required
+  `CONFIRM 1da2f9b4-f915-4ebd-8d67-132d56d5ee3e`. The subprocess driver supplied
+  this explicit control only after checking the actual quote lines/currency/
+  amount/cart version for the user-authorized simulated checkout test. The CLI
+  still exposes no automatic-confirmation option. The quote/control are retained
+  in `explicit-test-confirmation.json`.
+- Real Orders accepted order **`4b028b67-1689-419b-977b-e5ba431dd60e`**. The CLI
+  observed PENDING v1 → RESERVING v2 → COMMITTING_STOCK v4 → **CONFIRMED v5**;
+  polling may legitimately miss an intermediate version. Exit 0, `phase=done`.
+  See `checkout-cli-retry.log`, `checkout-cli-retry.json` and the full HTTP journal
+  beside `first-probe/state.json`. M1/catalogue/Orders/Inventory/Payments were all
+  real services; the payment provider is the project's real simulator, not a
+  test replacement, external bank or real-money purchase.
+- Public/internal read-only APIs independently verified the exact order identity,
+  immutable quote lines/total, **COMMITTED** reservation, stock **10,000 → 9,999**
+  with **reserved=0**, and **one DEBIT / net 80,500 INR minor units** for this order.
+  Raw receipts: `opening-stock.json` and `transaction-receipts.json`.
+- Reopened the completed CLI state: exit 0, same CONFIRMED order, no new purchase.
+  Also POSTed the saved checkout body with its original request ID/key **after
+  quote expiry**; M1 returned HTTP 202 with the **same order ID** (the original
+  acceptance snapshot still says PENDING, correctly followed by current Orders
+  status for finality). See `resume-completed.log` and `checkout-replay.json`.
+
+Exact command/evidence record (all from repo root; `PY=.venv/Scripts/python.exe`):
+
+| Command/check | Actual result | Evidence |
+|---|---|---|
+| `$env:PROJECTCTL_ADAPTER_MODULE='infra.prototype'`; `PY -m projectctl env up --profile prototype-local` | First run exit 4 naming every empty service schema; infrastructure connectivity restored | `artifacts/projectctl/957279eb-1b55-4c87-8e58-baa6837645f0/` |
+| Existing `Database(...).migrate()`, `migrate_catalog(tx)` and unchanged M3 SQL, only after read-only empty-table preflight | All applied successfully through owning database credentials | `bootstrap.json` |
+| Existing helper: `docker compose ... run --rm --no-deps prototype-setup python -m projectctl catalog import --source data/raw/flipkart_com-ecommerce_sample.csv --rules flipkart-v1 --load-mode copy --namespace dev --out prototype-volume/prototype-data` | Application exit 0; canonical digest `d87f57e638ee1ab75743338516c4cfc1a2acfcc68d8f5493f828e7cfeb9e2bba` | `catalog-import.log`; host setup evidence `artifacts/prototype-setup/projectctl/89db2187-dd34-4620-936e-e3effaf784a2/` |
+| Same helper: `python -m projectctl catalog verify --namespace dev --manifest prototype-volume/prototype-data/normalized_manifest.json` | Exit 0; 19 assertions verified | `catalog-verify.log` |
+| Same helper: `python -m projectctl inventory seed --namespace dev --sku-manifest prototype-volume/prototype-data/sku_manifest.json --profile performance --seed 42` | Exit 0; 19,920 seeded, zero skipped | `inventory-seed.log` |
+| Normal prototype `env up` after existing schema/data setup | Exit 0; 12 healthy containers | `artifacts/projectctl/072723a1-4130-4120-982b-3265c8e627d1/` and linked `prototype.json` |
+| `PY -m projectctl demo --state artifacts/jaineel/live-demo-20261110/first-probe/state.json --namespace dev --user-id live-demo-probe --query shirt` | Real search succeeded; deliberately left at selection before purchase | `first-probe.log`, `first-probe.json` |
+| `PY -u -m projectctl demo --resume artifacts/jaineel/live-demo-20261110/first-probe/state.json --wait-seconds 120` with explicit test inputs `REQUOTE`, then exact displayed `CONFIRM <quote-id>` | **Exit 0, real CONFIRMED order**; original failed Windows-sharing attempt retained separately | `checkout-cli-retry.log`, `checkout-cli-retry.json` |
+| `PY -m projectctl demo --resume artifacts/jaineel/live-demo-20261110/first-probe/state.json` | Exit 0; same CONFIRMED order | `resume-completed.log` |
+| `PY -m pytest tests/projectctl/test_demo.py -q -o cache_dir=artifacts/pytest-cache-live-demo --basetemp=artifacts/pytest-live-demo-retry-20261110 --junitxml=artifacts/jaineel/live-demo-20261110/client-retry.xml` | **22 passed**, zero failures/skips, 45.32 s, including the actual Windows file-sharing regression | `client-retry.xml` |
+| `PY -m pytest tests/projectctl/test_cli.py -q -o cache_dir=artifacts/pytest-cache-live-demo --basetemp=artifacts/pytest-live-demo-cli-20261110 --junitxml=artifacts/jaineel/live-demo-20261110/cli.xml` | **51 passed**, zero failures/skips, 35.41 s | `cli.xml` |
+
+All filenames without a prefix above live in the ignored
+`artifacts/jaineel/live-demo-20261110/` directory. No credential, internal token,
+raw dataset or generated result is added to Git. `live-summary.json` records the
+single-order real smoke and its explicit wider-pipeline limitations.
+
+The local initial 19,920-stock event catch-up is independently tracked; the CLI
+smoke selected an already-projected SKU, checked its actual opening stock and let
+Inventory authoritatively recheck it. This does **not** assert full projection
+readiness. At 13:17:20 UTC the read model had 8,909 stock rows, Inventory had 2,100
+unpublished events and Silver had 5,344 events. The order and payment outboxes
+were already empty. The first active-Gold `order_fact` read was HTTP 200,
+generation 49, no rows yet. These backlog/visibility observations remain explicit
+in `catchup-observation.json` and `gold-order-fact.json`; they are not a G3 Gold
+pass or performance measurement. Full catch-up results are appended below once
+the ongoing declared readiness check completes.
+
+Closing live results for this follow-up:
+
+- The original `projection wait ... --timeout-seconds 600` returned application
+  exit 4 at **10,291 / 19,920** rows, deferred 0. Preserved failure:
+  `artifacts/projectctl/c54ea71e-e614-45b0-9c3e-d6b0ff7ee62f/`. This initial import
+  catch-up exceeded the chosen readiness window; it was not reported as a pass.
+- Continued the same existing read-only readiness command with an explicitly
+  declared **1,200-second setup wait**, without changing its membership assertions,
+  any production timeout or service allocation. It completed **exit 0**:
+  **expected=19,920, projected=19,920, deferred=0**. Evidence:
+  `artifacts/projectctl/6bae562e-0611-4a2c-a1a3-9d144a99102a/`. This is an
+  initialization check, not a latency/throughput experiment or changed M1 deadline.
+- After full projection, ran a new actual CLI session:
+  `PY -m projectctl demo --state artifacts/jaineel/live-demo-20261110/full-projection-no-confirm/state.json --namespace dev --user-id live-demo-no-confirm --query shirt`,
+  supplying selection 1, quantity 1 and an empty confirmation. **Exit 0**, five
+  genuine hits, a displayed INR 549.00 quote, **zero checkout requests / no order**,
+  fixed **LLM calls=0**, turn total **1,340.20 ms**. The script explicitly asserts
+  `phase=confirm`, search success, zero LLM calls, no checkout operation and no
+  order ID, so leaving early at a failed/empty search cannot count as a pass.
+  Raw log/receipt: `full-projection-no-confirm.{log,json}`.
+- `PY -m projectctl env verify --profile prototype-local` now returns **exit 0**,
+  with all 12 containers healthy. Evidence:
+  `artifacts/projectctl/c105560c-b45c-494f-ac30-224e514527d3/`.
+- Read the purchased SKU through the **public catalogue product API** after
+  catch-up. Its projected stock is **on_hand=9,999, reserved=0, available=9,999,
+  stock_version=3**, matching Inventory. This proves the real stock-event path
+  for this checkout rather than relying only on the M3 receipt. Saved full
+  product/stock response: `catalogue-stock-after-checkout.json`.
+- Rechecked the payment ledger after replay: still exactly one DEBIT of 80,500
+  minor units for the same order. `ledger-after-replay.json` includes the actual
+  check time and expired quote timestamp.
+- Closing Ruff check and format check of `projectctl/demo.py` and
+  `tests/projectctl/test_demo.py`, `git diff --check`, and the protected-provider
+  diff check all returned **exit 0**. The latter includes `services/conversation`
+  as well as M2/M3/M4/infra/contracts/migrations/lock/spec paths; only the owned
+  host CLI, its tests and documentation changed.
+
+The basic connected demo is **real verified** for this local prototype, including
+the terminal order, independent payment/stock receipts, same-key replay, complete
+stock projection, current catalogue stock and no implicit purchase. The live
+services and retained data are left running so the user can immediately use the
+documented CLI. No additional UI, model call, service or fake provider was needed.
+
+The broader analytics gate is still separate: the last `order_fact` Gold read
+was HTTP 200 / generation **132**, with this order not yet visible while the
+fresh seed's analytics backlog continued. `gold-order-fact-final.json` preserves
+that actual response. `live-summary.json` explicitly records Gold as
+`NOT_VISIBLE`, not passed. No claim is made that the entire initial seed is in
+Gold, that the full G3 reconciliation gate passed or that a performance baseline
+was measured. The existing healthy analytics worker continues catching up; no
+owner reducer/publication implementation or assertion was changed to hide lag.
+
+## Final demo review, authorized push and Docker cleanup — 10 November 2026
+
+User explicitly requested completing any remaining fixes, pushing on the same
+branch and cleaning Docker containers. Started with the four previously reviewed
+modified paths on `jaineel/prototype-demo`, HEAD `52d8d78`, equal to its remote.
+`git fetch origin` succeeded. `origin/main` had only merge commit `96c2784` for
+PR #16; its tree already contains the existing demo commit, so no provider merge,
+cherry-pick, history rewrite or branch change was needed.
+
+Reviewed the complete client, Windows state-save retry, tests, API usage, owner
+boundaries and demo instructions. No further implementation error was found.
+The final change contains only `projectctl/demo.py`,
+`tests/projectctl/test_demo.py`, `docs/jaineel/PROTOTYPE_DEMO.md` and this progress
+file. The implementation fix is the bounded Windows atomic-rename retry already
+described above, with actual sharing-failure and fail-before-dispatch coverage.
+
+Pre-push verification (`PY=.venv/Scripts/python.exe`, repository root):
+
+| Exact command/check | Actual outcome | Evidence |
+|---|---|---|
+| `PY -m benchmarks.manual.verify_prompt6 --job offline --out artifacts/jaineel/demo-push-20261110/offline-windows` | **PASS, exit 0: 1,756 passed / 542 skipped / 2,298 collected**, zero failures/errors. Pytest 262.13 s. Lint, format, generated schemas and M1 contract checks all passed | `artifacts/jaineel/demo-push-20261110/offline-windows/{checks,summary}.json`, raw logs and `pytest.xml` |
+| With the separately recreated isolated PostgreSQL test database: `PY -m pytest tests/conversation -q --tb=short -o cache_dir=artifacts/pytest-cache-demo-push --basetemp=artifacts/pytest-demo-push-postgres-20261110 --junitxml=artifacts/jaineel/demo-push-20261110/m1-postgres.xml` | **413 passed**, zero failures/errors/skips, 95.86 s; existing Starlette/JUnit warnings retained | `m1-postgres.xml`, `m1-postgres.log`, `postgres-startup.log` in the same evidence root |
+| `git diff --check`; protected-provider diff check from the preceding checkpoint | Exit 0; no provider implementation, canonical DTO/specification, infrastructure config, migration or dependency lock changed | Session transcript |
+
+The offline job's 542 skips explicitly preserve service/platform/source opt-ins;
+they are not real passes. The separate PostgreSQL run uses actual PostgreSQL and
+declared provider/event doubles. Its cases overlap the offline collection; counts
+must not be summed as unique tests. Contract compatibility remains a correctly
+recognized dependency `NOT_RUN` (exit 4), without invented owner-review receipts.
+The real demo/receipt/stock-projection results above remain independently valid.
+
+The delayed analytics result also completed before shutdown. The active Gold
+`order_fact` API returned the real order **CONFIRMED v5** in generation **205**.
+Independently asserted order/quote/user/session identity, INR currency and exact
+**80,500 minor-unit** total against the retained client quote. Silver contains
+**19,920 STOCK_UPDATED**, **one ORDER_CREATED**, **one ORDER_CONFIRMED**, and
+**one PAYMENT_SUCCESS** for this one-order local run. Raw API response and actual
+Silver counts are in `gold-before-cleanup.json`; assertions/scope are in
+`gold-reconciliation.json`. This closes the preceding `NOT_VISIBLE` observation
+for this order, without rewriting its historical raw response or claiming the
+complete formal G3/fault suite or a performance baseline.
+
+Docker cleanup was restricted to this workspace's prototype Compose project
+`group3-postgres-local` and the isolated test project
+`demo-check-2e528e98c25c`. Captured and checked their exact container labels/names
+and mounted volumes before removal (`cleanup-before.json`). Executed:
+
+1. `$env:PROJECTCTL_ADAPTER_MODULE='infra.prototype'`; `PY -m projectctl env down`
+   — **exit 0**, orderly stop; evidence
+   `artifacts/projectctl/69a11d0f-5f40-481d-8cf4-1e7c3a3c1223/`.
+2. Existing `infra.prototype.compose('rm','--force',*APPS)` for the already stopped
+   nine app containers, then existing
+   `infra.streaming.compose('down','--timeout','30')` for the infrastructure.
+3. `docker compose --project-name demo-check-2e528e98c25c --file artifacts/jaineel/demo-20261110/postgres/compose.json down --timeout 10`
+   — **exit 0**, isolated test container/network removed.
+4. Verified **13 containers removed, zero containers remaining**, and all
+   **seven original mounted volumes retained**, including PostgreSQL, Kafka,
+   lakehouse and isolated-test data. No `--volumes`, image removal or global prune
+   was used. Credentials, raw evidence and local bindings remain unchanged.
+5. With no other containers remaining, `docker desktop stop --timeout 60`
+   completed **exit 0** to release the Docker VM's resources.
+
+Exact cleanup outputs and retention assertions are in `cleanup-commands.json`
+and `cleanup-after.json`. The runbook now records the successful Gold result and
+current stopped state. For the next demo, start Docker Desktop and run the
+documented prototype `env up`, `env verify`, then `projectctl demo`; do not repeat
+import/seed/reset on the retained prepared data.
+
+Commit/push only the four reviewed paths to `jaineel/prototype-demo`. The actual
+new commit, normal push result and final local/remote equality are recorded after
+publication in `artifacts/jaineel/demo-push-20261110/git-receipt.json`, avoiding a
+self-referential commit hash in this file. No ignored evidence, dataset,
+generated runtime file or credential is staged. Hosted CI is separate from these
+local results and is not claimed as passed before observing it.

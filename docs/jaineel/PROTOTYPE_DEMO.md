@@ -28,6 +28,13 @@ at `http://127.0.0.1:8003`. Remote deployments can supply `--conversation-url` a
 `--orders-url`. Origins cannot contain credentials, paths, queries or fragments.
 The client needs no internal service token or database URL.
 
+`env verify` checks an existing deployment; it does not start PostgreSQL or the
+other containers. On a fresh local checkout, run `env up` first. A successful
+database connection can then expose missing owner migrations. Apply the existing
+M1/catalogue migration commands and the existing M3 SQL through its owner setup
+before retrying startup; retain credentials and volumes. A connection failure is
+not evidence that the workflow itself has failed.
+
 ```powershell
 .venv/Scripts/python.exe -m projectctl demo --namespace dev --user-id demo-jaineel --query "shirt"
 ```
@@ -111,3 +118,22 @@ Backend ownership and contracts stay canonical in
 [the dataset rules](../specs/08_DATASET_PROFILE_AND_RULES.md) and
 [the ownership record](../OWNERSHIP.md). Local verification and outstanding live
 checks are recorded in [Jaineel's progress](progress.md).
+
+The local real-service checkout was verified on 10 November 2026: order
+`4b028b67-1689-419b-977b-e5ba431dd60e` reached `CONFIRMED`, its reservation was
+`COMMITTED`, stock changed from 10,000 to 9,999 and one debit matched INR 805.00.
+Replaying the same checkout after quote expiry returned the same order. Fixed
+mode recorded zero LLM calls. Raw evidence is retained locally under
+`artifacts/jaineel/live-demo-20261110/`. All 19,920 initial stock rows subsequently
+passed projection readiness (zero deferred); search also passed on the complete
+read model, and declining confirmation produced no checkout. The confirmed order
+subsequently became visible in active Gold generation 205, and all 19,920 seed
+stock events were observed in Silver. That final evidence is retained under
+`artifacts/jaineel/demo-push-20261110/`. This result is not a benchmark or the
+complete formal G3 gate.
+
+The project containers were removed after verification at the user's request;
+database/Kafka/lakehouse volumes, credentials and evidence were retained. To run
+the demo again, start Docker Desktop and run the `env up` / `env verify` commands
+above before the CLI. The prepared deployment does not require another import,
+inventory seed or database reset.

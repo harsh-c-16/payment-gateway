@@ -91,7 +91,17 @@ class Journal:
             json.dump(self.data, output, ensure_ascii=False, allow_nan=False, indent=2)
             output.flush()
             os.fsync(output.fileno())
-        temporary.replace(self.path)
+        # Windows readers (including OneDrive/indexers) can briefly prevent
+        # replacing an existing file. Keep the same flushed snapshot and retry
+        # only the rename; no HTTP mutation proceeds until this succeeds.
+        for attempt, delay in enumerate((0.05, 0.1, 0.2, 0)):
+            try:
+                temporary.replace(self.path)
+                break
+            except PermissionError as exc:
+                if attempt == 3 or getattr(exc, "winerror", None) not in {5, 32, 33}:
+                    raise
+                time.sleep(delay)
 
     def record(self, value):
         with self.path.with_suffix(self.path.suffix + ".http.jsonl").open(

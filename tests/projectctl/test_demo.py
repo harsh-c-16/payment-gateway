@@ -3,6 +3,8 @@
 import argparse
 import copy
 import json
+import os
+import threading
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -408,3 +410,36 @@ def test_demo_entry_point_help(capsys):
         main(["demo", "--help"])
     assert result.value.code == 0
     assert "--resume" in capsys.readouterr().out
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows file-sharing semantics only")
+def test_state_save_survives_a_brief_real_windows_reader(tmp_path):
+    path = tmp_path / "state.json"
+    journal = demo.Journal(path, {"phase": "checkout", "key": "original-retry-key"})
+    journal.save()
+    reader = path.open("r", encoding="utf-8")
+    release = threading.Timer(0.08, reader.close)
+    release.start()
+    try:
+        journal.advance("status", order_id="original-order")
+    finally:
+        reader.close()
+        release.join()
+    assert json.loads(path.read_text()) == {
+        "phase": "status",
+        "key": "original-retry-key",
+        "order_id": "original-order",
+    }
+    assert not path.with_suffix(".json.tmp").exists()
+
+
+def test_state_save_permission_failure_cannot_dispatch_a_mutation(setup, monkeypatch):
+    path, provider, client = setup
+
+    def denied(*args):
+        raise PermissionError("explicit persistent permission failure")
+
+    monkeypatch.setattr(demo.Path, "replace", denied)
+    with pytest.raises(PermissionError):
+        demo.run(arguments(path), client=client)
+    assert provider.requests == []
