@@ -6,7 +6,8 @@
 
 ## Scope
 P3 provides independent fixture expectations, checksum-gated read-only source
-checks, reconciliation primitives and metric math. Real providers remain pending. Use
+checks, reconciliation primitives and metric math. Provider services now exist;
+formal reviewed evaluation bindings remain pending. Use
 `python benchmarks/manual/verify_p3.py` for the offline checkpoint and see
 [P3 manual checks and limitations](../docs/jaineel/p3_oracles.md).
 
@@ -23,3 +24,11 @@ connects all seven required workload drivers, the shared SDK W-PIPE transport,
 real public HTTP clients, existing G3/correctness adapters and actual collectors.
 The team supplies its concrete deployment hooks through `RuntimeBindings`;
 missing hooks remain dependency evidence rather than implicit test doubles.
+
+See [Jaineel's current audit](../docs/jaineel/PENDING_WORK_AUDIT_2026_11_10.md)
+for completed prototype evidence and remaining evaluation work. New transaction
+recipes use version-2 per-purchase scenario identities; version-1 saved recipes
+still reconstruct their original evidence. Real M3 outcome controls remain an
+explicit handoff. Seed readiness additionally requires complete catalogue,
+Inventory and projection SKU lists matching the pinned manifest; matching counts
+alone cannot qualify a run.

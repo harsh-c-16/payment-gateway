@@ -13,7 +13,9 @@ from projectctl.config import load_config
 from projectctl.providers import DependencyError
 
 
-@pytest.mark.parametrize("fault", [None, "seed_version", "seed_scope", "setup", "selection"])
+@pytest.mark.parametrize(
+    "fault", [None, "seed_version", "seed_scope", "seed_membership", "setup", "selection"]
+)
 def test_quality_preparation_adopts_only_frozen_verified_inputs(tmp_path, monkeypatch, fault):
     config = load_config()
     projection = {
@@ -43,11 +45,16 @@ def test_quality_preparation_adopts_only_frozen_verified_inputs(tmp_path, monkey
             "stock_version": 1,
             "pending_outbox": 0,
             "deferred": 0,
+            "catalog_skus": projection["active_skus"],
+            "inventory_skus": projection["active_skus"],
+            "projected_skus": projection["active_skus"],
         }
         if fault == "seed_version":
             proof["stock_version"] = True
         elif fault == "seed_scope":
             proof.pop("namespace")
+        elif fault == "seed_membership":
+            proof["inventory_skus"] = [*projection["active_skus"][:-1], "FK-WRONG-SAME-COUNT"]
         return proof
 
     async def fresh_double(context):
@@ -105,6 +112,8 @@ def test_quality_preparation_adopts_only_frozen_verified_inputs(tmp_path, monkey
         with pytest.raises(DependencyError):
             asyncio.run(lifecycle.prepare(ctx, manifest))
         assert lifecycle.publisher is None  # No broker client after a failed proof.
+        if fault == "seed_membership":
+            assert calls == ["seed_audit"]
     else:
         proof = asyncio.run(lifecycle.prepare(ctx, manifest))
         assert proof["created_new"] is True

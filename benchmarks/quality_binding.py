@@ -22,6 +22,7 @@ from benchmarks.experiment import ExperimentBindings
 from benchmarks.observation import ObservationConfig, ObservationSession
 from benchmarks.quality_audit import reconcile_quality
 from benchmarks.quality_publisher import QualityDriver, QualityPublisher
+from benchmarks.seed_audit import verify_seed_membership
 from benchmarks.workloads import generate_workload
 from projectctl.artifacts import file_hash, write_json
 from projectctl.config import repo_path
@@ -53,6 +54,8 @@ def verify_review(path):
         "benchmarks/quality.py",
         "benchmarks/workloads.py",
         "benchmarks/quality_trial.py",
+        "benchmarks/seed_audit.py",
+        "projectctl/team_runtime.py",
         "pipelines/ingestion/quality.py",
         "pipelines/storage/readers.py",
         "pipelines/curation/sink_observations.py",
@@ -139,6 +142,8 @@ class QualityLifecycle:
         )
         seed = await self.owners.seed_audit(context)
         write_json(Path(context["evidence_directory"]) / "quality_seed_checks.json", seed)
+        membership = verify_seed_membership(seed, self.projection)
+        write_json(Path(context["evidence_directory"]) / "quality_seed_membership.json", membership)
         if any(
             type(seed.get(key)) is not type(value) or seed[key] != value
             for key, value in {

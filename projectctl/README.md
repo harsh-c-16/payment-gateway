@@ -3,6 +3,10 @@
 Owner: Jaineel. Contracts: [runbook §1](../docs/specs/09_EVALUATION_RUNBOOK.md),
 [brief J01](../docs/specs/04_JAINEEL_VORA.md), [P1](../docs/specs/10_JAINEEL_CODEX_PLAYBOOK.md).
 
+Current completion, live-prototype evidence and remaining formal evaluation work:
+[10 November audit](../docs/jaineel/PENDING_WORK_AUDIT_2026_11_10.md).
+Milestone descriptions retain their original checkpoint scope.
+
 Run commands from the repository root. Use Python 3.11 and uv 0.10.8.
 `uv.lock` is the single generated application lock, including development tools.
 This is an application workspace (`tool.uv.package=false`); run modules from the
@@ -40,7 +44,7 @@ offline checks. Routine installs use `uv sync --locked`, which refuses a stale l
 Infrastructure/image locks belong to Vichitr; Aditya verifies DB compatibility.
 
 All runbook actions and flags are parsed strictly; abbreviated/unknown flags fail.
-No production adapters exist at P1. `ProviderRegistry.register(action, adapter)` is
+P1 originally had no production adapters. `ProviderRegistry.register(action, adapter)` is
 the explicit seam for reviewed owner adapters; `Invocation` carries the complete
 arguments, resolved config, UUID run identity and namespace. Test doubles live only
 in `tests/projectctl/` and always declare `test_mode=stub`. There is no automatic
@@ -48,7 +52,7 @@ mock fallback, startup implementation, domain contract implementation or benchma
 execution hidden behind the CLI.
 
 ```powershell
-# Expected exit 4: Vichitr's adapter is missing; JSON links failure evidence.
+# Without an explicit adapter: exit 4; JSON links dependency evidence.
 python -m projectctl env verify --profile local4c8g
 # Expected exit 2: unknown flags cannot be silently ignored.
 python -m projectctl env verify --profile local4c8g --unknown
@@ -92,9 +96,9 @@ resource totals and path confinement. JSON canonicalization sorts keys, preserve
 arrays, encodes UTF-8 and rejects nonfinite numbers. Manifest content hashes exclude
 their own `content_sha256`; raw file/lock hashes cover exact bytes.
 
-P2 now registers the offline `contracts check --all` inventory. It checks the
-conversation OpenAPI and exposes missing provider paths/endpoints, shared libraries
-and schema handoffs. Expected exit remains 4 until those dependencies arrive.
+P2 registers the offline `contracts check --all` inventory. Current provider
+paths/endpoints and consumer examples validate; the real affected-owner review
+receipts remain pending, so the current configured check exits 4 (UNREVIEWED).
 Merged provider schemas automatically validate the provisional consumer examples;
 compatibility corruption exits 3. This check does not assert service readiness or G0.
 See [P2 bindings and evidence](../docs/jaineel/p2_contracts.md) and run
@@ -145,17 +149,27 @@ The frozen catalogue settings are `CATALOG_MAX_CONNECTIONS=4` and
 The planned evaluation resource profile remains unverified and draft.
 
 `benchmarks.composition.OwnerCallbacks` contains explicit harness handoff slots.
-No owner module is assumed to export them. Fresh storage acknowledgement,
-seed/projection audit, downstream drain, independent service audits, pinned query
-day/layout and complete SUT observers remain unavailable. W-IMPORT has an
+No owner module is assumed to export them. M4 supplies real pipeline/quality
+callbacks; complete operational storage, seed/drain/audit and observer bindings
+still need owner extensions and review. W-IMPORT has an
 independent CSV/Parquet money/selection/disposition audit and generator observer;
 it still needs a real fresh-namespace provider before it may write. W-SEARCH
 sequences migration, import, verification, seed, projection wait (including the
 owner's ANALYZE), then independent seed checks. Missing/partial results stop the
-sequence. Existing global migration still reports analytics-only incompleteness;
-`env reset` and the required real lifecycle inputs remain unavailable by default.
+sequence. Global migration currently registers Conversation, Catalogue and
+Analytics; Orders/Inventory/Payments participants remain pending. Reset has no
+registered participants and cannot apply.
 The unified composition below now also connects W-PIPE, W-QUALITY, W-CHECKOUT and
 W-INTEGRATED. A registered driver is not a ready deployment.
+
+Seed audits must return complete unique `catalog_skus`, `inventory_skus` and
+`projected_skus` lists, each equal to the pinned active manifest. Counts alone
+cannot pass. `projectctl.team_runtime` wraps the existing M4 seed callback with
+`benchmarks.seed_audit.with_seed_membership`, using the existing SELECT-only
+Inventory/Catalogue reader and the original seed namespace. Operational owner
+extensions must supply the lists or use that wrapper. Registration opens no
+connections. Review proposals pin both the new reader and team composition;
+their actual mapping/role review remains required before real evaluation.
 
 Run the bounded checkpoint without a benchmark or Docker startup:
 

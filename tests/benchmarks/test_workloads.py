@@ -1,8 +1,10 @@
+import json
 from collections import Counter, defaultdict
 
 import pytest
 
-from benchmarks.workloads import generate_workload
+from benchmarks.workloads import WorkloadManifest, generate_workload
+from projectctl.artifacts import canonical_json
 from projectctl.config import InputError
 
 CATALOG = {"active_skus": [f"FK-{i:05}" for i in range(19920)]}
@@ -96,3 +98,50 @@ def test_invalid_or_unavailable_manifest_is_explicit(active):
 def test_missing_frozen_templates_never_become_fake_requests(workload):
     with pytest.raises(InputError):
         generate_workload(workload, 42, CATALOG)
+
+
+@pytest.mark.parametrize("workload", ["W-CHECKOUT", "W-INTEGRATED"])
+def test_reused_cart_template_has_one_stable_payment_scenario_per_purchase(workload):
+    template = {"scenario_id": "repeat-cart", "sku": "FK-00000", "text": "fixture shirt"}
+    manifest = generate_workload(workload, 42, CATALOG, templates=[template])
+    rows = list(manifest.records())
+    assert len(rows) == 6600
+    assert len({row["scenario_id"] for row in rows}) == len(rows)
+    assert all(row["payload"]["scenario_id"] == row["scenario_id"] for row in rows)
+    assert all(row["payload"]["sku"] == "FK-00000" for row in rows)
+    assert all(row["payload"]["payment_delay_ms"] == 100 for row in rows)
+    outcomes = Counter(row["payload"]["payment_outcome"] for row in rows)
+    assert outcomes == {"success": 6270, "decline": 330}
+    for phase in ("warmup", "measurement"):
+        phase_rows = [row for row in rows if row["phase"] == phase]
+        for start in range(0, len(phase_rows), 100):
+            assert Counter(
+                row["payload"]["payment_outcome"] for row in phase_rows[start : start + 100]
+            ) == {"success": 95, "decline": 5}
+    assert list(manifest.records()) == rows
+    assert generate_workload(workload, 42, CATALOG, templates=[template]).recipe == manifest.recipe
+    assert rows[0]["scenario_id"] == "warmup:000000:repeat-cart"
+    assert rows[600]["scenario_id"] == "measurement:000000:repeat-cart"
+
+
+def test_transaction_recipe_version_preserves_old_evidence_and_changes_new_hash():
+    manifest = generate_workload(
+        "W-INTEGRATED",
+        42,
+        CATALOG,
+        templates=[{"scenario_id": "repeat-cart", "sku": "FK-00000", "text": "fixture shirt"}],
+    )
+    previous = json.loads(manifest.recipe)
+    assert previous.pop("transaction_scenario_version") == 2
+    old_manifest = WorkloadManifest(canonical_json(previous))
+    old_rows = list(old_manifest.records())
+    assert (
+        old_manifest.as_dict()["logical_fixture_sha256"]
+        != manifest.as_dict()["logical_fixture_sha256"]
+    )
+    assert {row["scenario_id"] for row in old_rows} == {
+        "warmup:repeat-cart",
+        "measurement:repeat-cart",
+    }
+    assert {row["payload"]["payment_outcome"] for row in old_rows} == {"success"}
+    assert all(row["payload"]["scenario_id"] == "repeat-cart" for row in old_rows)

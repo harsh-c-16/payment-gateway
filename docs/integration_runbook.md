@@ -7,11 +7,13 @@ binding and the handoffs still needed to execute them. Controlled measurements
 are documented in [P9](jaineel/p9_performance.md); saved-evidence reporting and
 the isolated setup rehearsal are documented in [P10](jaineel/p10_report.md).
 
-The current checkout has only M1 and the harness. Catalogue, transaction,
-transport, outbox and analytics implementations/contracts are absent. PostgreSQL
-alone cannot complete G1/G3 or prove Kafka recovery. The real gates remain
-**INCOMPLETE**, with individual unavailable cases **NOT_RUN**. Unit tests use
-explicit doubles; they do not establish real integration success.
+The checkout contains all provider implementations/contracts and the connected
+prototype has completed a real checkout through active Gold. The formal generic
+G1/G3/fault registry and controlled evaluation remain **INCOMPLETE** until their
+reviewed bindings and full evidence exist. PostgreSQL-only or doubled unit tests
+cannot establish Kafka recovery. See the
+[current pending-work audit](jaineel/PENDING_WORK_AUDIT_2026_11_10.md) for the
+distinction between existing implementation and unexecuted acceptance work.
 
 ## Execute and inspect
 

@@ -4,7 +4,13 @@
 **Role:** M1 (Session, Cart, Assistant, Workflow) & M0 (Measurement Harness, Oracle, Dashboards, Benchmarks)
 **Reference Playbook:** [10_JAINEEL_CODEX_PLAYBOOK.md](../specs/10_JAINEEL_CODEX_PLAYBOOK.md)
 **Personal Brief:** [04_JAINEEL_VORA.md](../specs/04_JAINEEL_VORA.md)
-**Status Date:** 28 October 2026 (Asia/Calcutta)
+**Status Date:** 10 November 2026 (Asia/Calcutta)
+
+**Current status:** the connected fixed-mode prototype is real verified. The
+complete formal M0 evaluation is still incomplete. See the
+[current pending-work audit](PENDING_WORK_AUDIT_2026_11_10.md) for all J01–J07
+obligations, implemented fixes and remaining owner handoffs. Historical counts
+and absent-provider statements below describe their original checkpoints.
 
 > [!NOTE]
 > This local progress document tracks technical milestone execution in Codex. It is separate from the academic Excel tracker. Status labels used: `not started`, `in progress`, `stub verified`, `real verified`, `blocked`.
@@ -21,14 +27,18 @@
 | **P3** | Independent fixtures, oracle, and metric math | J01 + early J06 | stub verified; automated LLM-judge review complete; human review not performed | `jaineel/j01-oracles` | 153 focused fixture/schema tests; current P3 verifier 450 regressions; explicit fixtures/doubles |
 | **P4** | Open-loop workload generation & experiment lifecycle | J02 | stub verified (offline checkpoint complete) | `jaineel/j02-workloads` | 329 combined tests; explicit publisher/API/lifecycle doubles |
 | **P5** | Telemetry, raw collectors, dashboard | J03 | stub verified (offline checkpoint complete); local process collector real verified | `jaineel/j03-telemetry` | 37 telemetry tests; 488 combined; explicit doubles plus separate real generator/loopback checks |
-| **P6** | Durable sessions, cart, and idempotency | J04 | state verified with Docker PostgreSQL; shared event gate incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit event/outbox/turn doubles |
-| **P7** | Zero-call search, quote, and checkout workflow | J04 | stub verified; P7 checkpoint complete; real provider/event gates incomplete | `jaineel/j03-telemetry` | Docker PostgreSQL 18.6; explicit HTTP/event doubles; 717 tests |
+| **P6** | Durable sessions, cart, and idempotency | J04 | real state and prototype shared-event path verified; formal fault gates pending | `jaineel/prototype-demo` | real PostgreSQL, Kafka, Registry and retained event evidence |
+| **P7** | Zero-call search, quote, and checkout workflow | J04 | real connected prototype verified; formal G3 cases incomplete | `jaineel/prototype-demo` | real catalogue → M1 → Orders/Inventory/Payments → CONFIRMED → Gold; zero calls |
 | **P8** | Real G1/G3 integration, failures, reconciliation | J06 | stub verified (owner harness); real gates INCOMPLETE | `jaineel/j03-telemetry` | 774 passed; real M1 PostgreSQL, explicit provider/audit/hook doubles |
 | **P9** | Correct B0 and controlled performance matrix | J07 | stub verified (owner harness); real measurements NOT_RUN | `jaineel/j03-telemetry` | 823 regression passes; 49 P9 checks; real matrix dependency-blocked |
 | **P10** | Reproducible report and clean setup rehearsal | J07 | owner implementation verified; real release INCOMPLETE | `jaineel/j03-telemetry` | saved-report rebuild and corruption checks; real setup blocked |
 | **P11** | One-call intent fallback (optional last) | J05 | provider-spy verified under explicit sequencing exception; live quality NOT_RUN | `jaineel/j03-telemetry` | real M1 PostgreSQL; explicit model/provider doubles |
 
-Latest cross-milestone review: [P1–P11 pre-push verification](#p1p11-pre-push-verification--28-october-2026), **993 passed, 0 failures/errors/skips**. PostgreSQL state/concurrency and M1 loopback/process tests are real; provider/event/audit/model paths use explicit doubles. Real integration, performance and human-reviewed assistant quality remain incomplete. Earlier milestone counts and audit records below are historical checkpoints.
+The [28 October cross-milestone review](#p1p11-pre-push-verification--28-october-2026)
+is historical. Later entries record actual local PostgreSQL, live prototype and
+Gold verification. The 10 November audit reconciles all related Markdown with
+current code; formal correctness registrations, performance measurements and
+human-reviewed assistant quality remain incomplete.
 
 ---
 
@@ -4359,3 +4369,97 @@ publication in `artifacts/jaineel/demo-push-20261110/git-receipt.json`, avoiding
 self-referential commit hash in this file. No ignored evidence, dataset,
 generated runtime file or credential is staged. Hosted CI is separate from these
 local results and is not claimed as passed before observing it.
+
+## Related-Markdown audit and remaining owned fixes — 10 November 2026
+
+User requested checking all related Markdown for unfinished personal work,
+implementing the remaining work and pushing on the same branch. Started from
+clean `jaineel/prototype-demo`, local/remote HEAD `9446c80`. The newer
+`origin/main` revision `b6fda7c` only adds the PR #17 merge of that work; no
+provider source change or branch switch was needed.
+
+Reviewed **42 tracked related Markdown sources / 12,339 original lines**, the
+current implementation and retained evidence. The exact source inventory,
+byte hashes, headings and pending references are saved in
+`artifacts/jaineel/pending-audit-20261110/markdown-inventory.json`.
+[PENDING_WORK_AUDIT_2026_11_10.md](PENDING_WORK_AUDIT_2026_11_10.md) records the
+J01–J07 responsibility register, interpretation of historical checkpoints and
+the exact remaining handoffs. This audit does not turn historical absent-provider
+claims into instructions to rebuild existing services.
+
+Implemented two independent owned gaps:
+
+- **Transaction workload identity/outcomes:** repeated named templates previously
+  produced only two scenario IDs across 6,600 purchases and could plan 100%
+  successes. Version-2 recipes use distinct phase/ordinal/template IDs and seeded
+  95-success/5-decline blocks, retaining 100-ms delay. The default plan now has
+  **6,600 distinct IDs, 6,270 successes and 330 declines** for both transaction
+  workloads. Seeded materialization repeats exactly. Historical v1 recipes
+  reconstruct their original bytes/records; new logical hashes prevent silent
+  comparison of old and corrected controls. This is a workload-input check, not
+  execution of M3's still-pending deterministic payment controls.
+- **Exact seed membership:** quality and operational preparation now require
+  complete unique catalogue, Inventory and projection SKU lists equal to the
+  frozen active manifest. A same-count substituted SKU fails before namespace
+  setup or broker creation. A new lazy owned reader reuses the existing
+  SELECT-only provider connection with namespace-bound statements and a five-second
+  local SQL timeout. Team composition extends the original M4 seed callback,
+  preserving its seed namespace, run identity and provenance. Raw snapshots and
+  membership proofs are separate artifacts. Review proposals pin the new reader
+  and composition; no approval or actual evaluation-role execution is invented.
+
+Changed paths: `benchmarks/{workloads,seed_audit,composition,quality_binding}.py`,
+`projectctl/{team_runtime,evaluation_packet}.py`, their component READMEs,
+`tests/benchmarks/{test_workloads,test_seed_audit,test_real_composition,test_quality_lifecycle}.py`,
+`tests/projectctl/test_team_handoff.py`, `docs/integration_runbook.md`, and owned
+`docs/jaineel/{PENDING_WORK_AUDIT_2026_11_10,CODE_HANDOFF,EVALUATION_TEAMMATE_RUNBOOK,implementation_roadmap,p9_performance,progress}.md`.
+Provider implementations, canonical DTOs/specifications, migrations, resource
+controls and the application lock are unchanged.
+
+Verification uses `PY=.venv/Scripts/python.exe`, from the repository root. Evidence
+root below is `artifacts/jaineel/pending-audit-20261110/`:
+
+| Exact command / check | Actual outcome | Evidence |
+|---|---|---|
+| `PY -m pytest tests/benchmarks/test_workloads.py tests/benchmarks/test_seed_audit.py -q --tb=short -o cache_dir=artifacts/pytest-cache-pending-audit --basetemp=artifacts/pytest-pending-mixture-20261110 --junitxml=artifacts/jaineel/pending-audit-20261110/exact-mixture.xml` | **41 passed**, zero failures/errors/skips, 1.83 s | `exact-mixture.xml` |
+| Focused workload, membership, lifecycle, real-composition and team-handoff regression checkpoint | **96 passed**, zero failures/errors/skips, 8.87 s; before the final exact-block mixture refinement above; the full offline job below reruns the final versions | `seed-and-workloads-final.xml` |
+| `PY -m benchmarks.manual.verify_prompt6 --job offline --out artifacts/jaineel/pending-audit-20261110/offline-windows` | **PASS, exit 0: 1,784 passed / 542 skipped / 2,326 collected**, zero failures/errors; pytest 262.86 s. Lint, format, generated schemas and M1 contract checks pass | `offline-windows/{checks,summary}.json`, raw logs and `pytest.xml` |
+| `PY -m benchmarks.manual.verify_transaction_boundaries --out artifacts/jaineel/pending-audit-20261110/transaction-boundaries` | **exit 1**, seven existing M3 route-policy assertion failures; explicit ASGI/SQL doubles, real integration NOT_RUN | `transaction-boundaries/boundaries.json` |
+| With `PROJECTCTL_ADAPTER_MODULE=projectctl.jaineel`, `PROJECTCTL_RUNTIME_MODULE=projectctl.team_runtime`: `PY -m projectctl contracts check --all` | **exit 4**, schemas/endpoints/examples compatible; all six surfaces UNREVIEWED | `artifacts/projectctl/322ff9b9-c106-45fb-9700-7df00213e3ad/` |
+| `PY -m projectctl.evaluation_packet --out artifacts/jaineel/pending-audit-20261110/packet-final`; same module with `--verify artifacts/jaineel/pending-audit-20261110/packet-final` | Both **exit 0**, INPUTS_PINNED_REVIEW_PENDING; evaluation NOT_RUN. Packet hash `4928a71453d5ae8c888b291e6fc98e3406b10d5c3cc244535c70df823f32dccb` | `packet-final/` |
+
+The first membership test attempt found a local hash-helper type error (a
+dict-only helper received a list); corrected it to SHA-256 of canonical sorted
+SKU-list bytes and reran the tests. The original **9 failures / 85 passes** remain
+in `seed-and-workloads.xml`. An earlier unstratified payment-plan diagnostic also
+remains preserved; `payment-plan-final.json` records the final exact 95/5 plan
+with synthetic input clearly labelled. No assertion or required skip was weakened.
+
+The 542 skips retain their explicit service/platform/source opt-in requirements;
+they are not integration passes. Prior real PostgreSQL/prototype evidence is
+recorded separately above. Repository review confirms **20 changed owned paths**,
+`git diff --check` exit 0 and protected provider/specification/DTO/migration/lock
+diff exit 0 (`repository-review.json`).
+
+The new packet finds **0/37 generic cases registered**, only
+Conversation/Catalogue/Analytics migration participants and no reset participants.
+The boundary probe still exposes M3's missing order-status/SSE ownership, internal
+audit-token enforcement and fault guards. Aditya owns those provider changes;
+the exact failing paths/statuses are retained. Formal correctness, full quality
+and benchmark runs remain NOT_RUN until actual provider hooks, input reviews and
+the enforced evaluation host are available. Jaineel still owns binding the real
+consumer cases and producing measurements/report after those prerequisites. The
+full matrix is not authorized by the canonical roadmap before those gates pass.
+
+The earlier real confirmed checkout, single debit, stock/projection and Gold
+reconciliation remain valid prototype evidence. Docker was not restarted for this
+audit; no container or volume was created or removed. The prior cleanup and stopped
+Desktop state are preserved. Manual next verification: affected owners review the
+new reader/mappings and templates, complete the handoffs in the audit, then use
+`EVALUATION_TEAMMATE_RUNBOOK.md` on the agreed evaluation host. Do not reseed or
+reset the retained prototype namespace merely to repeat this offline audit.
+
+Commit/push only these owned reviewed paths on `jaineel/prototype-demo`. Record
+the actual normal-push result, final clean status and local/remote commit equality
+after publication in the ignored `git-receipt.json` under this audit's evidence
+root. Hosted CI remains separate from local execution.
