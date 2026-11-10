@@ -449,14 +449,18 @@ class FixedWorkflow:
     def request_quote(self, cart_id, request, context, key):
         return self._mutate("request_quote", cart_id, request, context, key)
 
-    def checkout_cart(self, cart_id, request, context, key):
-        return self._mutate("checkout_cart", cart_id, request, context, key)
+    def checkout_cart(self, cart_id, request, context, key, *, benchmark_headers=None):
+        return self._mutate(
+            "checkout_cart", cart_id, request, context, key, benchmark_headers=benchmark_headers
+        )
 
-    def _mutate(self, operation, cart_id, request, context, key):
+    def _mutate(self, operation, cart_id, request, context, key, *, benchmark_headers=None):
         request = type(request).model_validate(request.model_dump(mode="json"))
         cart_id = TypeAdapter(UUIDText).validate_python(cart_id)
         scope = self._scope(context, operation, key)
         business = {"cart_id": cart_id, **request.model_dump(mode="json")}
+        if benchmark_headers:
+            business["benchmark_headers"] = benchmark_headers
         digest = canonical_hash(business)
         # Commit stable downstream identity and confirmation BEFORE the remote call.
         with self.state.database.transaction() as tx:
@@ -577,12 +581,14 @@ class FixedWorkflow:
                     return accepted["response"]
         name = "quote" if operation == "request_quote" else "order_create"
         try:
+            extra = command["business_input"].get("benchmark_headers")
             result = self.call(
                 name,
                 RequestContext.model_validate(command["provider_context"]),
                 body=command["provider_input"],
                 key=command["remote_key"],
                 deadline=monotonic() + 2,
+                **({"headers": extra} if extra else {}),
             )
             self._validate_result(name, result, command)
         except RemoteError as exc:

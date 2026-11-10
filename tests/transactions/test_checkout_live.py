@@ -160,7 +160,7 @@ def stack():
 
 @pytest.fixture
 def namespace(stack):
-    value = "bench-live-" + uuid4().hex[:12]
+    value = "bench-transaction-" + uuid4().hex[:12]
     context = RequestContext(
         namespace=value,
         run_id="live",
@@ -294,8 +294,8 @@ def test_happy_path_confirms_commits_stock_and_debits_once(stack, namespace):
     assert f"id:{snapshot['order_version']}" in stream.text and "CONFIRMED" in stream.text
 
 
-def test_two_failed_payments_release_stock_then_cancel(stack, namespace):
-    stack["roll"].value = 0.05
+def test_business_decline_is_not_retried_and_releases_stock_then_cancel(stack, namespace):
+    stack["roll"].value = 0.0
     order_id, _ = checkout(stack, namespace, [("FK-LIVE-2", 3, 700)])
 
     snapshot = settle(stack, namespace, order_id)
@@ -308,7 +308,8 @@ def test_two_failed_payments_release_stock_then_cancel(stack, namespace):
         "ORDER BY attempt_number",
         namespace,
     )
-    assert attempts == [(1, "FAILED"), (2, "FAILED")]
+    assert attempts == [(1, "FAILED")]
+    assert snapshot["failure_code"] == "DECLINED"
     assert rows(
         stack, "payments", "SELECT quiesced FROM payment_orders WHERE namespace=%s", namespace
     ) == [(True,)]

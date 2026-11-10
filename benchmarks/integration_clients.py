@@ -35,7 +35,9 @@ class ConversationHTTP:
     async def __aexit__(self, *args):
         await self.http.aclose()
 
-    async def call(self, context, method, template, status, body, key, **identifiers):
+    async def call(
+        self, context, method, template, status, body, key, *, headers=None, **identifiers
+    ):
         endpoint = Endpoint("conversation", method, template, status)
         path = template
         for name, value in identifiers.items():
@@ -47,10 +49,15 @@ class ConversationHTTP:
         if identifiers.get("session_id", context.session_id) != context.session_id:
             raise ValueError("session/context identity mismatch")
         self.contracts.validate(endpoint, "request", body)
+        outgoing = context.headers(key)
+        if headers:
+            if {name.lower() for name in headers} - {"x-benchmark-scenario-id", "x-benchmark-seed"}:
+                raise ValueError("only benchmark identity may be added to M1 headers")
+            outgoing.update(headers)
         try:
             async with (
                 asyncio.timeout(self.config.timeout_seconds),
-                self.http.stream(method, path, json=body, headers=context.headers(key)) as response,
+                self.http.stream(method, path, json=body, headers=outgoing) as response,
             ):
                 raw = bytearray()
                 async for chunk in response.aiter_bytes():
@@ -111,7 +118,16 @@ class ConversationHTTP:
         )
 
     async def checkout(
-        self, context, cart_id, *, quote_id, expected_cart_version, confirmed, confirmation_id, key
+        self,
+        context,
+        cart_id,
+        *,
+        quote_id,
+        expected_cart_version,
+        confirmed,
+        confirmation_id,
+        key,
+        headers=None,
     ):
         return await self.call(
             context,
@@ -126,4 +142,5 @@ class ConversationHTTP:
             },
             key,
             cart_id=cart_id,
+            headers=headers,
         )

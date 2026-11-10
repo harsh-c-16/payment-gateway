@@ -4,13 +4,16 @@
 **Role:** M1 (Session, Cart, Assistant, Workflow) & M0 (Measurement Harness, Oracle, Dashboards, Benchmarks)
 **Reference Playbook:** [10_JAINEEL_CODEX_PLAYBOOK.md](../specs/10_JAINEEL_CODEX_PLAYBOOK.md)
 **Personal Brief:** [04_JAINEEL_VORA.md](../specs/04_JAINEEL_VORA.md)
-**Status Date:** 10 November 2026 (Asia/Calcutta)
+**Status Date:** 11 November 2026 (Asia/Calcutta)
 
 **Current status:** the connected fixed-mode prototype is real verified. The
 complete formal M0 evaluation is still incomplete. See the
 [current pending-work audit](PENDING_WORK_AUDIT_2026_11_10.md) for all J01–J07
 obligations, implemented fixes and remaining owner handoffs. Historical counts
 and absent-provider statements below describe their original checkpoints.
+The [11 November M3 handoff checkpoint](M3_PAYMENT_HANDOFF_2026_11_11.md)
+supersedes that audit's statements about boundary failures and missing core
+payment controls; formal evaluation bindings and measurements remain incomplete.
 
 > [!NOTE]
 > This local progress document tracks technical milestone execution in Codex. It is separate from the academic Excel tracker. Status labels used: `not started`, `in progress`, `stub verified`, `real verified`, `blocked`.
@@ -4463,3 +4466,283 @@ Commit/push only these owned reviewed paths on `jaineel/prototype-demo`. Record
 the actual normal-push result, final clean status and local/remote commit equality
 after publication in the ignored `git-receipt.json` under this audit's evidence
 root. Hosted CI remains separate from local execution.
+
+
+## 11 November 2026 - delegated M3 payment and seed-audit checkpoint
+
+Scope: the user's supplied Aditya handoff explicitly permits Jaineel to edit
+M3 services, migrations and transaction tests for this task. The user delegated
+review/design decisions and requested **stay on `jaineel/prototype-demo`, do not
+push**. Initial working tree was clean at `3be2916` (PR #19 merge). No branch,
+commit or push operation is part of this checkpoint.
+
+Read `docs/OWNERSHIP.md`, personal brief 04, Aditya's progress, the current pending
+work audit and relevant canonical specs 01/02/03/06/08/09. Detailed decisions,
+contract/audit mapping, deployment instructions and limitations are in
+[M3_PAYMENT_HANDOFF_2026_11_11.md](M3_PAYMENT_HANDOFF_2026_11_11.md).
+
+Implemented:
+
+- Paired scenario-ID/seed headers through W-CHECKOUT, W-INTEGRATED, M1's durable
+  checkout journal, Orders and the saga to Payments. All ingress controls require
+  both benchmark flags and an isolated namespace. The client supplies identity;
+  Payments computes outcomes. The existing v2 seeded 95/5 rule is reproduced
+  independently, without importing the harness into production services.
+- Durable PENDING attempts and a 25-ms completion worker, with a persisted minimum
+  100-ms due time and transactional payment guard/ledger/shared outbox. Restart,
+  response loss, same-attempt retries, concurrent completion and both completion/
+  reversal lock orders retain one effect. DECLINED is stable and never retried;
+  only RETRYABLE_PROVIDER_FAILURE may allow attempt two while the hold is valid.
+- Original order context persists and is restored for saga/participant events;
+  the payment worker likewise restores the accepted attempt's original context.
+  Only new `003_*.sql` migrations are added; no applied migration is edited.
+- Independent read-only seed snapshots now include Inventory's exact keys,
+  unpublished namespace outbox count and one original run ID, and reject conflicts
+  with owner callback evidence. Harsh's existing Inventory queries are preserved.
+
+Changed paths:
+
+- `services/conversation/{app,clients,workflow}.py`;
+  `services/orders/{app,commands,saga}.py`;
+  `services/payments/{app,authorize}.py`.
+- `migrations/orders/003_payment_context.sql`,
+  `migrations/payments/003_async_completion.sql`,
+  `shared/telemetry/benchmark.py`.
+- `benchmarks/{drivers,integration_clients,seed_audit}.py`.
+- `tests/conversation/test_workflow.py`;
+  `tests/transactions/{test_checkout_live,test_payment_logic,test_saga_logic,test_saga_enhancements,test_async_payments,test_payment_handoff}.py`;
+  `tests/benchmarks/{test_drivers,test_seed_audit}.py`;
+  `tests/telemetry/test_benchmark.py`.
+- This progress file and `docs/jaineel/M3_PAYMENT_HANDOFF_2026_11_11.md`.
+
+Environment: Docker Desktop was initially stopped/unavailable; started it hidden.
+Created only the disposable `jaineel-m3-20261111` PostgreSQL test container on
+loopback port 55432 using the pinned
+`pgvector/pgvector:0.8.1-pg18-trixie@sha256:2fd905ba95f99a51be207d0ff0b8d5b8538cbce7e9083b3ccfa65b93bb28b938`.
+The actual server is **PostgreSQL 18.2**. Tests create/drop their own uniquely
+named schemas (and one isolated SELECT-only role), never reset prototype data.
+
+Commands use `uv run --locked` (Python 3.11, unchanged application lock). For
+real database commands set `INVENTORY_TEST_DATABASE_URL` to the disposable
+PostgreSQL 18 URL; M1 checks also set `P6_TEST_DATABASE_URL` to that same test URL.
+Evidence root is `artifacts/jaineel-m3-20261111/`.
+
+| Exact command/check | Actual outcome | Evidence |
+|---|---|---|
+| `uv run --locked python -m benchmarks.manual.verify_transaction_boundaries --out artifacts/jaineel-m3-20261111/boundaries-before` | PASS, **8/8**, exit 0; explicit ASGI/SQL doubles | `boundaries-before/boundaries.json` |
+| `uv run --locked pytest tests/transactions tests/benchmarks/test_drivers.py tests/benchmarks/test_seed_audit.py -q --tb=short --junitxml=artifacts/jaineel-m3-20261111/initial.xml` | Initial transition check: **24 failed, 142 passed, 36 skipped**, exit 1; old synchronous doubles and missing new fixture inputs exposed | `initial.xml` |
+| Same focused suites with real PostgreSQL and `--junitxml=artifacts/jaineel-m3-20261111/checkpoint.xml` | **201 passed, 2 failed**, exit 1; fixed incorrect payload-class import in the new test | `checkpoint.xml` |
+| `uv run --locked pytest tests/transactions/test_async_payments.py tests/transactions/test_payment_handoff.py tests/transactions/test_payment_logic.py tests/telemetry/test_benchmark.py tests/conversation/test_workflow.py -q --tb=short --junitxml=artifacts/jaineel-m3-20261111/extended.xml` | **132 passed, 6 fixture errors**, exit 1; lint had removed pytest fixture imports, fixed using explicit re-exports | `extended.{log,xml}` |
+| `uv run --locked pytest tests/transactions tests/telemetry/test_benchmark.py tests/benchmarks/test_drivers.py tests/benchmarks/test_seed_audit.py -q --tb=short --junitxml=artifacts/jaineel-m3-20261111/transactions.xml` | **233 passed**, zero skips/failures, exit 0 | `transactions.{log,xml}` |
+| `uv run --locked pytest tests/benchmarks/test_seed_audit.py -q --tb=short --junitxml=artifacts/jaineel-m3-20261111/seed-audit.xml` | **26 passed**, zero skips/failures, exit 0; includes real SELECT-only credentials, namespace/published filtering and mixed-run rejection | `seed-audit.xml` |
+| `uv run --locked pytest tests/transactions/test_saga_logic.py tests/transactions/test_async_payments.py tests/conversation/test_workflow.py -q --tb=short --junitxml=artifacts/jaineel-m3-20261111/final-focused.xml` | **148 passed**, exit 0; includes new pending/decline/retryable/expiry policy and four concurrent completion workers | `final-focused.{log,xml}` |
+| Final lint and format across 42 source/test files | PASS; `ruff check` exit 0 and `ruff format --check` exit 0 | exact scopes below |
+| `uv run --locked python -m benchmarks.manual.verify_transaction_boundaries --out artifacts/jaineel-m3-20261111/boundaries-after` | PASS, **8/8**, exit 0; explicit doubles | `boundaries-after/boundaries.json` |
+| `uv run --locked pytest tests/transactions tests/conversation tests/integration -q --tb=short -o cache_dir=artifacts/jaineel-m3-20261111/pytest-cache-services --junitxml=artifacts/jaineel-m3-20261111/services.xml` | **699 passed**, zero skips/failures, exit 0 (157.65 s); real M1/M3 databases, explicit provider doubles | `services.{log,xml}` |
+| `uv run --locked python benchmarks/manual/verify_p5.py` with `PYTEST_ADDOPTS=-o cache_dir=artifacts/jaineel-m3-20261111/pytest-cache-p5` | First attempt: 10/11 checks passed, exit 1; pytest **916 passed / 1 failed** because the temporary cache override interfered with the nested default-cache isolation assertion. Removed that environment override for the final rerun; verifier and assertions unchanged | `p5.log`; `artifacts/p5/018e148c-71f1-4db5-954c-5192dfc77204/checks.json` |
+| `uv run --locked python benchmarks/manual/verify_p5.py` with no PYTEST_ADDOPTS override | **PASS, 11/11 checks**, exit 0; **917 passed**, zero skips/failures (163.15 s). The contracts command's missing-provider/review exit 4 is explicitly expected by this verifier; it is not a real integration pass | `p5-final.log`; `artifacts/p5/3175c0ce-6b2f-4f30-a748-794f8569936b/{checks.json,pytest.xml}` |
+
+The redirected PowerShell logs retain native stderr formatting as well as stdout.
+A prior focused run warned about an inaccessible default `.pytest_cache`; the service
+run uses an explicit writable artifact cache. P5 already supplies its own cache
+isolation hooks, so its final rerun uses no PYTEST_ADDOPTS override. No test/assertion is skipped or
+weakened to hide a failure. Updated unit doubles assert PENDING creation and
+separate completion effects instead of the superseded synchronous behavior.
+
+The real 100-attempt PostgreSQL cohort produced **95 SUCCESS / 5 FAILED DECLINED**
+and 95 debits. Stable scenario agreement is checked against all 6,600 logical
+workload records for each of three seeds. HTTP success and decline tests exercise
+real Orders, Inventory and Payments with a catalogue HTTP double and offline
+registry fixture; the original run/correlation/request identities survive the
+workers. Minimum delay, restart, response-loss retries, quiescence/reversal races,
+and one debit/event under concurrent workers are checked. These are correctness
+results for a simulator, not performance measurements or a real payment gateway.
+
+Remaining handoffs: formal G3/T-07/T-08/T-11/reset bindings, acknowledged controlled
+failure hooks (including the separate 35-second expiry-delay scenario), exact
+broker receipts and full real analytics reconciliation remain open. Hosted CI,
+full B0/matrix measurements and an end-to-end Gold run of this new code are
+NOT_RUN. A future owner contract update should document the new optional carrier;
+no human approval is fabricated. Historical orders without stored origin context
+retain their legacy fallback; historical evidence is not rewritten.
+
+Manual next verification: apply `python -m services.orders.m3_setup` with each
+service's owning URL before restarting Orders/Payments, configure both flags on
+M1/Orders/Payments for isolated benchmark traffic, then use the real provider
+composition after its remaining receipt/hook bindings are supplied. Prototype
+data is preserved. This session stops at the delegated handoff checkpoint.
+
+
+Final lint/format scope (42 files, exit 0 for both commands):
+
+```powershell
+$checked = @(
+  "services/orders", "services/payments", "shared/telemetry/benchmark.py",
+  "services/conversation", "benchmarks/drivers.py", "benchmarks/integration_clients.py",
+  "benchmarks/seed_audit.py", "tests/transactions/test_async_payments.py",
+  "tests/transactions/test_payment_handoff.py", "tests/transactions/test_payment_logic.py",
+  "tests/transactions/test_saga_logic.py", "tests/transactions/test_saga_enhancements.py",
+  "tests/conversation/test_workflow.py", "tests/telemetry/test_benchmark.py",
+  "tests/benchmarks/test_seed_audit.py", "tests/benchmarks/test_drivers.py"
+)
+uv run --locked ruff check @checked
+uv run --locked ruff format --check @checked
+```
+
+Final review: `git diff --check` passes. `git diff --name-only -- docs/specs
+contracts shared/contracts uv.lock pyproject.toml infra pipelines shared/outbox
+shared/event_transport` is empty. Existing migration files have no diff; only
+new migrations are present. `repository-review.json` retains all 26 changed
+paths, hashes, HEAD and branch; `working.patch` retains the tracked diff. No
+commit or push was made; HEAD remains `3be2916a4896aa1693e46410dcafac2eafc4b34c`.
+
+Cleanup: `docker rm -f -v jaineel-m3-20261111` removed only this session's disposable
+test container and anonymous test volume. `docker ps --format '{{.Names}}'` was
+empty afterwards. `docker desktop stop` exited 0, restoring the initially stopped
+state; retained prototype volumes/data were untouched.
+
+## 11 November 2026 — review, real prototype verification and authorized push
+
+This follow-up explicitly authorizes commit/push on the existing
+`jaineel/prototype-demo` branch and delegates Jaineel's review/design decisions.
+The earlier checkpoint's no-push instruction above is historical. Initial HEAD
+is PR #19 merge `3be2916`; all 26 pre-existing changed/untracked handoff paths
+were preserved and reviewed. The fetched remote branch is an ancestor (5 ahead,
+0 behind before this commit); no branch change, rebase or force push is needed.
+
+The [current review](PROTOTYPE_REVIEW_2026_11_11.md) records the consumed Harsh/
+Vichitr mapping decisions, canonical requirements, presentation sequence and
+remaining formal-evaluation scope. The [demo runbook](PROTOTYPE_DEMO.md) now starts
+PostgreSQL, imports the retained private bindings and applies repeatable M3 setup
+before application startup. This is one prototype/payment-handoff checkpoint;
+full B0/matrix measurements, missing formal case compositions and human labels
+are not represented as completed by a demo or automated consumer review.
+
+Additional fixes made during this review:
+
+- `services/payments/authorize.py`: reversal now establishes and locks the same
+  guard as first authorization, inspects attempts after the lock and timestamps
+  reversal with the database clock. The new real concurrency regression first
+  reproduced the old missing-attempt/retained-debit bug, then passed with one debit
+  and one reversal. Updated explicit unit doubles follow the same SQL contract.
+- `services/conversation/provider_contracts.py`: use PyYAML's safe C loader when
+  available, retaining the safe fallback, strict validation and source drift
+  checks. Repeated safe Python YAML parsing consumed the unchanged turn budget
+  during real demo searches; no provider/turn timeout was raised.
+- `benchmarks/manual/verify_p5.py` and
+  `tests/benchmarks/test_verifier_evidence.py`: retain string/byte/absent timeout
+  stdout and stderr without crashing, record the failed check and continue. The
+  240-second bound and required assertions are unchanged.
+- `projectctl/conversation_contract.py`, `contracts/http/conversation.yaml`:
+  document the optional paired benchmark identity headers on M1 checkout.
+- `docs/jaineel/{PROTOTYPE_DEMO,PROTOTYPE_REVIEW_2026_11_11,PENDING_WORK_AUDIT_2026_11_10,M3_PAYMENT_HANDOFF_2026_11_11,progress}.md`:
+  current consumer decisions, upgrade/demo instructions, evidence and historical
+  status links. All other changed paths are the handoff list in the prior section,
+  including the extended `tests/transactions/{test_async_payments,test_payment_logic}.py`.
+  No teammate implementation, shared DTO, existing migration, spec, lock or infra
+  configuration was replaced.
+
+Evidence root: `artifacts/jaineel-m3-review-20261111/`. Commands use
+`uv run --locked` with Python 3.11.15/uv 0.10.8. Real test connections use
+`INVENTORY_TEST_DATABASE_URL=<disposable PostgreSQL 18.2 URL>` and M1 also uses
+`P6_TEST_DATABASE_URL` pointing to that same disposable server. Per-test schemas
+are isolated. The retained prototype databases/volumes were never reseeded/reset.
+
+| Exact command/check | Actual outcome | Raw evidence |
+|---|---|---|
+| `python -m benchmarks.manual.verify_transaction_boundaries --out artifacts/jaineel-m3-review-20261111/boundaries-before` and final `--out .../boundaries-final` | PASS, 8/8 each, exit 0; explicit ASGI/SQL doubles | `boundaries-{before,final}/boundaries.json` |
+| `pytest tests/transactions/test_async_payments.py::test_reverse_sees_attempt_created_while_creating_its_guard -q --tb=short --junitxml=artifacts/jaineel-m3-review-20261111/race-before.xml` | Expected reproduction: 1 failed on the old reversal path | `race-before.{log,xml}` |
+| `pytest tests/transactions/test_async_payments.py tests/transactions/test_payment_logic.py -q --tb=short -o cache_dir=artifacts/jaineel-m3-review-20261111/pytest-cache --junitxml=artifacts/jaineel-m3-review-20261111/payment-fixes.xml` | 24 passed, 1 fixture error; the new test's connection proxy initially omitted psycopg's `info`, corrected by forwarding attributes | `payment-fixes.{log,xml}` |
+| `pytest tests/transactions tests/conversation tests/integration tests/benchmarks/test_drivers.py tests/benchmarks/test_seed_audit.py tests/telemetry/test_benchmark.py -q --tb=short -o cache_dir=artifacts/jaineel-m3-review-20261111/pytest-cache --junitxml=artifacts/jaineel-m3-review-20261111/services.xml` | PASS, 743 passed, zero skips/failures, exit 0; 201.76 s | `services.{log,xml}` |
+| `pytest tests/contracts tests/benchmarks/test_verifier_evidence.py -q --tb=short -o cache_dir=artifacts/jaineel-m3-review-20261111/pytest-cache --junitxml=artifacts/jaineel-m3-review-20261111/contracts.xml` | PASS, 140 passed, exit 0, after loader/verifier changes | `contracts.{log,xml}` |
+| `PROJECTCTL_ADAPTER_MODULE=infra.postgres python -m projectctl env up --profile postgres-local` | PASS, exit 0; retained PostgreSQL started | `postgres-up.log` |
+| `python -m services.orders.m3_setup`, twice with the private prototype service URLs | PASS, both exit 0; first adopts/checks all M3 files and adds upgrades, second applies nothing | `m3-setup{,-repeat}.log` |
+| `PROJECTCTL_ADAPTER_MODULE=infra.prototype python -m projectctl env up --profile prototype-local` | PASS, exit 0; all real processes healthy, not a workload assertion | `prototype-up.log`; `artifacts/infra/prototype-local/checks/f32eeb35-8588-4581-9265-5217425fc02e/prototype.json` |
+| `PYTHONPATH=<repo> python artifacts/jaineel-m3-review-20261111/live_smoke.py` | Corrected scripted real-provider smoke PASS, exit 0; see facts below. Initial cold-search failures and temporary script route/field mistakes are preserved | `live-smoke*.log`, `live-summary.json`, `transaction-audit.json`, `payment-plan.json`, `checkout-replay.json`, `gold-order-fact.json` |
+| `@('1','1','') \| uv run --locked python -m projectctl demo --namespace dev --user-id demo-jaineel-review --query shirt --state artifacts/jaineel-m3-review-20261111/fresh-no-confirm/state.json` | PASS, exit 0; fresh search/quote, no checkout after declined confirmation | `fresh-no-confirm.log`, `fresh-no-confirm/state.json{,.http.jsonl}` |
+| `python benchmarks/manual/verify_p5.py`, first attempt while the stack was running | Timed out its nested pytest and exposed text-output decoding crash; not counted as PASS. Fixed verifier, retained evidence; no timeout increase | `p5.log`; `artifacts/p5/e5f178e7-2504-48ce-af71-de2ab86dffbf/checks.json` |
+| Final service rerun immediately after restarting disposable PostgreSQL | 571 passed, 129 setup errors because the server was still starting. Confirmed readiness with a real SELECT before rerunning; assertions unchanged | `services-final.{log,xml}`, `test-database-ready.log` |
+| `python -m projectctl.conversation_contract --check`; `python -m projectctl.schemas --check` | PASS, exit 0; generated contracts match | CLI outputs, `contracts.xml` |
+
+Focused lint and formatting pass on all 46 changed/relevant Python files:
+`ruff check` / `ruff format --check` use the handoff scope above plus
+`services/conversation/provider_contracts.py`, `benchmarks/manual/verify_p5.py`,
+`tests/benchmarks/test_verifier_evidence.py`, `projectctl/conversation_contract.py`
+and `tests/transactions/test_checkout_live.py`. Exact outputs are
+`lint-final.log` and `format-final.log`. A broader exploratory lint additionally
+reported the existing long docstring in unmodified
+`tests/transactions/test_event_payloads.py:144`; it was not edited to broaden
+this milestone. `git diff --check` and generated schema checks pass.
+
+Real smoke facts: order `0f2f9566-0001-4f4a-a331-d72634e9d152` reached CONFIRMED,
+reservation COMMITTED, with one INR 549.00 debit and the same order on replay.
+Payment completion is no earlier than its persisted 100-ms due time and retains
+the ingress run identity. Foreign-user status/SSE reads return 404 and tokenless
+ledger audit returns 401. Active Gold query generation 221 includes the confirmed
+order (row publication generation 213). A separate fresh CLI flow submits no
+checkout when confirmation is declined. All fixed-mode search turns record zero
+LLM calls. Scripted smoke confirmation is explicitly a regression fixture, not
+a claim of human review. Formal G3, complete source/receipt reconciliation,
+performance qualification and hosted CI remain unclaimed.
+
+The first standalone timeout-regression run had 3 failures due to its mock matching
+the word `contracts` inside the protected git-diff path list; corrected the mock
+to identify the actual contracts command. All 140 contract/verifier tests pass.
+Diagnostic YAML load/profile logs are local investigations, not controlled B0/O1
+or cross-machine benchmark evidence.
+
+Cleanup so far: `PROJECTCTL_ADAPTER_MODULE=infra.prototype python -m projectctl
+env down` stopped the app/worker/relay stack and base services. Compose down was
+followed by removal of the remaining stopped containers selected by the exact
+`com.docker.compose.project=group3-postgres-local` label (profiled services are not
+all selected by default Compose down). All named database/Kafka/lakehouse volumes,
+private bindings and raw evidence remain. The disposable test container is kept
+only until final verification completes, then removed separately.
+
+Final service verification after readiness:
+`uv run --locked pytest tests/transactions tests/conversation tests/integration
+-q --tb=short -o cache_dir=artifacts/jaineel-m3-review-20261111/pytest-cache-final
+--junitxml=artifacts/jaineel-m3-review-20261111/services-ready.xml`
+completed with **700 passed, zero skips/failures, exit 0 (143.80 s)**. Raw stdout/
+JUnit are `services-ready.{log,xml}`. The warnings are existing FastAPI lifecycle
+deprecations and JUnit `record_property` format notices; assertions were not
+weakened. Together with the contract/verifier run, this verifies the final source
+after the parser and timeout fixes. The earlier 743-test run also exercised the
+real restricted seed-audit reader and workload-driver handoff.
+
+Final required P5 verification:
+`uv run --locked python benchmarks/manual/verify_p5.py` with the disposable
+`INVENTORY_TEST_DATABASE_URL` / `P6_TEST_DATABASE_URL` completed with **11/11
+checks matched, exit 0; 920 passed, zero skips/failures (146.58 s)**. Evidence:
+`p5-final.log` and `artifacts/p5/90f7aea8-d623-4b75-845c-76aadd1251ca/{checks.json,pytest.xml}`.
+The contracts command's exit 4 is explicitly expected: provider compatibility is
+not a manufactured formal-owner approval. P5's own real-SUT/performance values
+remain NOT_RUN; the separately retained real prototype smoke above is the actual
+deployment verification. Every requested pre-push check has now executed.
+
+Publication: stage only the 34 reviewed source/test/migration/contract/doc paths;
+use `git commit -m "fix: complete deterministic payment handoff and harden prototype"`
+and `git push origin HEAD:refs/heads/jaineel/prototype-demo`. The branch is unchanged
+and publication is a normal fast-forward. `repository-review.json` records the
+reviewed paths/hashes; the ignored `git-receipt.json` records the actual commit,
+remote equality, push outcome and final status after publication. Generated/raw
+artifacts, datasets, private bindings and credentials are excluded.
+
+Final cleanup completed: `docker rm -f -v jaineel-m3-review-20261111` removed
+only the disposable test container and its anonymous volume. `docker ps -a
+--format '{{.ID}} {{.Names}} {{.Status}}'` produced an empty file (zero remaining
+containers). `docker desktop stop` exited 0, restoring the initially stopped
+Desktop state. `retained-volumes.txt` confirms the named PostgreSQL, Kafka and
+lakehouse volumes remain; no volume/image prune or prototype-data reset occurred.
+Evidence: `test-container-removed.log`, `docker-containers-after.txt`,
+`docker-desktop-stop.log`. Manual presentation restart uses the updated demo
+runbook; start Docker Desktop first, then run its prepared-machine commands.
+
+Actual publication: source commit **`5dd1838`**, `fix: complete deterministic
+payment handoff and harden prototype`, was created on `jaineel/prototype-demo`.
+`git push origin HEAD:refs/heads/jaineel/prototype-demo` exited **0**, advancing
+the remote from `33ea39e` to `5dd1838` without rewriting history. `git ls-remote
+--heads origin refs/heads/jaineel/prototype-demo` matched local HEAD and the work
+tree was clean. This final documentation receipt is published as a separate small
+commit on the same branch; `git-receipt.json` retains its final local/remote SHA
+and clean status. Hosted CI was not polled and is not claimed green by this run.

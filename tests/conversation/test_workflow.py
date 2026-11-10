@@ -248,6 +248,63 @@ def test_lost_checkout_response_survives_restart_and_expiry_with_same_order(
     assert len({r.content for r in requests}) == 1
 
 
+def test_benchmark_identity_survives_m1_response_loss_and_restart(
+    workflow, context, provider, database
+):
+    created, _, body = quoted(workflow, context)
+    control = {"X-Benchmark-Scenario-ID": "measurement:000001:cart", "X-Benchmark-Seed": "42"}
+    provider.lose_order_response = True
+    assert_code(
+        "DEPENDENCY_UNAVAILABLE",
+        lambda: workflow.checkout_cart(
+            created.cart_id, body, context, "checkout", benchmark_headers=control
+        ),
+    )
+
+    restarted = FixedWorkflow(
+        ConversationState(database, events=workflow.state.events), provider.gateway()
+    )
+    accepted = restarted.checkout_cart(
+        created.cart_id, body, context, "checkout", benchmark_headers=control
+    )
+    requests = [r for r in provider.requests if r.url.path == "/v1/orders"]
+    assert len(requests) == 2
+    for request in requests:
+        assert all(request.headers[name] == value for name, value in control.items())
+        assert set(json.loads(request.content)) == {"quote_id", "session_id", "confirmation_id"}
+    assert len(provider.accepted) == 1 and accepted["status"] == "PENDING"
+    assert_code(
+        "IDEMPOTENCY_CONFLICT",
+        lambda: restarted.checkout_cart(
+            created.cart_id,
+            body,
+            context,
+            "checkout",
+            benchmark_headers=control | {"X-Benchmark-Seed": "43"},
+        ),
+    )
+    assert len({r.content for r in requests}) == 1
+
+
+@pytest.mark.parametrize("benchmark,faults", [("false", "true"), ("true", "false")])
+def test_m1_checkout_refuses_disabled_benchmark_identity_before_provider_call(
+    workflow, context, provider, monkeypatch, benchmark, faults
+):
+    created, _, body = quoted(workflow, context)
+    monkeypatch.setenv("BENCHMARK_MODE", benchmark)
+    monkeypatch.setenv("FAULT_INJECTION_ENABLED", faults)
+    app = create_app(state=workflow.state, mode="stub", purpose="contract_test", workflow=workflow)
+    control = {"X-Benchmark-Scenario-ID": "measurement:000001:cart", "X-Benchmark-Seed": "42"}
+    with TestClient(app) as client:
+        response = client.post(
+            f"/v1/carts/{created.cart_id}/checkout",
+            json=body.model_dump(mode="json"),
+            headers=context.headers("checkout") | control,
+        )
+    assert response.status_code == 403
+    assert provider.count("/v1/orders") == 0
+
+
 def test_checkout_input_conflict_and_unconfirmed_rejection(workflow, context, provider):
     created, quote, body = quoted(workflow, context)
     accepted = workflow.checkout_cart(created.cart_id, body, context, "checkout")

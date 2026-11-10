@@ -130,8 +130,16 @@ def main():
             actual, stdout, stderr = completed.returncode, completed.stdout, completed.stderr
         except subprocess.TimeoutExpired as exc:
             actual = None
-            stdout = (exc.stdout or b"").decode("utf-8", errors="replace")
+            stdout = exc.stdout or ""
+            if isinstance(stdout, bytes):
+                stdout = stdout.decode("utf-8", errors="replace")
             stderr = "command exceeded 240 seconds; partial output retained"
+            if exc.stderr:
+                stderr += "\n" + (
+                    exc.stderr.decode("utf-8", errors="replace")
+                    if isinstance(exc.stderr, bytes)
+                    else exc.stderr
+                )
         except OSError as exc:
             actual, stdout, stderr = None, "", str(exc)
         checks.append(

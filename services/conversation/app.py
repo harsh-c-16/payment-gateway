@@ -28,6 +28,7 @@ from shared.contracts.conversation import (
     TurnRequest,
     TurnResponse,
 )
+from shared.telemetry.benchmark import benchmark_headers
 from shared.telemetry.context import bind_context, log_operation
 from shared.telemetry.metrics import Telemetry
 
@@ -253,10 +254,18 @@ def create_app(
         return workflow.request_quote(cart_id, body, context, key)
 
     @app.post("/v1/carts/{cart_id}/checkout", status_code=202)
-    def checkout_cart(cart_id: UUIDText, body: CheckoutRequest, context: Context, key: Key):
+    def checkout_cart(
+        cart_id: UUIDText, body: CheckoutRequest, context: Context, key: Key, request: Request
+    ):
         if workflow is None:
             workflow_unavailable()
-        return workflow.checkout_cart(cart_id, body, context, key)
+        try:
+            control = benchmark_headers(request.headers, context.namespace)
+        except PermissionError as error:
+            raise ServiceError(403, ErrorCode.FORBIDDEN, str(error)) from error
+        except ValueError as error:
+            raise ServiceError(422, ErrorCode.VALIDATION_ERROR, str(error)) from error
+        return workflow.checkout_cart(cart_id, body, context, key, benchmark_headers=control)
 
     @app.get("/health/live")
     def live():

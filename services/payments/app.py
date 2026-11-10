@@ -3,6 +3,7 @@
 import hmac
 import logging
 import os
+import threading
 from time import monotonic
 from typing import Annotated
 from uuid import uuid4
@@ -24,6 +25,7 @@ from shared.contracts.common import (
     UUIDText,
 )
 from shared.contracts.transactions import AuthorizePaymentRequest
+from shared.telemetry.benchmark import benchmark_headers
 from shared.telemetry.context import bind_context, log_operation
 from shared.telemetry.metrics import Telemetry
 
@@ -99,6 +101,33 @@ def create_app(*, db=None, events=None):
         }
     )
 
+    completion_stop = threading.Event()
+    completion_thread = None
+
+    @app.on_event("startup")
+    def start_completion_worker():
+        nonlocal completion_thread
+        completion_stop.clear()
+
+        def complete():
+            while not completion_stop.is_set():
+                try:
+                    authorize.complete_pending_payments(db, events)
+                except Exception:
+                    LOGGER.exception("payment completion worker error; pending work retained")
+                completion_stop.wait(0.025)
+
+        completion_thread = threading.Thread(
+            target=complete, name="payment-completion", daemon=True
+        )
+        completion_thread.start()
+
+    @app.on_event("shutdown")
+    def stop_completion_worker():
+        completion_stop.set()
+        if completion_thread is not None:
+            completion_thread.join(timeout=5)
+
     @app.middleware("http")
     async def observe(request, call_next):
         started = monotonic()
@@ -134,8 +163,16 @@ def create_app(*, db=None, events=None):
         return JSONResponse(failure.response(correlation(request)), status_code=422)
 
     @app.post("/internal/v1/payments/authorize", status_code=202, dependencies=[Internal])
-    def authorize_payment(body: AuthorizePaymentRequest, context: Context):
-        return authorize.authorize(db, events, context.namespace, body, context)
+    def authorize_payment(body: AuthorizePaymentRequest, context: Context, request: Request):
+        try:
+            control = benchmark_headers(request.headers, context.namespace)
+        except PermissionError as error:
+            raise ServiceError(403, ErrorCode.FORBIDDEN, str(error)) from error
+        except ValueError as error:
+            raise ServiceError(422, ErrorCode.VALIDATION_ERROR, str(error)) from error
+        return authorize.authorize(
+            db, events, context.namespace, body, context, benchmark_headers=control
+        )
 
     @app.get("/internal/v1/payments/by-order/{order_id}", dependencies=[Internal])
     def get_payments(order_id: UUIDText, context: Context):
@@ -164,7 +201,8 @@ def create_app(*, db=None, events=None):
                            'debit_id', pa.debit_id, 'reversal_id', pa.reversal_id
                        ) ORDER BY pa.attempt_number) AS attempts
                 FROM payment_orders po
-                LEFT JOIN payment_attempts pa ON po.namespace = pa.namespace AND po.order_id = pa.order_id
+                LEFT JOIN payment_attempts pa
+                  ON po.namespace = pa.namespace AND po.order_id = pa.order_id
                 WHERE po.namespace = %s
                 GROUP BY po.order_id, po.quiesced
                 ORDER BY po.order_id
@@ -179,10 +217,12 @@ def create_app(*, db=None, events=None):
         with db.transaction() as tx:
             rows = tx.execute(
                 """
-                SELECT le.entry_id, le.payment_id, le.kind, le.amount_minor, le.currency, le.created_at,
+                SELECT le.entry_id, le.payment_id, le.kind,
+                       le.amount_minor, le.currency, le.created_at,
                        pa.order_id
                 FROM ledger_entries le
-                JOIN payment_attempts pa ON le.namespace = pa.namespace AND le.payment_id = pa.payment_id
+                JOIN payment_attempts pa
+                  ON le.namespace = pa.namespace AND le.payment_id = pa.payment_id
                 WHERE le.namespace = %s
                 ORDER BY le.created_at
                 """,

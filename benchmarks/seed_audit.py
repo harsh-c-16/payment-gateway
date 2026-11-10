@@ -51,11 +51,23 @@ def collect_membership(namespace):
     from infra.analytics_runtime import read_connection
 
     with read_connection("INVENTORY_AUDIT_DATABASE_URL") as tx, tx.transaction():
+        tx.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         tx.execute("SET LOCAL statement_timeout='5000ms'")
         inventory = tx.execute(
             "SELECT sku FROM inventory WHERE namespace=%s ORDER BY sku", (namespace,)
         ).fetchall()
+        pending = tx.execute(
+            "SELECT count(*) FROM outbox WHERE namespace=%s AND published_at IS NULL", (namespace,)
+        ).fetchone()[0]
+        runs = tx.execute(
+            "SELECT DISTINCT convert_from(payload,'UTF8')::jsonb->>'run_id' "
+            "FROM outbox WHERE namespace=%s",
+            (namespace,),
+        ).fetchall()
+        if len(runs) != 1 or not isinstance(runs[0][0], str) or not runs[0][0]:
+            raise DependencyError("inventory seed outbox requires exactly one original run ID")
     with read_connection("CATALOG_AUDIT_DATABASE_URL") as tx, tx.transaction():
+        tx.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
         tx.execute("SET LOCAL statement_timeout='5000ms'")
         catalog = tx.execute(
             "SELECT sku FROM products WHERE namespace=%s AND active ORDER BY sku", (namespace,)
@@ -66,7 +78,7 @@ def collect_membership(namespace):
     return {
         name: [row[0] for row in rows]
         for name, rows in zip(MEMBERSHIPS, (catalog, inventory, projected), strict=True)
-    }
+    } | {"pending_outbox": pending, "run_id": runs[0][0]}
 
 
 def with_seed_membership(callback):
@@ -77,7 +89,7 @@ def with_seed_membership(callback):
         if not isinstance(seed, dict):
             raise DependencyError("owner seed callback must return an evidence object")
         membership = await asyncio.to_thread(collect_membership, seed.get("namespace"))
-        if any(field in seed and seed[field] != membership[field] for field in MEMBERSHIPS):
+        if any(field in seed and seed[field] != membership[field] for field in membership):
             raise DependencyError("owner seed membership conflicts with read-only snapshot")
         return {**seed, **membership}
 

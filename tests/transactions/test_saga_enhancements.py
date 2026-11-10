@@ -10,6 +10,7 @@ from services.orders.saga import (
     _record_operation_key,
     fault_injection_allowed,
 )
+from tests.transactions.test_saga_logic import _context
 
 
 class TestOperationKey:
@@ -122,13 +123,7 @@ class TestFinishForward:
         db.transaction.return_value.__enter__ = MagicMock(return_value=tx)
         db.transaction.return_value.__exit__ = MagicMock(return_value=False)
         events = MagicMock()
-        ctx = MagicMock()
-        ctx.namespace = "dev"
-        ctx.run_id = "r"
-        ctx.user_id = "u"
-        ctx.correlation_id = "c"
-        ctx.request_id = "r"
-        ctx.session_id = "s"
+        ctx = _context()
 
         job = {
             "namespace": "dev",
@@ -192,7 +187,7 @@ class TestFinishForward:
                     db,
                     MagicMock(),
                     job,
-                    MagicMock(),
+                    _context(),
                     inventory_url="http://inventory:8004",
                     payments_url="http://payments:8005",
                     internal_token="",
