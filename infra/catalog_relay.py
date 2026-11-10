@@ -13,9 +13,12 @@ from shared.outbox import OutboxRelay
 
 
 @contextmanager
-def catalog_relay(url, codec, bootstrap):
+def catalog_relay(url, codec, bootstrap, *, service_name="catalog"):
+    if service_name not in {"conversation", "catalog", "orders", "inventory", "payments"}:
+        raise ValueError("Explicit operational outbox service required")
+
     def connect():
-        return psycopg.connect(url, connect_timeout=5, application_name="catalog-relay")
+        return psycopg.connect(url, connect_timeout=5, application_name=service_name + "-relay")
 
     with connect() as tx:
         tx.execute("SELECT event_id,published_at FROM outbox LIMIT 0")
@@ -23,7 +26,7 @@ def catalog_relay(url, codec, bootstrap):
     relay = OutboxRelay(
         RelayConnections(connect),
         publisher,
-        service_name="catalog",
+        service_name=service_name,
         poll_interval_ms=25,
         batch_limit=100,
     )
@@ -31,13 +34,13 @@ def catalog_relay(url, codec, bootstrap):
     try:
         relay.start()
         thread = relay._thread
-        yield
+        yield relay
     finally:
         try:
             relay.stop(timeout=30)
         finally:
             if thread is not None and thread.is_alive():
-                raise RuntimeError("Catalogue relay shutdown unconfirmed; outbox retained")
+                raise RuntimeError(service_name + " relay shutdown unconfirmed; outbox retained")
             publisher.close()
 
 

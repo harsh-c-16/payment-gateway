@@ -4,6 +4,11 @@ Authority: [personal brief](../docs/specs/07_VICHITR_ARORA.md),
 [runtime contracts](../docs/specs/02_COMMON_SPEC.md), and
 [module plan](../docs/vichitr/implementation_plan.md).
 
+For the whole application's development startup, use the
+[prototype-local launcher](PROTOTYPE.md). It composes the existing services,
+keeps database ownership explicit and retains data on shutdown. Its smaller
+development allocations are separate from the proposed evaluation profiles.
+
 M01a provides the **PostgreSQL-only** `postgres-local` profile described below.
 For Kafka, registry and the smaller PostgreSQL allocation, use
 the [M01b streaming-local instructions](STREAMING.md). M02/M03 supply event contracts

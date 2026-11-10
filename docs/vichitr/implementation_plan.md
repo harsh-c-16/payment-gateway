@@ -1,5 +1,13 @@
 # Vichitr implementation plan
 
+10 November prototype implementation: the owned full-application deployment,
+low-memory development profile, shared-relay process binding, Linux setup helper,
+private configuration, readiness checks and retained-data shutdown are delivered.
+See [prototype instructions](../../infra/PROTOTYPE.md) and [actual progress](progress.md).
+All 12 processes are healthy, but initial full-data projection/analytics catch-up
+and the observed M1 turn deadline remain runtime limitations. No complete checkout
+or official evaluation acceptance is implied.
+
 8 November startup follow-up: implemented stage/attempt evidence, bounded
 transient retries for repeatable setup/probes and retained-broker heap/recovery
 budget corrections without increasing container/VM limits or deleting data.

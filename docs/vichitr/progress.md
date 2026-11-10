@@ -1,5 +1,100 @@
 # Vichitr progress
 
+## Local prototype deployment — 10 November 2026
+
+Implemented the Vichitr-owned deployment layer on `vichitr`, based on merged main
+`7804699`. No Conversation, Catalogue, Orders, Inventory, Payments, shared outbox
+business implementation, owner SQL, canonical evaluation profile, dependency lock
+or CI selection was changed. Instructions are in [infra/PROTOTYPE.md](../../infra/PROTOTYPE.md).
+
+`PROJECTCTL_ADAPTER_MODULE=infra.prototype` provides the existing `projectctl env
+up/verify/down` surface for `prototype-local`. It reuses streaming-local's real
+PostgreSQL/Kafka/registry and persistent lakehouse, checks the operational schemas
+read-only, invokes only analytics-owned migrations with an active caller
+transaction, builds the existing locked image and starts the six APIs, stock
+projection, analytics consumer/publisher and operational relays. Missing schemas,
+unsupported profiles, insufficient CPU/RAM and competing setup/benchmark containers
+fail explicitly. Shutdown stops applications before infrastructure and never
+removes volumes. Private credentials/token persist; public diagnostics exclude
+URLs/tokens and Docker environment/health-log contents.
+
+The five operational relays are independent instances of the existing shared
+library, co-located only for this development profile, with separate codecs,
+connections and publishers. All stop requests are issued before joining threads.
+The existing standalone catalogue relay retains its default behavior. API ports
+remain loopback-only, fixed mode/zero generative calls and fault flags are false.
+The analytics process uses the existing O1 (100 rows/50 ms), unchanged raw capture
+and 250-ms publication controls. Official evaluation process accounting is separate.
+
+Docker currently reports **4,040,855,552 bytes and 8 CPUs**. Development container
+ceilings total **3,584 MiB and 8 CPUs**, with a checked 256-MiB VM memory margin.
+Conversation/Catalogue receive 1 core each; other APIs 0.5 each; stock worker,
+analytics worker and combined relays receive 0.75/1/0.5 cores. RAM remains
+128 MiB per operational API/stock worker/combined relays, analytics API 192 MiB,
+analytics worker 320 MiB; PostgreSQL/Kafka/registry stay 512/1,024/640 MiB.
+Initial more conservative CPU caps were revised after the real startup/turn checks;
+the current limits are checked individually against Docker, not inferred from sums.
+
+Actual setup and evidence:
+
+- All **12 containers** reached healthy state. Final pre-commit `env verify`
+  returned exit 0, run `8908518d-c35f-4189-bf99-158065a38aa0`; raw process/resource
+  proof is under `artifacts/infra/prototype-local/checks/<run-id>/prototype.json`.
+  These receipts acknowledge process health, not whole-business acceptance.
+- Initial read-only checks found empty public Conversation/M3 schemas and the
+  missing catalogue outbox migration. One-off local setup invoked M1's existing
+  migration helper, Harsh's existing migration helper, and applied Aditya's existing
+  SQL only after verifying each M3 public schema was empty. Applied SQL hashes are
+  retained in `artifacts/prototype-20261110/bootstrap.json`. No migration engine,
+  new owner migration or global migration callback was invented.
+- Native Windows import correctly refused unavailable directory fsync. The new
+  optional **768-MiB Linux setup container**, used with applications stopped,
+  mounts the original CSV read-only and keeps durable import artifacts on the Linux
+  lakehouse volume inside the CLI's permitted repository path. It runs the existing
+  owner `projectctl` commands; no importer/seed implementation was changed.
+- Linux import succeeded: **19,998 canonical listings, 19,920 active, 78 inactive**;
+  existing verification passed **19 assertions**. Inventory seed completed for
+  **19,920 SKUs**, 10,000 units/version 1, seed 42. Original normalized manifests
+  remain in the volume's `prototype-data`; the small readiness manifest is copied
+  to `artifacts/prototype-setup/prototype-data/sku_manifest.json`.
+- All **19,920 Inventory outbox rows were broker-acknowledged** at the recorded
+  snapshot. Stock projection was **9,289/19,920**, analytics had **5,528 new-valid
+  receipts**, no invalid/duplicate dispositions in that dev snapshot, and **5,428
+  stock events with recorded Gold visibility**, active generation 121. These are
+  point-in-time bootstrap counts, not throughput measurements. Older QA namespaces,
+  files and offsets remain intact. The running stack continues the backlog.
+- The first full projection wait hit its 600-second deadline at **5,778/19,920**,
+  zero deferred. Its failure remains in run `0de9ed31-baba-4e7e-85b5-130f4256ae63`.
+  This was not marked ready. Planner statistics were subsequently refreshed using
+  the catalogue owner's role; full initial projection remains an outstanding
+  runtime prerequisite.
+- Public-session smoke created real sessions (201), but assistant turns returned
+  `dependency_error` at the existing three-second deadline during bootstrap.
+  With the final CPU split, recorded parse/search times were roughly 0.9/1.9 s
+  plus other work; checkout was **not reached**. Refreshing stock statistics did
+  not resolve that attempt. Raw responses and prior attempts are retained under
+  `artifacts/prototype-20261110/smoke*.json`. Do not claim a successful checkout,
+  payment outcome, duplicate purchase check or order-to-Gold acceptance. Retry after
+  the initial backlog drains; persistent M1 deadline issues need Jaineel's review.
+
+Focused verification:
+
+`python -m pytest tests/pipelines/test_prototype.py tests/pipelines/test_catalog_relay.py
+-q --basetemp=artifacts/pytest-prototype-release
+--junitxml=artifacts/prototype-20261110/release.xml`: **29 passed**. These are explicit
+Docker/SQL doubles and do not substitute for the live facts above. They cover
+stable secrets/identity, no token rotation, resource/headroom/concurrency guards,
+read-only schema failures, active analytics migration transaction, exact health/
+resource checks, relay partial-start cleanup/concurrent shutdown and retained-volume
+stop ordering. Ruff lint/format, Compose config and whitespace checks pass.
+The first sandboxed pytest run hit Windows scratch-directory permissions; the
+native run above passed. No workflow, broader CI selection, benchmark matrix,
+official evaluation, fault campaign or performance comparison was run.
+
+Prototype implementation delivered; full-business readiness is **incomplete**.
+Owner migration/runtime callbacks and the official resource/clock/review/fault
+bindings requested in the 9 November evaluation handoff remain separate work.
+
 ## CI worker-fixture correction - 8 November 2026
 
 Run `42505094144` for `7c1ab54` failed both offline jobs with two failures:

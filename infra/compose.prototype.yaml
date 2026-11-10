@@ -1,0 +1,186 @@
+# Development smoke only. Separate-process evaluation profiles remain unchanged.
+x-app: &app
+  image: group3-m04-storage:local
+  pull_policy: never
+  profiles: [prototype]
+  init: true
+  mem_limit: 128m
+  cpus: 0.5
+  pids_limit: 128
+  stop_grace_period: 40s
+  environment: &runtime
+    CODE_COMMIT: ${CODE_COMMIT:?}
+    RUN_NAMESPACE: ${RUN_NAMESPACE:?}
+    DEFAULT_NAMESPACE: ${RUN_NAMESPACE:?}
+    RUN_ID: ${RUN_ID:?}
+    INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?}
+    EVENT_SCHEMA_CACHE_PATH: /app/schema-cache.json
+    KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    CATALOG_DATASET_REVISION: ${CATALOG_DATASET_REVISION:?}
+    ASSISTANT_MODE: fixed
+    ALLOW_INTENT_LLM: "false"
+    BENCHMARK_MODE: "false"
+    FAULT_INJECTION_ENABLED: "false"
+    PYTHONPYCACHEPREFIX: /tmp/prototype-pycache
+  volumes:
+    - ../services:/app/services:ro
+    - ../pipelines:/app/pipelines:ro
+    - ../shared:/app/shared:ro
+    - ../infra:/app/infra:ro
+    - ../contracts:/app/contracts:ro
+    - ../migrations:/app/migrations:ro
+    - ../artifacts/infra/streaming-local/registry-manifest.json:/app/schema-cache.json:ro
+  labels:
+    group3.owner: vichitr
+    group3.profile: prototype-local
+services:
+  prototype-setup:
+    <<: *app
+    profiles: [prototype-setup]
+    mem_limit: 768m
+    cpus: 0.5
+    environment:
+      <<: *runtime
+      PROJECTCTL_ADAPTER_MODULE: infra.prototype
+      CATALOG_DATABASE_URL: ${CATALOG_DATABASE_URL:?}
+      INVENTORY_DATABASE_URL: ${INVENTORY_DATABASE_URL:?}
+      LAKEHOUSE_ROOT: /app/prototype-volume
+    volumes:
+      - ../services:/app/services:ro
+      - ../pipelines:/app/pipelines:ro
+      - ../shared:/app/shared:ro
+      - ../infra:/app/infra:ro
+      - ../projectctl:/app/projectctl:ro
+      - ../benchmarks:/app/benchmarks:ro
+      - ../configs:/app/configs:ro
+      - ../contracts:/app/contracts:ro
+      - ../migrations:/app/migrations:ro
+      - ../data/raw:/app/data/raw:ro
+      - ../artifacts/prototype-setup:/app/artifacts
+      - ../artifacts/infra/streaming-local/registry-manifest.json:/app/schema-cache.json:ro
+      - lakehouse_data:/app/prototype-volume
+    command: [python, -m, projectctl, --help]
+  conversation:
+    <<: *app
+    cpus: 1.0
+    environment:
+      <<: *runtime
+      CONVERSATION_DATABASE_URL: ${CONVERSATION_DATABASE_URL:?}
+      CONVERSATION_MAX_CONNECTIONS: "3"
+      CATALOG_BASE_URL: http://catalog:8002
+      ORDERS_BASE_URL: http://orders:8003
+    command: [uvicorn, services.conversation.app:create_app, --factory, --host, "0.0.0.0", --port, "8001"]
+    ports: ["127.0.0.1:8001:8001"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health/ready',timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 18
+      start_period: 15s
+  orders:
+    <<: *app
+    environment:
+      <<: *runtime
+      ORDERS_DATABASE_URL: ${ORDERS_DATABASE_URL:?}
+      ORDERS_MAX_CONNECTIONS: "4"
+      CATALOG_URL: http://catalog:8002
+      INVENTORY_URL: http://inventory:8004
+      PAYMENTS_URL: http://payments:8005
+    command: [uvicorn, services.orders.app:create_app, --factory, --host, "0.0.0.0", --port, "8003"]
+    ports: ["127.0.0.1:8003:8003"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health/ready',timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 18
+      start_period: 15s
+  inventory:
+    <<: *app
+    environment:
+      <<: *runtime
+      INVENTORY_DATABASE_URL: ${INVENTORY_DATABASE_URL:?}
+      INVENTORY_MAX_CONNECTIONS: "4"
+      RESERVATION_TTL_SECONDS: "30"
+    command: [uvicorn, services.inventory.app:create_app, --factory, --host, "0.0.0.0", --port, "8004"]
+    ports: ["127.0.0.1:8004:8004"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health/ready',timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 18
+      start_period: 15s
+  payments:
+    <<: *app
+    environment:
+      <<: *runtime
+      PAYMENTS_DATABASE_URL: ${PAYMENTS_DATABASE_URL:?}
+      PAYMENTS_MAX_CONNECTIONS: "4"
+    command: [uvicorn, services.payments.app:create_app, --factory, --host, "0.0.0.0", --port, "8005"]
+    ports: ["127.0.0.1:8005:8005"]
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health/ready',timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 18
+      start_period: 15s
+  catalog:
+    mem_limit: 128m
+    cpus: 1.0
+    init: true
+    environment:
+      <<: *runtime
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health/ready',timeout=3)"]
+      timeout: 4s
+  catalog-worker:
+    mem_limit: 128m
+    cpus: 0.75
+    init: true
+    stop_grace_period: 40s
+    environment:
+      <<: *runtime
+      CATALOG_WORKER_METRICS_PORT: "8007"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8007/metrics',timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 18
+  analytics:
+    mem_limit: 192m
+    cpus: 0.5
+    init: true
+    environment:
+      <<: *runtime
+      SINK_BATCH_MAX_ROWS: "100"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/health/ready',timeout=3)"]
+      timeout: 4s
+  analytics-worker:
+    mem_limit: 320m
+    cpus: 1.0
+    init: true
+    stop_grace_period: 40s
+    environment:
+      <<: *runtime
+      SINK_BATCH_MAX_ROWS: "100"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/metrics',timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 18
+  prototype-relays:
+    <<: *app
+    cpus: 0.5
+    environment:
+      <<: *runtime
+      CONVERSATION_DATABASE_URL: ${CONVERSATION_DATABASE_URL:?}
+      CATALOG_DATABASE_URL: ${CATALOG_DATABASE_URL:?}
+      ORDERS_DATABASE_URL: ${ORDERS_DATABASE_URL:?}
+      INVENTORY_DATABASE_URL: ${INVENTORY_DATABASE_URL:?}
+      PAYMENTS_DATABASE_URL: ${PAYMENTS_DATABASE_URL:?}
+    command: [python, -m, infra.prototype_relays]
+    healthcheck:
+      test: [CMD, python, -c, "import pathlib,time; assert time.time()-pathlib.Path('/tmp/prototype-relays-ready').stat().st_mtime < 5"]
+      interval: 5s
+      timeout: 3s
+      retries: 12

@@ -1,5 +1,14 @@
 # M4 integration handoff and remaining gates
 
+10 November prototype update: [prototype-local](../../infra/PROTOTYPE.md) now
+starts/verifies the six APIs, stock/analytics workers and real operational relays
+inside 3.5 GiB of container limits on the current 8-CPU Docker VM. Linux import,
+verification and stock seeding used the existing owner implementations; all
+19,920 seed rows reached broker acknowledgement. Initial stock/analytics catch-up
+and M1's three-second turn deadline still prevent claiming a complete checkout
+demo. See the current [progress evidence](progress.md). This development launcher
+does not satisfy the separate proposed evaluation profiles or runtime-case gates.
+
 8 November startup follow-up: Windows setup/verification now retains per-stage,
 credential-free attempt diagnostics and retries transient failures in repeatable
 probes/provisioning at most three times. A real retained-volume startup exposed
