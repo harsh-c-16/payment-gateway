@@ -28,6 +28,7 @@ from shared.contracts.common import (
     UUIDText,
 )
 from shared.contracts.transactions import CreateOrderRequest
+from shared.telemetry.benchmark import benchmark_headers
 from shared.telemetry.context import bind_context, log_operation
 from shared.telemetry.metrics import Telemetry
 
@@ -191,7 +192,13 @@ def create_app(*, db=None, events=None):
         return JSONResponse(failure.response(correlation(request)), status_code=422)
 
     @app.post("/v1/orders", status_code=202)
-    def create_order(body: CreateOrderRequest, context: Context):
+    def create_order(body: CreateOrderRequest, context: Context, request: Request):
+        try:
+            control = benchmark_headers(request.headers, context.namespace)
+        except PermissionError as error:
+            raise ServiceError(403, ErrorCode.FORBIDDEN, str(error)) from error
+        except ValueError as error:
+            raise ServiceError(422, ErrorCode.VALIDATION_ERROR, str(error)) from error
         return commands.create_order(
             db,
             events,
@@ -200,6 +207,7 @@ def create_app(*, db=None, events=None):
             context,
             catalog_url=catalog_url,
             internal_token=internal_token,
+            benchmark_headers=control,
         )
 
     def owned_snapshot(order_id, context):
@@ -302,7 +310,8 @@ def create_app(*, db=None, events=None):
                 INSERT INTO fault_barriers (namespace, barrier_name, enabled, action, delay_ms)
                 VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (namespace, barrier_name) DO UPDATE
-                SET enabled = EXCLUDED.enabled, action = EXCLUDED.action, delay_ms = EXCLUDED.delay_ms
+                SET enabled = EXCLUDED.enabled, action = EXCLUDED.action,
+                    delay_ms = EXCLUDED.delay_ms
                 """,
                 (context.namespace, name, enabled, action, delay_ms),
             )

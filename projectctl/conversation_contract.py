@@ -115,6 +115,31 @@ def document():
                     "schema": {"type": "string", "minLength": 1, "maxLength": 128},
                 }
             )
+        if operation == "checkout_cart":
+            for name, pattern, maximum in (
+                (
+                    "X-Benchmark-Scenario-ID",
+                    "^(warmup|measurement):[0-9]{6,12}:[A-Za-z0-9_.:-]+$",
+                    128,
+                ),
+                ("X-Benchmark-Seed", "^[0-9]{1,19}$", 19),
+            ):
+                parameters.append(
+                    {
+                        "name": name,
+                        "in": "header",
+                        "required": False,
+                        "description": (
+                            "Paired benchmark identity headers; both are required when either "
+                            "is supplied. Requires BENCHMARK_MODE=true, "
+                            "FAULT_INJECTION_ENABLED=true and an isolated bench- namespace. "
+                            "Seed must fit a nonnegative signed int64. Invalid pairs return "
+                            "422; disabled or unsafe scope returns 403. Outcome/delay cannot "
+                            "be requested. Omit both for the normal prototype."
+                        ),
+                        "schema": {"type": "string", "pattern": pattern, "maxLength": maximum},
+                    }
+                )
         ref = response if ".yaml#" in response else "#/components/schemas/" + response
         value = {
             "operationId": operation,

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import httpx
+from psycopg.types.json import Jsonb
 from pydantic import ValidationError
 
 from services.orders.errors import ServiceError, conflict, not_found
@@ -17,7 +18,9 @@ logger = logging.getLogger("orders")
 _HTTP = httpx.Client(timeout=2.0)
 
 
-def create_order(db, events, namespace, request, context, *, catalog_url, internal_token):
+def create_order(
+    db, events, namespace, request, context, *, catalog_url, internal_token, benchmark_headers=None
+):
     """Accept a checkout: verify the catalogue quote, create order + saga job atomically."""
     # Common spec §8: a retry of an already-accepted quote resolves to the same order,
     # even after the quote has expired, so check consumption before re-validating.
@@ -36,8 +39,9 @@ def create_order(db, events, namespace, request, context, *, catalog_url, intern
             """
             INSERT INTO orders
                 (namespace, order_id, quote_id, user_id, session_id,
-                 total_amount_minor, currency, status, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, 'INR', 'PENDING', %s, %s)
+                 total_amount_minor, currency, status, created_at, updated_at,
+                 origin_context, benchmark_headers)
+            VALUES (%s, %s, %s, %s, %s, %s, 'INR', 'PENDING', %s, %s, %s, %s)
             ON CONFLICT (namespace, user_id, quote_id) DO NOTHING
             RETURNING order_id
             """,
@@ -50,6 +54,12 @@ def create_order(db, events, namespace, request, context, *, catalog_url, intern
                 quote["total_amount_minor"],
                 now,
                 now,
+                Jsonb(
+                    context.model_copy(
+                        update={"session_id": request.session_id or context.session_id}
+                    ).model_dump(mode="json")
+                ),
+                Jsonb(benchmark_headers or {}),
             ),
         ).fetchone()
 
@@ -60,7 +70,8 @@ def create_order(db, events, namespace, request, context, *, catalog_url, intern
             tx.execute(
                 """
                 INSERT INTO order_items
-                    (namespace, order_id, sku, quantity, unit_price_minor, line_total_minor, catalog_version)
+                    (namespace, order_id, sku, quantity, unit_price_minor,
+                     line_total_minor, catalog_version)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """,
                 (

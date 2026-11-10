@@ -11,6 +11,10 @@ from jsonschema.validators import extend
 from referencing import Registry, Resource
 from referencing.jsonschema import DRAFT202012
 
+# The locked PyYAML wheels include libyaml. Retain SafeLoader semantics on
+# platforms without it; repeated owner-schema parsing must fit the turn budget.
+SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
+
 StrictValidator = extend(
     Draft202012Validator,
     type_checker=Draft202012Validator.TYPE_CHECKER.redefine(
@@ -78,7 +82,7 @@ class OpenAPIContracts:
 
     def _document(self, path):
         try:
-            value = yaml.safe_load(path.read_text(encoding="utf-8"))
+            value = yaml.load(path.read_text(encoding="utf-8"), Loader=SAFE_LOADER)
             if not isinstance(value, dict) or not str(value.get("openapi", "")).startswith("3.1."):
                 raise ValueError
             self._dialects(value)
@@ -164,7 +168,7 @@ class OpenAPIContracts:
         if not path.is_relative_to(self.schema_root):
             raise ContractUnavailable("schema reference escapes the owner contract directory")
         try:
-            contents = yaml.safe_load(path.read_text(encoding="utf-8"))
+            contents = yaml.load(path.read_text(encoding="utf-8"), Loader=SAFE_LOADER)
             if not isinstance(contents, (dict, bool)):
                 raise ValueError
             self._dialects(contents)

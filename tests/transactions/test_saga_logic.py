@@ -14,17 +14,18 @@ from services.orders.saga import (
     _retry_step,
     run_pending_sagas,
 )
+from shared.contracts.common import RequestContext
 
 
 def _context():
-    ctx = MagicMock()
-    ctx.namespace = "dev"
-    ctx.run_id = "test-run"
-    ctx.user_id = "user-1"
-    ctx.correlation_id = "corr-1"
-    ctx.request_id = "req-1"
-    ctx.session_id = "sess-1"
-    return ctx
+    return RequestContext(
+        namespace="dev",
+        run_id="test-run",
+        user_id="user-1",
+        correlation_id="corr-1",
+        request_id=str(uuid4()),
+        session_id=str(uuid4()),
+    )
 
 
 def _mock_db():
@@ -32,6 +33,7 @@ def _mock_db():
     tx = MagicMock()
     db.transaction.return_value.__enter__ = MagicMock(return_value=tx)
     db.transaction.return_value.__exit__ = MagicMock(return_value=False)
+    tx.execute.return_value.fetchone.return_value = {}
     return db, tx
 
 
@@ -42,7 +44,7 @@ class TestInternalHeaders:
         assert headers["X-Namespace"] == "dev"
         assert headers["X-User-ID"] == "user-1"
         assert headers["Authorization"] == "Bearer token-123"
-        assert headers["X-Session-ID"] == "sess-1"
+        assert headers["X-Session-ID"] == ctx.session_id
 
     def test_omits_session_if_none(self):
         ctx = _context()
@@ -241,7 +243,12 @@ class TestExecuteStepAuthorizePayment:
         post_resp.status_code = 202
         post_resp.json.return_value = {"payment_id": "p1", "status": "SUCCESS"}
 
-        mock_httpx.get.return_value = get_resp
+        hold = MagicMock(status_code=200)
+        hold.json.return_value = {
+            "state": "ACTIVE",
+            "expires_at": (datetime.now(UTC) + timedelta(seconds=30)).isoformat(),
+        }
+        mock_httpx.get.side_effect = [get_resp, hold]
         mock_httpx.post.return_value = post_resp
 
         tx.execute.return_value.fetchone.return_value = {
@@ -284,9 +291,18 @@ class TestExecuteStepAuthorizePayment:
 
         post_resp = MagicMock()
         post_resp.status_code = 202
-        post_resp.json.return_value = {"payment_id": "p1", "status": "FAILED"}
+        post_resp.json.return_value = {
+            "payment_id": "p1",
+            "status": "FAILED",
+            "failure_code": "RETRYABLE_PROVIDER_FAILURE",
+        }
 
-        mock_httpx.get.return_value = get_resp
+        hold = MagicMock(status_code=200)
+        hold.json.return_value = {
+            "state": "ACTIVE",
+            "expires_at": (datetime.now(UTC) + timedelta(seconds=30)).isoformat(),
+        }
+        mock_httpx.get.side_effect = [get_resp, hold]
         mock_httpx.post.return_value = post_resp
 
         tx.execute.return_value.fetchone.return_value = {
@@ -541,6 +557,62 @@ class TestPaymentRecovery:
             _run_step("AUTHORIZE_PAYMENT", db)
         http.post.assert_not_called()
         assert advance.call_args[0][5] == "COMPENSATE_RELEASE"
+
+    @pytest.mark.parametrize(
+        "status,code,expired",
+        [
+            ("PENDING", None, False),
+            ("PENDING", None, True),
+            ("FAILED", "DECLINED", False),
+            ("FAILED", "INVALID_INPUT", False),
+            ("FAILED", "RETRYABLE_PROVIDER_FAILURE", False),
+            ("FAILED", "RETRYABLE_PROVIDER_FAILURE", True),
+        ],
+    )
+    @patch("services.orders.saga._HTTP")
+    def test_retry_policy_and_expiry_are_checked_before_a_new_attempt(
+        self, http, status, code, expired
+    ):
+        db, tx = _mock_db()
+        tx.execute.return_value.fetchone.return_value = {
+            "total_amount_minor": 5000,
+            "status": "PAYMENT_PENDING",
+        }
+        payment = {
+            "attempts": [
+                {"payment_id": "p1", "attempt_number": 1, "status": status, "failure_code": code}
+            ]
+        }
+        hold = {
+            "state": "ACTIVE",
+            "expires_at": (
+                datetime.now(UTC) + timedelta(seconds=-1 if expired else 30)
+            ).isoformat(),
+        }
+        http.get.side_effect = lambda url, **kwargs: MagicMock(
+            status_code=200, json=lambda: payment if "/payments/" in url else hold
+        )
+        http.post.return_value = MagicMock(
+            status_code=202, json=lambda: {"payment_id": "p2", "status": "PENDING"}
+        )
+        with (
+            patch("services.orders.saga._advance") as advance,
+            patch("services.orders.saga._retry_step") as retry,
+        ):
+            _run_step("AUTHORIZE_PAYMENT", db)
+        should_authorize = code == "RETRYABLE_PROVIDER_FAILURE" and not expired
+        assert http.post.call_count == int(should_authorize)
+        if should_authorize:
+            assert http.post.call_args.kwargs["json"]["attempt_number"] == 2
+            assert http.post.call_args.kwargs["headers"]["Idempotency-Key"] == "o1:authorize:2:v1"
+        if status == "PENDING" and not expired or should_authorize:
+            retry.assert_called_once()
+        else:
+            retry.assert_not_called()
+            assert advance.call_args.args[5] == "COMPENSATE_RELEASE"
+            assert advance.call_args.kwargs["failure_code"] == (
+                "RESERVATION_EXPIRED" if expired else code
+            )
 
 
 class TestJobScoping:

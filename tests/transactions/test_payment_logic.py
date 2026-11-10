@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -28,205 +29,52 @@ def _mock_db():
 
 
 class TestAuthorize:
-    def test_idempotent_returns_existing_attempt(self):
+    @pytest.mark.parametrize("roll,expected_failure", [(0.9, None), (0.0, "DECLINED")])
+    def test_authorize_persists_pending_plan_without_debit_or_event(self, roll, expected_failure):
         from services.payments.authorize import authorize
+        from tests.transactions.test_saga_logic import _context
 
         db, tx = _mock_db()
         events = MagicMock()
-        ctx = _context()
-        request = MagicMock()
-        request.order_id = "o1"
-        request.attempt_number = 1
-        request.amount_minor = 5000
-        request.currency = "INR"
-
-        call_count = {"n": 0}
-
-        def side_effect(*args, **kwargs):
-            call_count["n"] += 1
-            cursor = MagicMock()
-            if call_count["n"] == 1:  # INSERT payment_orders
-                return cursor
-            elif call_count["n"] == 2:  # SELECT quiesced
-                cursor.fetchone.return_value = {"quiesced": False}
-                return cursor
-            elif call_count["n"] == 3:  # INSERT attempt ON CONFLICT
-                cursor.fetchone.return_value = None  # already exists
-                return cursor
-            elif call_count["n"] == 4:  # SELECT existing attempt
-                cursor.fetchone.return_value = {
-                    "payment_id": "p-existing",
-                    "status": "SUCCESS",
-                    "amount_minor": 5000,
-                }
-                return cursor
-            elif call_count["n"] == 5:  # _attempt_snapshot
-                cursor.fetchone.return_value = {
-                    "payment_id": "p-existing",
-                    "order_id": "o1",
-                    "attempt_number": 1,
-                    "status": "SUCCESS",
-                    "amount_minor": 5000,
-                    "currency": "INR",
-                    "failure_code": None,
-                    "debit_id": "d1",
-                    "reversal_id": None,
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }
-                return cursor
-            return cursor
-
-        tx.execute.side_effect = side_effect
-        result = authorize(db, events, "dev", request, ctx)
-        assert result["payment_id"] == "p-existing"
-        assert result["status"] == "SUCCESS"
+        tx.execute.return_value.fetchall.return_value = []
+        pending = {"payment_id": "p1", "status": "PENDING"}
+        tx.execute.return_value.fetchone.side_effect = [{"quiesced": False}, pending]
+        request = MagicMock(order_id="o1", attempt_number=1, amount_minor=5000, currency="INR")
+        with patch("services.payments.authorize.random.random", return_value=roll):
+            assert authorize(db, events, "dev", request, _context()) == pending
+        statements = [call.args[0] for call in tx.execute.call_args_list]
+        assert not any("INSERT INTO ledger_entries" in sql for sql in statements)
+        insert = next(
+            call
+            for call in tx.execute.call_args_list
+            if "INSERT INTO payment_attempts" in call.args[0]
+        )
+        assert insert.args[1][6] == expected_failure
+        assert "interval '100 milliseconds'" in insert.args[0]
+        events.append.assert_not_called()
 
     def test_rejects_quiesced_order(self):
         from services.payments.authorize import authorize
 
         db, tx = _mock_db()
-        events = MagicMock()
-        ctx = _context()
-        request = MagicMock()
-        request.order_id = "o1"
-        request.attempt_number = 1
-        request.amount_minor = 5000
-        request.currency = "INR"
+        tx.execute.return_value.fetchall.return_value = []
+        tx.execute.return_value.fetchone.return_value = {"quiesced": True}
+        with pytest.raises(ServiceError, match="quiesced"):
+            authorize(db, MagicMock(), "dev", MagicMock(), _context())
 
-        call_count = {"n": 0}
-
-        def side_effect(*args, **kwargs):
-            call_count["n"] += 1
-            cursor = MagicMock()
-            if call_count["n"] == 1:  # INSERT payment_orders
-                return cursor
-            elif call_count["n"] == 2:  # SELECT quiesced
-                cursor.fetchone.return_value = {"quiesced": True}
-                return cursor
-            return cursor
-
-        tx.execute.side_effect = side_effect
-
-        with pytest.raises(ServiceError) as exc_info:
-            authorize(db, events, "dev", request, ctx)
-        assert exc_info.value.status == 409
-
-    @patch("services.payments.authorize.random")
-    def test_simulated_success_creates_debit(self, mock_random):
+    def test_same_attempt_reads_existing_without_new_plan(self):
         from services.payments.authorize import authorize
 
-        mock_random.random.return_value = 0.9  # > 0.15 → success
-        mock_random.choice.return_value = "SIMULATED_DECLINE"
-
         db, tx = _mock_db()
-        events = MagicMock()
-        ctx = _context()
-        request = MagicMock()
-        request.order_id = "o1"
-        request.attempt_number = 1
-        request.amount_minor = 5000
-        request.currency = "INR"
-
-        call_count = {"n": 0}
-
-        def side_effect(*args, **kwargs):
-            call_count["n"] += 1
-            cursor = MagicMock()
-            if call_count["n"] == 1:  # INSERT payment_orders
-                return cursor
-            elif call_count["n"] == 2:  # SELECT quiesced
-                cursor.fetchone.return_value = {"quiesced": False}
-                return cursor
-            elif call_count["n"] == 3:  # INSERT attempt
-                cursor.fetchone.return_value = {"payment_id": "p1"}
-                return cursor
-            elif call_count["n"] == 4:  # UPDATE status SUCCESS
-                return cursor
-            elif call_count["n"] == 5:  # INSERT ledger DEBIT
-                return cursor
-            elif call_count["n"] == 6:  # UPDATE payment_orders
-                return cursor
-            elif call_count["n"] == 7:  # _attempt_snapshot
-                cursor.fetchone.return_value = {
-                    "payment_id": "p1",
-                    "order_id": "o1",
-                    "attempt_number": 1,
-                    "status": "SUCCESS",
-                    "amount_minor": 5000,
-                    "currency": "INR",
-                    "failure_code": None,
-                    "debit_id": "d1",
-                    "reversal_id": None,
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }
-                return cursor
-            return cursor
-
-        tx.execute.side_effect = side_effect
-        result = authorize(db, events, "dev", request, ctx)
-        assert result["status"] == "SUCCESS"
-        events.append.assert_called_once()
-        event_kwargs = events.append.call_args
-        assert event_kwargs[1]["event_type"] == "PAYMENT_SUCCESS"
-
-    @patch("services.payments.authorize.random")
-    def test_simulated_failure_no_debit(self, mock_random):
-        from services.payments.authorize import authorize
-
-        mock_random.random.return_value = 0.05  # < 0.15 → failure
-        mock_random.choice.return_value = "SIMULATED_DECLINE"
-
-        db, tx = _mock_db()
-        events = MagicMock()
-        ctx = _context()
-        request = MagicMock()
-        request.order_id = "o1"
-        request.attempt_number = 1
-        request.amount_minor = 5000
-        request.currency = "INR"
-
-        call_count = {"n": 0}
-
-        def side_effect(*args, **kwargs):
-            call_count["n"] += 1
-            cursor = MagicMock()
-            if call_count["n"] == 1:
-                return cursor
-            elif call_count["n"] == 2:
-                cursor.fetchone.return_value = {"quiesced": False}
-                return cursor
-            elif call_count["n"] == 3:
-                cursor.fetchone.return_value = {"payment_id": "p1"}
-                return cursor
-            elif call_count["n"] == 4:  # UPDATE status FAILED
-                return cursor
-            elif call_count["n"] == 5:  # UPDATE payment_orders
-                return cursor
-            elif call_count["n"] == 6:  # _attempt_snapshot
-                cursor.fetchone.return_value = {
-                    "payment_id": "p1",
-                    "order_id": "o1",
-                    "attempt_number": 1,
-                    "status": "FAILED",
-                    "amount_minor": 5000,
-                    "currency": "INR",
-                    "failure_code": "SIMULATED_DECLINE",
-                    "debit_id": None,
-                    "reversal_id": None,
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }
-                return cursor
-            return cursor
-
-        tx.execute.side_effect = side_effect
-        result = authorize(db, events, "dev", request, ctx)
-        assert result["status"] == "FAILED"
-        assert result["failure_code"] == "SIMULATED_DECLINE"
-        events.append.assert_called_once()
-        assert events.append.call_args[1]["event_type"] == "PAYMENT_FAILED"
+        tx.execute.return_value.fetchall.return_value = [
+            {"payment_id": "p1", "attempt_number": 1, "amount_minor": 5000, "currency": "INR"}
+        ]
+        tx.execute.return_value.fetchone.side_effect = [{"quiesced": True}, {"status": "CANCELLED"}]
+        request = MagicMock(order_id="o1", attempt_number=1, amount_minor=5000, currency="INR")
+        assert authorize(db, MagicMock(), "dev", request, _context())["status"] == "CANCELLED"
+        assert not any(
+            "INSERT INTO payment_attempts" in c.args[0] for c in tx.execute.call_args_list
+        )
 
 
 class TestGetPaymentOrder:
@@ -255,12 +103,15 @@ class TestReversePayments:
         def side_effect(*args, **kwargs):
             call_count["n"] += 1
             cursor = MagicMock()
-            if call_count["n"] == 1:  # SELECT quiesced FOR UPDATE
+            if call_count["n"] == 2:  # SELECT quiesced FOR UPDATE after creating guard
                 cursor.fetchone.return_value = {"quiesced": False}
                 return cursor
-            elif call_count["n"] == 2:  # UPDATE quiesced
+            elif call_count["n"] == 3:  # Database clock after locking guard
+                cursor.fetchone.return_value = {"now": datetime.now(UTC)}
                 return cursor
-            elif call_count["n"] == 3:  # SELECT attempts
+            elif call_count["n"] == 4:  # UPDATE quiesced
+                return cursor
+            elif call_count["n"] == 5:  # SELECT attempts
                 cursor.fetchall.return_value = [
                     {
                         "payment_id": "p1",
@@ -277,15 +128,15 @@ class TestReversePayments:
                     }
                 ]
                 return cursor
-            elif call_count["n"] == 4:  # INSERT reversal ledger entry
+            elif call_count["n"] == 6:  # INSERT reversal ledger entry
                 return cursor
-            elif call_count["n"] == 5:  # UPDATE attempt REVERSED
+            elif call_count["n"] == 7:  # UPDATE attempt REVERSED
                 return cursor
             # get_payment_order call
-            elif call_count["n"] == 6:
+            elif call_count["n"] == 8:
                 cursor.fetchone.return_value = {"quiesced": True}
                 return cursor
-            elif call_count["n"] == 7:
+            elif call_count["n"] == 9:
                 cursor.fetchall.return_value = [
                     {
                         "payment_id": "p1",
@@ -302,7 +153,7 @@ class TestReversePayments:
                     }
                 ]
                 return cursor
-            elif call_count["n"] == 8:
+            elif call_count["n"] == 10:
                 cursor.fetchone.return_value = {"net": 0}
                 return cursor
             return cursor
@@ -320,7 +171,12 @@ class TestReversePayments:
         events = MagicMock()
         ctx = _context()
 
-        tx.execute.return_value.fetchone.return_value = None
+        tx.execute.return_value.fetchone.side_effect = [
+            {"quiesced": False},
+            {"now": datetime.now(UTC)},
+            {"quiesced": True},
+        ]
+        tx.execute.return_value.fetchall.return_value = []
         result = reverse_payments(db, events, "dev", "o1", "compensation", ctx)
         assert result["quiesced"] is True
         assert result["net_debit_minor"] == 0
@@ -345,62 +201,46 @@ class TestNetDebit:
 
 
 class TestEventPayloads:
-    """Verify event payloads contain all required fields for the event models."""
+    @pytest.mark.parametrize(
+        "failure,status,event",
+        [(None, "SUCCESS", "PAYMENT_SUCCESS"), ("DECLINED", "FAILED", "PAYMENT_FAILED")],
+    )
+    def test_worker_event_contains_original_context_and_all_fields(self, failure, status, event):
+        from datetime import timedelta
 
-    @patch("services.payments.authorize.random")
-    def test_success_event_has_all_fields(self, mock_random):
-        from services.payments.authorize import authorize
+        from services.payments.authorize import _complete_payment
+        from shared.contracts.events import PaymentEvent
+        from tests.transactions.test_saga_logic import _context
 
-        mock_random.random.return_value = 0.9  # success
         db, tx = _mock_db()
         events = MagicMock()
+        now = datetime.now(UTC)
         ctx = _context()
-        request = MagicMock()
-        request.order_id = "o1"
-        request.attempt_number = 1
-        request.amount_minor = 5000
-        request.currency = "INR"
-
-        call_count = {"n": 0}
-
-        def side_effect(*args, **kwargs):
-            call_count["n"] += 1
-            cursor = MagicMock()
-            if call_count["n"] == 2:
-                cursor.fetchone.return_value = {"quiesced": False}
-            elif call_count["n"] == 3:
-                cursor.fetchone.return_value = {"payment_id": "p1"}
-            elif call_count["n"] == 7:
-                cursor.fetchone.return_value = {
-                    "payment_id": "p1",
-                    "order_id": "o1",
-                    "attempt_number": 1,
-                    "status": "SUCCESS",
-                    "amount_minor": 5000,
-                    "currency": "INR",
-                    "failure_code": None,
-                    "debit_id": "d1",
-                    "reversal_id": None,
-                    "created_at": datetime.now(UTC),
-                    "updated_at": datetime.now(UTC),
-                }
-            return cursor
-
-        tx.execute.side_effect = side_effect
-        authorize(db, events, "dev", request, ctx)
-
-        payload = events.append.call_args[1]["payload"]
-        required_fields = [
-            "payment_id",
-            "order_id",
-            "attempt_number",
-            "status",
-            "amount_minor",
-            "currency",
-            "attempt_created_at",
-            "failure_code",
-            "debit_id",
-            "reversal_id",
-        ]
-        for field in required_fields:
-            assert field in payload, f"Missing required field: {field}"
+        attempt = {
+            "status": "PENDING",
+            "completion_due_at": now - timedelta(seconds=1),
+            "planned_failure_code": failure,
+            "origin_context": ctx.model_dump(mode="json"),
+            "attempt_number": 1,
+            "amount_minor": 5000,
+            "currency": "INR",
+            "created_at": now,
+        }
+        tx.execute.return_value.fetchone.side_effect = [{"quiesced": False}, attempt, {"now": now}]
+        assert (
+            _complete_payment(
+                db,
+                events,
+                {
+                    "namespace": "dev",
+                    "order_id": str(uuid4()),
+                    "payment_id": str(uuid4()),
+                },
+            )
+            == 1
+        )
+        kwargs = events.append.call_args.kwargs
+        PaymentEvent.model_validate(kwargs["payload"])
+        assert kwargs["payload"]["status"] == status
+        assert kwargs["event_type"] == event
+        assert kwargs["context"] == ctx

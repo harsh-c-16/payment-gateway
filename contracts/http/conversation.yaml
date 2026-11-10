@@ -533,6 +533,30 @@ paths:
           type: string
           minLength: 1
           maxLength: 128
+      - name: X-Benchmark-Scenario-ID
+        in: header
+        required: false
+        description: Paired benchmark identity headers; both are required when either
+          is supplied. Requires BENCHMARK_MODE=true, FAULT_INJECTION_ENABLED=true
+          and an isolated bench- namespace. Seed must fit a nonnegative signed int64.
+          Invalid pairs return 422; disabled or unsafe scope returns 403. Outcome/delay
+          cannot be requested. Omit both for the normal prototype.
+        schema:
+          type: string
+          pattern: ^(warmup|measurement):[0-9]{6,12}:[A-Za-z0-9_.:-]+$
+          maxLength: 128
+      - name: X-Benchmark-Seed
+        in: header
+        required: false
+        description: Paired benchmark identity headers; both are required when either
+          is supplied. Requires BENCHMARK_MODE=true, FAULT_INJECTION_ENABLED=true
+          and an isolated bench- namespace. Seed must fit a nonnegative signed int64.
+          Invalid pairs return 422; disabled or unsafe scope returns 403. Outcome/delay
+          cannot be requested. Omit both for the normal prototype.
+        schema:
+          type: string
+          pattern: ^[0-9]{1,19}$
+          maxLength: 19
       responses:
         '202':
           description: Accepted contract response

@@ -1,5 +1,12 @@
 # Jaineel pending-work audit — 10 November 2026
 
+Current prototype status: see the [11 November review](PROTOTYPE_REVIEW_2026_11_11.md)
+and [payment handoff](M3_PAYMENT_HANDOFF_2026_11_11.md). PR #19 resolves the boundary
+and migration handoff below; the delegated payment/seed changes and real prototype
+smoke are now verified. The register below preserves this audit's historical
+checkpoint. Full evaluation bindings, formal reviews and measurements remain
+separate from the demo.
+
 **The basic prototype is complete; the complete M0 evaluation contribution is
 not finished.** Source implementation, actual execution and owner review have
 different completion conditions. This audit supersedes older documents' claims

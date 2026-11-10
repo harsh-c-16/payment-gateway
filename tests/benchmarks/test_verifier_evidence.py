@@ -1,5 +1,8 @@
 import json
+import subprocess
+import sys
 import xml.etree.ElementTree as ET
+from types import SimpleNamespace
 
 import pytest
 
@@ -59,3 +62,32 @@ def test_p11_checkpoint_distinguishes_missing_provider_from_executed_failure(rea
     assert checkpoint_passed(checks, counts, {"modes": {}}, True) is expected
     assert not checkpoint_passed(checks, counts, {"modes": {}}, False)
     assert not checkpoint_passed(checks, {**counts, "skipped": 1}, {"modes": {}}, True)
+
+
+@pytest.mark.parametrize("partial", ["partial evidence", b"partial evidence", None])
+def test_p5_retains_timeout_evidence_and_records_remaining_checks(tmp_path, monkeypatch, partial):
+    from benchmarks.manual import verify_p5
+
+    monkeypatch.setattr(verify_p5, "ROOT", tmp_path)
+    monkeypatch.setattr(sys, "argv", ["verify_p5.py"])
+    monkeypatch.setattr(
+        verify_p5, "Preservation", lambda *_: SimpleNamespace(matches=lambda *_: True)
+    )
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 1:
+            raise subprocess.TimeoutExpired(command, 240, output=partial, stderr=partial)
+        expected = 4 if command[1:5] == ["-m", "projectctl", "contracts", "check"] else 0
+        return subprocess.CompletedProcess(command, expected, "", "")
+
+    monkeypatch.setattr(verify_p5.subprocess, "run", run)
+    assert verify_p5.main() == 1
+    evidence = next((tmp_path / "artifacts/p5").glob("*/checks.json"))
+    checks = json.loads(evidence.read_text())
+    assert len(checks) == len(calls) == 11
+    assert checks[0]["actual_exit"] is None and checks[0]["passed"] is False
+    assert checks[0]["stdout"] == ("partial evidence" if partial else "")
+    assert "partial output retained" in checks[0]["stderr"]
+    assert all(check["passed"] for check in checks[1:])

@@ -22,7 +22,7 @@ def request_context(context):
     )
 
 
-def record_request(context, principal, method, path, body, key):
+def record_request(context, principal, method, path, body, key, *, headers=None):
     """Flush exact public request input before awaiting its response, even on loss."""
     if "evidence_directory" in context:
         with (Path(context["evidence_directory"]) / "api_requests.jsonl").open(
@@ -36,7 +36,7 @@ def record_request(context, principal, method, path, body, key):
                     "method": method,
                     "path": path,
                     "body": body,
-                    "headers": principal.headers(key),
+                    "headers": principal.headers(key) | (headers or {}),
                 },
             )
 
@@ -44,6 +44,14 @@ def record_request(context, principal, method, path, body, key):
 class JSONDriver:
     def materialize(self, record, context):
         return Packet(context["request_id"], canonical_json(record["payload"]), "api")
+
+
+def payment_headers(payload, context):
+    """Only logical scenario identity crosses the service boundary, never outcome."""
+    scenario = payload.get("scenario_id")
+    if scenario is None or type(context.get("seed")) is not int:
+        raise ValueError("transaction driver requires a frozen v2 scenario ID and seed")
+    return {"X-Benchmark-Scenario-ID": scenario, "X-Benchmark-Seed": str(context["seed"])}
 
 
 class PipelineDriver:
@@ -98,6 +106,7 @@ class CheckoutDriver(JSONDriver):
     async def send(self, packet, context, mark_send):
 
         payload = json.loads(packet.body)
+        headers = payment_headers(payload, context)
         principal = request_context(context)
         cart_id = str(uuid5(UUID(packet.identity), "cart"))
         before_quote = time.perf_counter()
@@ -121,7 +130,13 @@ class CheckoutDriver(JSONDriver):
             "confirmation_id": str(uuid5(UUID(packet.identity), "confirmation")),
         }
         record_request(
-            context, principal, "POST", "/v1/orders", order_request, packet.identity + ":order"
+            context,
+            principal,
+            "POST",
+            "/v1/orders",
+            order_request,
+            packet.identity + ":order",
+            headers=headers,
         )
         mark_send()
         submitted = time.perf_counter()
@@ -129,6 +144,7 @@ class CheckoutDriver(JSONDriver):
             order_request,
             principal,
             key=packet.identity + ":order",
+            headers=headers,
         )
         acceptance = time.perf_counter() - submitted
         # Return admission promptly. The drain/audit binding observes finality for
@@ -142,7 +158,7 @@ class CheckoutDriver(JSONDriver):
                 "requests": {
                     "quote": quote_request,
                     "order": order_request,
-                    "headers": principal.headers(packet.identity + ":order"),
+                    "headers": principal.headers(packet.identity + ":order") | headers,
                 },
                 "quote_preparation_seconds": quote_seconds,
                 "acceptance_seconds": acceptance,
@@ -166,6 +182,7 @@ class IntegratedDriver(JSONDriver):
 
     async def send(self, packet, context, mark_send):
         payload = json.loads(packet.body)
+        headers = payment_headers(payload, context)
         principal = request_context(context)
         record_request(context, principal, "POST", "/v1/sessions", {}, packet.identity + ":session")
         mark_send()
@@ -239,6 +256,7 @@ class IntegratedDriver(JSONDriver):
                 "confirmation_id": confirmation_id,
             },
             packet.identity + ":checkout",
+            headers=headers,
         )
         order = await self.conversation.checkout(
             principal,
@@ -248,6 +266,7 @@ class IntegratedDriver(JSONDriver):
             confirmed=True,
             confirmation_id=confirmation_id,
             key=packet.identity + ":checkout",
+            headers=headers,
         )
         return Receipt(
             packet.identity,

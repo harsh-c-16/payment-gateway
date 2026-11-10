@@ -13,7 +13,12 @@ from benchmarks.drivers import (
 
 
 def context():
-    return {"request_id": str(uuid4()), "run_id": str(uuid4()), "namespace": "bench-driver"}
+    return {
+        "request_id": str(uuid4()),
+        "run_id": str(uuid4()),
+        "namespace": "bench-driver",
+        "seed": 42,
+    }
 
 
 class PublicAPIDouble:
@@ -24,7 +29,8 @@ class PublicAPIDouble:
         self.calls.append(("quote", request, principal, key))
         return {"quote_id": str(uuid4()), "total_amount_minor": 39900}
 
-    async def create(self, request, principal, *, key):
+    async def create(self, request, principal, *, key, headers=None):
+        self.headers = headers
         self.calls.append(("order", request, principal, key))
         return {"order_id": str(uuid4()), "status": "PENDING"}
 
@@ -38,7 +44,13 @@ def test_checkout_prepares_quote_before_mark_and_preserves_authority_and_identit
     driver = CheckoutDriver(api, api)
     ctx = context()
     ctx |= {"evidence_directory": str(tmp_path), "record": {"logical_record_id": "source-000000"}}
-    record = {"payload": {"sku": "FK-one", "payment_outcome": "success"}}
+    record = {
+        "payload": {
+            "sku": "FK-one",
+            "payment_outcome": "success",
+            "scenario_id": "measurement:000001:cart",
+        }
+    }
     packet = driver.materialize(record, ctx)
     marks = []
 
@@ -52,6 +64,10 @@ def test_checkout_prepares_quote_before_mark_and_preserves_authority_and_identit
     assert set(api.calls[1][1]) == {"quote_id", "session_id", "confirmation_id"}
     assert api.calls[0][2].request_id == ctx["request_id"]
     assert api.calls[1][3] == ctx["request_id"] + ":order"
+    assert api.headers == {
+        "X-Benchmark-Scenario-ID": "measurement:000001:cart",
+        "X-Benchmark-Seed": "42",
+    }
     assert receipt.details["finality_seconds"] is None
     from jsonschema import Draft202012Validator
 
@@ -75,7 +91,16 @@ def test_http_response_loss_preserves_exact_attempted_body(tmp_path):
 
     api.create = lost_response
     driver = CheckoutDriver(api, api)
-    packet = driver.materialize({"payload": {"sku": "FK-one", "payment_outcome": "success"}}, ctx)
+    packet = driver.materialize(
+        {
+            "payload": {
+                "sku": "FK-one",
+                "payment_outcome": "success",
+                "scenario_id": "measurement:000001:cart",
+            }
+        },
+        ctx,
+    )
     import pytest
 
     with pytest.raises(TimeoutError):
@@ -143,10 +168,17 @@ def test_integrated_workflow_only_uses_public_apis_and_explicit_confirmation():
 
     driver = IntegratedDriver(ConversationDouble())
     ctx = context()
-    packet = driver.materialize({"payload": {"text": "shirt", "sku": "FK-one"}}, ctx)
+    packet = driver.materialize(
+        {"payload": {"text": "shirt", "sku": "FK-one", "scenario_id": "measurement:000001:cart"}},
+        ctx,
+    )
     receipt = asyncio.run(driver.send(packet, ctx, lambda: None))
     assert [call[0] for call in calls] == ["session", "turn", "cart", "quote", "checkout"]
     assert calls[-1][1]["confirmed"] is True
+    assert calls[-1][1]["headers"] == {
+        "X-Benchmark-Scenario-ID": "measurement:000001:cart",
+        "X-Benchmark-Seed": "42",
+    }
     assert calls[-1][1]["expected_cart_version"] == 1
     assert calls[1][1]["mode"] == "fixed"
     assert receipt.details["finality_seconds"] is None

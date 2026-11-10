@@ -404,9 +404,9 @@ class OrdersClient:
     def __init__(self, http: ProviderHTTP):
         self.http = http
 
-    async def create(self, request, context, *, key, deadline=None):
+    async def create(self, request, context, *, key, deadline=None, headers=None):
         return await self.http.request(
-            "order_create", context, body=request, key=key, deadline=deadline
+            "order_create", context, body=request, key=key, deadline=deadline, headers=headers
         )
 
     async def status(self, order_id, context, *, deadline=None):

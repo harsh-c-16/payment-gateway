@@ -1,44 +1,82 @@
 """Simulated payment authorization with idempotent ledger. Max 2 attempts per order."""
 
 import random
-from datetime import UTC, datetime
+from random import Random
 from uuid import uuid4
 
+from psycopg.types.json import Jsonb
+
 from services.payments.errors import conflict
+from shared.contracts.common import RequestContext
+from shared.telemetry.benchmark import benchmark_headers as validate_benchmark_headers
 
-SIMULATED_FAILURE_RATE = 0.15
+SIMULATED_FAILURE_RATE = 0.05
 
 
-def authorize(db, events, namespace, request, context):
-    """Create a payment attempt. Simulated: succeeds ~85% of the time."""
+def scenario_failure(headers):
+    """Independent implementation of the frozen v2 95/5 logical scenario rule."""
+    import hashlib
+    import json
+
+    phase, ordinal, _ = headers["X-Benchmark-Scenario-ID"].split(":", 2)
+    index = int(ordinal)
+    recipe = {"seed": int(headers["X-Benchmark-Seed"]), "phase": phase, "block": index // 100}
+    encoded = json.dumps(recipe, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    block_seed = int(hashlib.sha256(encoded.encode()).hexdigest()[:16], 16)
+    declined = Random(block_seed).sample(range(100), 5)
+    return "DECLINED" if index % 100 in declined else None
+
+
+def authorize(db, events, namespace, request, context, *, benchmark_headers=None):
+    """Persist a PENDING attempt and immutable plan; completion belongs to the worker."""
+    control = validate_benchmark_headers(benchmark_headers or {}, namespace)
     payment_id = str(uuid4())
-    now = datetime.now(UTC)
-
     with db.transaction() as tx:
         tx.execute(
-            """
-            INSERT INTO payment_orders (namespace, order_id, created_at, updated_at)
-            VALUES (%s, %s, %s, %s)
-            ON CONFLICT (namespace, order_id) DO NOTHING
-            """,
-            (namespace, request.order_id, now, now),
+            "INSERT INTO payment_orders (namespace,order_id) VALUES (%s,%s) "
+            "ON CONFLICT (namespace,order_id) DO NOTHING",
+            (namespace, request.order_id),
         )
-
         po = tx.execute(
-            "SELECT quiesced FROM payment_orders WHERE namespace = %s AND order_id = %s",
+            "SELECT quiesced FROM payment_orders WHERE namespace=%s AND order_id=%s FOR UPDATE",
             (namespace, request.order_id),
         ).fetchone()
+        attempts = tx.execute(
+            "SELECT * FROM payment_attempts WHERE namespace=%s AND order_id=%s "
+            "ORDER BY attempt_number FOR UPDATE",
+            (namespace, request.order_id),
+        ).fetchall()
+        existing = next(
+            (a for a in attempts if a["attempt_number"] == request.attempt_number), None
+        )
+        if existing:
+            if (existing["amount_minor"], existing["currency"]) != (
+                request.amount_minor,
+                request.currency,
+            ) or (control and control != existing["benchmark_headers"]):
+                raise conflict("Payment attempt identity reused with different input.")
+            return _attempt_snapshot(tx, namespace, existing["payment_id"])
         if po["quiesced"]:
             raise conflict("Payment order is quiesced (reversed/cancelled).")
-
-        result = tx.execute(
+        if request.attempt_number != len(attempts) + 1 or any(
+            a["status"] != "FAILED" or a["failure_code"] != "RETRYABLE_PROVIDER_FAILURE"
+            for a in attempts
+        ):
+            raise conflict("Only a definitive retryable provider failure permits another attempt.")
+        # Select once, persist before responding, and never re-roll on retry/restart.
+        failure = (
+            scenario_failure(control)
+            if control
+            else ("DECLINED" if random.random() < SIMULATED_FAILURE_RATE else None)
+        )
+        tx.execute(
             """
             INSERT INTO payment_attempts
-                (namespace, payment_id, order_id, attempt_number, status,
-                 amount_minor, currency, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, 'PENDING', %s, %s, %s, %s)
-            ON CONFLICT (namespace, order_id, attempt_number) DO NOTHING
-            RETURNING payment_id
+                (namespace,payment_id,order_id,attempt_number,status,amount_minor,currency,
+                 created_at,updated_at,completion_due_at,planned_failure_code,
+                 origin_context,benchmark_headers)
+            VALUES (%s,%s,%s,%s,'PENDING',%s,%s,clock_timestamp(),clock_timestamp(),
+                    clock_timestamp() + interval '100 milliseconds',%s,%s,%s)
             """,
             (
                 namespace,
@@ -47,104 +85,94 @@ def authorize(db, events, namespace, request, context):
                 request.attempt_number,
                 request.amount_minor,
                 request.currency,
-                now,
-                now,
+                failure,
+                Jsonb(context.model_dump(mode="json")),
+                Jsonb(control),
             ),
-        ).fetchone()
-
-        if result is None:
-            existing = tx.execute(
-                """
-                SELECT payment_id, status, amount_minor
-                FROM payment_attempts
-                WHERE namespace = %s AND order_id = %s AND attempt_number = %s
-                """,
-                (namespace, request.order_id, request.attempt_number),
-            ).fetchone()
-            return _attempt_snapshot(tx, namespace, existing["payment_id"])
-
-        succeeded = random.random() >= SIMULATED_FAILURE_RATE
-        if succeeded:
-            debit_id = str(uuid4())
-            tx.execute(
-                """
-                UPDATE payment_attempts
-                SET status = 'SUCCESS', debit_id = %s, updated_at = %s
-                WHERE namespace = %s AND payment_id = %s
-                """,
-                (debit_id, now, namespace, payment_id),
-            )
-            tx.execute(
-                """
-                INSERT INTO ledger_entries (namespace, entry_id, payment_id, kind, amount_minor, currency, created_at)
-                VALUES (%s, %s, %s, 'DEBIT', %s, %s, %s)
-                """,
-                (namespace, debit_id, payment_id, request.amount_minor, request.currency, now),
-            )
-            events.append(
-                tx,
-                event_type="PAYMENT_SUCCESS",
-                payload={
-                    "payment_id": payment_id,
-                    "order_id": request.order_id,
-                    "attempt_number": request.attempt_number,
-                    "status": "SUCCESS",
-                    "amount_minor": request.amount_minor,
-                    "currency": request.currency,
-                    "attempt_created_at": now.isoformat().replace("+00:00", "Z"),
-                    "failure_code": None,
-                    "debit_id": debit_id,
-                    "reversal_id": None,
-                },
-                context=context,
-                aggregate_type="payment_attempt",
-                aggregate_id=payment_id,
-                aggregate_version=1,
-                event_time=now,
-            )
-        else:
-            failure_code = random.choice(
-                [
-                    "SIMULATED_DECLINE",
-                    "SIMULATED_TIMEOUT",
-                    "SIMULATED_INSUFFICIENT_FUNDS",
-                ]
-            )
-            tx.execute(
-                """
-                UPDATE payment_attempts
-                SET status = 'FAILED', failure_code = %s, updated_at = %s
-                WHERE namespace = %s AND payment_id = %s
-                """,
-                (failure_code, now, namespace, payment_id),
-            )
-            events.append(
-                tx,
-                event_type="PAYMENT_FAILED",
-                payload={
-                    "payment_id": payment_id,
-                    "order_id": request.order_id,
-                    "attempt_number": request.attempt_number,
-                    "status": "FAILED",
-                    "amount_minor": request.amount_minor,
-                    "currency": request.currency,
-                    "attempt_created_at": now.isoformat().replace("+00:00", "Z"),
-                    "failure_code": failure_code,
-                    "debit_id": None,
-                    "reversal_id": None,
-                },
-                context=context,
-                aggregate_type="payment_attempt",
-                aggregate_id=payment_id,
-                aggregate_version=1,
-                event_time=now,
-            )
-
-        tx.execute(
-            "UPDATE payment_orders SET updated_at = %s WHERE namespace = %s AND order_id = %s",
-            (now, namespace, request.order_id),
         )
         return _attempt_snapshot(tx, namespace, payment_id)
+
+
+def complete_pending_payments(db, events, *, batch_size=100):
+    """Restart-safe callbacks; serialize with authorize/reverse on payment_orders first."""
+    with db.transaction() as tx:
+        due = tx.execute(
+            "SELECT namespace,payment_id,order_id FROM payment_attempts "
+            "WHERE status='PENDING' AND completion_due_at <= clock_timestamp() "
+            "ORDER BY completion_due_at LIMIT %s",
+            (batch_size,),
+        ).fetchall()
+    return sum(_complete_payment(db, events, row) for row in due)
+
+
+def _complete_payment(db, events, due):
+    ns, pid = due["namespace"], due["payment_id"]
+    with db.transaction() as tx:
+        guard = tx.execute(
+            "SELECT quiesced FROM payment_orders WHERE namespace=%s AND order_id=%s "
+            "FOR UPDATE SKIP LOCKED",
+            (ns, due["order_id"]),
+        ).fetchone()
+        if guard is None:
+            return 0
+        attempt = tx.execute(
+            "SELECT * FROM payment_attempts WHERE namespace=%s AND payment_id=%s FOR UPDATE",
+            (ns, pid),
+        ).fetchone()
+        now = tx.execute("SELECT clock_timestamp() AS now").fetchone()["now"]
+        if attempt["status"] != "PENDING" or attempt["completion_due_at"] > now:
+            return 0
+        if guard["quiesced"]:
+            tx.execute(
+                "UPDATE payment_attempts SET status='CANCELLED',updated_at=%s "
+                "WHERE namespace=%s AND payment_id=%s",
+                (now, ns, pid),
+            )
+            return 0
+        context = RequestContext.model_validate(attempt["origin_context"])
+        if context.namespace != ns:
+            raise RuntimeError("payment origin namespace differs from its attempt")
+        failure = attempt["planned_failure_code"]
+        debit_id = None if failure else str(uuid4())
+        status = "FAILED" if failure else "SUCCESS"
+        if debit_id:
+            tx.execute(
+                "INSERT INTO ledger_entries "
+                "(namespace,entry_id,payment_id,kind,amount_minor,currency,created_at) "
+                "VALUES (%s,%s,%s,'DEBIT',%s,%s,%s)",
+                (ns, debit_id, pid, attempt["amount_minor"], attempt["currency"], now),
+            )
+        tx.execute(
+            "UPDATE payment_attempts SET status=%s,failure_code=%s,debit_id=%s,updated_at=%s "
+            "WHERE namespace=%s AND payment_id=%s",
+            (status, failure, debit_id, now, ns, pid),
+        )
+        tx.execute(
+            "UPDATE payment_orders SET updated_at=%s WHERE namespace=%s AND order_id=%s",
+            (now, ns, due["order_id"]),
+        )
+        events.append(
+            tx,
+            event_type="PAYMENT_FAILED" if failure else "PAYMENT_SUCCESS",
+            payload={
+                "payment_id": pid,
+                "order_id": due["order_id"],
+                "attempt_number": attempt["attempt_number"],
+                "status": status,
+                "amount_minor": attempt["amount_minor"],
+                "currency": attempt["currency"],
+                "attempt_created_at": attempt["created_at"].isoformat().replace("+00:00", "Z"),
+                "failure_code": failure,
+                "debit_id": debit_id,
+                "reversal_id": None,
+            },
+            context=context,
+            aggregate_type="payment_attempt",
+            aggregate_id=pid,
+            aggregate_version=1,
+            event_time=now,
+        )
+        return 1
 
 
 def get_payment_order(db, namespace, order_id):
@@ -175,9 +203,15 @@ def get_payment_order(db, namespace, order_id):
 
 def reverse_payments(db, events, namespace, order_id, reason, context):
     """Quiesce the payment order and reverse all successful payments."""
-    now = datetime.now(UTC)
-
     with db.transaction() as tx:
+        # Establish the same guard as authorize before reading attempts. A missing-row
+        # SELECT cannot lock out a concurrent first authorization; an upsert followed
+        # by an early return could otherwise leave its newly committed debit behind.
+        tx.execute(
+            "INSERT INTO payment_orders (namespace,order_id) VALUES (%s,%s) "
+            "ON CONFLICT (namespace,order_id) DO NOTHING",
+            (namespace, order_id),
+        )
         po = tx.execute(
             """
             SELECT quiesced FROM payment_orders
@@ -186,20 +220,14 @@ def reverse_payments(db, events, namespace, order_id, reason, context):
             """,
             (namespace, order_id),
         ).fetchone()
-        if po is None:
-            tx.execute(
-                """
-                INSERT INTO payment_orders (namespace, order_id, quiesced, created_at, updated_at)
-                VALUES (%s, %s, true, %s, %s)
-                ON CONFLICT (namespace, order_id) DO UPDATE SET quiesced = true, updated_at = %s
-                """,
-                (namespace, order_id, now, now, now),
-            )
-            return {"attempts": [], "quiesced": True, "net_debit_minor": 0}
+        # Take time after acquiring the guard so reversal cannot predate a success
+        # that held it first. Ledger and attempt timestamps share the database clock.
+        now = tx.execute("SELECT clock_timestamp() AS now").fetchone()["now"]
 
         if not po["quiesced"]:
             tx.execute(
-                "UPDATE payment_orders SET quiesced = true, updated_at = %s WHERE namespace = %s AND order_id = %s",
+                "UPDATE payment_orders SET quiesced = true, updated_at = %s "
+                "WHERE namespace = %s AND order_id = %s",
                 (now, namespace, order_id),
             )
 
@@ -220,7 +248,8 @@ def reverse_payments(db, events, namespace, order_id, reason, context):
                 reversal_id = str(uuid4())
                 tx.execute(
                     """
-                    INSERT INTO ledger_entries (namespace, entry_id, payment_id, kind, amount_minor, currency, created_at)
+                    INSERT INTO ledger_entries
+                        (namespace, entry_id, payment_id, kind, amount_minor, currency, created_at)
                     VALUES (%s, %s, %s, 'REVERSAL', %s, %s, %s)
                     """,
                     (
@@ -293,7 +322,8 @@ def _net_debit(tx, namespace, payment_ids):
         return 0
     rows = tx.execute(
         """
-        SELECT COALESCE(SUM(CASE WHEN kind = 'DEBIT' THEN amount_minor ELSE -amount_minor END), 0) AS net
+        SELECT COALESCE(SUM(CASE WHEN kind = 'DEBIT'
+                           THEN amount_minor ELSE -amount_minor END), 0) AS net
         FROM ledger_entries
         WHERE namespace = %s AND payment_id = ANY(%s)
         """,

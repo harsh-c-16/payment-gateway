@@ -14,6 +14,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from services.orders.errors import ServiceError
+from shared.contracts.common import RequestContext
 
 logger = logging.getLogger("orders.saga")
 # One pooled client: a fresh httpx client per call costs ~200 ms of setup.
@@ -43,7 +44,8 @@ class FaultBarrier:
         try:
             with db.transaction(statement_timeout_ms=1000) as tx:
                 row = tx.execute(
-                    "SELECT action, delay_ms FROM fault_barriers WHERE namespace = %s AND barrier_name = %s AND enabled = true",
+                    "SELECT action, delay_ms FROM fault_barriers "
+                    "WHERE namespace = %s AND barrier_name = %s AND enabled = true",
                     (namespace, barrier_name),
                 ).fetchone()
             if row is None:
@@ -117,7 +119,15 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
     step = job["planned_step"]
     now = datetime.now(UTC)
     # The worker polls every namespace; internal calls and events must carry the job's own.
-    context = context.model_copy(update={"namespace": ns})
+    order = _get_order(db, ns, oid)
+    origin = order.get("origin_context")
+    context = (
+        RequestContext.model_validate(origin)
+        if origin
+        else context.model_copy(update={"namespace": ns})
+    )
+    if context.namespace != ns:
+        raise RuntimeError("order origin namespace differs from its saga job")
 
     headers = _internal_headers(context, internal_token)
 
@@ -169,18 +179,17 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
             raise RuntimeError(f"inventory reserve returned {resp.status_code}")
 
     elif step == "AUTHORIZE_PAYMENT":
-        order = _get_order(db, ns, oid)
+        headers.update(order.get("benchmark_headers") or {})
         po = _HTTP.get(
             f"{payments_url}/internal/v1/payments/by-order/{oid}",
             headers=headers,
             timeout=2.0,
         )
-        # §9.2: a lost response must not produce a new attempt, and nothing follows a SUCCESS.
         if po.status_code != 200:
             raise RuntimeError(f"payment lookup returned {po.status_code}")
         payment_order = po.json()
-        existing_attempts = payment_order.get("attempts", [])
-        success = next((a for a in existing_attempts if a.get("status") == "SUCCESS"), None)
+        attempts = payment_order.get("attempts", [])
+        success = next((a for a in attempts if a.get("status") == "SUCCESS"), None)
         if success is not None:
             _advance(
                 db,
@@ -194,8 +203,17 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
                 payment_id=success["payment_id"],
             )
             return
-        attempt_number = len(existing_attempts) + 1
-        if payment_order.get("quiesced") or attempt_number > 2:
+        latest = attempts[-1] if attempts else None
+        pending = latest is not None and latest.get("status") == "PENDING"
+        retryable = latest is not None and (
+            latest.get("status") == "FAILED"
+            and latest.get("failure_code") == "RETRYABLE_PROVIDER_FAILURE"
+        )
+        if (
+            payment_order.get("quiesced")
+            or (latest and not pending and not retryable)
+            or (retryable and len(attempts) >= 2)
+        ):
             _advance(
                 db,
                 events,
@@ -205,13 +223,41 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
                 "COMPENSATE_RELEASE",
                 now,
                 context,
-                failure_code="ALL_PAYMENT_ATTEMPTS_FAILED",
+                failure_code=(latest or {}).get("failure_code") or "PAYMENT_FAILED",
             )
             return
-
+        # Check the hold while awaiting payment and before authorizing another attempt.
+        # An unavailable/invalid snapshot stays unresolved and retries through _backoff.
+        reservation = _HTTP.get(
+            f"{inventory_url}/internal/v1/reservations/by-order/{oid}",
+            headers=headers,
+            timeout=2.0,
+        )
+        if reservation.status_code != 200:
+            raise RuntimeError(f"reservation lookup returned {reservation.status_code}")
+        hold = reservation.json()
+        expires = datetime.fromisoformat(hold["expires_at"].replace("Z", "+00:00"))
+        if hold["state"] != "ACTIVE" or expires <= datetime.now(UTC):
+            _advance(
+                db,
+                events,
+                ns,
+                oid,
+                "COMPENSATING",
+                "COMPENSATE_RELEASE",
+                now,
+                context,
+                failure_code="RESERVATION_EXPIRED",
+            )
+            return
+        if pending:
+            # PENDING is never a reason to create attempt 2, even after response loss.
+            _retry_step(db, ns, oid, step, now)
+            return
+        attempt_number = len(attempts) + 1
         op_key = _operation_key(oid, f"authorize:{attempt_number}")
         _record_operation_key(db, ns, oid, op_key, step)
-
+        headers["Idempotency-Key"] = op_key
         FaultBarrier.check(db, ns, "saga.before_payment")
         resp = _HTTP.post(
             f"{payments_url}/internal/v1/payments/authorize",
@@ -219,13 +265,12 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
                 "order_id": oid,
                 "attempt_number": attempt_number,
                 "amount_minor": order["total_amount_minor"],
-                "currency": "INR",
+                "currency": order.get("currency", "INR"),
             },
             headers=headers,
             timeout=2.0,
         )
         FaultBarrier.check(db, ns, "saga.after_payment")
-
         if resp.status_code == 202:
             result = resp.json()
             if result["status"] == "SUCCESS":
@@ -240,8 +285,14 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
                     context,
                     payment_id=result["payment_id"],
                 )
-            elif result["status"] == "FAILED" and attempt_number < 2:
-                _retry_step(db, ns, oid, "AUTHORIZE_PAYMENT", now)
+            elif result["status"] == "PENDING" or (
+                result["status"] == "FAILED"
+                and attempt_number < 2
+                and result.get("failure_code") == "RETRYABLE_PROVIDER_FAILURE"
+            ):
+                if order.get("status") != "PAYMENT_PENDING":
+                    _advance(db, events, ns, oid, "PAYMENT_PENDING", step, now, context)
+                _retry_step(db, ns, oid, step, now)
             else:
                 _advance(
                     db,
@@ -252,7 +303,7 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
                     "COMPENSATE_RELEASE",
                     now,
                     context,
-                    failure_code="PAYMENT_FAILED",
+                    failure_code=result.get("failure_code") or "PAYMENT_FAILED",
                 )
         elif resp.status_code == 409:
             _advance(
@@ -385,7 +436,8 @@ def _advance(db, events, ns, oid, new_status, next_step, now, context, **extra):
             raise RuntimeError(f"order {oid} not found in namespace {ns}")
         tx.execute(
             """
-            UPDATE saga_jobs SET planned_step = %s, attempt = 0, next_attempt_at = %s, updated_at = %s
+            UPDATE saga_jobs SET planned_step = %s, attempt = 0,
+                                 next_attempt_at = %s, updated_at = %s
             WHERE namespace = %s AND order_id = %s
             """,
             (next_step, now, now, ns, oid),
@@ -444,7 +496,8 @@ def _update_saga_step(db, ns, oid, next_step, now):
     with db.transaction() as tx:
         tx.execute(
             """
-            UPDATE saga_jobs SET planned_step = %s, attempt = 0, next_attempt_at = %s, updated_at = %s
+            UPDATE saga_jobs SET planned_step = %s, attempt = 0,
+                                 next_attempt_at = %s, updated_at = %s
             WHERE namespace = %s AND order_id = %s
             """,
             (next_step, now, now, ns, oid),
@@ -459,7 +512,7 @@ def _retry_step(db, ns, oid, step, now):
             SET attempt = attempt + 1, next_attempt_at = %s, updated_at = %s
             WHERE namespace = %s AND order_id = %s
             """,
-            (now + timedelta(seconds=1), now, ns, oid),
+            (now + timedelta(milliseconds=100), now, ns, oid),
         )
 
 
@@ -526,7 +579,8 @@ def _get_order(db, ns, oid):
 def _get_items(db, ns, oid):
     with db.transaction() as tx:
         return tx.execute(
-            "SELECT sku, quantity FROM order_items WHERE namespace = %s AND order_id = %s ORDER BY sku",
+            "SELECT sku, quantity FROM order_items "
+            "WHERE namespace = %s AND order_id = %s ORDER BY sku",
             (ns, oid),
         ).fetchall()
 
@@ -541,6 +595,8 @@ def _internal_headers(context, internal_token):
     }
     if context.session_id:
         headers["X-Session-ID"] = context.session_id
+    if context.trace_id:
+        headers["X-Trace-ID"] = context.trace_id
     if internal_token:
         headers["Authorization"] = f"Bearer {internal_token}"
     return headers
