@@ -5,9 +5,12 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import httpx
+from pydantic import ValidationError
 
-from services.orders.errors import ServiceError, not_found
+from services.orders.errors import ServiceError, conflict, not_found
+from shared.contracts.catalog import Quote
 from shared.contracts.common import ErrorCode
+from shared.contracts.transactions import QuoteLine
 
 logger = logging.getLogger("orders")
 # One pooled client: a fresh httpx client per call costs ~200 ms of setup.
@@ -15,11 +18,18 @@ _HTTP = httpx.Client(timeout=2.0)
 
 
 def create_order(db, events, namespace, request, context, *, catalog_url, internal_token):
-    """Accept a checkout: fetch quote from catalog, create order + saga job atomically."""
-    order_id = str(uuid4())
-    now = datetime.now(UTC)
+    """Accept a checkout: verify the catalogue quote, create order + saga job atomically."""
+    # Common spec §8: a retry of an already-accepted quote resolves to the same order,
+    # even after the quote has expired, so check consumption before re-validating.
+    with db.transaction() as tx:
+        existing = _accepted_order(tx, namespace, context.user_id, request.quote_id)
+    if existing is not None:
+        return existing
 
+    order_id = str(uuid4())
     quote = _fetch_quote(catalog_url, request.quote_id, context, internal_token)
+    now = datetime.now(UTC)
+    _verify_quote(quote, request.quote_id, context.user_id, now)
 
     with db.transaction() as tx:
         result = tx.execute(
@@ -44,15 +54,7 @@ def create_order(db, events, namespace, request, context, *, catalog_url, intern
         ).fetchone()
 
         if result is None:
-            existing = tx.execute(
-                "SELECT order_id, status FROM orders WHERE namespace = %s AND user_id = %s AND quote_id = %s",
-                (namespace, context.user_id, request.quote_id),
-            ).fetchone()
-            return {
-                "order_id": existing["order_id"],
-                "status": existing["status"],
-                "status_url": f"/v1/orders/{existing['order_id']}",
-            }
+            return _accepted_order(tx, namespace, context.user_id, request.quote_id)
 
         for line in quote["lines"]:
             tx.execute(
@@ -108,6 +110,44 @@ def create_order(db, events, namespace, request, context, *, catalog_url, intern
     }
 
 
+def _accepted_order(tx, namespace, user_id, quote_id):
+    row = tx.execute(
+        "SELECT order_id, status FROM orders "
+        "WHERE namespace = %s AND user_id = %s AND quote_id = %s",
+        (namespace, user_id, quote_id),
+    ).fetchone()
+    if row is None:
+        return None
+    return {
+        "order_id": row["order_id"],
+        "status": row["status"],
+        "status_url": f"/v1/orders/{row['order_id']}",
+    }
+
+
+def _verify_quote(quote, quote_id, user_id, now):
+    """Common spec §9.1: Orders checks quote user, currency, expiry and lines (server time)."""
+    try:
+        parsed = Quote.model_validate(quote)
+        lines = [QuoteLine.model_validate(line) for line in quote["lines"]]
+    except (ValidationError, KeyError, TypeError) as exc:
+        raise ServiceError(
+            503, ErrorCode.DEPENDENCY_UNAVAILABLE, "Catalog returned an invalid quote."
+        ) from exc
+    if parsed.quote_id != quote_id:
+        raise ServiceError(
+            503, ErrorCode.DEPENDENCY_UNAVAILABLE, "Catalog returned a different quote."
+        )
+    if parsed.user_id != user_id:
+        raise ServiceError(403, ErrorCode.FORBIDDEN, "Quote belongs to another user.")
+    if parsed.expires_at <= now:
+        raise conflict("Quote has expired; request a new quote.", code=ErrorCode.QUOTE_EXPIRED)
+    if len({line.sku for line in lines}) != len(lines) or parsed.total_amount_minor != sum(
+        line.line_total_minor for line in lines
+    ):
+        raise conflict("Quote lines are inconsistent with its total.")
+
+
 def get_order_snapshot(db, namespace, order_id):
     with db.transaction() as tx:
         row = tx.execute(
@@ -158,8 +198,11 @@ def _fetch_quote(catalog_url, quote_id, context, internal_token):
         resp.raise_for_status()
         return resp.json()
     except httpx.HTTPStatusError as exc:
-        if exc.response.status_code == 404:
-            raise ServiceError(400, ErrorCode.BAD_REQUEST, "Quote not found or expired.") from exc
+        status = exc.response.status_code
+        if status == 404:
+            raise not_found("Quote") from exc
+        if status == 403:
+            raise ServiceError(403, ErrorCode.FORBIDDEN, "Quote belongs to another user.") from exc
         raise ServiceError(
             503, ErrorCode.DEPENDENCY_UNAVAILABLE, "Catalog service unavailable."
         ) from exc

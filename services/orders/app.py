@@ -1,23 +1,24 @@
 """M3 Orders HTTP adapter with SSE and NOTIFY-based wake-up. Owner: Aditya Gaurav."""
 
 import asyncio
+import hmac
 import json
 import logging
 import os
 import threading
 import time
 from time import monotonic
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, StreamingResponse
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
 from services.orders import commands, saga
 from services.orders.database import Database
-from services.orders.errors import ServiceError
+from services.orders.errors import ServiceError, not_found
 from services.orders.events import OrderEvents
 from shared.contracts.common import (
     ErrorCode,
@@ -70,6 +71,27 @@ def request_context(request: Request):
 
 Context = Annotated[RequestContext, Depends(request_context)]
 
+
+def internal_caller(request: Request):
+    """Common spec §2: /internal/v1 needs the environment service token; fail closed."""
+    token = os.environ.get("INTERNAL_API_TOKEN", "")
+    supplied = request.headers.get("Authorization", "")
+    if not token or not hmac.compare_digest(supplied.encode(), f"Bearer {token}".encode()):
+        raise ServiceError(401, ErrorCode.UNAUTHORIZED, "Valid service token is required.")
+
+
+Internal = Depends(internal_caller)
+
+
+class FaultBarrierRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    barrier_name: Annotated[str, Field(pattern=r"^[a-z0-9_.-]{1,64}$")]
+    enabled: Annotated[bool, Field(strict=True)]
+    action: Literal["CRASH", "DELAY", "SKIP"] = "CRASH"
+    delay_ms: Annotated[int, Field(strict=True, ge=0, le=60_000)] = 0
+
+
 TERMINAL_STATUSES = frozenset({"CONFIRMED", "CANCELLED", "MANUAL_REVIEW"})
 
 
@@ -87,7 +109,7 @@ def create_app(*, db=None, events=None):
 
     errors = {
         status: {"model": ErrorResponse, "description": "Common error object"}
-        for status in (400, 401, 404, 409, 422, 503)
+        for status in (400, 401, 403, 404, 409, 422, 503)
     }
     app = FastAPI(title="Orders service", version="1.0.0", responses=errors)
     telemetry = Telemetry(
@@ -180,9 +202,16 @@ def create_app(*, db=None, events=None):
             internal_token=internal_token,
         )
 
+    def owned_snapshot(order_id, context):
+        # Another principal's order is reported as absent, never disclosed.
+        snapshot = commands.get_order_snapshot(db, context.namespace, order_id)
+        if snapshot["user_id"] != context.user_id:
+            raise not_found("Order")
+        return snapshot
+
     @app.get("/v1/orders/{order_id}")
     def order_status(order_id: UUIDText, context: Context):
-        return commands.get_order_snapshot(db, context.namespace, order_id)
+        return owned_snapshot(order_id, context)
 
     @app.get("/v1/orders/{order_id}/events")
     async def order_events(
@@ -190,6 +219,8 @@ def create_app(*, db=None, events=None):
         context: Context,
         last_event_id: str | None = Header(None, alias="Last-Event-ID"),
     ):
+        owned_snapshot(order_id, context)
+
         async def generate():
             cursor = int(last_event_id) if last_event_id and last_event_id.isdigit() else 0
             deadline = monotonic() + 30.0
@@ -215,7 +246,7 @@ def create_app(*, db=None, events=None):
 
     # ── Audit exports (read-only, used by oracle/benchmark) ──
 
-    @app.get("/internal/v1/audit/orders")
+    @app.get("/internal/v1/audit/orders", dependencies=[Internal])
     def audit_orders(context: Context, limit: int = Query(default=1000, ge=1, le=10000)):
         """Read-only order snapshot for oracle reconciliation."""
         with db.transaction() as tx:
@@ -232,7 +263,7 @@ def create_app(*, db=None, events=None):
             ).fetchall()
         return {"items": rows, "count": len(rows)}
 
-    @app.get("/internal/v1/audit/saga-jobs")
+    @app.get("/internal/v1/audit/saga-jobs", dependencies=[Internal])
     def audit_saga_jobs(context: Context, limit: int = Query(default=1000, ge=1, le=10000)):
         """Read-only saga job snapshot for recovery inspection."""
         with db.transaction() as tx:
@@ -249,19 +280,22 @@ def create_app(*, db=None, events=None):
 
     # ── Fault barrier management (benchmark mode only) ──
 
-    @app.post("/internal/v1/fault-barriers")
-    def set_fault_barrier(body: dict, context: Context):
-        """Set or clear a fault barrier. Only usable in benchmark mode."""
-        if not os.environ.get("BENCHMARK_MODE", "false") == "true":
+    @app.post("/internal/v1/fault-barriers", dependencies=[Internal])
+    def set_fault_barrier(body: FaultBarrierRequest, context: Context):
+        """Set or clear a fault barrier in an explicitly enabled, isolated benchmark run."""
+        if not saga.fault_injection_allowed(context.namespace):
             raise ServiceError(
-                403, ErrorCode.UNAUTHORIZED, "Fault barriers are only available in benchmark mode."
+                403,
+                ErrorCode.FORBIDDEN,
+                "Fault barriers need BENCHMARK_MODE=true, FAULT_INJECTION_ENABLED=true "
+                "and a bench- namespace.",
             )
-        name = body.get("barrier_name")
-        enabled = body.get("enabled", False)
-        action = body.get("action", "CRASH")
-        delay_ms = body.get("delay_ms", 0)
-        if not name:
-            raise ServiceError(400, ErrorCode.BAD_REQUEST, "barrier_name is required.")
+        name, enabled, action, delay_ms = (
+            body.barrier_name,
+            body.enabled,
+            body.action,
+            body.delay_ms,
+        )
         with db.transaction() as tx:
             tx.execute(
                 """

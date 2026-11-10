@@ -8,6 +8,7 @@ from services.orders.saga import (
     FaultBarrier,
     _operation_key,
     _record_operation_key,
+    fault_injection_allowed,
 )
 
 
@@ -40,44 +41,72 @@ class TestRecordOperationKey:
         assert "UPDATE saga_jobs" in sql
 
 
+def _barrier_db(row):
+    db = MagicMock()
+    tx = MagicMock()
+    db.transaction.return_value.__enter__ = MagicMock(return_value=tx)
+    db.transaction.return_value.__exit__ = MagicMock(return_value=False)
+    tx.execute.return_value.fetchone.return_value = row
+    return db
+
+
+@pytest.fixture
+def faults_enabled(monkeypatch):
+    monkeypatch.setenv("BENCHMARK_MODE", "true")
+    monkeypatch.setenv("FAULT_INJECTION_ENABLED", "true")
+
+
+class TestFaultInjectionGuard:
+    @pytest.mark.parametrize(
+        ("benchmark", "faults", "namespace"),
+        [
+            ("true", "false", "bench-run"),
+            ("false", "true", "bench-run"),
+            ("true", "true", "dev"),
+            ("true", "true", "replay-run"),
+        ],
+    )
+    def test_refused_unless_both_flags_and_bench_namespace(
+        self, monkeypatch, benchmark, faults, namespace
+    ):
+        monkeypatch.setenv("BENCHMARK_MODE", benchmark)
+        monkeypatch.setenv("FAULT_INJECTION_ENABLED", faults)
+        assert fault_injection_allowed(namespace) is False
+
+    def test_flags_absent_means_refused(self, monkeypatch):
+        monkeypatch.delenv("BENCHMARK_MODE", raising=False)
+        monkeypatch.delenv("FAULT_INJECTION_ENABLED", raising=False)
+        assert fault_injection_allowed("bench-run") is False
+
+    def test_allowed_for_isolated_benchmark_run(self, faults_enabled):
+        assert fault_injection_allowed("bench-run") is True
+
+
 class TestFaultBarrier:
-    def test_noop_outside_benchmark_mode(self):
-        db = MagicMock()
-        with patch("services.orders.saga._BENCHMARK_MODE", False):
-            FaultBarrier.check(db, "dev", "saga.before_reserve")
+    def test_noop_when_faults_not_allowed(self, monkeypatch):
+        monkeypatch.setenv("BENCHMARK_MODE", "true")
+        monkeypatch.setenv("FAULT_INJECTION_ENABLED", "false")
+        db = _barrier_db({"action": "CRASH", "delay_ms": 0})
+        FaultBarrier.check(db, "bench-run", "saga.before_reserve")
         db.transaction.assert_not_called()
 
-    @patch("services.orders.saga._BENCHMARK_MODE", True)
-    def test_crash_raises(self):
-        db = MagicMock()
-        tx = MagicMock()
-        db.transaction.return_value.__enter__ = MagicMock(return_value=tx)
-        db.transaction.return_value.__exit__ = MagicMock(return_value=False)
-        tx.execute.return_value.fetchone.return_value = {"action": "CRASH", "delay_ms": 0}
+    def test_noop_outside_bench_namespace(self, faults_enabled):
+        db = _barrier_db({"action": "CRASH", "delay_ms": 0})
+        FaultBarrier.check(db, "dev", "saga.before_reserve")
+        db.transaction.assert_not_called()
 
+    def test_crash_raises(self, faults_enabled):
+        db = _barrier_db({"action": "CRASH", "delay_ms": 0})
         with pytest.raises(RuntimeError, match="Fault barrier triggered"):
-            FaultBarrier.check(db, "dev", "saga.before_reserve")
+            FaultBarrier.check(db, "bench-run", "saga.before_reserve")
 
-    @patch("services.orders.saga._BENCHMARK_MODE", True)
-    def test_no_barrier_does_nothing(self):
-        db = MagicMock()
-        tx = MagicMock()
-        db.transaction.return_value.__enter__ = MagicMock(return_value=tx)
-        db.transaction.return_value.__exit__ = MagicMock(return_value=False)
-        tx.execute.return_value.fetchone.return_value = None
+    def test_no_barrier_does_nothing(self, faults_enabled):
+        FaultBarrier.check(_barrier_db(None), "bench-run", "saga.nonexistent")
 
-        FaultBarrier.check(db, "dev", "saga.nonexistent")
-
-    @patch("services.orders.saga._BENCHMARK_MODE", True)
     @patch("services.orders.saga.time")
-    def test_delay_sleeps(self, mock_time):
-        db = MagicMock()
-        tx = MagicMock()
-        db.transaction.return_value.__enter__ = MagicMock(return_value=tx)
-        db.transaction.return_value.__exit__ = MagicMock(return_value=False)
-        tx.execute.return_value.fetchone.return_value = {"action": "DELAY", "delay_ms": 500}
-
-        FaultBarrier.check(db, "dev", "saga.before_commit")
+    def test_delay_sleeps(self, mock_time, faults_enabled):
+        db = _barrier_db({"action": "DELAY", "delay_ms": 500})
+        FaultBarrier.check(db, "bench-run", "saga.before_commit")
         mock_time.sleep.assert_called_once_with(0.5)
 
 

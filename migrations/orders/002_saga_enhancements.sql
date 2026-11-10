@@ -22,7 +22,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER order_status_notify
+CREATE OR REPLACE TRIGGER order_status_notify
     AFTER UPDATE ON orders
     FOR EACH ROW
     EXECUTE FUNCTION notify_order_change();

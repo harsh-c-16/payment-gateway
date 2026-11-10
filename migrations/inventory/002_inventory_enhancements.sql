@@ -10,7 +10,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER reservation_state_notify
+CREATE OR REPLACE TRIGGER reservation_state_notify
     AFTER UPDATE ON reservations
     FOR EACH ROW
     EXECUTE FUNCTION notify_reservation_change();

@@ -1,6 +1,6 @@
 -- orders_db: Aditya owns. Isolated credentials; no cross-service FK.
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     namespace       varchar(62)  NOT NULL,
     order_id        uuid         NOT NULL,
     order_version   bigint       NOT NULL DEFAULT 1 CHECK (order_version >= 1),
@@ -23,10 +23,10 @@ CREATE TABLE orders (
     PRIMARY KEY (namespace, order_id)
 );
 
-CREATE UNIQUE INDEX orders_quote_user
+CREATE UNIQUE INDEX IF NOT EXISTS orders_quote_user
     ON orders (namespace, user_id, quote_id);
 
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
     namespace       varchar(62) NOT NULL,
     order_id        uuid        NOT NULL,
     sku             varchar(64) NOT NULL CHECK (sku ~ '^[!-~]{1,64}$'),
@@ -38,7 +38,7 @@ CREATE TABLE order_items (
     FOREIGN KEY (namespace, order_id) REFERENCES orders (namespace, order_id)
 );
 
-CREATE TABLE saga_jobs (
+CREATE TABLE IF NOT EXISTS saga_jobs (
     namespace       varchar(62) NOT NULL,
     order_id        uuid        NOT NULL,
     planned_step    varchar(32) NOT NULL
@@ -55,10 +55,10 @@ CREATE TABLE saga_jobs (
     FOREIGN KEY (namespace, order_id) REFERENCES orders (namespace, order_id)
 );
 
-CREATE INDEX saga_pending ON saga_jobs (next_attempt_at)
+CREATE INDEX IF NOT EXISTS saga_pending ON saga_jobs (next_attempt_at)
     WHERE next_attempt_at IS NOT NULL;
 
-CREATE TABLE operation_keys (
+CREATE TABLE IF NOT EXISTS operation_keys (
     namespace       varchar(62)  NOT NULL,
     user_id         varchar(128) NOT NULL,
     operation       varchar(64)  NOT NULL,
@@ -69,7 +69,7 @@ CREATE TABLE operation_keys (
     PRIMARY KEY (namespace, user_id, operation, key)
 );
 
-CREATE TABLE local_diagnostics (
+CREATE TABLE IF NOT EXISTS local_diagnostics (
     namespace                     varchar(62)  NOT NULL,
     diagnostic_id                 uuid         NOT NULL,
     run_id                        varchar(128) NOT NULL,
@@ -84,7 +84,7 @@ CREATE TABLE local_diagnostics (
     PRIMARY KEY (namespace, diagnostic_id)
 );
 
-CREATE TABLE outbox (
+CREATE TABLE IF NOT EXISTS outbox (
     outbox_id       bigserial   PRIMARY KEY,
     event_id        uuid        NOT NULL UNIQUE,
     namespace       varchar(62) NOT NULL,
@@ -102,7 +102,7 @@ CREATE TABLE outbox (
     created_at      timestamptz NOT NULL DEFAULT clock_timestamp()
 );
 
-CREATE INDEX outbox_pending ON outbox (outbox_id)
+CREATE INDEX IF NOT EXISTS outbox_pending ON outbox (outbox_id)
     WHERE published_at IS NULL;
 
-CREATE INDEX outbox_aggregate ON outbox (namespace, aggregate_type, aggregate_id, outbox_id);
+CREATE INDEX IF NOT EXISTS outbox_aggregate ON outbox (namespace, aggregate_type, aggregate_id, outbox_id);
