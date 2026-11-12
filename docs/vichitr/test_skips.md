@@ -1,5 +1,23 @@
 # Implementation checks: 8 November 2026
 
+## 13 November prototype recovery
+
+The final focused reports contain **342 distinct passing checks** after
+deduplication, with zero unresolved skips. `after-crash-tests.xml` initially had
+263 passes and 69 missing-PostgreSQL skips. All 69 passed in the SQL-only rerun
+(`after-crash-live.xml`, 150 passes). The final launcher run added one case
+(`startup-final.xml`, 24 passes); the reports overlap.
+
+The full shopping stack was not restarted after the host crash because available
+Windows memory was low. Final-code real search/checkout, transaction reconciliation,
+exact broker/Silver/Gold order evidence and retained-data restart remain **NOT_RUN**.
+The prepared rehearsal scripts are not passing evidence. One pending export is
+explicitly recorded. Full-suite, hosted CI, evaluation, fault campaigns and
+benchmarks were not run. Nothing was added to CI and no skip/assertion was weakened.
+See [progress](progress.md) and `artifacts/prototype-final-20261113/`.
+
+## Historical 8 November checks
+
 Worker-fixture CI correction: the exact existing Windows offline job passed
 with **1,657 passed, 529 skipped, zero failures/errors** (2,186 tests), plus
 passing lint/format/schema checks. Skips retain the existing service/platform

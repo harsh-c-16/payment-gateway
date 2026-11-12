@@ -4,7 +4,16 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from shared.outbox import OutboxError, _canonical_json, _serialise, outbox_table_ddl
+from shared.outbox import OutboxError, _canonical_json, _serialise, outbox_table_ddl, relay_once
+
+
+def test_empty_relay_pass_releases_transaction_without_publishing():
+    connection = MagicMock()
+    connection.cursor.return_value.__enter__.return_value.fetchall.return_value = []
+    publisher = MagicMock()
+    assert relay_once(connection, publisher).scanned == 0
+    connection.commit.assert_called_once_with()
+    publisher.publish_event.assert_not_called()
 
 
 class TestCanonicalJson:

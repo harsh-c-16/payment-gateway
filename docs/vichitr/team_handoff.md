@@ -1,5 +1,22 @@
 # M4 integration handoff and remaining gates
 
+13 November coordinated prototype update: the merged client and M3 prototype
+implementation already exist; no further teammate implementation is identified
+for fixed-mode presentation. This branch adds staged crash recovery, bounded
+connection reuse, less idle polling, lossless intent/schema read optimizations,
+an empty-relay transaction fix and an optional presentation index. See
+[current progress](progress.md) and [Windows commands](../../infra/PROTOTYPE.md).
+The old Harsh/Jaineel blocker below is a historical 10 November observation.
+
+On this Windows machine the final full-stack rehearsal remains unverified after
+a host crash and low available RAM. The recovery checks passed 342 distinct
+cases, including real PostgreSQL, while Kafka stayed stopped. Retained data is
+intact; active Silver/Gold generation is 283 with one pending export. Complete
+preflight, purchase/resume/no-confirmation, audit/Gold evidence and retained-data
+restart on the presentation machine before claiming readiness. Docker Desktop
+and its WSL distribution are stopped; volumes and private bindings are retained.
+No evaluation or benchmark result is implied.
+
 10 November recovery follow-up: **initial catch-up is now complete**. All 19,920
 seed SKUs are projected, zero deferred; all 19,920 stock events reached Gold.
 At 10:53:10 UTC all five business-topic lags, unfinished receipts, pending exports

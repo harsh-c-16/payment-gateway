@@ -83,6 +83,7 @@ services:
       <<: *runtime
       ORDERS_DATABASE_URL: ${ORDERS_DATABASE_URL:?}
       ORDERS_MAX_CONNECTIONS: "4"
+      ORDERS_REUSE_CONNECTIONS: "true"
       CATALOG_URL: http://catalog:8002
       INVENTORY_URL: http://inventory:8004
       PAYMENTS_URL: http://payments:8005
@@ -100,6 +101,7 @@ services:
       <<: *runtime
       INVENTORY_DATABASE_URL: ${INVENTORY_DATABASE_URL:?}
       INVENTORY_MAX_CONNECTIONS: "4"
+      INVENTORY_REUSE_CONNECTIONS: "true"
       RESERVATION_TTL_SECONDS: "30"
     command: [uvicorn, services.inventory.app:create_app, --factory, --host, "0.0.0.0", --port, "8004"]
     ports: ["127.0.0.1:8004:8004"]
@@ -115,6 +117,7 @@ services:
       <<: *runtime
       PAYMENTS_DATABASE_URL: ${PAYMENTS_DATABASE_URL:?}
       PAYMENTS_MAX_CONNECTIONS: "4"
+      PAYMENTS_REUSE_CONNECTIONS: "true"
     command: [uvicorn, services.payments.app:create_app, --factory, --host, "0.0.0.0", --port, "8005"]
     ports: ["127.0.0.1:8005:8005"]
     healthcheck:
@@ -129,6 +132,8 @@ services:
     init: true
     environment:
       <<: *runtime
+      CATALOG_MAX_CONNECTIONS: "4"
+      CATALOG_REUSE_CONNECTIONS: "true"
     healthcheck:
       test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health/ready',timeout=3)"]
       timeout: 4s

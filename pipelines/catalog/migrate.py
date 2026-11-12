@@ -9,6 +9,7 @@ import psycopg
 
 MIGRATIONS = sorted((Path(__file__).resolve().parents[2] / "migrations/catalog").glob("*.sql"))
 VARIANTS = {
+    "prototype": MIGRATIONS[0].parent / "variants/prototype_eligible.sql",
     "o2": MIGRATIONS[0].parent / "variants/o2_category_price_btree.sql",
     "r-ann": MIGRATIONS[0].parent / "variants/r_ann_hnsw.sql",
 }

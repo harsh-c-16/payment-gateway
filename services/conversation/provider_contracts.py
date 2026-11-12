@@ -78,7 +78,6 @@ class OpenAPIContracts:
     def __init__(self, directory: Path):
         self.directory = directory.resolve()
         self.schema_root = self.directory.parent
-        self.registry = Registry(retrieve=self._resource)
 
     def _document(self, path):
         try:
@@ -205,6 +204,14 @@ class OpenAPIContracts:
 
     def validate_schema(self, uri, schema, value):
         try:
+            # Reuse each local document within this validation, but observe edits next time.
+            resources = {}
+
+            def resource(reference):
+                if reference not in resources:
+                    resources[reference] = self._resource(reference)
+                return resources[reference]
+
             # JSON round-trip rejects NaN/infinity, non-JSON Python values and coerced money.
             json.dumps(value, allow_nan=False)
             schema = self._wire_schema(schema)
@@ -212,10 +219,10 @@ class OpenAPIContracts:
             # rather than to an extracted response schema with no components.
             root = {}
             if uri.startswith("file:"):
-                root = dict(self._resource(uri).contents)
+                root = dict(resource(uri).contents)
             validator = StrictValidator(
                 {**root, "$id": uri, "allOf": [schema]},
-                registry=self.registry,
+                registry=Registry(retrieve=resource),
                 format_checker=FormatChecker(),
             )
             errors = list(validator.iter_errors(value))

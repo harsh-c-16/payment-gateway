@@ -1,5 +1,15 @@
 # Vichitr implementation plan
 
+13 November: the coordinated prototype implementation and crash-recovery fixes
+are delivered in this branch. **342 distinct focused checks passed**, including
+real PostgreSQL; no unresolved skips in those cohorts. Final full-stack
+presentation acceptance on this Windows machine remains open because the last
+attempts failed before checkout and a subsequent host crash interrupted work.
+No new teammate implementation is identified for the merged fixed-mode demo.
+See [current progress](progress.md) for exact evidence, one pending export and
+the remaining rehearsal; use [startup instructions](../../infra/PROTOTYPE.md).
+The entries below describe earlier checkpoints and do not certify final readiness.
+
 10 November recovery follow-up: prototype background-process restart handling is
 delivered; **stock projection and initial analytics catch-up are complete** for
 all 19,920 seed SKUs/events, with zero lag/pending work at the recorded drain.

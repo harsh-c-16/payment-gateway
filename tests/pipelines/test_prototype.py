@@ -9,7 +9,7 @@ import yaml
 
 from infra import postgres, prototype, prototype_relays
 from projectctl.models import ExitCode
-from projectctl.providers import Invocation, ProviderRegistry
+from projectctl.providers import Invocation, ProviderRegistry, ProviderResult
 
 
 @pytest.fixture
@@ -222,6 +222,62 @@ def test_stop_is_explicit_and_retains_every_volume(monkeypatch, private_runtime)
     ]
 
 
+@pytest.mark.parametrize("fail", [None, "orders", "analytics-worker"])
+def test_start_waits_for_dependencies_and_stops_on_failure(monkeypatch, fail):
+    calls = []
+
+    def compose(*arguments):
+        assert arguments[:6] == ("up", "--detach", "--no-deps", "--wait", "--wait-timeout", "240")
+        services = arguments[6:]
+        started = set(sum(calls, ()))
+        if "orders" in services:
+            assert {"catalog", "inventory", "payments"} <= started
+        if "catalog-worker" in services:
+            assert {"orders", "conversation", "analytics"} <= started
+        if "analytics-worker" in services:
+            assert "catalog-worker" in started
+        if "prototype-relays" in services:
+            assert "analytics-worker" in started
+        if fail in services:
+            raise postgres.SetupError("explicit failed service double")
+        calls.append(services)
+
+    monkeypatch.setattr(prototype, "compose", compose)
+
+    def check(stage, operation):
+        return operation()
+
+    if fail:
+        with pytest.raises(postgres.SetupError, match="explicit failed service"):
+            prototype.start_applications(check)
+        assert "prototype-relays" not in set(sum(calls, ()))
+    else:
+        prototype.start_applications(check)
+        started = sum(calls, ())
+        assert len(started) == len(set(started)) == len(prototype.APPS)
+        assert set(started) == set(prototype.APPS)
+
+
+def test_up_stops_retained_applications_before_starting_infrastructure(
+    private_runtime, monkeypatch
+):
+    calls = []
+    monkeypatch.setattr(postgres, "check_engine", lambda: None)
+    monkeypatch.setattr(prototype, "budget", lambda: {})
+    monkeypatch.setattr(prototype, "compose", lambda *args: calls.append(args))
+
+    def base(invocation):
+        assert calls == [("stop", "--timeout", "40", *prototype.APPS)]
+        return ProviderResult(
+            ExitCode.DEPENDENCY_FAILURE, ("explicit base failure double",), "real"
+        )
+
+    monkeypatch.setattr(prototype.streaming, "adapter", base)
+    result = prototype.adapter(Invocation("env up", {}, None, "fixture", "dev"))
+    assert result.code == ExitCode.DEPENDENCY_FAILURE
+    assert calls == [("stop", "--timeout", "40", *prototype.APPS)]
+
+
 @pytest.mark.parametrize("fail_service", [None, "orders"])
 def test_relay_startup_unwinds_all_open_resources(monkeypatch, tmp_path, fail_service):
     calls = []
@@ -247,7 +303,8 @@ def test_relay_startup_unwinds_all_open_resources(monkeypatch, tmp_path, fail_se
     monkeypatch.setattr(prototype_relays, "Event", Stop)
 
     @contextmanager
-    def relay(url, codec, bootstrap, *, service_name):
+    def relay(url, codec, bootstrap, *, service_name, poll_interval_ms):
+        assert poll_interval_ms == 250
         if service_name == fail_service:
             raise RuntimeError("explicit failure double")
         assert codec.source_service == service_name
