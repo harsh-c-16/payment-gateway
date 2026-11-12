@@ -5,6 +5,14 @@ info:
   description: >-
     Owner: Aditya Gaurav. Public order endpoints for M1 conversation service,
     plus internal reservation/payment endpoints consumed by the saga worker.
+    Payments are simulated. Authorization returns a durable PENDING attempt;
+    the Payments completion worker finishes it no earlier than 100 ms later,
+    as SUCCESS (with one DEBIT) or FAILED. A FAILED attempt with failure_code
+    DECLINED is definitive: the saga releases the reservation and cancels the
+    order without another attempt. Only RETRYABLE_PROVIDER_FAILURE permits
+    attempt 2, and only while the reservation is still active. The optional
+    X-Benchmark-Scenario-ID/X-Benchmark-Seed pair selects the deterministic
+    95/5 outcome in isolated benchmark deployments; ordinary requests omit it.
 servers:
 - url: http://orders:8003
 paths:
@@ -12,6 +20,9 @@ paths:
     post:
       operationId: create_order
       summary: Accept a checkout and start the durable saga
+      parameters:
+      - $ref: '#/components/parameters/BenchmarkScenarioID'
+      - $ref: '#/components/parameters/BenchmarkSeed'
       requestBody:
         required: true
         content:
@@ -20,7 +31,10 @@ paths:
               $ref: '#/components/schemas/CreateOrderRequest'
       responses:
         '403':
-          description: Quote belongs to another user
+          description: >-
+            Quote belongs to another user, or benchmark headers were sent while
+            BENCHMARK_MODE/FAULT_INJECTION_ENABLED is off or the namespace is not
+            an isolated bench- namespace
           content:
             application/json:
               schema:
@@ -50,7 +64,9 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '422':
-          description: Validation error
+          description: >-
+            Validation error, including only one benchmark header or a malformed
+            scenario ID/seed
           content:
             application/json:
               schema:
@@ -284,6 +300,16 @@ paths:
     post:
       operationId: authorize_payment
       summary: Create a simulated payment attempt
+      description: >-
+        Persists attempt attempt_number as PENDING with its outcome already
+        planned, and returns it. The completion worker moves it to SUCCESS or
+        FAILED no earlier than 100 ms after creation. Repeating the same
+        attempt_number with the same input returns the same attempt. A new
+        attempt_number is accepted only when every earlier attempt FAILED with
+        RETRYABLE_PROVIDER_FAILURE; after DECLINED it is refused with 409.
+      parameters:
+      - $ref: '#/components/parameters/BenchmarkScenarioID'
+      - $ref: '#/components/parameters/BenchmarkSeed'
       requestBody:
         required: true
         content:
@@ -298,13 +324,29 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '202':
-          description: Payment attempt created
+          description: Payment attempt created (status PENDING) or the existing attempt
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/PaymentSnapshot'
+        '403':
+          description: >-
+            Benchmark headers sent while BENCHMARK_MODE/FAULT_INJECTION_ENABLED is
+            off or the namespace is not an isolated bench- namespace
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Conflict (quiesced, duplicate, etc.)
+          description: >-
+            Conflict: payment order quiesced, attempt reused with different input,
+            or a retry not permitted (earlier attempt not RETRYABLE_PROVIDER_FAILURE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Only one benchmark header, or a malformed scenario ID/seed
           content:
             application/json:
               schema:
@@ -597,6 +639,35 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
 components:
+  parameters:
+    BenchmarkScenarioID:
+      name: X-Benchmark-Scenario-ID
+      in: header
+      required: false
+      description: >-
+        Paired with X-Benchmark-Seed; both are required when either is supplied.
+        Accepted only when BENCHMARK_MODE=true and FAULT_INJECTION_ENABLED=true
+        and the namespace is an isolated bench- namespace (bench-dev, bench-live,
+        bench-prod, bench-production and their descendants are refused). Unsafe
+        scope returns 403; a missing partner or malformed value returns 422.
+        Version 2: phase, logical ordinal and template. Payments derives the 95/5
+        outcome from seed, phase and ordinal; outcome and delay cannot be
+        requested. Omit both for the normal prototype.
+      schema:
+        type: string
+        pattern: ^(warmup|measurement):[0-9]{6,12}:[A-Za-z0-9_.:-]+$
+        maxLength: 128
+    BenchmarkSeed:
+      name: X-Benchmark-Seed
+      in: header
+      required: false
+      description: >-
+        Nonnegative signed int64 as decimal text, paired with
+        X-Benchmark-Scenario-ID under the same rules.
+      schema:
+        type: string
+        pattern: ^[0-9]{1,19}$
+        maxLength: 19
   schemas:
     ErrorResponse:
       type: object
@@ -890,6 +961,9 @@ components:
         status:
           type: string
           enum: [PENDING, SUCCESS, FAILED, CANCELLED, REVERSED]
+          description: >-
+            PENDING until the completion worker runs (at least 100 ms); CANCELLED
+            when the order was compensated before completion.
         amount_minor:
           type: integer
           minimum: 0
@@ -898,6 +972,9 @@ components:
           enum: [INR]
         failure_code:
           type: ['string', 'null']
+          description: >-
+            Set when status is FAILED. DECLINED is definitive (no further attempt);
+            RETRYABLE_PROVIDER_FAILURE is the only code that permits attempt 2.
         debit_id:
           type: ['string', 'null']
           format: uuid
