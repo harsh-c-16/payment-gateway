@@ -3,13 +3,25 @@
 **Author:** Harsh Chaudhari (B24CM1027)
 **Role:** M2: catalogue, retrieval, quotes, stock read model, Parquet compaction and query benchmarks
 **Brief:** [05_HARSH_CHAUDHARI.md](../specs/05_HARSH_CHAUDHARI.md)
-**Status date:** 9 November 2026
+**Status date:** 12 November 2026
 **Branch:** merged to `main` in PRs #3, #4, #8 and #10; later work is on `harsh` until merged
 
 Results: [experiments.md](experiments.md). What teammates need: [handoff.md](handoff.md). How the
 relevance labels were made: [relevance_labels.md](relevance_labels.md).
 
 `Real` means checked against real PostgreSQL, the real source file or the real publisher.
+
+## 12 November: prototype deliverables
+
+| Deliverable | Where | Checked by |
+|---|---|---|
+| Data-information sheet | [DATA_SHEET.md](DATA_SHEET.md) | Committed manifests; prototype import; exact SKU-list comparison of catalogue, Inventory and projection (19,920 each, identical) |
+| Optimization comparison, I0 row inserts vs I1 COPY | [IMPORT_COMPARISON.md](IMPORT_COMPARISON.md) | Fresh owner run at clean `348ec34` on the SSD: staging 3.74 → 1.13 s, total 11.81 → 9.26 s, identical digests in all 6 runs. Owner-run, not the shared-runner evaluation |
+| Three demonstration searches | [DEMO_SEARCHES.md](DEMO_SEARCHES.md) | Real client on the prototype after projection readiness |
+| Evidence bundle for Vichitr | `artifacts/prototype-evidence-20261112.tar.gz` (git-ignored) | Manifests, profile, import and seed results, query plans, commands, provider-review receipt, rehearsal |
+
+Deferred, as agreed: human relevance labelling, ANN/vector expansion, more optimization variants and
+new compaction experiments. The rule-generated relevance labels stay diagnostic.
 
 ## Task status
 

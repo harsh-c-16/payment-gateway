@@ -1,5 +1,8 @@
 # Local prototype deployment (Vichitr)
 
+For the presentation commands, versions, limits and the 12 November rehearsal, see
+[DEPLOYMENT_INFO.md](DEPLOYMENT_INFO.md).
+
 This is a development launcher for the existing application. It uses the same
 PostgreSQL/Kafka/registry containers and retained volumes as `streaming-local`.
 It does not change `configs/evaluation_profiles.json` or certify an evaluation.

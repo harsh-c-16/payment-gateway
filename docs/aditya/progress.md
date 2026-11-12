@@ -1,5 +1,79 @@
 # Aditya (M3) progress
 
+## 12 November 2026 — transaction contract, success/decline cases and evidence
+
+Two items listed as missing on 10 November are now implemented, by Jaineel's delegated handoff
+(PR #20, [M3_PAYMENT_HANDOFF_2026_11_11.md](../jaineel/M3_PAYMENT_HANDOFF_2026_11_11.md)):
+
+| Was missing | Now | Where |
+|---|---|---|
+| Deterministic payment controls | Durable `PENDING` attempt with its outcome planned at creation; a completion worker finishes it no earlier than 100 ms later. The v2 scenario rule (SHA-256 of `{seed, phase, block}` → 5 declines per 100) runs only with `X-Benchmark-Scenario-ID` + `X-Benchmark-Seed`, both benchmark flags and an isolated `bench-` namespace | `services/payments/authorize.py` (`scenario_failure`, `authorize`, `complete_pending_payments`), `shared/telemetry/benchmark.py`, `migrations/payments/003_async_completion.sql` |
+| Saga provenance | The accepted order stores the original `RequestContext` and benchmark carrier; saga commands and terminal events reuse them | `services/orders/commands.py`, `services/orders/saga.py`, `migrations/orders/003_payment_context.sql` |
+
+### Changes on 12 November
+
+| Path | Change |
+|---|---|
+| `contracts/http/transactions.yaml` | Documents the paired headers on `POST /v1/orders` and `POST /internal/v1/payments/authorize` (both together; both flags and an isolated `bench-` namespace; unsafe scope 403; malformed or unpaired 422), authorization returning `PENDING` with worker completion, `DECLINED` as definitive and `RETRYABLE_PROVIDER_FAILURE` as the only code that permits attempt 2 |
+| `tests/transactions/test_payment_handoff.py` | `test_transaction_case[success]` and `[decline]`: one repeatable case each, selected through the existing W-CHECKOUT scenario/seed mechanism (seed 42), checked and saved through the existing audit endpoints only |
+
+### The two cases
+
+The isolated test deployment is the live test stack: fresh PostgreSQL 18 schemas, a fresh
+`bench-transaction-*` namespace, real Orders/Inventory/Payments over HTTP, with the benchmark flags
+set only inside the test process. The catalogue quote and schema registry are explicit doubles.
+The presentation deployment keeps both flags `false`.
+
+```bash
+# disposable PostgreSQL from the pinned image
+docker run --rm -d --name m3-transaction-cases -p 127.0.0.1:55440:5432 \
+  -e POSTGRES_HOST_AUTH_METHOD=trust \
+  pgvector/pgvector:0.8.1-pg18-trixie@sha256:2fd905ba95f99a51be207d0ff0b8d5b8538cbce7e9083b3ccfa65b93bb28b938
+export INVENTORY_TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:55440/postgres
+export TRANSACTION_CASE_EVIDENCE_DIR=artifacts/transaction-cases
+
+uv run --locked python -m pytest "tests/transactions/test_payment_handoff.py::test_transaction_case[success]"
+uv run --locked python -m pytest "tests/transactions/test_payment_handoff.py::test_transaction_case[decline]"
+docker stop m3-transaction-cases
+```
+
+Each test fails unless its case finishes exactly as required:
+
+- **success:** order `CONFIRMED`, reservation `COMMITTED`, one attempt `SUCCESS`, exactly one
+  `DEBIT` equal to the quote total and matching the attempt's `debit_id`, `on_hand` down by the
+  quantity, nothing left reserved.
+- **decline:** order `CANCELLED` with `DECLINED`, reservation `RELEASED`, one attempt `FAILED` /
+  `DECLINED` and no second attempt, no ledger entry (net debit 0), stock back to its opening value.
+
+Evidence from 12 November (`artifacts/transaction-cases-20261112/{success,decline}.json`; a second
+run in `repeat/` gave the same outcomes):
+
+| | Success | Decline |
+|---|---|---|
+| Namespace | `bench-transaction-1851db5c6517` | `bench-transaction-6d3a411a717d` |
+| Run ID | `transaction-case-success-ee23e209` | `transaction-case-decline-f675b23e` |
+| Scenario ID / seed | `warmup:000000:case-000000` / 42 | `warmup:000014:case-000014` / 42 |
+| Order ID | `4662fbee-7dd5-4f4c-901d-222756a4aaea` | `7a3e2c07-047a-47c0-9d34-b74a13d6e666` |
+| Quote ID | `74378dd2-13f0-4d90-aa35-1cb54e7ab9b2` | `99839ea2-b60c-4dc8-8098-0e4868a7388a` |
+| Total | 109,800 minor = INR 1,098.00 | 109,800 minor = INR 1,098.00 |
+| Order status | `CONFIRMED` | `CANCELLED`, failure `DECLINED` |
+| Reservation | `3371facb-…` `COMMITTED`, `FK-LIVE-0` × 2 | `97138eda-…` `RELEASED`, `FK-LIVE-0` × 2 |
+| Payment attempt | `978ed2fc-…` #1 `SUCCESS`, no failure code | `914f8d6b-…` #1 `FAILED`, `DECLINED`; no attempt #2 |
+| Ledger | `DEBIT` 109,800 (`d6b05850-…`); net +109,800 | none; net 0 |
+| Stock `FK-LIVE-0` (on hand / reserved) | 5 / 0 → 3 / 0 | 5 / 0 → 5 / 0 |
+
+The JSON files hold the full rows returned by `/internal/v1/audit/orders`,
+`/internal/v1/audit/reservations`, `/internal/v1/audit/payments`, `/internal/v1/audit/ledger` and
+`/internal/v1/audit/stock`, with each ledger entry signed (`DEBIT` +, `REVERSAL` −).
+
+Checks: `python -m pytest tests/transactions` → 203 passed against PostgreSQL 18 (pinned pgvector
+image).
+
+### Deferred until after the presentation
+
+The 35-second late-payment hook, the full T-07/T-08 fault campaign, M3 reset callbacks and the
+formal benchmark lifecycle bindings. They are still required for the full evaluation.
+
 ## 10 November 2026 — prototype boundary fixes and repeatable M3 setup
 
 Branch `aditya/m3-prototype-boundaries`, from main `80f6d88` (after PR #18). No M3
@@ -48,8 +122,8 @@ were already applied by hand. All three services need the same `INTERNAL_API_TOK
 ### Not done / NOT_RUN
 
 - **Real prototype deployment:** NOT_RUN. Docker Desktop failed to start on this machine, so the compose deployment was not exercised; the evidence above is local PostgreSQL 18 plus explicit doubles. The real catalogue quote endpoint is still not exercised by an M3 test.
-- **Deterministic payment controls (95/5, 100 ms):** not implemented. Spec 06 §A04 and spec 03 require durable PENDING attempts and a completion worker that picks outcome and delay from the stable scenario ID and seed in isolated benchmark mode. Nothing carries a scenario ID from checkout to Payments today (G3 expects an M3 `fresh_namespace` callback with `simulator_control_verified`). This needs an interface agreement with Jaineel before implementation.
-- **Saga provenance:** the saga worker emits events with its own `run_id` (`saga-worker`), not the order's original run/correlation identity. Fixing it needs that identity stored on the order (a new migration).
+- **Deterministic payment controls (95/5, 100 ms):** *historical, done since; see 12 November above.* Not implemented on 10 November. Spec 06 §A04 and spec 03 require durable PENDING attempts and a completion worker that picks outcome and delay from the stable scenario ID and seed in isolated benchmark mode. Nothing carries a scenario ID from checkout to Payments today (G3 expects an M3 `fresh_namespace` callback with `simulator_control_verified`). This needs an interface agreement with Jaineel before implementation.
+- **Saga provenance:** *historical, done since; see 12 November above.* On 10 November the saga worker emitted events with its own `run_id` (`saga-worker`), not the order's original run/correlation identity; fixing it needed that identity stored on the order (a new migration).
 - **Evaluation bindings:** G3/T-07/T-08/T-11 `CaseBinding`/`G3Binding`, `ResetParticipant(preflight, apply)`, signed-ledger snapshots, relay startup bindings and the Inventory `pending_outbox` half of Harsh's `seed_audit` remain open.
 
 ### Handoffs

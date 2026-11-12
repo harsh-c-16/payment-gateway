@@ -116,6 +116,12 @@ For the connected shopping demonstration, start the
 The [demo runbook](docs/jaineel/PROTOTYPE_DEMO.md) covers product selection, cart,
 quote review, explicit confirmation, checkout, final status and safe resume.
 
+For the presentation, [infra/DEPLOYMENT_INFO.md](infra/DEPLOYMENT_INFO.md) has the exact start,
+verify, demo and stop commands, image pins, ports, limits and the rehearsal record. The data is
+described in the [data sheet](docs/harsh/DATA_SHEET.md), the measured optimization in the
+[import comparison](docs/harsh/IMPORT_COMPARISON.md), and the three demo searches in
+[DEMO_SEARCHES.md](docs/harsh/DEMO_SEARCHES.md).
+
 Follow the Python 3.11 [locked install and offline checks](projectctl/README.md).
 Provider-dependent commands require the documented owner bindings and running
 services; unavailable dependencies return exit 4 and save evidence.
