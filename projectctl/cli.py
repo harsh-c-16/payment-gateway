@@ -75,6 +75,11 @@ def parser():
     from projectctl.demo import add_arguments
 
     add_arguments(groups.add_parser("demo", help="interactive fixed-mode shopping client"))
+    from projectctl.presentation import add_arguments as presentation_arguments
+
+    presentation_arguments(
+        groups.add_parser("demo-check", help="presentation searches or order/Gold check")
+    )
     actions = {}
     for action, owner in OWNERS.items():
         group, command = action.split()
@@ -334,6 +339,10 @@ def main(argv=None, *, registry=None):
         args = vars(parser().parse_args(argv))
         if args["group"] == "demo":
             from projectctl.demo import command
+
+            return command(argparse.Namespace(**args))
+        if args["group"] == "demo-check":
+            from projectctl.presentation import command
 
             return command(argparse.Namespace(**args))
         validate_arguments(args)

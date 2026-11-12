@@ -63,6 +63,27 @@ def display(value):
     return "".join(c if c.isprintable() else " " for c in str(value))
 
 
+def validate_state(data):
+    """Reject malformed journal structure before any dispatch or state replacement."""
+    if (
+        not isinstance(data, dict)
+        or type(data.get("schema_version")) is not int
+        or data["schema_version"] != 1
+        or data.get("mode") != "fixed"
+        or not isinstance(data.get("phase"), str)
+        or data["phase"] not in PHASES
+        or not isinstance(data.get("identity"), dict)
+        or set(data["identity"]) != {"namespace", "user_id", "run_id", "correlation_id"}
+        or not all(isinstance(value, str) for value in data["identity"].values())
+        or not isinstance(data.get("origins"), dict)
+        or set(data["origins"]) != {"conversation", "transactions"}
+        or not all(isinstance(value, str) for value in data["origins"].values())
+        or not isinstance(data.get("operations"), dict)
+        or not all(isinstance(value, dict) for value in data["operations"].values())
+    ):
+        raise DemoError("Unsupported saved demo state.", 2)
+
+
 @contextmanager
 def exclusive_state(path):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -480,12 +501,7 @@ def run(args, *, ask=input, tell=print, client=None):
             if path.stat().st_size > 4 * 1024 * 1024:
                 raise DemoError("Saved state exceeds the client limit.", 2)
             data = strict_json(path.read_bytes())
-            if (
-                data.get("schema_version") != 1
-                or data.get("mode") != "fixed"
-                or data.get("phase") not in PHASES
-            ):
-                raise DemoError("Unsupported saved demo state.", 2)
+            validate_state(data)
             for supplied, saved in (
                 (args.namespace, data["identity"]["namespace"]),
                 (args.user_id, data["identity"]["user_id"]),

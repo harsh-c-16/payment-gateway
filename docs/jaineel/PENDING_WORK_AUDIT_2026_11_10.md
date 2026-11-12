@@ -1,5 +1,11 @@
 # Jaineel pending-work audit — 10 November 2026
 
+12 November update: Harsh's final deliverables are merged and accepted for the
+presentation. The fresh Windows rehearsal, repeatable preflight and order/Gold
+verification are in [consumer acceptance](HARSH_ACCEPTANCE_2026_11_12.md) and
+[the presentation guide](PRESENTATION_READY.md). The formal evaluation obligations
+below remain distinct from the verified prototype.
+
 Current prototype status: see the [11 November review](PROTOTYPE_REVIEW_2026_11_11.md)
 and [payment handoff](M3_PAYMENT_HANDOFF_2026_11_11.md). PR #19 resolves the boundary
 and migration handoff below; the delegated payment/seed changes and real prototype

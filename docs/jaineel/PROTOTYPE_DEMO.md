@@ -1,5 +1,11 @@
 # Fixed-mode prototype demo
 
+For the professor's presentation, use the current
+[prepared Windows guide](PRESENTATION_READY.md), including the new `demo-check`
+preflight and exact-order Gold verification. Harsh's final handoff was reviewed
+and the connected flow rehearsed again on 12 November 2026; see
+[consumer acceptance](HARSH_ACCEPTANCE_2026_11_12.md).
+
 The runnable client is `python -m projectctl demo`. It connects the existing M1
 session, turn, cart, quote and checkout APIs, then polls Orders for its current
 status. It uses historical catalogue prices and simulated stock/payments. No
