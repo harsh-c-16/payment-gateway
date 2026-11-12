@@ -4746,3 +4746,174 @@ the remote from `33ea39e` to `5dd1838` without rewriting history. `git ls-remote
 tree was clean. This final documentation receipt is published as a separate small
 commit on the same branch; `git-receipt.json` retains its final local/remote SHA
 and clean status. Hosted CI was not polled and is not claimed green by this run.
+
+## 12 November 2026 — Harsh final handoff and professor presentation
+
+User authorized autonomous integration/review decisions and a working professor
+prototype. Started with a clean tree at `136e42d` on `jaineel/prototype-demo`;
+Harsh's PR #21 was already merged. Read the ownership/specification inputs,
+final deployment/data/import/search deliverables, current implementation and
+previous pending reviews. Stayed in Jaineel/coordinated paths. No teammate
+implementation, migration, public contract, resource limit or lock was changed.
+
+Implemented `projectctl/presentation.py` and CLI `demo-check`: six preflight
+checks through public HTTP (three readiness checks, three actual M1 searches),
+plus GET-only saved-order observation and exact terminal-version active-Gold
+verification. It checks hard filters, positive stock/historical prices, dataset
+revision, zero LLM calls, existing turn budget, immutable order identity/totals
+and row publication generation. It retains raw responses, failures and polling;
+missing Gold is INCOMPLETE. It never submits checkout, alters the original demo
+state or silently replaces a failed provider. New directories cannot overwrite
+earlier evidence. Regression cases cover unavailable providers, malformed JSON,
+incorrect filters/stock/dataset, missing/duplicate/stale/conflicting Gold,
+CONFIRMED/CANCELLED, prior-day cohorts and purchase-state preservation.
+
+Decisions and manuals:
+`docs/jaineel/HARSH_ACCEPTANCE_2026_11_12.md` accepts the presentation handoff,
+existing dataset and raw-byte/LF hash policy under delegated consumer authority;
+it does not invent anyone else's review. `PRESENTATION_READY.md` gives the
+prepared Windows startup, preflight, five-minute demonstration, Gold observation
+and non-destructive stop. Root/projectctl READMEs and current pointers in
+`PROTOTYPE_DEMO.md`, `HARSH_REVIEW_2026_11_09.md` and
+`PENDING_WORK_AUDIT_2026_11_10.md` link the new decisions. Tests are in
+`tests/projectctl/test_presentation.py`; `projectctl/cli.py` only registers and
+dispatches the new command. These files plus this progress entry are the entire
+source/documentation change set.
+
+Exact execution and evidence under `artifacts/presentation-20261112/`:
+
+| Command/check | Actual outcome | Retained evidence |
+|---|---|---|
+| `docker desktop start --timeout 60`; `uv sync --locked --python 3.11` | PASS, exit 0; started initially stopped Desktop, reused application lock | Tool outputs |
+| `PROJECTCTL_ADAPTER_MODULE=infra.postgres uv run --locked python -m projectctl env up --profile postgres-local`; `python -m services.orders.m3_setup` using private host bindings | PASS, exit 0; all existing M3 migrations verified, none applied | `artifacts/professor-postgres-up.log`, tool migration output |
+| `PROJECTCTL_ADAPTER_MODULE=infra.prototype uv run --locked python -m projectctl env up --profile prototype-local` | PASS, exit 0, retained data | `artifacts/professor-prototype-up.log`; launcher checks `a2488deb-ae76-4892-9887-3ada6168aa9e` |
+| `uv run --locked python -m projectctl env verify --profile prototype-local` with prototype adapter | PASS, exit 0; all 12 containers healthy with actual limits | `env-verify.log`; launcher checks `36685df7-9573-49cc-a392-3ac06264b8bd` |
+| `uv run --locked python -m projectctl projection wait --namespace dev --sku-manifest artifacts/prototype-setup/prototype-data/sku_manifest.json --timeout-seconds 600` | PASS, exit 0; 19,920/19,920, zero deferred | `projection.log` |
+| `uv run --locked python -m projectctl demo-check --out artifacts/presentation-20261112/final-source-preflight` | PASS, 6/6, exit 0, final source | `final-source-preflight.log`, directory with checks/state/raw HTTP |
+| `PYTHONPATH=<repo> uv run --locked python -u artifacts/presentation-20261112/rehearse.py` | PASS, real providers; scripted simulated purchase, resume, no-confirmation flow and independent read-only transaction snapshots | `rehearsal-verified.log`, `rehearsal.json`, `purchase/`, `no-confirm/`, `transaction-audit.json` |
+| `uv run --locked python -m projectctl demo-check --state artifacts/presentation-20261112/purchase/state.json --out artifacts/presentation-20261112/final-source-order` | PASS, exit 0, final source; exact terminal order in active Gold | `final-source-order.log`, checks/raw HTTP and copied observation state |
+| `benchmarks.dataset_checks.inspect_source(Path('data/raw/flipkart_com-ecommerce_sample.csv'))`; `projectctl.input_pins.review_input_pins()` | PASS source assertions/checksum/counts and both published LF identities; review proposals remain labelled | `source-check.json`, `input-pins.json` |
+| `uv run --locked pytest tests/transactions/test_payment_handoff.py tests/projectctl tests/contracts tests/integration tests/conversation/test_workflow.py -q --tb=short --junitxml=artifacts/presentation-20261112/verification.xml` with private `INVENTORY_TEST_DATABASE_URL` and `P6_TEST_DATABASE_URL` | **529 passed, zero failures/skips, exit 0, 221.65 s** | `verification.{log,xml}` |
+| `uv run --locked pytest tests/projectctl/test_presentation.py tests/projectctl/test_demo.py -q --tb=short --junitxml=artifacts/presentation-20261112/presentation-final.xml` after final strict-type/malformed-response guards | **44 passed, zero failures/skips, exit 0, 12.79 s**; overlaps broader run | `presentation-final.{log,xml}` |
+| `uv run --locked ruff check projectctl/presentation.py projectctl/cli.py tests/projectctl/test_presentation.py`; matching `ruff format --check`; `python -m projectctl.conversation_contract --check`; `python -m projectctl.schemas --check`; `git diff --check` | PASS | Final CLI output, `source-validation.log` |
+| `uv run --locked python -m projectctl contracts check --all` | **exit 4**, expected missing byte-pinned all-owner review receipts; compatibility checks pass | `contracts-check.log`; `artifacts/projectctl/671d54d1-f93a-45df-b189-4472b3c697f8/` |
+
+Tests use explicit doubles where documented. The transaction handoff tests use
+real PostgreSQL/HTTP for M3, with explicit catalogue and schema-registry doubles;
+they do not constitute a second real full-stack purchase. The separately
+recorded prototype rehearsal used all real running provider services. Its
+order `8615ea16-c56f-4268-b2a4-7d6976c2f6bb` is CONFIRMED v6 with a COMMITTED
+one-unit reservation, exactly one 116,600-minor INR debit, available stock 9,999
+with zero reserved, and the matching order in active Gold generation 237.
+Fixed-mode calls were zero. Resume sent no new purchase, and the separate
+declined-confirmation state contains no checkout operation.
+
+Retained first attempts: `preflight-first/` correctly refused my initial
+incorrect health-mode expectation (`real` is execution mode, `fixed` is assistant
+mode); all three searches already passed. Corrected the consumer check, without
+changing M1. `targeted.log/xml` has 56 passed / 8 skipped before database URLs
+were supplied; the 529-test rerun executes those M3 cases without skips.
+The ignored rehearsal driver initially used the wrong local operation/audit
+field names (`checkout` instead of its indexed identity; `status`/`entry_type`
+instead of `state`/`kind`). Those collection failures are in `rehearsal.log` and
+`rehearsal-final.log`; the same confirmed order was resumed, never repurchased.
+The final collector and source checks pass. Scripted confirmation is a test
+input, not a claim of human review.
+
+Harsh's Linux raw import/rehearsal bundles are absent here. His table's medians
+are arithmetically consistent and retained as attributed owner-run results;
+six-run digest equality and SSD timings were not independently rerun. Formal
+G3/full reconciliation, registered fault campaigns, all-owner receipts, frozen
+evaluation resources/clock bindings, controlled B0/matrix/report and genuine
+human relevance labels remain outstanding. No performance result or peer review
+was fabricated to clear those requirements.
+
+Final runtime: Docker Desktop and the 12 healthy prototype containers are left
+running for the user to demonstrate. No import, seed, volume reset/removal,
+unrelated container change, commit or push was performed. Test-created schemas
+were isolated and cleaned by their fixtures. Raw artifacts, dataset and private
+bindings remain ignored. Manual review/restart and the single stack-stop command
+are in `PRESENTATION_READY.md`; the demonstration can be launched immediately
+with `uv run --locked python -m projectctl demo --namespace dev --user-id
+demo-professor --query "men's formal shirt"` from this repository.
+
+## 12 November 2026 — final bug review and same-branch publication
+
+User explicitly requested a thorough review, fixes and push on the existing
+`jaineel/prototype-demo` branch. Reviewed the 11 pending presentation paths,
+M1 client/state recovery, public-provider checks, current owner runtime exports,
+ownership/specification requirements and remaining M0 obligations. Fetched
+`origin`'s branch/main and verified the remote feature branch is an ancestor;
+publication needs no history rewrite. No other owner's implementation changed.
+
+Concrete fixes, with regression evidence:
+
+- A successful normal search with `intent: null` could pass preflight. Require
+  a real INR intent and the expected complete set of hard-filter values,
+  including absence of extra constraints on the normal query.
+- Gold observation abandoned a temporary transport/HTTP 429/503 outage at the
+  first failed read. Retry the same GET identity at most twice consecutively,
+  respecting the common retryable flag, `Retry-After` and observation deadline.
+  Permanent errors and exhausted attempts remain INCOMPLETE. Streamed error
+  responses are retained in a bounded buffered response so policy parsing can
+  read their body without `httpx.ResponseNotRead`.
+- Malformed saved-state JSON values and invalid identity/origin/operation
+  containers could crash resume. Both commands reuse structural validation
+  before dispatch or replacing the original state. Valid existing journals
+  retain their identities and purchase recovery behaviour.
+- Valid service origins ending in `/` produced doubled API path slashes in
+  presentation checks. Normalize validated origins consistently with the
+  interactive demo. Both preflight and order/Gold observation are covered.
+
+Added the actual existing M3 runtime export to the evaluation teammate runbook,
+alongside Harsh's catalogue runtime. A lazy-composition regression proves all
+six migration participants register without executing migrations. The provider
+already implements these callbacks; no duplicate migration implementation or
+automatic owner approval was introduced. `COURSE_COVERAGE.md` maps real DE/DS
+code, protocols, present evidence and limits, and the remaining Jaineel M0 work.
+Current canonical scope requires a reproducible local profile, not geographic
+deployment. Presentation instructions now link this explanation and retry policy.
+
+Additional paths beyond the preceding checkpoint:
+`projectctl/demo.py`, `tests/projectctl/test_demo.py`,
+`tests/projectctl/test_team_handoff.py`,
+`docs/jaineel/EVALUATION_TEAMMATE_RUNBOOK.md`, and
+`docs/jaineel/COURSE_COVERAGE.md`. The complete publication contains 16 reviewed
+source/test/documentation paths, including the previous presentation work.
+
+Verification (raw evidence: `artifacts/review-push-20261112/`):
+
+| Exact command/check | Actual outcome | Evidence |
+|---|---|---|
+| New failing regressions selected by `pytest ... -k 'cannot_pass_missing or recovers_from_one or invalid_saved_state'` | 8 failed / 2 passed before fixes; failures reproduce the missing intent, outage handling and invalid-state crashes | `bugs-before.{log,xml}` |
+| `pytest tests/projectctl/test_presentation.py -q -k recovers_from_one` with real streaming-response doubles | 2 failed / 1 passed before buffering fix; exposed `ResponseNotRead`, corrected without weakening assertions | `streaming-before.log` |
+| `uv run --locked python benchmarks/manual/verify_p5.py` with disposable PostgreSQL 18 test URLs | **11/11 checks matched, exit 0; 958 tests passed, zero failures/errors/skips** | `p5.log`; `artifacts/p5/dca53e23-7bbb-4e4a-a10e-973b834cbdfc/{checks.json,pytest.xml}` |
+| `uv run --locked pytest tests/conversation tests/transactions tests/integration -q --tb=short --junitxml=artifacts/review-push-20261112/services.xml` | **702 passed, zero failures/skips, exit 0; 182.94 s** | `services.{log,xml}` |
+| `uv run --locked pytest tests/projectctl/test_presentation.py tests/projectctl/test_demo.py tests/projectctl/test_team_handoff.py -q --tb=short --junitxml=artifacts/review-push-20261112/final-focused.xml` | **82 passed, zero failures/skips, exit 0; 27.75 s**, includes final origin normalization and M3 registration; overlaps P5 | `final-focused.{log,xml}` |
+| `uv run --locked ruff check projectctl tests/projectctl`; `ruff format --check projectctl tests/projectctl`; generated schema/conversation checks in P5; `git diff --check` | PASS | CLI output, P5 recorder, `diff-check.log` |
+| `uv run --locked python -m projectctl demo-check --conversation-url http://127.0.0.1:8001/ --orders-url http://127.0.0.1:8003/ --analytics-url http://127.0.0.1:8006/ --out artifacts/review-push-20261112/live-final-preflight` | PASS 6/6, real providers, exit 0, final source | `live-final-preflight.log`, corresponding state/check/raw HTTP directory |
+| `uv run --locked python -m projectctl demo --resume artifacts/presentation-20261112/purchase/state.json` | PASS same CONFIRMED order, no new purchase | `live-resume.log` |
+| `uv run --locked python -m projectctl demo-check --state artifacts/presentation-20261112/purchase/state.json --analytics-url http://127.0.0.1:8006/ --out artifacts/review-push-20261112/live-final-order` | PASS exact terminal order in active Gold, exit 0 | `live-final-order.log`, copied observation state/raw HTTP |
+| Local Markdown link resolution in root/projectctl/current guide/review/course/evaluation manuals | PASS | Review CLI output |
+
+P5's `contracts check --all` exit 4 is its explicit expected result for absent
+formal all-owner review receipts. Its real-SUT/Grafana/performance labels remain
+NOT_RUN. Service tests use real isolated PostgreSQL and explicit provider doubles
+as documented in those suites; only the separate live smoke above uses every
+running prototype provider. Counts from overlapping suites must not be summed.
+Existing FastAPI lifecycle/JUnit warnings do not change the assertions.
+
+Testing used only newly created `jaineel-final-review-20261112` on port 55439,
+with per-test schemas. It is removed after verification, including its own
+anonymous volume; the retained 12-container prototype and all named volumes
+stay available. No raw dataset, generated artifact, credential, private binding,
+test database or benchmark-result directory is staged.
+
+Publication uses the exact reviewed path list, `git commit -m "feat: add verified
+prototype presentation checks"`, then `git push origin
+HEAD:refs/heads/jaineel/prototype-demo`. The final source/staged hash review,
+actual commit, push output and remote-HEAD equality are retained in
+`artifacts/review-push-20261112/git-receipt.json` and its adjacent logs. Manual
+run/recovery/stop instructions are in `PRESENTATION_READY.md`. Remaining formal
+evaluation prerequisites are listed in `COURSE_COVERAGE.md`; no unfinished
+measurement, geographic deployment or human approval is claimed complete.

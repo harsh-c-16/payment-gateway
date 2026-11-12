@@ -42,6 +42,18 @@ def test_team_composes_m4_and_independent_operational_runtime_lazily(monkeypatch
     assert result.code == ExitCode.DEPENDENCY_FAILURE  # Missing owners block every write.
 
 
+def test_supplied_m3_module_completes_migration_registration_without_execution(monkeypatch):
+    def forbidden(*args, **kwargs):
+        pytest.fail("registration must not run migrations or connect to databases")
+
+    monkeypatch.setenv("PROJECTCTL_OWNER_RUNTIME_MODULES", "services.orders.m3_setup")
+    monkeypatch.setattr("infra.analytics_runtime.runtime_bindings", lambda: RuntimeBindings())
+    monkeypatch.setattr("services.orders.m3_setup.setup", forbidden)
+    team = runtime_bindings()
+    assert set(team.migrations) == set(DATABASE_OWNERS)
+    assert all(callable(callback) for callback in team.migrations.values())
+
+
 def test_team_quality_seed_collects_exact_membership_without_replacing_provider_scope(monkeypatch):
     from benchmarks.quality_binding import QualityOwners
     from benchmarks.seed_audit import MEMBERSHIPS

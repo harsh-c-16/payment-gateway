@@ -443,3 +443,29 @@ def test_state_save_permission_failure_cannot_dispatch_a_mutation(setup, monkeyp
     with pytest.raises(PermissionError):
         demo.run(arguments(path), client=client)
     assert provider.requests == []
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        [],
+        None,
+        "saved state",
+        {
+            "schema_version": 1,
+            "mode": "fixed",
+            "phase": "session",
+            "identity": {},
+            "origins": [],
+            "operations": {},
+        },
+    ],
+)
+def test_invalid_saved_state_is_rejected_without_crash_or_dispatch(setup, bad):
+    path, provider, client = setup
+    path.write_text(json.dumps(bad))
+    original = path.read_bytes()
+    with pytest.raises(demo.DemoError):
+        demo.run(resume(path), client=client)
+    assert provider.requests == []
+    assert path.read_bytes() == original

@@ -110,6 +110,11 @@ All authoritative specifications and runbooks are maintained in [`docs/specs/`](
 
 ## 4. Getting Started
 
+For the professor demonstration on the prepared Windows machine, follow
+[the presentation guide](docs/jaineel/PRESENTATION_READY.md). The new
+`python -m projectctl demo-check` checks the three real searches; add
+`--state PATH_TO_DEMO_STATE` to verify a purchased order in active Gold.
+
 For the connected shopping demonstration, start the
 [prototype deployment](infra/PROTOTYPE.md), then run
 `.venv/Scripts/python.exe -m projectctl demo --namespace dev --query "shirt"`.

@@ -1,5 +1,10 @@
 # Harsh: frozen-input and report handoff
 
+Current presentation decision: [12 November consumer acceptance](HARSH_ACCEPTANCE_2026_11_12.md).
+It resolves Jaineel's dataset/hash-policy and presentation choices using Harsh's
+merged deliverables and fresh real-service checks. The historical evaluation
+review proposal below still does not represent a signed all-owner receipt.
+
 9 November 2026. These are the implementation choices Jaineel has prepared.
 Harsh's approval is pending; no review receipt or performance result is invented.
 

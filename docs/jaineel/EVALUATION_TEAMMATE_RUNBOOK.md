@@ -69,8 +69,8 @@ Set the real team composition:
 ```bash
 export PROJECTCTL_ADAPTER_MODULE=projectctl.jaineel
 export PROJECTCTL_RUNTIME_MODULE=projectctl.team_runtime
-# Set only when an actual reviewed owner extension module exists:
-# export PROJECTCTL_OWNER_RUNTIME_MODULES=your_package.operational_runtime
+# Existing owner implementations; their execution inputs/review still need freezing:
+export PROJECTCTL_OWNER_RUNTIME_MODULES=pipelines.catalog.runtime,services.orders.m3_setup
 ```
 
 An extension exports `runtime_bindings() -> projectctl.runtime.RuntimeBindings`.
@@ -79,11 +79,17 @@ It can supply `workloads` (`OwnerCallbacks`), `g3` (`G3Binding`), remaining
 (database -> `ResetParticipant(preflight, apply)`). These are harness extension
 interfaces, not claims that a teammate already exports those functions. Module
 registration is lazy. Duplicate registrations fail rather than replacing M4.
+The supplied M3 module completes all six database migration registrations using
+Aditya's checksum-aware owner callbacks. Harsh's module supplies W-IMPORT,
+W-SEARCH and W-ANALYTICS callbacks. This configuration does not execute setup
+or approve a benchmark. Retain these names when adding another extension;
+duplicate migration/workload implementations are rejected. In PowerShell, set
+the same values with `$env:NAME = 'value'`.
 
 | Owner | Exact work needed |
 |---|---|
 | Vichitr | Enforce the full process allocation, provide the mounted real lakehouse, schema cache, private service credentials and SELECT-only audit bindings. Supply a drained, isolated `M4_SEED_NAMESPACE`; keep its catalogue/inventory services stopped for a pipeline-only study. Verify `PROJECTCTL_SUT_CONTAINERS` maps each service to all actual container IDs, including API/worker/relay. Establish the shared clock domain for latency collectors; the current M4 observer conservatively defaults to unshared clocks. Review the concrete mappings and fault scope. |
-| Aditya | Supply Orders/Inventory/Payments migration participants, real operational fresh-storage proofs, explicit payment controls, signed-ledger/stock/order snapshots, outbox receipts and recovery barriers. Check the exact Inventory SKU key set against the pinned manifest as well as uniform counts/versions. No generic M3 migration callbacks currently exist in this composition. Expose standalone relay startup bindings and count them. |
+| Aditya | Migration participants now exist in `services.orders.m3_setup` and compose through the module setting above. Deterministic benchmark payment controls and original event identity also exist. Remaining evaluation work is reviewed operational fresh-storage proofs, signed-ledger/stock/order snapshots, immutable outbox receipts and acknowledged recovery barriers. Check the exact Inventory SKU key set against the pinned manifest as well as uniform counts/versions. Count standalone relay startup bindings in the evaluation allocation. |
 | Harsh | Confirm input manifests/hashes; connect real catalogue seed/projection/layout/query callbacks, pinned query day/generation, independent import/query expectations, and reviewed request templates. Human relevance review is pending. |
 | Jaineel + affected owners | Bind and review each missing D/T/G case listed in `integration_inventory.json`. M4 workload callbacks do not automatically become general suite case adapters. Connect G3 to the actual public services and immutable producer evidence. Preserve the independent expected answer. |
 

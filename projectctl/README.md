@@ -1,5 +1,12 @@
 # Unified CLI foundation
 
+Presentation acceptance: `python -m projectctl demo-check` checks service
+readiness and Harsh's three real searches without purchasing. Use
+`python -m projectctl demo-check --state PATH_TO_DEMO_STATE` for GET-only
+verification of an accepted order in Orders and active Gold. Both retain raw
+HTTP evidence and per-check results. See the
+[Windows presentation guide](../docs/jaineel/PRESENTATION_READY.md).
+
 Owner: Jaineel. Contracts: [runbook §1](../docs/specs/09_EVALUATION_RUNBOOK.md),
 [brief J01](../docs/specs/04_JAINEEL_VORA.md), [P1](../docs/specs/10_JAINEEL_CODEX_PLAYBOOK.md).
 
