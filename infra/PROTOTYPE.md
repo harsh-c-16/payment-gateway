@@ -34,6 +34,7 @@ Get-Content artifacts/infra/prototype-local/.env | ForEach-Object {
     [Environment]::SetEnvironmentVariable($entry[0], $entry[1], 'Process')
 }
 .venv/Scripts/python.exe -m services.orders.m3_setup
+.venv/Scripts/python.exe -m services.conversation.database
 .venv/Scripts/python.exe -m pipelines.catalog.migrate --variant prototype
 $env:PROJECTCTL_ADAPTER_MODULE = 'infra.prototype'
 .venv/Scripts/python.exe -m projectctl env up --profile prototype-local
@@ -43,6 +44,10 @@ $env:PROJECTCTL_ADAPTER_MODULE = 'infra.prototype'
 ```
 
 Stop on a nonzero exit code. Retained data needs no import, seed or offset reset.
+After startup, open **http://127.0.0.1:8001/** for the shopping website and chat.
+The repeatable M1 migration includes the additive saved-conversation context.
+See [shopping behaviour](../docs/specs/11_SHOPPING_EXPERIENCE.md), including how
+keyword and optional hybrid retrieval differ. No frontend build is required.
 The lock requires uv 0.10.8; an older global uv refuses this project. This prepared
 Windows checkout has the pinned executable at
 `artifacts/tooling/uv-package/bin/uv.exe`. Use its `sync --locked --python 3.11`

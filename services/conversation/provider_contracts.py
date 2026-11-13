@@ -42,6 +42,8 @@ class Endpoint:
 
 
 ENDPOINTS = {
+    "browse": Endpoint("catalog", "GET", "/v1/products", 200),
+    "capabilities": Endpoint("catalog", "GET", "/v1/catalog/capabilities", 200),
     "search": Endpoint("catalog", "POST", "/v1/search", 200),
     "facets": Endpoint("catalog", "GET", "/v1/catalog/facets", 200),
     "product": Endpoint("catalog", "GET", "/v1/products/{sku}", 200),

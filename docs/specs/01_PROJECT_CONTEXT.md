@@ -55,6 +55,11 @@ The user authorized small workload adjustments. Compared with the tracker, the d
 
 **Explicitly outside v1**
 
+The 13 November product request adds the local browser storefront and contextual
+shopping dialogue described in [11_SHOPPING_EXPERIENCE.md](11_SHOPPING_EXPERIENCE.md).
+It supersedes the retail-UI exclusion below for that prototype; the other exclusions
+remain in place.
+
 Real bank/payment integration, customer authentication, shipping/tax/discount engines, returns after a confirmed sale, multi-currency conversion, Kubernetes, multi-region deployment, model training, autonomous purchases, and a full retail UI.
 
 Use synthetic user IDs and simulated money. The default deterministic assistant works without any paid model. A live model can implement the same adapter later; missing model credentials cannot block the pipeline benchmark.

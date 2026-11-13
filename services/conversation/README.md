@@ -1,5 +1,10 @@
 # Conversation service (M1)
 
+The local shopping website is served at `/`, using this service's existing APIs
+and the additive [shopping contract](../../contracts/http/shopping.yaml).
+See [shopping behaviour](../../docs/specs/11_SHOPPING_EXPERIENCE.md). Run the
+repeatable migration below before serving; it includes saved shopping context.
+
 Owner: Jaineel Vora (B24CM1080). Authority:
 [personal brief](../../docs/specs/04_JAINEEL_VORA.md),
 [common specification](../../docs/specs/02_COMMON_SPEC.md), and

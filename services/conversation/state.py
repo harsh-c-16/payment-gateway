@@ -142,6 +142,29 @@ class ConversationState:
             # same session/cart lock; READ COMMITTED alone could mix two versions.
             return self._snapshot(tx, self._cart(tx, cart_id, context, lock=True))
 
+    def shopping_session(self, session_id, context):
+        from shared.contracts.shopping import ShoppingMemory
+
+        with self.database.transaction() as tx:
+            row = tx.execute(
+                "SELECT s.user_id,s.shopping_context,c.cart_id FROM sessions s JOIN carts c "
+                "USING(namespace,session_id,user_id) WHERE s.namespace=%s AND s.session_id=%s",
+                (context.namespace, session_id),
+            ).fetchone()
+        if not row:
+            raise ServiceError(404, ErrorCode.NOT_FOUND, "Session was not found.")
+        if row["user_id"] != context.user_id:
+            raise ServiceError(403, ErrorCode.FORBIDDEN, "Session belongs to another principal.")
+        if context.session_id is not None and context.session_id != session_id:
+            raise ServiceError(403, ErrorCode.FORBIDDEN, "Session context does not match path.")
+        return {
+            "session_id": session_id,
+            "cart_id": str(row["cart_id"]),
+            "conversation": ShoppingMemory.model_validate(row["shopping_context"]).model_dump(
+                mode="json"
+            ),
+        }
+
     def _event(self, tx, row, context, event_type, payload, occurred_at):
         version = tx.execute(
             "UPDATE sessions SET event_version=event_version+1 "
@@ -267,7 +290,16 @@ class ConversationState:
                 (Jsonb(diagnostic), context.namespace, context.request_id, context.user_id),
             )
 
-    def record_turn(self, session_id, request: TurnRequest, context, key, handler: TurnHandler):
+    def record_turn(
+        self,
+        session_id,
+        request: TurnRequest,
+        context,
+        key,
+        handler: TurnHandler,
+        *,
+        shopping=False,
+    ):
         """Persist a caller-supplied workflow outcome; P6 implements no workflow.
 
         The handler must validate provider JSON before returning. It must make no
@@ -279,6 +311,8 @@ class ConversationState:
         if context.session_id is not None and context.session_id != session_id:
             raise ServiceError(403, ErrorCode.FORBIDDEN, "Session context does not match path.")
         business = {"session_id": session_id, **request.model_dump(mode="json")}
+        if shopping:
+            business["workflow"] = "shopping"
         with self.database.transaction() as tx:
             scope, digest, cached = self._operation(tx, context, "submit_turn", key, business)
             self._lock(tx, (context.namespace, "turn_request", request.request_id))
@@ -305,8 +339,19 @@ class ConversationState:
                 response = TurnResponse.model_validate(previous["response"])
             else:
                 self.events.ready()
-                outcome = handler(request, context.model_copy(update={"session_id": session_id}))
+                scoped = context.model_copy(update={"session_id": session_id})
+                outcome = (
+                    handler(request, scoped, row["shopping_context"])
+                    if shopping
+                    else handler(request, scoped)
+                )
                 response = TurnResponse.model_validate(outcome.model_dump(mode="json"))
+                if shopping and outcome.shopping_context is not None:
+                    tx.execute(
+                        "UPDATE sessions SET shopping_context=%s "
+                        "WHERE namespace=%s AND session_id=%s",
+                        (Jsonb(outcome.shopping_context), context.namespace, session_id),
+                    )
                 if request.mode == "fixed" and response.llm_call_count != 0:
                     raise conflict(ErrorCode.ILLEGAL_STATE)
                 created_at = datetime.now(UTC)

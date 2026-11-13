@@ -15,7 +15,8 @@ PRODUCT_COLUMNS = """p.product_id, p.sku, p.title, p.category_path AS category_p
     p.attributes, p.quality_flags, p.dataset_revision, p.source_pid, p.source_observation_id,
     p.source_crawled_at, p.currency, p.currency_source, p.catalog_version, p.active,
     p.description, p.category, p.brand, p.brand_normalized, p.size, p.size_kind, p.colour,
-    p.material, p.seller_id, p.price_minor, p.retail_price_minor, p.rating, p.inactive_reason"""
+    p.material, p.seller_id, p.price_minor, p.retail_price_minor, p.rating, p.inactive_reason,
+    p.image_urls"""
 
 
 def dataset_revision(tx, namespace):
@@ -55,6 +56,50 @@ def get_facets(db, namespace, revision=None):
     if row is None:
         raise not_found("Facet dictionary")
     return row["document"]
+
+
+def browse(db, namespace, *, query, category, max_price_minor, sort, offset, limit):
+    """Read-only storefront listing over the same sellable set and hard filters."""
+    from services.catalog.search import FROM_ELIGIBLE, HIT_COLUMNS, TSQUERY, hard_filters
+    from shared.contracts.catalog import ProductHit, ProductPage, ShoppingIntent
+
+    intent = ShoppingIntent(
+        query_text=query,
+        category=category,
+        size=None,
+        colour=None,
+        material=None,
+        max_price_minor=max_price_minor,
+        occasion=None,
+    )
+    where, parameters = hard_filters(intent, namespace)
+    score = f"ts_rank(p.search_vector, {TSQUERY})::float8" if query.strip() else "0.0::float8"
+    if query.strip():
+        where += f" AND p.search_vector @@ {TSQUERY}"
+    order = {
+        "relevance": "score DESC, p.sku",
+        "price_asc": "p.price_minor, p.sku",
+        "price_desc": "p.price_minor DESC, p.sku",
+    }[sort]
+    parameters.update(text=query, limit=limit, offset=offset)
+    with db.transaction() as tx:
+        total = tx.execute(
+            f"SELECT count(*) AS n FROM {FROM_ELIGIBLE} WHERE {where}", parameters
+        ).fetchone()["n"]
+        found = tx.execute(
+            f"SELECT {HIT_COLUMNS}, {score} AS score FROM {FROM_ELIGIBLE} WHERE {where} "
+            f"ORDER BY {order} LIMIT %(limit)s OFFSET %(offset)s",
+            parameters,
+        ).fetchall()
+    return ProductPage(
+        items=[
+            ProductHit(**row, retrieval_mode="lexical", rank=offset + i)
+            for i, row in enumerate(found, 1)
+        ],
+        total=total,
+        offset=offset,
+        limit=limit,
+    )
 
 
 def _claim(tx, namespace, scope, operation, key, request):

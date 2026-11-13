@@ -37,6 +37,7 @@ class SearchRequest(WireModel):
     intent: ShoppingIntent
     top_k: Annotated[int, Field(strict=True, ge=1, le=20)] = 5
     mode: SearchMode = "lexical"
+    exclude_skus: Annotated[list[Sku], Field(max_length=200)] = Field(default_factory=list)
 
 
 class ProductHit(WireModel):
@@ -60,6 +61,7 @@ class ProductHit(WireModel):
     stock_applied_at: UTCTime
     retrieval_mode: SearchMode
     rank: CatalogVersion
+    image_urls: list[str] = Field(default_factory=list)
 
 
 class SearchTimings(WireModel):
@@ -111,6 +113,19 @@ class Product(WireModel):
     retail_price_minor: UnitPrice | None
     rating: str | None
     inactive_reason: str | None
+    image_urls: list[str] = Field(default_factory=list)
+
+
+class ProductPage(WireModel):
+    items: list[ProductHit]
+    total: Count
+    offset: Count
+    limit: Annotated[int, Field(ge=1, le=20)]
+
+
+class CatalogCapabilities(WireModel):
+    search_modes: list[SearchMode]
+    hybrid_unavailable_reason: str | None
 
 
 class StockSnapshot(WireModel):

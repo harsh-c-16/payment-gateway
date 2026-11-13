@@ -20,6 +20,7 @@ MIGRATIONS = (
     MIGRATION.with_name("002_workflow.sql"),
     MIGRATION.with_name("003_intent_diagnostics.sql"),
     MIGRATION.with_name("004_shared_events.sql"),
+    MIGRATION.with_name("005_shopping_context.sql"),
 )
 
 
@@ -136,7 +137,7 @@ def main():
     except ServiceError:
         print("M1 migration failed: STORAGE_UNAVAILABLE (connection details withheld).")
         return 4
-    print("M1 migrations 1-4 applied/verified, including shared outbox/local-diagnostic templates.")
+    print("M1 migrations 1-5 applied/verified, including shopping context and shared templates.")
     return 0
 
 

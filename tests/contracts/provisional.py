@@ -90,6 +90,8 @@ SEARCH_REQUEST = obj(
     top_k={"type": "integer", "minimum": 1, "maximum": 20},
     mode=TEXT,
 )
+SEARCH_REQUEST["properties"]["exclude_skus"] = array(SKU, maxItems=200)
+HIT["properties"]["image_urls"] = TEXTS
 SEARCH = obj(
     search_id=ID,
     hits=array(HIT, maxItems=20),
@@ -221,7 +223,16 @@ MANIFEST = obj(
     created_at=STAMP,
 )
 
+PRODUCT["properties"]["image_urls"] = TEXTS
+
 RESPONSES = {
+    "browse": obj(
+        items=array(HIT, maxItems=20),
+        total=INT,
+        offset=INT,
+        limit={"type": "integer", "minimum": 1, "maximum": 20},
+    ),
+    "capabilities": obj(search_modes=TEXTS, hybrid_unavailable_reason=nullable(TEXT)),
     "search": SEARCH,
     "product": obj(product=PRODUCT, stock=nullable(STOCK)),
     "facets": FACETS,
@@ -533,6 +544,16 @@ def examples():
         "replay_status",
         None,
         {"status": "PENDING", "counts": {}, "reconciliation": None, "error": None},
+    )
+    pair("browse-empty", "browse", None, {"items": [], "total": 0, "offset": 0, "limit": 12})
+    pair(
+        "retrieval-capabilities",
+        "capabilities",
+        None,
+        {
+            "search_modes": ["lexical"],
+            "hybrid_unavailable_reason": "Explicit test model unavailable",
+        },
     )
     return {"provisional": True, "synthetic": True, "test_mode": "stub", "pairs": pairs}
 

@@ -5,7 +5,7 @@ import hmac
 import logging
 import os
 from time import monotonic
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import Depends, FastAPI, Query, Request
@@ -20,9 +20,11 @@ from services.catalog.embedding import encoder_from_environment
 from services.catalog.errors import ServiceError
 from services.catalog.events import SharedEvents
 from shared.contracts.catalog import (
+    CatalogCapabilities,
     FacetDictionary,
     PriceUpdateRequest,
     Product,
+    ProductPage,
     ProductResponse,
     Quote,
     QuoteRequest,
@@ -43,6 +45,8 @@ from shared.telemetry.metrics import Telemetry
 
 LOGGER = logging.getLogger("catalog")
 ROUTES = (
+    "/v1/products",
+    "/v1/catalog/capabilities",
     "/v1/search",
     "/v1/catalog/facets",
     "/v1/products/{sku}",
@@ -181,6 +185,46 @@ def create_app(*, db=None, events=None, encoder=None):
     @app.get("/v1/products/{sku}", response_model=ProductResponse)
     def get_product(sku: ValidSku, context: Context):
         return products.get_product(db, context.namespace, sku)
+
+    @app.get("/v1/products", response_model=ProductPage)
+    def browse_products(
+        context: Context,
+        q: Annotated[str, Query(max_length=200)] = "",
+        category: Annotated[str | None, Query(max_length=256)] = None,
+        max_price_minor: Annotated[int | None, Query(ge=0, le=1000000000)] = None,
+        sort: Literal["relevance", "price_asc", "price_desc"] = "relevance",
+        offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+        limit: Annotated[int, Query(ge=1, le=20)] = 12,
+    ):
+        return products.browse(
+            db,
+            context.namespace,
+            query=q,
+            category=category,
+            max_price_minor=max_price_minor,
+            sort=sort,
+            offset=offset,
+            limit=limit,
+        )
+
+    @app.get("/v1/catalog/capabilities", response_model=CatalogCapabilities)
+    def capabilities(context: Context):
+        with db.transaction() as tx:
+            counts = tx.execute(
+                "SELECT count(*) AS total, count(*) FILTER (WHERE embedding IS NOT NULL "
+                "AND embedding_revision=%s) AS embedded FROM products "
+                "WHERE namespace=%s AND active",
+                (encoder.revision if encoder is not None else None, context.namespace),
+            ).fetchone()
+        hybrid = (
+            encoder is not None and counts["total"] > 0 and counts["embedded"] == counts["total"]
+        )
+        return {
+            "search_modes": ["lexical", "hybrid_exact"] if hybrid else ["lexical"],
+            "hybrid_unavailable_reason": None
+            if hybrid
+            else "Hybrid search needs the locked model and embeddings for every active product.",
+        }
 
     @app.post("/v1/quotes", response_model=Quote, status_code=201)
     def post_quote(body: QuoteRequest, context: Context, key: Key):

@@ -70,6 +70,8 @@ def test_retry_snapshots_nested_query_values(context, pairs):
 async def invoke(http, pair, context):
     catalog, orders, analytics = CatalogClient(http), OrdersClient(http), AnalyticsClient(http)
     body, name = pair["request"], pair["endpoint"]
+    if name in {"browse", "capabilities"}:
+        return await http.request(name, context)
     if name == "search":
         return await catalog.search(body, context, key="p2-search")
     if name == "product":
@@ -108,6 +110,8 @@ async def invoke(http, pair, context):
 
 
 PAIR_NAMES = [
+    "browse-empty",
+    "retrieval-capabilities",
     "fewer-than-five-null-facets",
     "no-results",
     "five-hits",

@@ -778,6 +778,28 @@
         "reconciliation": null,
         "error": null
       }
+    },
+    {
+      "name": "browse-empty",
+      "endpoint": "browse",
+      "request": null,
+      "response": {
+        "items": [],
+        "total": 0,
+        "offset": 0,
+        "limit": 12
+      }
+    },
+    {
+      "name": "retrieval-capabilities",
+      "endpoint": "capabilities",
+      "request": null,
+      "response": {
+        "search_modes": [
+          "lexical"
+        ],
+        "hybrid_unavailable_reason": "Explicit test model unavailable"
+      }
     }
   ]
 }

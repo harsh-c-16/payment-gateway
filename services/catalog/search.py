@@ -19,6 +19,7 @@ ANN_DEFAULTS = {"ef_search": 100, "iterative_scan": "strict_order"}
 # Any matching term counts; ts_rank then rewards documents matching more terms and the title.
 TSQUERY = "replace(plainto_tsquery('english', %(text)s)::text, ' & ', ' | ')::tsquery"
 HIT_COLUMNS = """p.sku, p.product_id, p.title, p.category, p.brand, p.size, p.colour, p.material,
+    p.image_urls,
     p.price_minor, p.currency, p.catalog_version, p.dataset_revision, p.quality_flags,
     s.available AS stock_available, s.stock_version, s.changed_at AS stock_updated_at,
     s.applied_at AS stock_applied_at"""
@@ -82,9 +83,12 @@ def hard_filters(intent, namespace):
     return " AND ".join(clauses), parameters
 
 
-def filter_catalog(tx, intent, namespace):
+def filter_catalog(tx, intent, namespace, exclude_skus=()):
     """Eligible count under every hard constraint. Returns (where, parameters, count)."""
     where, parameters = hard_filters(intent, namespace)
+    if exclude_skus:
+        where += " AND NOT (p.sku = ANY(%(exclude_skus)s))"
+        parameters["exclude_skus"] = list(exclude_skus)
     count = tx.execute(
         f"SELECT count(*) AS n FROM {FROM_ELIGIBLE} WHERE {where}", parameters
     ).fetchone()["n"]
@@ -260,7 +264,9 @@ def search_catalog(db, events, request, context, *, encoder=None, frozen_vector=
     namespace = context.namespace
     with db.transaction() as tx:
         started = perf_counter()
-        where, parameters, eligible = filter_catalog(tx, request.intent, namespace)
+        where, parameters, eligible = filter_catalog(
+            tx, request.intent, namespace, request.exclude_skus
+        )
         filter_ms = (perf_counter() - started) * 1000
         started = perf_counter()
         rows = ranker(tx, where, parameters, request.top_k, request.intent.query_text, vector)
