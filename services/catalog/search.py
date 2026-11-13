@@ -108,6 +108,14 @@ def has_terms(tx, text):
     return tx.execute(f"SELECT numnode({TSQUERY}) > 0 AS terms", {"text": text}).fetchone()["terms"]
 
 
+def lexical_eligibility(where):
+    # Prevent PostgreSQL from reading toasted text for other namespaces/ineligible products.
+    return f"""WITH eligible AS MATERIALIZED (
+        SELECT p.namespace, p.sku, p.price_minor, p.search_vector
+        FROM {FROM_ELIGIBLE} WHERE {where}
+    )"""
+
+
 def rank_lexical(tx, where, parameters, limit, text, _vector):
     if not has_terms(tx, text):
         # Structured search without text: every eligible listing is an equal candidate.
@@ -116,15 +124,21 @@ def rank_lexical(tx, where, parameters, limit, text, _vector):
             FROM {FROM_ELIGIBLE} WHERE {where} ORDER BY p.sku LIMIT %(limit)s""",
             {**parameters, "limit": limit},
         ).fetchall()
-    return tx.execute(
-        f"""WITH ranked AS (
-                SELECT {HIT_COLUMNS}, ts_rank(p.search_vector, {TSQUERY})::float8 AS score,
-                       count(*) OVER () AS candidates
-                FROM {FROM_ELIGIBLE} WHERE {where} AND p.search_vector @@ {TSQUERY}
-            )
-            SELECT * FROM ranked ORDER BY score DESC, sku LIMIT %(limit)s""",
+    rows = tx.execute(
+        f"""{lexical_eligibility(where)}
+            SELECT sku, ts_rank(search_vector, {TSQUERY})::float8 AS score,
+                   count(*) OVER () AS candidates
+            FROM eligible WHERE search_vector @@ {TSQUERY}
+            ORDER BY score DESC, sku LIMIT %(limit)s""",
         {**parameters, "limit": limit, "text": text},
     ).fetchall()
+    return hydrate(
+        tx,
+        where,
+        parameters,
+        [(row["sku"], row["score"]) for row in rows],
+        rows[0]["candidates"] if rows else 0,
+    )
 
 
 def fuse_rrf(lexical_ranked, vector_ranked, k=60, top_k=5):

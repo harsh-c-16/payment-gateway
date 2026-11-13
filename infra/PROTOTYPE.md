@@ -174,6 +174,23 @@ a persistent error.
 
 ## Resources, verification and shutdown
 
+For native API debugging against the retained Docker PostgreSQL container, carry
+over the same bounded connection-pool configuration used by this overlay:
+
+```powershell
+'CATALOG', 'ORDERS', 'INVENTORY', 'PAYMENTS' | ForEach-Object {
+    [Environment]::SetEnvironmentVariable("${_}_REUSE_CONNECTIONS", 'true', 'Process')
+    [Environment]::SetEnvironmentVariable("${_}_MAX_CONNECTIONS", '4', 'Process')
+}
+$env:CONVERSATION_MAX_CONNECTIONS = '3'
+```
+
+Set these before starting native API processes. Otherwise the background workers
+repeatedly open database connections instead of reusing them. Native APIs are
+separate processes: Compose `env down` does not stop them. A PostgreSQL-only
+shopping preview leaves Kafka, projection and Gold export stopped; it is not the
+full-stack presentation or evaluation deployment.
+
 Container RAM ceilings total **3,584 MiB (3.5 GiB)**, plus a required 256 MiB of
 Docker VM headroom. CPU ceilings total 8 cores; Conversation and Catalogue get 1 core each, the other
 APIs get 0.5 each and the stock worker, analytics worker

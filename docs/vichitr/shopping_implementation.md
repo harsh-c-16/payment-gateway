@@ -1,5 +1,47 @@
 # Shopping website implementation — 13 November 2026
 
+## White-shirt timeout correction
+
+The subsequent real-browser report `i want white shirt` exposed a catalogue SQL
+timeout, not a missing catalogue. The failed turn recorded about 2,062 ms in search.
+A direct catalogue request returned `STORAGE_UNAVAILABLE`; PostgreSQL reported
+`QueryCanceled`, SQLSTATE `57014`, at its unchanged two-second statement timeout.
+The captured plan scanned 39,996 product rows across namespaces and evaluated text
+before narrowing by namespace/colour. Readiness and a successful unfiltered browse
+had not exercised this failing path.
+
+Lexical search now materializes business eligibility before text matching, ranks
+only those candidates, and uses the existing hydration helper for the selected
+SKUs. Hybrid's lexical branch shares that correction. Storefront keyword browsing
+uses the same eligibility boundary, reads details only for the selected page, and
+gets its total from the same matching scan. Empty pages beyond the end still return
+the actual count. Ranking formula, SKU ties, hard filters, prices, image links and
+timeout limits remain unchanged. No new index or data reset was used.
+
+The temporary native launcher also now uses the existing prototype pool settings:
+four reused connections per catalogue/M3 service, and a three-connection M1 budget.
+Its earlier omission was local launcher configuration; the committed Docker overlay
+already had these settings. The native setup remains a browser-testing preview,
+with Kafka/Gold stopped and events retained in real outboxes.
+
+Checks and private raw evidence in `artifacts/white-shirt-recovery-20261113/`:
+
+- `catalog-linux.xml`: 54 catalogue search/product/storefront checks passed,
+  including six reference comparisons of hits, scores and candidate counts.
+- `browse-final.xml`: four checks passed after the final single-scan count change,
+  including ascending/descending price pages and offsets beyond the result count.
+- `smoke-after.json`: the exact phrase returned five white products through real M1
+  and M2 in about 1.145 s; more options returned five different white products in
+  about 0.884 s. Capabilities, regular storefront search, price sorting and saved
+  preferences also passed. These are troubleshooting observations, not benchmark
+  or capacity claims. No purchase was submitted during this correction.
+- Original failure, SQL statements and query plan are retained separately from the
+  corrected run. Ruff, contract-generation checks and Git whitespace checks passed.
+
+The preview was restarted without clearing user sessions/carts and left running for
+the user's browser retest. Full evaluation, model provisioning and Kafka/Gold drain
+verification remain outside this correction.
+
 User-authorized scope: implement the conversational shopping product across module
 boundaries, reuse the CSV-backed services, make routine decisions without waiting,
 avoid benchmark campaigns, and collect changes in one combined branch commit.

@@ -60,7 +60,13 @@ def get_facets(db, namespace, revision=None):
 
 def browse(db, namespace, *, query, category, max_price_minor, sort, offset, limit):
     """Read-only storefront listing over the same sellable set and hard filters."""
-    from services.catalog.search import FROM_ELIGIBLE, HIT_COLUMNS, TSQUERY, hard_filters
+    from services.catalog.search import (
+        FROM_ELIGIBLE,
+        HIT_COLUMNS,
+        TSQUERY,
+        hard_filters,
+        lexical_eligibility,
+    )
     from shared.contracts.catalog import ProductHit, ProductPage, ShoppingIntent
 
     intent = ShoppingIntent(
@@ -74,8 +80,6 @@ def browse(db, namespace, *, query, category, max_price_minor, sort, offset, lim
     )
     where, parameters = hard_filters(intent, namespace)
     score = f"ts_rank(p.search_vector, {TSQUERY})::float8" if query.strip() else "0.0::float8"
-    if query.strip():
-        where += f" AND p.search_vector @@ {TSQUERY}"
     order = {
         "relevance": "score DESC, p.sku",
         "price_asc": "p.price_minor, p.sku",
@@ -83,14 +87,38 @@ def browse(db, namespace, *, query, category, max_price_minor, sort, offset, lim
     }[sort]
     parameters.update(text=query, limit=limit, offset=offset)
     with db.transaction() as tx:
-        total = tx.execute(
-            f"SELECT count(*) AS n FROM {FROM_ELIGIBLE} WHERE {where}", parameters
-        ).fetchone()["n"]
-        found = tx.execute(
-            f"SELECT {HIT_COLUMNS}, {score} AS score FROM {FROM_ELIGIBLE} WHERE {where} "
-            f"ORDER BY {order} LIMIT %(limit)s OFFSET %(offset)s",
-            parameters,
-        ).fetchall()
+        if query.strip():
+            eligible = lexical_eligibility(where)
+            matches = f"FROM eligible p WHERE p.search_vector @@ {TSQUERY}"
+            found = tx.execute(
+                f"""{eligible}, page AS MATERIALIZED (
+                    SELECT p.namespace, p.sku, {score} AS score,
+                           count(*) OVER () AS total {matches}
+                    ORDER BY {order} LIMIT %(limit)s OFFSET %(offset)s
+                )
+                SELECT {HIT_COLUMNS}, page.score, page.total FROM page
+                JOIN products p ON p.namespace=page.namespace AND p.sku=page.sku
+                JOIN stock_projection s ON s.namespace=p.namespace AND s.sku=p.sku
+                ORDER BY {order}""",
+                parameters,
+            ).fetchall()
+            total = found[0]["total"] if found else 0
+            for row in found:
+                del row["total"]
+            # An empty page past the end still reports the real matching count.
+            if not found and offset:
+                total = tx.execute(
+                    f"{eligible} SELECT count(*) AS n {matches}", parameters
+                ).fetchone()["n"]
+        else:
+            total = tx.execute(
+                f"SELECT count(*) AS n FROM {FROM_ELIGIBLE} WHERE {where}", parameters
+            ).fetchone()["n"]
+            found = tx.execute(
+                f"SELECT {HIT_COLUMNS}, {score} AS score FROM {FROM_ELIGIBLE} WHERE {where} "
+                f"ORDER BY {order} LIMIT %(limit)s OFFSET %(offset)s",
+                parameters,
+            ).fetchall()
     return ProductPage(
         items=[
             ProductHit(**row, retrieval_mode="lexical", rank=offset + i)

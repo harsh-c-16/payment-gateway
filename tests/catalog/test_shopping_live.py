@@ -2,10 +2,33 @@
 
 from uuid import uuid4
 
+import pytest
 from psycopg.types.json import Jsonb
 
 from services.conversation.intent import blank_intent
 from tests.catalog.service_helpers import headers, search
+
+
+@pytest.mark.parametrize(
+    "sort,first_sku", [("price_asc", "FK-SHIRT2"), ("price_desc", "FK-SHIRT3")]
+)
+def test_text_browse_keeps_price_order_and_counts_across_pages(world, sort, first_sku):
+    client, namespace, _ = world
+    first = client.get(f"/v1/products?q=shirt&sort={sort}&limit=1", headers=headers(namespace))
+    assert first.status_code == 200, first.text
+    assert first.json()["items"][0]["sku"] == first_sku
+    assert first.json()["total"] == 3
+    second = client.get(
+        f"/v1/products?q=shirt&sort={sort}&limit=1&offset=1", headers=headers(namespace)
+    )
+    assert second.status_code == 200, second.text
+    assert second.json()["items"][0]["sku"] == "FK-SHIRT1"
+    assert second.json()["total"] == 3
+    beyond = client.get(
+        f"/v1/products?q=shirt&sort={sort}&limit=1&offset=20", headers=headers(namespace)
+    )
+    assert beyond.status_code == 200, beyond.text
+    assert beyond.json()["items"] == [] and beyond.json()["total"] == 3
 
 
 def test_browse_filters_pagination_and_images(world, db):
