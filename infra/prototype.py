@@ -257,6 +257,23 @@ def verify():
     return facts
 
 
+def start_applications(check):
+    # Bound cold imports; providers become healthy before clients and individual workers.
+    for stage, services in (
+        ("domain-apis", ("catalog", "inventory", "payments")),
+        ("client-apis", ("orders", "conversation", "analytics")),
+        ("stock-worker", ("catalog-worker",)),
+        ("analytics-worker", ("analytics-worker",)),
+        ("outbox-relays", ("prototype-relays",)),
+    ):
+        check(
+            "start-" + stage,
+            lambda services=services: compose(
+                "up", "--detach", "--no-deps", "--wait", "--wait-timeout", "240", *services
+            ),
+        )
+
+
 def adapter(invocation):
     if invocation.arguments.get("profile", "prototype-local") != "prototype-local":
         return ProviderResult(ExitCode.BAD_INPUT, ("Use --profile prototype-local",), "real")
@@ -274,6 +291,7 @@ def adapter(invocation):
         resources = check("development-budget", budget)
         if invocation.action == "env up":
             check("private-bindings", lambda: prepare(invocation.run_id))
+            check("stop-retained-applications", lambda: compose("stop", "--timeout", "40", *APPS))
             base = streaming.adapter(replace(invocation, arguments={"profile": "streaming-local"}))
             if base.code != ExitCode.COMPLETED:
                 return base
@@ -285,12 +303,7 @@ def adapter(invocation):
             )
             check("application-image", build_image)
             check("compose-config", lambda: compose("config", "--quiet"))
-            check(
-                "start-applications",
-                lambda: compose(
-                    "up", "--detach", "--no-deps", "--wait", "--wait-timeout", "120", *APPS
-                ),
-            )
+            start_applications(check)
         else:
             check("schema-prerequisites", prerequisites)
         facts = check("prototype-verification", verify)

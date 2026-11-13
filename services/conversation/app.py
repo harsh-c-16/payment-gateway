@@ -2,15 +2,23 @@
 
 import logging
 import os
+from pathlib import Path
 from time import monotonic
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import TypeAdapter, ValidationError
 
+from shared.contracts.catalog import (
+    CatalogCapabilities,
+    FacetDictionary,
+    ProductPage,
+    ProductResponse,
+)
 from shared.contracts.common import (
     ErrorCode,
     IdempotencyKey,
@@ -28,6 +36,8 @@ from shared.contracts.conversation import (
     TurnRequest,
     TurnResponse,
 )
+from shared.contracts.shopping import ShoppingBootstrap, ShoppingSession, ShoppingTurnRequest
+from shared.contracts.transactions import OrderSnapshot
 from shared.telemetry.benchmark import benchmark_headers
 from shared.telemetry.context import bind_context, log_operation
 from shared.telemetry.metrics import Telemetry
@@ -36,12 +46,22 @@ from .database import Database
 from .errors import ServiceError
 from .gateway import Gateway
 from .provider_contracts import ContractUnavailable
+from .shopping import ShoppingWorkflow
 from .state import ConversationState
 from .workflow import FixedWorkflow
 
 LOGGER = logging.getLogger("conversation")
 ROUTES = (
+    "/",
+    "/v1/store/bootstrap",
+    "/v1/store/products",
+    "/v1/store/products/{sku}",
+    "/v1/store/facets",
+    "/v1/store/capabilities",
+    "/v1/store/orders/{order_id}",
     "/v1/sessions",
+    "/v1/sessions/{session_id}",
+    "/v1/sessions/{session_id}/shopping-turns",
     "/v1/sessions/{session_id}/turns",
     "/v1/carts/{cart_id}",
     "/v1/carts/{cart_id}/items/{sku}",
@@ -160,6 +180,17 @@ def create_app(
     app = FastAPI(title="Conversation", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.conversation = state
     app.state.execution_mode = mode
+    shopping = (
+        ShoppingWorkflow(
+            state,
+            workflow.gateway,
+            assistant_mode=assistant_mode,
+            allow_intent_llm=allow,
+            intent_provider=workflow.intent_provider,
+        )
+        if workflow is not None
+        else None
+    )
     telemetry = Telemetry(
         label_values={
             "service": {"conversation"},
@@ -271,6 +302,63 @@ def create_app(
     def live():
         return {"status": "live"}
 
+    @app.get("/v1/store/bootstrap", response_model=ShoppingBootstrap)
+    def bootstrap():
+        return {"namespace": os.environ.get("DEFAULT_NAMESPACE", "dev"), "simulation": True}
+
+    @app.get("/v1/sessions/{session_id}", response_model=ShoppingSession)
+    def session_snapshot(session_id: UUIDText, context: Context):
+        return state.shopping_session(session_id, context)
+
+    @app.post("/v1/sessions/{session_id}/shopping-turns", response_model=TurnResponse)
+    def shopping_turn(session_id: UUIDText, body: ShoppingTurnRequest, context: Context, key: Key):
+        if shopping is None:
+            workflow_unavailable()
+        return shopping.dispatch_turn(session_id, body, context, key)
+
+    @app.get("/v1/store/products", response_model=ProductPage)
+    def store_products(
+        context: Context,
+        q: Annotated[str, Query(max_length=200)] = "",
+        category: Annotated[str | None, Query(max_length=256)] = None,
+        max_price_minor: Annotated[int | None, Query(ge=0, le=1000000000)] = None,
+        sort: Literal["relevance", "price_asc", "price_desc"] = "relevance",
+        offset: Annotated[int, Query(ge=0, le=100000)] = 0,
+        limit: Annotated[int, Query(ge=1, le=20)] = 12,
+    ):
+        if shopping is None:
+            workflow_unavailable()
+        params = {"q": q, "sort": sort, "offset": offset, "limit": limit}
+        if category is not None:
+            params["category"] = category
+        if max_price_minor is not None:
+            params["max_price_minor"] = max_price_minor
+        return shopping.store_call("browse", context, params=params)
+
+    @app.get("/v1/store/facets", response_model=FacetDictionary)
+    def store_facets(context: Context):
+        if shopping is None:
+            workflow_unavailable()
+        return shopping.store_call("facets", context, params={"namespace": context.namespace})
+
+    @app.get("/v1/store/capabilities", response_model=CatalogCapabilities)
+    def store_capabilities(context: Context):
+        if shopping is None:
+            workflow_unavailable()
+        return shopping.store_call("capabilities", context)
+
+    @app.get("/v1/store/products/{sku}", response_model=ProductResponse)
+    def store_product(sku: Sku, context: Context):
+        if shopping is None:
+            workflow_unavailable()
+        return shopping.store_call("product", context, sku=sku)
+
+    @app.get("/v1/store/orders/{order_id}", response_model=OrderSnapshot)
+    def store_order(order_id: UUIDText, context: Context):
+        if shopping is None:
+            workflow_unavailable()
+        return shopping.store_call("order_status", context, order_id=order_id)
+
     @app.get("/health/ready")
     def ready():
         state.ready()
@@ -290,6 +378,22 @@ def create_app(
         model_metrics = workflow.telemetry.exposition() if workflow is not None else b""
         return Response(
             telemetry.exposition() + model_metrics, media_type="text/plain; version=0.0.4"
+        )
+
+    assets = Path(__file__).with_name("web")
+    app.mount("/assets", StaticFiles(directory=assets), name="assets")
+
+    @app.get("/", include_in_schema=False)
+    def storefront():
+        return FileResponse(
+            assets / "index.html",
+            headers={
+                "Content-Security-Policy": "default-src 'self'; img-src 'self' https: http:; "
+                "script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; "
+                "base-uri 'self'; frame-ancestors 'none'",
+                "Referrer-Policy": "no-referrer",
+                "X-Content-Type-Options": "nosniff",
+            },
         )
 
     return app

@@ -258,6 +258,32 @@ def test_external_schema_resolution_is_local_and_required(tmp_path, pairs):
         contracts.validate_schema(base, {"$ref": "https://invalid.test/remote.json"}, {})
 
 
+def test_schema_references_load_once_per_validation_and_observe_changes(tmp_path, monkeypatch):
+    directory = tmp_path / "contracts/http"
+    directory.mkdir(parents=True)
+    path = directory / "owner.yaml"
+    path.write_text(
+        "openapi: 3.1.0\ncomponents:\n  schemas:\n    Count:\n      type: integer\n",
+        encoding="utf-8",
+    )
+    contracts = OpenAPIContracts(directory)
+    reads = []
+    original = contracts._resource
+
+    def resource(uri):
+        reads.append(uri)
+        return original(uri)
+
+    monkeypatch.setattr(contracts, "_resource", resource)
+    schema = {"type": "array", "items": {"$ref": "#/components/schemas/Count"}}
+    contracts.validate_schema(path.as_uri(), schema, list(range(20)))
+    assert reads == [path.as_uri()]
+    path.write_text(path.read_text().replace("integer", "string"), encoding="utf-8")
+    with pytest.raises(ContractViolation):
+        contracts.validate_schema(path.as_uri(), schema, [1])
+    assert reads == [path.as_uri(), path.as_uri()]
+
+
 def test_declared_schema_dialect_cannot_relax_wire_integer_types(tmp_path):
     directory = tmp_path / "contracts/http"
     directory.mkdir(parents=True)

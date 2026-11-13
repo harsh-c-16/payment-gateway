@@ -13,7 +13,7 @@ from shared.outbox import OutboxRelay
 
 
 @contextmanager
-def catalog_relay(url, codec, bootstrap, *, service_name="catalog"):
+def catalog_relay(url, codec, bootstrap, *, service_name="catalog", poll_interval_ms=25):
     if service_name not in {"conversation", "catalog", "orders", "inventory", "payments"}:
         raise ValueError("Explicit operational outbox service required")
 
@@ -27,7 +27,7 @@ def catalog_relay(url, codec, bootstrap, *, service_name="catalog"):
         RelayConnections(connect),
         publisher,
         service_name=service_name,
-        poll_interval_ms=25,
+        poll_interval_ms=poll_interval_ms,
         batch_limit=100,
     )
     thread = None

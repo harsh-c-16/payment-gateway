@@ -7,8 +7,44 @@ from starlette.testclient import TestClient
 
 from services.catalog.app import create_app
 from services.catalog.events import SharedEvents
-from services.catalog.search import fuse_rrf
+from services.catalog.search import (
+    FROM_ELIGIBLE,
+    HIT_COLUMNS,
+    TSQUERY,
+    fuse_rrf,
+    hard_filters,
+    rank_lexical,
+)
+from shared.contracts.catalog import ShoppingIntent
 from tests.catalog.service_helpers import captured, search, skus
+
+
+@pytest.mark.parametrize("colour", [None, "blue", "green"])
+@pytest.mark.parametrize("limit", [1, 5])
+def test_prefiltered_lexical_search_preserves_reference_hits_scores_and_counts(
+    world, db, colour, limit
+):
+    _, namespace, _ = world
+    intent = ShoppingIntent(
+        query_text="blue shirt",
+        category=None,
+        size=None,
+        colour=colour,
+        material=None,
+        max_price_minor=None,
+        occasion=None,
+    )
+    where, parameters = hard_filters(intent, namespace)
+    with db.transaction() as tx:
+        reference = tx.execute(
+            f"""SELECT {HIT_COLUMNS}, ts_rank(p.search_vector, {TSQUERY})::float8 AS score,
+                       count(*) OVER () AS candidates
+                FROM {FROM_ELIGIBLE} WHERE {where} AND p.search_vector @@ {TSQUERY}
+                ORDER BY score DESC, p.sku LIMIT %(limit)s""",
+            {**parameters, "text": intent.query_text, "limit": limit},
+        ).fetchall()
+        actual = rank_lexical(tx, where, parameters, limit, intent.query_text, None)
+    assert actual == reference
 
 
 def test_unknown_stock_and_inactive_are_never_sale_suggestions(world):

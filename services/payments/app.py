@@ -115,7 +115,7 @@ def create_app(*, db=None, events=None):
                     authorize.complete_pending_payments(db, events)
                 except Exception:
                     LOGGER.exception("payment completion worker error; pending work retained")
-                completion_stop.wait(0.025)
+                completion_stop.wait(0.1)
 
         completion_thread = threading.Thread(
             target=complete, name="payment-completion", daemon=True

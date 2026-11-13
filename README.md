@@ -9,6 +9,11 @@
 
 ## 1. Project Overview
 
+The conversational shopping website runs at **http://127.0.0.1:8001/**. It uses our
+CSV-backed catalogue and existing cart, quote and simulated checkout services.
+See [startup commands](infra/PROTOTYPE.md) and
+[shopping behaviour](docs/specs/11_SHOPPING_EXPERIENCE.md).
+
 This project implements an e-commerce platform and agentic shopping assistant with an emphasis on distributed systems engineering, fault tolerance, transaction isolation, and streaming data pipelines. The system is built around the 20,000-observation Flipkart product catalogue, using deterministic normalization, transactional outbox patterns, Kafka event streams, and an analytical lakehouse with Medallion architecture (Bronze/Silver/Gold).
 
 ### Team Members & Module Ownership

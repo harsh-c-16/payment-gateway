@@ -1,5 +1,107 @@
 # Vichitr progress
 
+## Prototype recovery and startup fixes — 13 November 2026
+
+Scope: the user's coordinated prototype request across owners, based on merged
+main `0ec52e9` on `vichitr`. No evaluation campaigns, benchmarks, CI selection,
+resource-profile increase, reimport, reseed, offset reset or volume deletion.
+
+Implemented:
+
+- `infra/prototype.py`: stop retained applications before infrastructure startup,
+  including workers Docker may restore after a host crash. Start domain APIs,
+  client APIs, stock worker, analytics worker and relays in dependency order;
+  each stage must actually become healthy within four minutes. Failure prevents
+  later stages. The request/SQL timeouts and three-second M1 turn budget stay intact.
+- `infra/compose.prototype.yaml`: enable the existing bounded connection pools
+  for the four operational APIs. The combined prototype relays poll at 250 ms;
+  the standalone relay keeps its 25-ms default. Payment completion polls at
+  100 ms, preserving the minimum 100-ms durable completion delay.
+- `services/conversation/intent.py`: skip regex work for literal phrases absent
+  from the remaining input, and absent explicit-value prefixes. Preserve longest
+  compound matches, word boundaries, unknown-constraint clarification and zero
+  generative calls in fixed mode.
+- `services/conversation/provider_contracts.py`: resolve a local schema resource
+  once within a validation call. Subsequent calls reload it, so edits still fail
+  compatibility checks; strict integer, dialect and local-reference rules remain.
+- `shared/outbox`: commit an empty relay read before waiting, releasing its
+  transaction/snapshot without contacting Kafka. Unit and real PostgreSQL checks
+  verify the resulting IDLE transaction state.
+- Optional `pipelines.catalog.migrate --variant prototype`: a partial covering
+  index for eligible-product counts, outside base/O2 migrations. Reapplying it
+  adds no further index. Fresh evaluation schemas must exclude this variant.
+- [Windows startup/demo/shutdown instructions](../../infra/PROTOTYPE.md) now use
+  the existing M3 setup and connected client, retained bindings, pinned uv and
+  exact-order Gold check. No replacement business service or new frontend was added.
+
+### Actual verification and crash recovery
+
+Before the host crash, staged startup and separate process verification passed
+(`b4a5e4a7-7887-4a68-9577-28e6e221a7c3`,
+`780160ec-26f9-4c3f-b7bb-f2beadf80d18`), and projection readiness covered all
+19,920 SKUs (`e39d3242-8e76-4084-931e-e63a21319495`). Later startup/search
+attempts failed and remain preserved. One client-API startup took 157 seconds;
+the simultaneous worker stage then failed with real connection timeouts.
+These older runs do **not** verify the final sequential-worker implementation.
+
+Diagnostic changes to PostgreSQL CPU and the registry's running state were
+temporary. All twelve retained container CPU/RAM allocations were subsequently
+checked against the unchanged 3,584-MiB / 8-CPU prototype budget. No successful
+end-to-end result is inferred from those allocations or container health.
+
+After the user reported a system crash, three edited files contained only zero
+bytes: `infra/prototype.py`, `infra/PROTOTYPE.md` and
+`tests/pipelines/test_prototype.py`. Their corrupt bytes were preserved locally;
+the files were recovered from Git and the known changes reapplied. The remaining
+source edits survived. The crash cause was not established.
+
+Docker initially had no running engine. Windows had about 925 MiB free before
+startup and 309 MiB after Docker restored two background workers. Those workers
+were explicitly stopped; only PostgreSQL ran for the live checks. No full-stack
+restart was attempted after this recovery. No unrelated Windows application was
+closed and no WSL/Windows memory setting was changed.
+
+Evidence root: `artifacts/prototype-final-20261113/` (local, ignored).
+
+| Check | Actual result / evidence |
+|---|---|
+| Focused contracts, clients, prototype, outbox, intent and assist checks | 263 passed, 69 PostgreSQL-dependent skips; `after-crash-tests.xml` |
+| PostgreSQL-only rerun with `P6_TEST_DATABASE_URL`, `CATALOG_TEST_DATABASE_URL`, `INVENTORY_TEST_DATABASE_URL` loaded privately | 150 passed, zero skipped; `after-crash-live.xml`; includes all 69 skipped cases, pooling, both optional index variants and async payment invariants |
+| Final startup ordering/failure/retained-worker checks | 24 passed; `startup-final.xml` |
+| Deduplicated union of these three JUnit reports | **342 distinct passing cases, zero unresolved skips**; reports overlap and must not be added |
+| Retained DB/role/durability checks and Compose config | PASS; `post-crash-database.json` |
+| Retained catalogue and stock | 19,998 listings / 19,920 active; 19,920 projection and inventory SKUs |
+| Active publication state | Silver and Gold generation 283, zero unfinished receipts, **one pending export**; Kafka lag was not checked with the broker stopped |
+| Empty shared relay with real PostgreSQL and an explicit no-publish sentinel | PASS; transaction IDLE, no Kafka call |
+| Actual container CPU/RAM configuration | All twelve match the prototype budget; `container-allocations.json`; stopped services are not runtime acceptance |
+| Shutdown | All project containers stopped, Docker Desktop stopped, `docker-desktop` WSL distribution stopped; volumes retained |
+
+Commands: the offline run selected `tests/contracts/{test_contracts,test_clients}.py`,
+`tests/pipelines/{test_prototype,test_catalog_relay}.py`,
+`tests/transactions/test_outbox_unit.py` and
+`tests/conversation/{test_intent,test_search_regressions,test_assist}.py`.
+The SQL run selected the last two conversation files,
+`tests/catalog/test_database_live.py`, and the pending-completion/retry-policy
+tests in `tests/transactions/test_async_payments.py`. Pytest used the locked
+`.venv/Scripts/python.exe`, workspace basetemps and the JUnit paths above.
+
+### Remaining prototype acceptance
+
+No additional teammate implementation is identified for the merged fixed-mode
+prototype. This machine still needs a successful **final-code** preflight,
+explicitly confirmed shopping rehearsal, transaction reconciliation, resume and
+declined-confirmation check, exact event/receipt/active-Gold capture, drain of the
+pending export, and retained-data restart rehearsal. Prepared operator drivers
+are local; they have not run successfully and are not delivery evidence. Any
+scripted confirmation must be labelled scripted. One person must type the real
+confirmation before presenting.
+
+Use the already rehearsed presentation machine or free host memory before this
+full-stack acceptance. Harsh's Linux archive is not present on this checkout;
+the committed owner rehearsal/comparison notes are attributed to their author,
+not independently reproduced here. Full evaluation/fault/stress/benchmark work
+remains deferred, as requested. No full-suite or hosted CI success is claimed.
+
 ## Prototype recovery follow-up — 10 November 2026
 
 Scope: finish retained prototype startup/catch-up and diagnose the real shopping

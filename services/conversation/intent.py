@@ -76,7 +76,7 @@ def explicit_facets(text, maps):
             (
                 phrase
                 for phrase in sorted(maps[field], key=len, reverse=True)
-                if re.match(re.escape(phrase) + r"(?!\w)", tail)
+                if tail.startswith(phrase) and re.match(re.escape(phrase) + r"(?!\w)", tail)
             ),
             None,
         )
@@ -120,6 +120,8 @@ def phrases(text, mapping):
     """Longest non-overlapping dictionary matches preserve compound values."""
     matches, remaining = set(), text
     for phrase in sorted(mapping, key=len, reverse=True):
+        if phrase not in remaining:
+            continue
         pattern = r"(?<!\w)" + re.escape(phrase) + r"(?!\w)"
         if re.search(pattern, remaining):
             matches.add(mapping[phrase])

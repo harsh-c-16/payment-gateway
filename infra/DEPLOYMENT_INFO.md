@@ -31,6 +31,10 @@ The pins are also in [images.lock.json](images.lock.json).
 
 ## Addresses
 
+The browser shopping website and contextual chat are served by Conversation at
+**http://127.0.0.1:8001/**. Apply the M1 migration in the startup sequence before
+opening it. See [shopping behaviour](../docs/specs/11_SHOPPING_EXPERIENCE.md).
+
 Everything binds to `127.0.0.1` only.
 
 | Service | Port | Used by the demo |
@@ -97,6 +101,7 @@ sudo systemctl start docker                        # only if Docker is not runni
 PROJECTCTL_ADAPTER_MODULE=infra.postgres .venv/bin/python -m projectctl env up --profile postgres-local
 set -a; . artifacts/infra/prototype-local/.env; set +a
 .venv/bin/python -m services.orders.m3_setup         # repeatable; applies nothing when current
+.venv/bin/python -m services.conversation.database  # repeatable; includes saved shopping context
 PROJECTCTL_ADAPTER_MODULE=infra.prototype .venv/bin/python -m projectctl env up --profile prototype-local
 ```
 

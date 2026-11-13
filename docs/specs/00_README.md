@@ -19,6 +19,10 @@ The two workload adjustments are **dashboard → Jaineel** and **compaction/quer
 
 ## Reading and implementation order
 
+The requested browser storefront and contextual shopping dialogue are specified in
+[11_SHOPPING_EXPERIENCE.md](11_SHOPPING_EXPERIENCE.md). Startup remains in
+[PROTOTYPE.md](../../infra/PROTOTYPE.md).
+
 1. [01_PROJECT_CONTEXT.md](01_PROJECT_CONTEXT.md): scope, assumptions, source interpretation, design rationale and references.
 2. [02_COMMON_SPEC.md](02_COMMON_SPEC.md): authoritative APIs, types, functions, event schemas, state machines, ownership and integration gates.
 3. [03_EVALUATION_SPEC.md](03_EVALUATION_SPEC.md): workloads, baseline/variants, metric formulas, stress/fault tests and evidence artifacts.

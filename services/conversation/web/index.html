@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Find products from our catalogue through conversation, then review your cart and confirm a simulated purchase.">
+  <title>ShopTalk · Find your kind of thing</title>
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/assets/store.css">
+  <script src="/assets/store.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#catalogue">Skip to products</a>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="ShopTalk home"><img src="/assets/mark.svg" alt="" width="34" height="34">ShopTalk<span class="brand-dot">.</span></a>
+    <form id="search-form" role="search"><label class="sr-only" for="search">Search our products</label><input id="search" type="search" maxlength="200" placeholder="Search our catalogue…"><button type="submit">Search <span aria-hidden="true">↗</span></button></form>
+    <button id="cart-open" class="cart-button" type="button">Cart <span id="cart-count" class="count">0</span></button>
+  </header>
+  <div class="demo-strip"><span class="status-dot" aria-hidden="true"></span> A real catalogue. A simulated checkout. <span>Historical INR prices · No real payments</span></div>
+  <main class="layout">
+    <section id="catalogue" class="catalogue" aria-labelledby="page-title">
+      <div class="hero"><p class="eyebrow">A LITTLE LESS SEARCHING</p><h1 id="page-title">Find your kind<br>of thing<span>.</span></h1><p>Browse the collection, or tell our shopping assistant what you have in mind.</p><div id="category-chips" class="chips" aria-label="Browse categories"></div></div>
+      <div id="notice" class="notice" role="status" hidden><span id="notice-text"></span><button id="retry-pending" type="button" hidden>Retry saved request</button><button id="retry-load" type="button" hidden>Try again</button></div>
+      <section class="collection" aria-labelledby="results-title">
+        <div class="collection-heading"><div><p class="eyebrow">THE COLLECTION</p><h2 id="results-title">Discover something good</h2><p id="result-count" class="muted" aria-live="polite">Connecting to our catalogue…</p></div><button id="browse-reset" class="text-button" type="button" hidden>Back to browsing ↗</button></div>
+        <form id="filters" class="filters"><div><label for="category">Category</label><select id="category"><option value="">All categories</option></select></div><div><label for="budget">Maximum price (₹)</label><input id="budget" type="number" min="0" max="10000000" step="0.01" placeholder="Any budget"></div><div><label for="sort">Sort by</label><select id="sort"><option value="relevance">Recommended</option><option value="price_asc">Price: low to high</option><option value="price_desc">Price: high to low</option></select></div><button type="submit" class="secondary">Apply</button></form>
+        <div id="products" class="product-grid" aria-live="polite"></div>
+        <div id="empty" class="empty-state" hidden><span aria-hidden="true">⌕</span><h3>No matches this time</h3><p>Try different words or explicitly change a filter. We keep your requirements intact.</p></div>
+        <nav id="pagination" class="pagination" aria-label="Product pages" hidden><button id="previous" class="secondary" type="button">← Previous</button><span id="page-info"></span><button id="next" class="secondary" type="button">Next →</button></nav>
+      </section>
+      <footer class="store-footer">Group 3 · Our CSV-backed catalogue, PostgreSQL, Kafka and lakehouse.<br>Displayed availability is advisory; checkout rechecks stock and prices.</footer>
+    </section>
+    <aside class="assistant" aria-labelledby="assistant-title">
+      <div class="assistant-heading"><div class="assistant-symbol" aria-hidden="true">✳</div><div><h2 id="assistant-title">Your shopping companion</h2><p>Describe it. Refine it. Find it.</p></div><span class="assistant-label">SHOPPING CHAT</span></div>
+      <div class="chat-intro"><h3>What are you looking for?</h3><p>A blue shirt under ₹1,000? A gift you're not quite sure about? Let's narrow it down together.</p><div class="suggestions"><button type="button" data-prompt="I need a gift">Help me find a gift</button><button type="button" data-prompt="Show watches under 1000 rupees">Watches under ₹1,000</button><button type="button" data-prompt="Show blue shirts">Something in blue</button></div></div>
+      <div id="messages" class="messages" role="log" aria-live="polite" aria-label="Shopping conversation"></div>
+      <div id="preferences" class="preferences" hidden></div>
+      <div class="chat-controls"><button id="more-options" class="text-button" type="button" disabled>More options ↗</button><button id="new-search" class="text-button" type="button">Start a new search</button><label for="retrieval" class="sr-only">Retrieval mode</label><select id="retrieval" aria-label="Retrieval mode"><option value="lexical">Keyword search</option><option value="hybrid_exact" disabled>Hybrid search</option></select></div>
+      <p id="retrieval-note" class="retrieval-note">Checking retrieval capabilities…</p>
+      <form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Describe the product or answer the assistant</label><textarea id="chat-input" maxlength="2000" rows="2" placeholder="Tell me what you have in mind…" required></textarea><button id="send-chat" type="submit" aria-label="Send message">↑</button></form>
+      <p class="chat-footnote">Shopping queries only. Purchases always need your explicit confirmation.</p>
+    </aside>
+  </main>
+  <dialog id="product-dialog" aria-labelledby="product-title"><div class="dialog-heading"><span class="eyebrow">A CLOSER LOOK</span><button type="button" data-close="product-dialog" class="icon-button" aria-label="Close product details">×</button></div><div id="product-detail"></div></dialog>
+  <dialog id="cart-dialog" aria-labelledby="cart-title"><div class="dialog-heading"><div><p class="eyebrow">YOUR FINDS</p><h2 id="cart-title">Shopping cart</h2></div><button type="button" data-close="cart-dialog" class="icon-button" aria-label="Close cart">×</button></div><div id="cart-lines"></div><div id="quote"></div><div id="order" role="status"></div><div class="cart-actions"><button id="request-quote" type="button" class="primary">Review authoritative quote</button><label id="review-label" class="review-label" hidden><input id="review-quote" type="checkbox">I have reviewed this quote and want to make this simulated purchase.</label><button id="confirm-purchase" type="button" class="primary" hidden disabled>Confirm simulated purchase</button></div><p class="muted small">Payments and inventory are simulated. No card or bank information is needed.</p></dialog>
+  <template id="product-card"><article class="product-card"><button type="button" class="product-image-button" data-action="detail"><img class="product-image" alt="" loading="lazy" referrerpolicy="no-referrer"></button><div class="product-copy"><p class="product-category"></p><h3 class="product-title"></h3><p class="product-price"></p><p class="product-stock"></p><div class="product-actions"><button type="button" class="secondary" data-action="detail">View details</button><button type="button" class="add-button" data-action="add" aria-label="Add to cart">+</button></div></div></article></template>
+</body>
+</html>

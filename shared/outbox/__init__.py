@@ -157,6 +157,7 @@ def relay_once(db_connection, publisher, *, limit=100, claim_id=None) -> RelayRe
 
     result.scanned = len(rows)
     if not rows:
+        db_connection.commit()
         return result
 
     now = datetime.now(UTC)

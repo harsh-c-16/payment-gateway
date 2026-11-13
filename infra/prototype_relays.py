@@ -31,6 +31,7 @@ def main():
                                 EventCodec(cache, source_service=service),
                                 os.environ["KAFKA_BOOTSTRAP_SERVERS"],
                                 service_name=service,
+                                poll_interval_ms=250,
                             )
                         )
                     )

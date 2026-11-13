@@ -204,6 +204,181 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /v1/products:
+    get:
+      summary: Browse Products
+      operationId: browse_products_v1_products_get
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+          maxLength: 200
+          default: ''
+          title: Q
+      - name: category
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: string
+            maxLength: 256
+          - type: 'null'
+          title: Category
+      - name: max_price_minor
+        in: query
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+            maximum: 1000000000
+            minimum: 0
+          - type: 'null'
+          title: Max Price Minor
+      - name: sort
+        in: query
+        required: false
+        schema:
+          enum:
+          - relevance
+          - price_asc
+          - price_desc
+          type: string
+          default: relevance
+          title: Sort
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 100000
+          minimum: 0
+          default: 0
+          title: Offset
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 20
+          minimum: 1
+          default: 12
+          title: Limit
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductPage'
+        '400':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /v1/catalog/capabilities:
+    get:
+      summary: Capabilities
+      operationId: capabilities_v1_catalog_capabilities_get
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogCapabilities'
+        '400':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Common error object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /v1/quotes:
     post:
       summary: Post Quote
@@ -672,6 +847,30 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 components:
   schemas:
+    CatalogCapabilities:
+      properties:
+        search_modes:
+          items:
+            type: string
+            enum:
+            - filter_only
+            - lexical
+            - vector_exact
+            - hybrid_exact
+            - hybrid_ann
+          type: array
+          title: Search Modes
+        hybrid_unavailable_reason:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Hybrid Unavailable Reason
+      additionalProperties: false
+      type: object
+      required:
+      - search_modes
+      - hybrid_unavailable_reason
+      title: CatalogCapabilities
     ErrorBody:
       properties:
         code:
@@ -976,6 +1175,11 @@ components:
           - type: string
           - type: 'null'
           title: Inactive Reason
+        image_urls:
+          items:
+            type: string
+          type: array
+          title: Image Urls
       additionalProperties: false
       type: object
       required:
@@ -1100,6 +1304,11 @@ components:
           type: integer
           minimum: 1.0
           title: Rank
+        image_urls:
+          items:
+            type: string
+          type: array
+          title: Image Urls
       additionalProperties: false
       type: object
       required:
@@ -1124,6 +1333,34 @@ components:
       - retrieval_mode
       - rank
       title: ProductHit
+    ProductPage:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/ProductHit'
+          type: array
+          title: Items
+        total:
+          type: integer
+          minimum: 0.0
+          title: Total
+        offset:
+          type: integer
+          minimum: 0.0
+          title: Offset
+        limit:
+          type: integer
+          maximum: 20.0
+          minimum: 1.0
+          title: Limit
+      additionalProperties: false
+      type: object
+      required:
+      - items
+      - total
+      - offset
+      - limit
+      title: ProductPage
     ProductResponse:
       properties:
         product:
@@ -1312,6 +1549,13 @@ components:
           - hybrid_ann
           title: Mode
           default: lexical
+        exclude_skus:
+          items:
+            type: string
+            pattern: ^[!-~]{1,64}$
+          type: array
+          maxItems: 200
+          title: Exclude Skus
       additionalProperties: false
       type: object
       required:

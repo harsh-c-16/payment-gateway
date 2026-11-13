@@ -63,6 +63,7 @@ class TurnExecution:
     event_facts: tuple = ()
     rejection_diagnostic: dict | None = None
     rejected_output: str | None = dataclass_field(default=None, repr=False)
+    shopping_context: dict | None = None
 
     def model_dump(self, **kwargs):
         return self.response.model_dump(**kwargs)
@@ -134,7 +135,7 @@ class FixedWorkflow:
             lambda body, ctx: self._turn(body, ctx, key, started),
         )
 
-    def _turn(self, request, context, key, started):
+    def _turn(self, request, context, key, started, *, prepare=None, search_options=None):
         turn_tools = []
         parse_ms, search_ms, compose_ms = 0.0, 0.0, 0.0
         intent, search, products = None, None, []
@@ -155,7 +156,11 @@ class FixedWorkflow:
             )
             if self.state is not None:
                 self.state.events.check_revision(dictionary["dataset_revision"])
-            result = extract_intent(request.text, context, dictionary)
+            result = (
+                prepare(request.text, dictionary)
+                if prepare is not None
+                else extract_intent(request.text, context, dictionary)
+            )
             parse_ms = (monotonic() - stage) * 1000
             if request.mode == "assist" and eligible(result, request.text):
                 if self.assistant_mode == "assist" and self.allow_intent_llm:
@@ -198,7 +203,13 @@ class FixedWorkflow:
                 stage = monotonic()
                 try:
                     search = self._search(
-                        intent, dictionary, context, key, deadline, turn_tools=turn_tools
+                        intent,
+                        dictionary,
+                        context,
+                        key,
+                        deadline,
+                        turn_tools=turn_tools,
+                        **(search_options or {}),
                     )
                 finally:
                     search_ms = (monotonic() - stage) * 1000
@@ -360,20 +371,33 @@ class FixedWorkflow:
             )
         return self._search(intent, dictionary, context, key, deadline)
 
-    def _search(self, intent, dictionary, context, key, deadline, *, turn_tools=None):
+    def _search(
+        self,
+        intent,
+        dictionary,
+        context,
+        key,
+        deadline,
+        *,
+        turn_tools=None,
+        mode="lexical",
+        exclude_skus=(),
+    ):
         request = {
             "request_id": context.request_id,
             "session_id": context.session_id,
             "intent": intent,
             "top_k": 5,
-            "mode": "lexical",
+            "mode": mode,
         }
+        if exclude_skus:
+            request["exclude_skus"] = list(exclude_skus)
         result = self.call(
             "search", context, body=request, key=key, deadline=deadline, turn_tools=turn_tools
         )
         if (
-            result["mode"] != "lexical"
-            or result["embedding_calls"] != 0
+            result["mode"] != mode
+            or result["embedding_calls"] not in ({0} if mode == "lexical" else {0, 1})
             or result["returned_count"] != len(result["hits"])
             or len(result["hits"]) > request["top_k"]
             or result["returned_count"] > result["eligible_count"]
@@ -382,6 +406,8 @@ class FixedWorkflow:
         ):
             raise ContractViolation("fixed search response mode/count mismatch")
         for rank, hit in enumerate(result["hits"], 1):
+            if hit["sku"] in exclude_skus:
+                raise ContractViolation("provider repeated an explicitly excluded product")
             if hit["rank"] != rank or hit["stock_available"] <= 0:
                 raise ContractViolation("search hit rank/availability mismatch")
             if hit["dataset_revision"] != dictionary["dataset_revision"]:

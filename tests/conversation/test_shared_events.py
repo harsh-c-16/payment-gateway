@@ -135,8 +135,9 @@ def test_forward_migration_uses_exact_owner_templates_without_rewriting_history(
         "002_workflow.sql",
         "003_intent_diagnostics.sql",
         "004_shared_events.sql",
+        "005_shopping_context.sql",
     ]
-    content = MIGRATIONS[-1].read_text(encoding="utf-8")
+    content = MIGRATIONS[3].read_text(encoding="utf-8")
     for template in ("shared/outbox/schema.sql", "shared/local_diagnostics/schema.sql"):
         assert (ROOT / template).read_text(encoding="utf-8").strip() in content
 
@@ -177,7 +178,7 @@ def test_forward_upgrade_preserves_preexisting_cart_and_migration_checksums(
         after = tx.execute(
             "SELECT * FROM conversation_schema_migrations ORDER BY version"
         ).fetchall()
-    assert after[:3] == before and [r["version"] for r in after] == [1, 2, 3, 4]
+    assert after[:3] == before and [r["version"] for r in after] == [1, 2, 3, 4, 5]
     assert rows(database) == []  # No invented historical facts are backfilled.
 
 

@@ -22,17 +22,55 @@ model downloads, destructive reset or volume removal are performed.
 ## Start
 
 Run from the repository root using the locked Python 3.11 environment and Docker
-Desktop's Linux engine:
+Desktop's Linux engine. On a prepared deployment, start PostgreSQL, load the
+retained private bindings and apply the repeatable M3 upgrades before starting
+applications:
 
 ```powershell
+$env:PROJECTCTL_ADAPTER_MODULE = 'infra.postgres'
+.venv/Scripts/python.exe -m projectctl env up --profile postgres-local
+Get-Content artifacts/infra/prototype-local/.env | ForEach-Object {
+    $entry = $_ -split '=', 2
+    [Environment]::SetEnvironmentVariable($entry[0], $entry[1], 'Process')
+}
+.venv/Scripts/python.exe -m services.orders.m3_setup
+.venv/Scripts/python.exe -m services.conversation.database
+.venv/Scripts/python.exe -m pipelines.catalog.migrate --variant prototype
 $env:PROJECTCTL_ADAPTER_MODULE = 'infra.prototype'
 .venv/Scripts/python.exe -m projectctl env up --profile prototype-local
+.venv/Scripts/python.exe -m projectctl env verify --profile prototype-local
+.venv/Scripts/python.exe -m projectctl projection wait --namespace $env:RUN_NAMESPACE --sku-manifest artifacts/prototype-setup/prototype-data/sku_manifest.json --timeout-seconds 600
+.venv/Scripts/python.exe -m projectctl demo-check --namespace $env:RUN_NAMESPACE
 ```
 
-The launcher checks memory/CPUs, starts/verifies the existing streaming stack,
+Stop on a nonzero exit code. Retained data needs no import, seed or offset reset.
+After startup, open **http://127.0.0.1:8001/** for the shopping website and chat.
+The repeatable M1 migration includes the additive saved-conversation context.
+See [shopping behaviour](../docs/specs/11_SHOPPING_EXPERIENCE.md), including how
+keyword and optional hybrid retrieval differ. No frontend build is required.
+The lock requires uv 0.10.8; an older global uv refuses this project. This prepared
+Windows checkout has the pinned executable at
+`artifacts/tooling/uv-package/bin/uv.exe`. Use its `sync --locked --python 3.11`
+command when synchronizing the environment.
+
+The explicit `prototype` catalogue variant adds a partial covering index for
+eligibility counts; it changes no product or stock values. It is presentation
+tuning, separate from base migrations and O2. Use a fresh evaluation schema for
+B0/O2 comparisons, without this optional index. The prototype overlay enables
+the existing bounded API connection pools. Its five operational outbox relays
+poll every 250 ms; the separate relay default remains 25 ms. These settings do
+not establish a measured optimization result.
+
+On a first-time deployment without private bindings, run prototype `env up` once
+to generate them, then follow the schema and data prerequisites before retrying.
+
+The launcher checks memory/CPUs, stops retained applications that may have
+restarted after a host crash, starts/verifies the existing streaming stack,
 checks the other owners' database tables read-only, applies only analytics-owned
 migrations, provisions the namespace's topics, builds the existing locked image,
-then starts and verifies every application container. Actual container health and
+then starts domain APIs, client APIs and each background worker in dependency
+order. Each stage must become healthy within four minutes before the next starts,
+reducing competing cold imports and connection attempts. Actual container health and
 individual CPU/RAM limits are recorded without credentials. No workflow or
 acceptance result is inferred from process health.
 
@@ -69,8 +107,9 @@ files or mark partial global migrations successful. M1 has an existing command:
 .venv/Scripts/python.exe -m services.conversation.database
 ```
 
-Harsh's existing importer applies/checks catalogue migrations. Aditya must supply
-the operational migration setup for Orders, Inventory and Payments. Once those
+Harsh's existing importer applies/checks catalogue migrations. The repeatable
+`python -m services.orders.m3_setup` command upgrades Orders, Inventory and
+Payments using their private database URLs and preserves existing rows. Once those
 schemas are ready, run the existing owner commands in the Linux setup container.
 Native Windows cannot provide the directory fsync required by catalogue artifacts.
 The 768-MiB setup helper must run while the application containers are stopped:
@@ -104,11 +143,26 @@ does not start a performance run. For a tight-memory machine, import before
 starting all application containers. Stock events remain in the real Inventory
 outbox until the relays start; projection must catch up before the demo.
 
-`env up` means the processes and required schemas are available. A complete demo
-still needs Jaineel's client/workflow to perform explicit confirmation and the
-existing transaction services to complete the saga. Payment success/decline,
-stock release, retry idempotency and resulting queryable Gold must be observed
-separately. Known transaction behavior fixes remain with Aditya.
+`env up` means the processes and required schemas are available. The connected
+client is already implemented; after preflight passes, run:
+
+```powershell
+.venv/Scripts/python.exe -m projectctl demo --namespace $env:RUN_NAMESPACE --user-id demo-professor --query "men's formal shirt"
+```
+
+Select a product and quantity, review the authoritative total/expiry, then type
+exactly `CONFIRM <displayed-quote-id>`. The client prints its state path. Keep it
+for safe resume and exact-order Gold verification:
+
+```powershell
+.venv/Scripts/python.exe -m projectctl demo --resume <state-path>
+.venv/Scripts/python.exe -m projectctl demo-check --state <state-path> --wait-seconds 600
+```
+
+In a separate session, leave confirmation empty and verify no purchase is
+submitted. Normal simulated payments may decline; `CANCELLED` must agree with
+released stock and zero net debit. `MANUAL_REVIEW` and timeouts remain unresolved,
+not successful demonstrations. Process health alone proves none of these facts.
 
 The stock worker, analytics worker and operational relay container use
 `on-failure:3` in this development overlay. A transient database or broker error
@@ -120,6 +174,23 @@ a persistent error.
 
 ## Resources, verification and shutdown
 
+For native API debugging against the retained Docker PostgreSQL container, carry
+over the same bounded connection-pool configuration used by this overlay:
+
+```powershell
+'CATALOG', 'ORDERS', 'INVENTORY', 'PAYMENTS' | ForEach-Object {
+    [Environment]::SetEnvironmentVariable("${_}_REUSE_CONNECTIONS", 'true', 'Process')
+    [Environment]::SetEnvironmentVariable("${_}_MAX_CONNECTIONS", '4', 'Process')
+}
+$env:CONVERSATION_MAX_CONNECTIONS = '3'
+```
+
+Set these before starting native API processes. Otherwise the background workers
+repeatedly open database connections instead of reusing them. Native APIs are
+separate processes: Compose `env down` does not stop them. A PostgreSQL-only
+shopping preview leaves Kafka, projection and Gold export stopped; it is not the
+full-stack presentation or evaluation deployment.
+
 Container RAM ceilings total **3,584 MiB (3.5 GiB)**, plus a required 256 MiB of
 Docker VM headroom. CPU ceilings total 8 cores; Conversation and Catalogue get 1 core each, the other
 APIs get 0.5 each and the stock worker, analytics worker
@@ -128,6 +199,10 @@ APIs, catalogue stock worker and combined relay process each get 128 MiB;
 analytics API gets 192 MiB and its worker 320 MiB. These are low-traffic development
 limits to verify on the actual host, not throughput or memory feasibility claims
 for the official profiles. Stop other experiments before starting this stack.
+Docker's memory budget checks its VM, not free Windows RAM. Check host memory
+before starting the full stack, especially after a crash. A 4-GB Docker VM does
+not mean Windows itself has 4 GB free. The current-machine verification status
+and any uncompleted rehearsal are recorded in [progress](../docs/vichitr/progress.md).
 The analytics API/worker use the existing O1 batching (100 rows, 50-ms bound),
 with the same durable capture and 250-ms publication behavior. This is a prototype
 configuration, not a B0/O1 comparison.

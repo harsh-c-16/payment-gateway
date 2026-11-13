@@ -2,9 +2,28 @@ from uuid import uuid4
 
 import pytest
 
+from services.conversation import intent
 from services.conversation.intent import extract_intent
 
 from .workflow_doubles import WorkflowProviderDouble
+
+
+def test_phrase_matching_keeps_compounds_and_boundaries_without_scanning_absent_regexes(
+    monkeypatch,
+):
+    mapping = {f"absent-{i}": f"absent-{i}" for i in range(2000)}
+    mapping.update({"cotton lycra": "compound", "cotton": "cotton", "wool": "wool"})
+    patterns = []
+    search = intent.re.search
+
+    def record(pattern, text):
+        patterns.append(pattern)
+        return search(pattern, text)
+
+    monkeypatch.setattr(intent.re, "search", record)
+    assert intent.phrases("cotton lycra cottonwood", mapping) == {"compound"}
+    assert len(patterns) == 2
+    assert not any("absent" in pattern for pattern in patterns)
 
 
 @pytest.mark.parametrize(
