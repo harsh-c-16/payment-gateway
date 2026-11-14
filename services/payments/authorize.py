@@ -69,6 +69,13 @@ def authorize(db, events, namespace, request, context, *, benchmark_headers=None
             if control
             else ("DECLINED" if random.random() < SIMULATED_FAILURE_RATE else None)
         )
+        from shared.local_diagnostics.demo_controls import read_control
+
+        local_plan = read_control("payments", context.run_id, namespace)
+        delay_ms = 100
+        if local_plan:
+            failure = "DECLINED" if local_plan["scenario"] == "decline" else None
+            delay_ms = 35_000 if local_plan["scenario"] == "late" else 100
         tx.execute(
             """
             INSERT INTO payment_attempts
@@ -76,7 +83,7 @@ def authorize(db, events, namespace, request, context, *, benchmark_headers=None
                  created_at,updated_at,completion_due_at,planned_failure_code,
                  origin_context,benchmark_headers)
             VALUES (%s,%s,%s,%s,'PENDING',%s,%s,clock_timestamp(),clock_timestamp(),
-                    clock_timestamp() + interval '100 milliseconds',%s,%s,%s)
+                    clock_timestamp() + %s * interval '1 millisecond',%s,%s,%s)
             """,
             (
                 namespace,
@@ -85,6 +92,7 @@ def authorize(db, events, namespace, request, context, *, benchmark_headers=None
                 request.attempt_number,
                 request.amount_minor,
                 request.currency,
+                delay_ms,
                 failure,
                 Jsonb(context.model_dump(mode="json")),
                 Jsonb(control),

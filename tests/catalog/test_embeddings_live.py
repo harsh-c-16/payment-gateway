@@ -89,6 +89,11 @@ def test_build_is_repeatable_and_price_change_does_not_re_embed(tmp_path, databa
         assert second.encoded_rows == 0
         assert (second.input_hash, second.output_hash) == (first.input_hash, first.output_hash)
         connection.execute(
+            "UPDATE products SET embedding=NULL WHERE namespace=%s AND sku='FK-A1'", (namespace,)
+        )
+        repaired = build_embeddings(connection, namespace, encoder)
+        assert repaired.encoded_rows == 1 and repaired.output_hash == first.output_hash
+        connection.execute(
             "UPDATE products SET price_minor=999999,catalog_version=catalog_version+1 "
             "WHERE namespace=%s AND sku='FK-A1'",
             (namespace,),

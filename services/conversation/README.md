@@ -130,3 +130,22 @@ Kafka delivery or broker-loss recovery.
 `projectctl.setup.migrate_conversation` is also available as the M1 migration
 participant in the global coordinator. It migrates/verifies only this database;
 it does not claim the other five databases have migrated.
+
+
+## Windows desktop conversation
+
+The browser shopping endpoint also supports real Gemini conversation, separate
+from the original P11 intent fallback described above. Enable it with private
+SHOPPING_LLM_ENABLED/GEMINI_API_KEY/SHOPPING_LLM_MODEL settings; the prototype
+launcher reads artifacts/infra/prototype-local/shopping-llm.env. The browser
+retains a separate zero-call Deterministic choice. History, guarded read-only
+catalogue tools, failure handling and session metrics are documented in
+[the professor guide](../../docs/jaineel/PROFESSOR_DEMO.md) and
+[the integration check](../../docs/jaineel/WINDOWS_DESKTOP_INTEGRATION_2026_11_13.md).
+
+The separate `/dashboard` page shows live charts, owner API projections, dataset
+manifests, receipt samples, catalogue coverage and service readiness. Its owned
+`GET /v1/sessions/{session_id}/dashboard` endpoint reads M1 storage and validated
+provider APIs; it never submits or retries purchases. The service token needed
+for receipt inspection stays in M1. The storefront contains only a Dashboard
+link and no analytics panel/polling. See the shopping specification for scopes.

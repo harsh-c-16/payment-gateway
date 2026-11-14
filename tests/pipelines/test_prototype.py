@@ -7,9 +7,14 @@ from types import SimpleNamespace
 import pytest
 import yaml
 
-from infra import postgres, prototype, prototype_relays
+from infra import postgres, prototype, prototype_relays, retrieval
 from projectctl.models import ExitCode
 from projectctl.providers import Invocation, ProviderRegistry, ProviderResult
+
+
+@pytest.fixture(autouse=True)
+def isolated_retrieval_settings(monkeypatch, tmp_path):
+    monkeypatch.setattr(retrieval, "SETTINGS", tmp_path / "retrieval.json")
 
 
 @pytest.fixture
@@ -171,6 +176,25 @@ def test_analytics_migration_receives_active_caller_transaction(private_runtime,
     monkeypatch.setattr(prototype, "migrate_analytics", migrate)
     prototype.prerequisites(migrate=True)
     assert migrated == [True]
+
+
+def test_missing_shopping_migration_fails_before_starting_apis(private_runtime, monkeypatch):
+    prototype.prepare("fixture")
+
+    class Connection:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def execute(self, query, *args):
+            present = "information_schema.columns" not in str(query)
+            return SimpleNamespace(fetchone=lambda: (present,))
+
+    monkeypatch.setattr(prototype.psycopg, "connect", lambda *a, **kw: Connection())
+    with pytest.raises(postgres.SetupError, match="conversation migration 005 required"):
+        prototype.prerequisites()
 
 
 @pytest.mark.parametrize("broken", [None, "oom", "health", "allocation", "duplicate"])

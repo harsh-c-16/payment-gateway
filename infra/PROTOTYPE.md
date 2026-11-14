@@ -1,5 +1,10 @@
 # Local prototype deployment (Vichitr)
 
+For the prepared Windows machine, run `./start-prototype.ps1`, then open
+http://127.0.0.1:8001/. Use `./stop-prototype.ps1` to remove this project's
+containers while retaining volumes and images. The scripts delegate to the
+commands below. See the [current browser demonstration](../docs/jaineel/PROFESSOR_DEMO.md).
+
 For the presentation commands, versions, limits and the 12 November rehearsal, see
 [DEPLOYMENT_INFO.md](DEPLOYMENT_INFO.md).
 
@@ -13,6 +18,16 @@ That last process hosts five independent instances of Aditya's shared outbox
 relay, one per operational database, with separate codecs, connections and Kafka
 publishers. Analytics retains its existing worker-zero notification relay.
 Use the separate API/worker/relay allocations for official evaluations.
+
+The Windows desktop can enable Gemini conversation by setting
+`SHOPPING_LLM_ENABLED=true`, `GEMINI_API_KEY=...` and
+`SHOPPING_LLM_MODEL=gemini-3.5-flash-lite` in the ignored
+`artifacts/infra/prototype-local/shopping-llm.env`. Only Conversation receives
+these settings. Startup and generated bindings never display the key. The
+browser selects AI conversation when configured and offers Deterministic chat
+separately. Model errors preserve results and show a clear retry/mode choice.
+Open http://127.0.0.1:8001/dashboard for the separate dashboard and live graphs.
+See [the professor guide](../docs/jaineel/PROFESSOR_DEMO.md) for the presentation flow.
 
 All APIs bind to loopback. Fixed assistant mode makes zero generative calls;
 benchmark and fault-injection flags are false. Source/cache mounts are read-only;
@@ -60,6 +75,41 @@ B0/O2 comparisons, without this optional index. The prototype overlay enables
 the existing bounded API connection pools. Its five operational outbox relays
 poll every 250 ms; the separate relay default remains 25 ms. These settings do
 not establish a measured optimization result.
+
+## Enable the existing semantic retriever
+
+With the retained PostgreSQL container running, private bindings loaded as above,
+and the normal application image built, provision the locked model and vectors:
+
+```powershell
+.venv/Scripts/python.exe -m infra.retrieval setup
+.venv/Scripts/python.exe -m services.conversation.database
+$env:PROJECTCTL_ADAPTER_MODULE = 'infra.prototype'
+.venv/Scripts/python.exe -m projectctl env up --profile prototype-local
+.venv/Scripts/python.exe -m infra.retrieval verify
+```
+
+Setup installs the hash-pinned optional runtime in a separate image and fills
+missing/changed embeddings in the existing namespace. It does not reimport,
+reseed or reset data. It saves `artifacts/infra/prototype-local/retrieval.json`
+only after the backfill succeeds. Subsequent normal launches retain the semantic
+image, read-only model mount and 768 MiB catalogue allocation. The launcher counts
+that larger allocation in its memory check; the core evaluation profiles and
+dependency lock are unchanged. An interrupted backfill is resumable by rerunning
+setup. It can take several minutes on CPU.
+
+The website selects hybrid for chat when capabilities report complete current
+embeddings; an explicit Keyword selection is retained. New shopping API sessions
+also select available hybrid when no mode is specified. Follow-ups reuse that
+mode and preserve filters/exclusions. Catalogue browsing, sorting and pagination
+remain lexical reads. The original fixed-turn endpoint keeps its lexical default.
+No generative model or model credential is needed for this local encoder.
+
+`verify` creates one synthetic shopper session and searches through real M1/M2
+HTTP APIs. It checks current model inference, strict colour/budget filters, disjoint more
+options, similarity, persisted retrieval mode and zero generative calls, retaining
+raw responses under `artifacts/retrieval/verify-*`. It sends no cart or purchase
+command and makes no performance or relevance-quality claim.
 
 On a first-time deployment without private bindings, run prototype `env up` once
 to generate them, then follow the schema and data prerequisites before retrying.

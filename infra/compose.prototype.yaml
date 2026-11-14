@@ -69,6 +69,10 @@ services:
       CONVERSATION_MAX_CONNECTIONS: "3"
       CATALOG_BASE_URL: http://catalog:8002
       ORDERS_BASE_URL: http://orders:8003
+      ANALYTICS_BASE_URL: http://analytics:8006
+      SHOPPING_LLM_ENABLED: ${SHOPPING_LLM_ENABLED:-false}
+      SHOPPING_LLM_MODEL: ${SHOPPING_LLM_MODEL:-gemini-3.5-flash-lite}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     command: [uvicorn, services.conversation.app:create_app, --factory, --host, "0.0.0.0", --port, "8001"]
     ports: ["127.0.0.1:8001:8001"]
     healthcheck:

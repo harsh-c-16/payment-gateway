@@ -2,6 +2,7 @@
 
 import re
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime, timedelta
 from time import monotonic
 
 from shared.contracts.common import ErrorCode
@@ -41,7 +42,7 @@ QUESTIONS = {
     ),
     "explicit_control": (
         "Use the product and cart buttons to shop. "
-        "I will ask you to review and explicitly confirm a quote before purchase."
+        "Open your cart, select Review order, then confirm when you're ready."
     ),
     "reference": (
         "Which product do you mean? Choose ‘Find similar’ on a product, or say ‘the first one’."
@@ -207,8 +208,82 @@ def resolve(text, memory, dictionary):
 
 
 class ShoppingWorkflow(FixedWorkflow):
+    def __init__(self, *args, shopping_provider=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        if shopping_provider is not None:
+            from .shopping_llm import GeminiShoppingProvider
+
+            if shopping_provider.mode != self.mode or (
+                self.mode == "real" and type(shopping_provider) is not GeminiShoppingProvider
+            ):
+                raise ValueError("shopping provider must match the service execution mode")
+        self.shopping_provider = shopping_provider
+
+    def order_pipeline(self, order_id, context):
+        # Authorize with Orders first. Never return a namespace-wide Gold response to a browser.
+        order = self.store_call("order_status", context, order_id=order_id)
+        result = {
+            "order_id": order_id,
+            "order_version": order["order_version"],
+            "status": "pending",
+            "generation": None,
+            "checked_at": datetime.now(UTC),
+        }
+        day = (
+            datetime.fromisoformat(order["created_at"].replace("Z", "+00:00"))
+            .astimezone(UTC)
+            .date()
+        )
+        try:
+            gold = self.call(
+                "gold",
+                context,
+                table="order_fact",
+                params={
+                    "namespace": context.namespace,
+                    "date_from": day.isoformat(),
+                    "date_to": (day + timedelta(days=1)).isoformat(),
+                },
+            )
+            matches = [r for r in gold["rows"] if r.get("order_id") == order_id]
+            if not matches:
+                return result
+            if len(matches) != 1 or type(matches[0].get("order_version")) is not int:
+                raise ContractViolation("Invalid Gold order identity/version")
+            row = matches[0]
+            if row.get("namespace") != context.namespace:
+                raise ContractViolation("Gold order namespace mismatch")
+            if row["order_version"] != order["order_version"]:
+                # A later version can arrive while the two independent reads run.
+                return result
+            fields = (
+                "order_id",
+                "user_id",
+                "session_id",
+                "quote_id",
+                "total_amount_minor",
+                "currency",
+                "failure_code",
+            )
+            # The canonical ORDER_CANCELLED event has no participant ID fields;
+            # Gold represents those absent facts as null. Audit participants via
+            # their owner APIs; never require a cancelled event to invent them.
+            if order["status"] == "CONFIRMED":
+                fields += ("reservation_id", "payment_id")
+            if (
+                row.get("order_status") != order["status"]
+                or type(row.get("total_amount_minor")) is not int
+                or any(row.get(k) != order.get(k) for k in fields)
+            ):
+                raise ContractViolation("Gold order does not match its authoritative snapshot")
+            return {**result, "status": "visible", "generation": gold["generation"]}
+        except (DependencyUnavailable, RemoteError, ContractUnavailable, ContractViolation):
+            return {**result, "status": "unavailable"}
+
     def store_call(self, name, context, **kwargs):
         try:
+            if name == "browse" and kwargs.get("params", {}).get("q", "").strip():
+                return self.browse_search(context, kwargs["params"])
             return self.call(name, context, **kwargs)
         except RemoteError as error:
             raise ServiceError(
@@ -221,7 +296,71 @@ class ShoppingWorkflow(FixedWorkflow):
                 "The shopping service is unavailable. Please retry.",
             ) from error
 
+    def browse_search(self, context, params):
+        """Rank at most 20 real products with hybrid retrieval and recorded hard filters.
+
+        Empty-query browsing keeps the full catalogue pagination. Query pages represent
+        only this bounded recommendation set; no claim about a global match count.
+        """
+        deadline = monotonic() + 8
+        context = context.model_copy(
+            update={"session_id": context.session_id or context.request_id}
+        )
+        dictionary = self.call(
+            "facets", context, deadline=deadline, params={"namespace": context.namespace}
+        )
+        parsed = extract_intent(params["q"], context, dictionary)
+        if parsed.missing_fields:
+            raise ServiceError(
+                422,
+                ErrorCode.UNSUPPORTED_FILTER,
+                "Please describe the product in chat so we can clarify your preferences.",
+            )
+        intent = dict(parsed.intent)
+        if params.get("category") is not None:
+            if intent.get("category") not in (None, params["category"]):
+                raise ServiceError(
+                    422,
+                    ErrorCode.UNSUPPORTED_FILTER,
+                    "Your search and category filter differ. Choose a matching category.",
+                )
+            intent["category"] = params["category"]
+        if params.get("max_price_minor") is not None:
+            bounds = [params["max_price_minor"]]
+            if intent.get("max_price_minor") is not None:
+                bounds.append(intent["max_price_minor"])
+            intent["max_price_minor"] = min(bounds)
+        result = self._search(
+            intent,
+            dictionary,
+            context,
+            context.request_id,
+            deadline,
+            mode="hybrid_exact",
+            top_k=20,
+        )
+        hits = result["hits"]
+        if params["sort"] != "relevance":
+            hits = sorted(
+                hits,
+                key=lambda hit: (
+                    hit["price_minor"] * (-1 if params["sort"] == "price_desc" else 1),
+                    hit["sku"],
+                ),
+            )
+        offset, limit = params["offset"], params["limit"]
+        return {
+            "items": hits[offset : offset + limit],
+            "total": len(hits),
+            "offset": offset,
+            "limit": limit,
+        }
+
     def dispatch_turn(self, session_id, request, context, key):
+        if request.mode == "assist":
+            from .shopping_dialogue import dispatch_turn
+
+            return dispatch_turn(self, session_id, request, context, key)
         started = monotonic()
 
         def handle(body, scoped, raw):
@@ -231,6 +370,13 @@ class ShoppingWorkflow(FixedWorkflow):
 
             def prepare(text, dictionary):
                 nonlocal resolution
+                if body.retrieval_mode is None and memory.intent is None:
+                    capabilities = self.call("capabilities", scoped, deadline=started + 3)
+                    options["mode"] = (
+                        "hybrid_exact"
+                        if "hybrid_exact" in capabilities["search_modes"]
+                        else "lexical"
+                    )
                 if body.selected_sku:
                     product = next(
                         (p for p in memory.products if p["sku"] == body.selected_sku), None

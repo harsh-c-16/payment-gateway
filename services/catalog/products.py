@@ -79,6 +79,9 @@ def browse(db, namespace, *, query, category, max_price_minor, sort, offset, lim
         occasion=None,
     )
     where, parameters = hard_filters(intent, namespace)
+    from services.catalog.product_types import restrict_product_type
+
+    where, parameters = restrict_product_type(where, parameters, query)
     score = f"ts_rank(p.search_vector, {TSQUERY})::float8" if query.strip() else "0.0::float8"
     order = {
         "relevance": "score DESC, p.sku",
@@ -88,6 +91,10 @@ def browse(db, namespace, *, query, category, max_price_minor, sort, offset, lim
     parameters.update(text=query, limit=limit, offset=offset)
     with db.transaction() as tx:
         if query.strip():
+            # This bounded UI query materializes about 10 MiB on the retained catalogue.
+            # Avoid spilling that eligible set to disk at the default 4 MiB. Ranking,
+            # filters, deadlines and the evaluated /v1/search path remain unchanged.
+            tx.execute("SET LOCAL work_mem = '16MB'")
             eligible = lexical_eligibility(where)
             matches = f"FROM eligible p WHERE p.search_vector @@ {TSQUERY}"
             found = tx.execute(

@@ -13,7 +13,7 @@ from services.catalog.app import create_app
 from services.catalog.embedding import vector_text
 from shared.contracts.catalog import ShoppingIntent
 from tests.catalog.helpers import import_rows, seed_stock
-from tests.catalog.service_helpers import TOKEN, catalogue, search, skus
+from tests.catalog.service_helpers import TOKEN, catalogue, headers, search, skus
 
 
 @pytest.fixture
@@ -79,6 +79,29 @@ def test_no_text_makes_no_embedding_call(semantic):
     client, namespace = semantic
     result = search(client, namespace, query_text="", mode="hybrid_exact", category="watches")
     assert skus(result) == ["FK-WATCH1"] and result["embedding_calls"] == 0
+
+
+@pytest.mark.parametrize("damage", ["embedding=NULL", "embedding_revision='old-model'"])
+def test_semantic_search_refuses_missing_or_mixed_revision_vectors(semantic, db, damage):
+    client, namespace = semantic
+    with db.transaction() as tx:
+        tx.execute(
+            f"UPDATE products SET {damage} WHERE namespace=%s AND sku='FK-SHIRT1'", (namespace,)
+        )
+    response = client.post(
+        "/v1/search",
+        headers=headers(namespace),
+        json={
+            "request_id": str(uuid4()),
+            "session_id": str(uuid4()),
+            "intent": {**intent().model_dump(), "query_text": "shirt"},
+            "mode": "hybrid_exact",
+        },
+    )
+    assert response.status_code == 503
+    assert response.json()["error"]["code"] == "DEPENDENCY_UNAVAILABLE"
+    caps = client.get("/v1/catalog/capabilities", headers=headers(namespace)).json()
+    assert caps["search_modes"] == ["lexical"]
 
 
 def test_occasion_reaches_the_semantic_query_but_is_not_a_filter(semantic):

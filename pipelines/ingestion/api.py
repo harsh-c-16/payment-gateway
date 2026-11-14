@@ -1,5 +1,6 @@
 """Analytics read API. No arbitrary SQL, fake replay jobs, or hidden DB connection on import."""
 
+import hashlib
 from datetime import date
 from secrets import compare_digest
 from typing import Annotated, Literal
@@ -7,7 +8,7 @@ from typing import Annotated, Literal
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
-from pydantic import TypeAdapter, ValidationError
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 
 from pipelines.curation.quarantine import outbox_binding
 from pipelines.storage import sync_directory
@@ -30,7 +31,13 @@ from shared.contracts.common import (
     UUIDText,
 )
 from shared.contracts.events import Namespace
+from shared.event_transport.schemas import canonical_json
 from shared.local_diagnostics import OutboxUnavailable
+
+
+class VisibilityRequest(BaseModel):
+    namespace: Namespace
+    event_ids: Annotated[list[UUIDText], Field(min_length=1, max_length=100)]
 
 
 def create_app(pipeline, *, internal_token, metrics_namespace=None):
@@ -138,6 +145,38 @@ def create_app(pipeline, *, internal_token, metrics_namespace=None):
     @app.get("/v1/analytics/manifests/{dataset}/active", response_model=DatasetManifest)
     def manifest(dataset: Literal["silver", "gold"], namespace: Namespace):
         return pipeline.active_manifest(namespace, dataset)
+
+    @app.post("/internal/v1/analytics/visibility", dependencies=[Depends(internal)])
+    def visibility(body: VisibilityRequest):
+        # Pin a queryable generation and resolve exact membership through its ancestry.
+        from pipelines.storage.publication import iter_membership
+
+        manifest = pipeline.active_manifest(body.namespace, "gold")
+        requested = set(body.event_ids)
+        with pipeline.connect() as tx:
+            present = requested.intersection(
+                iter_membership(tx, body.namespace, "gold", manifest.generation)
+            )
+        first = min(
+            (f.min_event_time.date() for f in manifest.files if f.min_event_time),
+            default=manifest.created_at.date(),
+        )
+        from datetime import timedelta
+
+        query = pipeline.query_gold(
+            body.namespace, "pipeline_minute", first, manifest.created_at.date() + timedelta(days=1)
+        )
+        return {
+            "namespace": body.namespace,
+            "generation": manifest.generation,
+            "manifest_sha256": hashlib.sha256(
+                canonical_json(manifest.model_dump(mode="json"))
+            ).hexdigest(),
+            "query_generation": query.generation,
+            "queryable": query.generation == manifest.generation,
+            "visible_event_ids": sorted(present),
+            "missing_event_ids": sorted(requested - present),
+        }
 
     @app.get("/v1/analytics/gold/{table}", response_model=GoldQueryResult)
     def gold(

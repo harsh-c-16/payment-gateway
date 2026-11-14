@@ -117,8 +117,8 @@ def test_workflow_provisions_pinned_dependencies_and_always_uploads_evidence():
         (ROOT / ".github/workflows/offline.yml").read_text(), Loader=yaml.BaseLoader
     )
     jobs = workflow["jobs"]
-    assert set(jobs) == {"offline", "postgres", "kafka-registry"}
-    assert "@sha256:" in jobs["postgres"]["services"]["postgres"]["image"]
+    assert set(jobs) == {"offline"}
+    assert jobs["offline"]["runs-on"] == "windows-latest"
     for job in jobs.values():
         assert not job.get("continue-on-error")
         upload = next(
@@ -127,7 +127,11 @@ def test_workflow_provisions_pinned_dependencies_and_always_uploads_evidence():
         assert upload["if"] == "always()"
         assert "*.xml" in upload["with"]["path"] and "*.log" in upload["with"]["path"]
         assert all("secret" not in path for path in upload["with"]["path"].splitlines())
-    assert any("streaming-local" in s.get("run", "") for s in jobs["kafka-registry"]["steps"])
+    steps = jobs["offline"]["steps"]
+    assert any("uv==0.10.8" in s.get("run", "") for s in steps)
+    assert any("--job offline" in s.get("run", "") for s in steps)
+    assert any("storefront.test.cjs" in s.get("run", "") for s in steps)
+    assert any("shopping_contract --check" in s.get("run", "") for s in steps)
 
 
 def test_url_redacted_from_command_failure(tmp_path, monkeypatch):

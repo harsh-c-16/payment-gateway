@@ -14,6 +14,17 @@ CSV-backed catalogue and existing cart, quote and simulated checkout services.
 See [startup commands](infra/PROTOTYPE.md) and
 [shopping behaviour](docs/specs/11_SHOPPING_EXPERIENCE.md).
 
+On the prepared Windows machine, run `./start-prototype.ps1`. Follow the
+[professor demonstration](docs/jaineel/PROFESSOR_DEMO.md) for browser search,
+confirmed simulated checkout, refresh recovery and verified Gold publication.
+The desktop now offers real Gemini conversation, a separate deterministic mode,
+and a separate **[platform dashboard](http://127.0.0.1:8001/dashboard)** with live
+charts for session latency, event publication, data quality and service readiness.
+Run `./start-failure-demo.ps1` to enable the dashboard's scoped **Failure Demo**
+controls, measured timelines, stock/ledger charts and downloadable verification.
+See [failure demonstration controls and real test evidence](docs/jaineel/FAILURE_DEMOS_2026_11_14.md).
+Afterward, `./stop-prototype.ps1` removes this project's containers and preserves data.
+
 This project implements an e-commerce platform and agentic shopping assistant with an emphasis on distributed systems engineering, fault tolerance, transaction isolation, and streaming data pipelines. The system is built around the 20,000-observation Flipkart product catalogue, using deterministic normalization, transactional outbox patterns, Kafka event streams, and an analytical lakehouse with Medallion architecture (Bronze/Silver/Gold).
 
 ### Team Members & Module Ownership
@@ -136,6 +147,11 @@ Follow the Python 3.11 [locked install and offline checks](projectctl/README.md)
 Provider-dependent commands require the documented owner bindings and running
 services; unavailable dependencies return exit 4 and save evidence.
 See [Jaineel's progress](docs/jaineel/progress.md) for the actual checkpoint results.
+
+For Windows Desktop baseline/optimization numbers, resource and clock receipts,
+and the 35-second payment-expiry rehearsal, use the
+[Windows measurement guide](docs/jaineel/WINDOWS_MEASUREMENTS.md).
+The PowerShell launchers retain raw evidence and remove disposable containers.
 
 1. **Environment Setup:**
    Copy the example environment configuration:

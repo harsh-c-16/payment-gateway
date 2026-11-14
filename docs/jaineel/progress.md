@@ -1,5 +1,24 @@
 # Jaineel's Implementation Progress Tracker
 
+## 13 November 2026 — desktop presentation integration
+
+User-authorized M1/M2/M3/M4/frontend integration is recorded in
+[the prototype acceptance record](PROTOTYPE_INTEGRATION_2026_11_13.md): changed
+paths, commands, actual outcomes, real browser purchase/Gold evidence, failed
+attempts, remaining formal evaluation work and safe container cleanup.
+The [professor guide](PROFESSOR_DEMO.md) supplies one-command start/stop.
+Scope is desktop; no commit or push was performed.
+
+## 13 November 2026 — retrieval integration
+
+User-authorized retriever integration spans M1, M2 and prototype deployment.
+The existing hybrid algorithm is now provisioned and selected by shopping chat.
+All 19,920 active products have current embeddings; real M1/M2 HTTP checks and
+the full prototype health/resource verification pass. Changed paths, exact
+commands, test outcomes, failed attempts, raw evidence, limitations and manual
+startup/verification are in [the integration record](RETRIEVAL_INTEGRATION_2026_11_13.md).
+No commit or push was performed.
+
 **Author:** Jaineel Vora (B24CM1080)
 **Role:** M1 (Session, Cart, Assistant, Workflow) & M0 (Measurement Harness, Oracle, Dashboards, Benchmarks)
 **Reference Playbook:** [10_JAINEEL_CODEX_PLAYBOOK.md](../specs/10_JAINEEL_CODEX_PLAYBOOK.md)
@@ -4917,3 +4936,266 @@ actual commit, push output and remote-HEAD equality are retained in
 run/recovery/stop instructions are in `PRESENTATION_READY.md`. Remaining formal
 evaluation prerequisites are listed in `COURSE_COVERAGE.md`; no unfinished
 measurement, geographic deployment or human approval is claimed complete.
+
+
+## 13 November 2026 - Windows desktop conversation and metrics integration
+
+User authorized cross-module prototype integration, preservation of existing
+additions, Windows-only delivery and visible professor-demo metrics. Existing
+PR #23 was already merged locally; all initial local changes were snapshotted
+before edits. No reset, branch switch, import, reseed, volume deletion, commit
+or push was performed.
+
+Implemented actual Gemini shopping conversation separately from P11 intent
+fallback: private bounded history/preferences, typed catalogue tools, references,
+clarification, guarded refinements, durable one-call reservations and clear
+provider failures. Preserved explicit purchase confirmation and idempotency.
+The browser selects configured AI conversation and separately retains a chosen
+deterministic mode. Model settings/key stay in ignored server bindings.
+
+Integrated real session/Gold metrics into the desktop UI. Fixed shirt relevance
+with recorded taxonomy, empty-result refresh, overlapping sticky chat bubbles,
+Windows projection-manifest startup paths, stale scaffold/CI expectations and
+transient Windows evidence-file sharing locks. The strict white-shirt search is
+honestly empty: all 896 recorded ordinary shirts lack recorded colour.
+
+Changed paths: services/conversation (app/workflow/shopping, new shopping_llm,
+shopping_dialogue, shopping_metrics, generated-contract helper and web assets),
+shared/contracts/shopping.py, contracts/http/shopping.yaml,
+services/catalog/{products,search,product_types}.py, infra/{prototype,retrieval}.py,
+infra/compose.prototype.yaml, root PowerShell scripts, .env.example,
+.github/workflows/offline.yml, benchmarks/manual/{verify_p5,verify_prompt6}.py,
+relevant conversation/catalogue/benchmark/scaffold tests and current demo docs.
+Existing local retrieval/embedding/Gold/recovery additions remain in place.
+
+Actual checks (overlapping suites; do not sum): Windows offline verifier PASS,
+1,927 passed / 627 explicitly skipped service checks; isolated PostgreSQL service
+suite 766 passed; final dialogue/metrics/guard suite 24 passed; catalogue with
+real locked encoder/PostgreSQL under Docker Desktop 73 passed; Node controller
+11 passed. Generated shopping/catalogue/original conversation contracts, Ruff,
+Node syntax, whitespace and Git-visible secret scan passed.
+
+Real Edge checkout rehearsal PASS: one scripted simulated order
+cce5bd87-ccc7-4607-84e6-b72e872d0859, CONFIRMED v6, INR 297, committed reservation,
+one successful payment and exactly one 29,700-minor debit. Inventory/projection
+versions agree; exact order facts match active Gold. Six corresponding Kafka
+receipts are durable and Gold-visible. Unchecked/declined confirmation, response
+loss with exact cart retry and refresh/resume did not create another order.
+
+The separate real Gemini browser check PASS: eight turns, eight API attempts,
+five searches/embeddings, zero errors and zero checkout requests. Its observed
+P50/P95 was 2,251.70/2,684.19 ms and mean model time 1,657.39 ms. These are actual
+demo observations, not a controlled performance result. Stop/recreate/start and
+post-recreation order audit passed; all twelve containers remain healthy.
+
+Exact commands, outcomes, initial failures, evidence locations and limitations:
+[Windows integration record](WINDOWS_DESKTOP_INTEGRATION_2026_11_13.md).
+Private raw evidence is artifacts/conversation-integration-20261113/.
+The existing contracts all-owner byte-pinned review gate remains NOT_RUN;
+GitHub Actions was not rerun without a commit/push. No formal benchmark,
+fault-campaign or outside owner-review result is claimed.
+Manual steps: open http://127.0.0.1:8001/, follow
+[PROFESSOR_DEMO.md](PROFESSOR_DEMO.md), expand Live demo metrics, and stop with
+./stop-prototype.ps1 after presenting. Data and volumes remain retained.
+
+Final engine recovery completed: start-engine-recovered.log reports readiness, projection, fixed preflight and hybrid PASS. The latest 24 dialogue/metrics tests and independent purchase audit pass after recovery. final-health.json verifies all 12 containers healthy, AI configured, presentation flags off, key scoped to M1 and persisted session metrics available.
+
+## 14 November — desktop chat layout, automatic hybrid and checkout wording
+
+Completed the user's UI update: independent message scrolling with non-overlapping
+controls, automatic hybrid retrieval in chat and top-bar search, facet/budget
+extraction before ranked retrieval, friendly order-review wording and removal of
+the requested banner. Exact retry identity and explicit confirmation remain in
+place. Basic chat remains under Chat settings. Existing source data and local
+changes were preserved.
+
+Actual checks: 483 conversation tests passed against isolated PostgreSQL storage
+with declared owner/model/event doubles; 11 Node controller tests passed; real
+Edge layout/search/cart/quote checks passed at five desktop sizes with settings
+open/closed; real Gemini eight-turn browser flow passed. No new purchases were
+submitted. Ruff/Node syntax/whitespace checks passed. Evidence, exact commands,
+initial failures, changed paths and manual steps are in
+[the desktop UI record](DESKTOP_UI_2026_11_14.md).
+
+## 14 November — separate data engineering dashboard
+
+Moved dashboarding off the storefront into `/dashboard`, with a header link.
+Added measured event/latency/producer/order/receipt charts, service readiness,
+Silver/Gold manifest and offset details, catalogue attribute coverage, scoped
+current-order visibility, pause/refresh and JSON export. Missing providers remain
+unavailable, and charts document their scopes. The old metrics API remains usable.
+
+Actual checks: 489 conversation tests passed on isolated PostgreSQL storage with
+explicit owner/event/model doubles; 11 Node controller tests passed. Real Edge
+checks cover the separate page, five desktop sizes, live API projections, store
+navigation and export. The browser's partial-provider state uses an explicitly
+labelled response projection double. No purchases were submitted for this work.
+Ruff, generated contracts, Node syntax and whitespace checks passed. Exact commands,
+changed paths, evidence, initial failures, limits and manual steps:
+[dashboard delivery record](DASHBOARD_2026_11_14.md).
+
+Final dashboard review found repeated journal observations for the same Kafka
+position. Aggregation now counts each namespace/topic/partition/offset once,
+rejects conflicting source identities, and reports journal observations separately.
+The resume cursor is not treated as proof of more rows. Seven focused dashboard
+tests passed after this change. The storefront's five-size layout/search/cart/
+review regression also passed after dashboard extraction; no checkout was submitted.
+
+## 14 November — remove similar-product action from details
+
+Removed the Find similar button and its click handler from the product details
+window at the user's request. Updated the browser rehearsal to close details
+directly and assert that the removed button is absent; updated current demo/spec
+instructions. Node syntax/controller and whitespace checks passed. No purchase
+or live checkout rehearsal was required for this UI removal.
+
+## 14 November — integrated Failure Demo and measured visual evidence
+
+Implemented all five requested scenarios in the existing `/dashboard`:
+analytics-worker pause/catch-up with its read API left available; committed
+gateway response loss and exact idempotent checkout retry; deterministic payment
+decline/compensation; actual Orders process exit 86 at saga.after_commit and
+retained-container recovery; and a persisted 35-second payment plan with expiry,
+quiescence and post-due compensation verification. Explicit preparation/consent
+gates all scripted checkout; loading/polling/recovery do not purchase or replay.
+
+Added a loopback Windows controller, fixed allowlisted process actions, validated
+project/container targets, an exclusive desktop run lease, finite deadlines,
+interrupted-state recovery, scoped expiring owner hooks and evidence download.
+Independent owner audit APIs verify one purchase/debit, reservation state, stock
+conservation and exactly two stock-version changes. Gold checks the exact final
+identity/version/status/amount; cancellation matching now follows its canonical
+event fields while participant audits remain separate. Normal benchmark/fault
+flags stay false. No datasets, models, databases or volumes were reset.
+
+The UI has five-stage controls, scenario concepts/preconditions, manual versus
+automated labels, timestamped observations, actual run/request/order IDs, Pending/
+Passed/Failed/Unavailable states, a worker/API/order/Gold timeline, stock and ledger
+graphs, and a verification journal. Unknown observations stay null. Find similar
+remains removed. Existing local changes were preserved; no branch change,
+commit or push was performed.
+
+Actual checks: all five real-service CLI cases PASS, followed by a final real
+retry check after gateway-error hardening; full isolated PostgreSQL regression
+PASS (718 tests in 181.71 s); final focused controller/oracle guards PASS (23,
+overlapping the broad suite); storefront Node controller PASS (11). Two real Edge
+rehearsals passed all five scenarios plus the normal store-confirmation path,
+six viewport widths, measured charts, evidence download and zero refresh/reload
+mutations. Screenshots were visually inspected. The 35-second case proves callback
+suppression under current saga rules, not a claimed late successful charge/refund.
+
+Start with ./start-prototype.ps1 when needed, then ./start-failure-demo.ps1.
+Open /dashboard#failure-demo and Connect. For the primary manual case, add to the
+store cart before Prepare, Trigger pause, explicitly confirm in the store, Watch
+the new order, Recover and Verify. Other cases use a consent checkbox and an
+explicit automated-test action. Stop the helper with ./stop-failure-demo.ps1
+before the normal prototype shutdown.
+
+Exact commands, results, changed paths, raw evidence, initial failures and limits:
+[Failure Demo delivery and operating guide](FAILURE_DEMOS_2026_11_14.md).
+Raw evidence: artifacts/failure-demo-20261114/ and artifacts/failure-demo/.
+No scenario remains mock-only or blocked. These local trials do not establish
+production HA or broker-head lag. Automatic recovery requires the helper to be
+running; after a helper interruption, restart it and use Recover.
+
+## Windows Desktop measurements, resource/clock controls and late payment — 14 November 2026
+
+Added `benchmarks/windows/{evidence,measure,worker}.py`, the Windows-only Desktop
+guard, and `run-measurements.ps1`, `verify-desktop-controls.ps1`, and
+`run-late-payment.ps1`. Existing uncommitted Desktop work is preserved. The user's
+latest instruction is to finish locally without pushing; no Git commit or push
+is made for this task. CI/CD checks are deliberately not invoked.
+
+The runner composes the existing owners' real importer, search count/rank SQL,
+analytics sink, publisher, compactor and DuckDB query suite. Comparisons retain
+three seeded paired repetitions, raw observations, logical-result equality,
+negative improvements, build/staging costs and report artifacts. PostgreSQL and
+the provider process have separate enforced limits. Windows remains the launcher
+and evidence destination. Provider operations use a disposable Docker Desktop
+Linux data volume to preserve the storage contract's directory-fsync guarantee.
+
+Resources include actual image identities, host inventory, CPU/RAM/swap/PID
+limits, cgroup memory peak/OOM counters, Windows observer CPU/RSS and Docker stats.
+UTC probes retain midpoint offset, RTT, error bound and clock-step residual;
+before/after checks gate local comparisons. Formal P9 qualification remains
+separate and is not asserted by these provider comparisons.
+
+Late-payment verification now also requires a persisted completion deadline
+beyond reservation expiry. Its independent ledger check permits no debit or one
+debit with exactly one reversal for the same payment, and rejects cross-payment
+refunds. The ordinary real-service path safely quiesces the pending callback.
+
+Completed commands and actual results:
+
+- `.venv/Scripts/python.exe -m pytest tests/benchmarks/test_windows_measurements.py tests/benchmarks/test_failure_demo.py -q`: 28 passed; one existing Starlette/httpx deprecation warning.
+- Ruff on the Windows harness and changed failure-controller/oracle tests: passed.
+- PowerShell AST parsing of all three new launchers: passed.
+- `.venv/Scripts/python.exe -m benchmarks.windows.evidence`: passed for all 12
+  prototype containers; matching allocations and a largest measured relative
+  clock error bound of 98.93 ms (500-ms configured ceiling).
+- `./run-late-payment.ps1`: passed all independent expiry/cancellation checks for
+  order `8ebddfcd-2315-4703-ac66-2b55d9f1b69a`; one attempt, cancelled order,
+  released stock, zero net debit and exact active Gold state. Receipt:
+  `artifacts/windows/late-3c3f02516543456b99e67d33a8d92989/`.
+  Hook support was disabled and every prototype container removed; all retained
+  data/model volumes remain intact.
+
+Initial failed measurement attempts remain under `artifacts/windows/`. Native
+Windows FileStore correctly refused directory fsync, prompting the Docker data
+volume composition. An initial provider launch lacked the infra/projectctl
+mounts; those mounts were added. Both failures removed their disposable
+PostgreSQL/provider containers and retained failure evidence. They are not
+performance results. See [the operating guide](WINDOWS_MEASUREMENTS.md) for exact
+boundaries, reproduction commands, cleanup and limitations.
+
+The first complete provider invocation subsequently exposed an invalid harness
+namespace (`windows-measure`); event contracts require the `bench-` prefix.
+It was corrected to `bench-windows-measure` throughout. That failed run retained
+import timings, query plans and resource receipts, but its partial query journal
+was overwritten by the controller's empty list. The controller now preserves
+copied partial journals on failure. No performance claim is made from that run.
+
+The subsequent `./run-measurements.ps1 -Smoke` completed all four axes with equal
+logical results: 428 raw measurement rows, 108 comparison groups and 438 hashed
+evidence files. Before/after clocks passed, provider OOM counters were zero, and
+both containers/anonymous volumes were removed. Its receipt is
+`artifacts/windows/7571d5432cc1412ea7006b116d85dc6c/` and status is SMOKE_ONLY.
+The expanded measurement integrity suite then passed all five tests, including
+host clock-step rejection and invalidation of stale successful receipts. These
+are focused local checks, not a CI/CD workflow run.
+
+Final measurement outcomes: the full 50-query/30-sample invocation reached its
+one-hour provider deadline and remained FAILED, with its partial journal
+preserved. The deadline is now configurable (120-minute default). Added explicit
+`-Quick` triage mode: three pairs, two timed executions, and two fixed query IDs
+per original search stratum. Full mode retains the original fixture and sampling.
+Measured imports now each create an absent archive, keeping archive state equal
+between variants rather than giving the first run a different write boundary.
+
+`./run-measurements.ps1 -Quick` then completed all provider operations: 276 raw
+observations, 24 comparison groups, all three pairs and matching logical results.
+However, one Windows Docker stats acquisition timed out. The strict collector
+gate correctly rejected the bundle as FAILED rather than qualifying its numbers.
+Provider OOM/kill counts were zero; the provider reached its 1-GiB allocation and
+recorded memory-pressure events, which remain visible. Before/after clock
+qualification for this failed bundle is not established. Receipt:
+`artifacts/windows/09aba659a2104d99b5e6c3e8f8ebbd1b/`.
+
+The read-only `benchmarks.windows.report` helper verifies the original journal
+hash and rebuilds separate DIAGNOSTIC_ONLY observations without changing the run
+or promoting a failed result. Command actually executed:
+`.venv/Scripts/python.exe -m benchmarks.windows.report --run artifacts/windows/09aba659a2104d99b5e6c3e8f8ebbd1b`.
+Output: `artifacts/windows/reports/09aba659a2104d99b5e6c3e8f8ebbd1b/`.
+Docker stats acquisition now permits 30 seconds instead of 10; a timeout still
+fails qualification. This environment's interruption is not represented as a pass.
+
+All prototype and disposable PostgreSQL/provider containers have been removed;
+`docker ps -a --format '{{.Names}} {{.Status}}'` returned no rows. Existing named
+prototype volumes are retained. No commit or push was performed, following the
+user's latest instruction. CI/CD remains unexecuted. A formal performance claim
+still needs a complete uninterrupted full run plus the canonical P9 gates.
+
+Final focused verification after the diagnostic helper: the same pytest command
+for `test_windows_measurements.py` and `test_failure_demo.py` passed 32 tests;
+Ruff and changed-path whitespace checks passed. The only pytest warning was the
+existing Starlette/httpx deprecation. No CI/CD workflow was run.

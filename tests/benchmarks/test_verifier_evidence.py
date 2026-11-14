@@ -91,3 +91,43 @@ def test_p5_retains_timeout_evidence_and_records_remaining_checks(tmp_path, monk
     assert checks[0]["stdout"] == ("partial evidence" if partial else "")
     assert "partial output retained" in checks[0]["stderr"]
     assert all(check["passed"] for check in checks[1:])
+
+
+def test_windows_checkpoint_retries_sharing_lock_and_preserves_failure(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    from benchmarks.manual import verify_p5
+
+    source, target = tmp_path / "pending.json", tmp_path / "checks.json"
+    source.write_text("new checkpoint")
+    target.write_text("previous checkpoint")
+    actual = Path.replace
+    calls = []
+
+    def locked(path, destination):
+        calls.append(path)
+        if len(calls) < 3:
+            error = PermissionError("explicit Windows sharing-lock double")
+            error.winerror = 32
+            raise error
+        return actual(path, destination)
+
+    monkeypatch.setattr(Path, "replace", locked)
+    monkeypatch.setattr(verify_p5, "sleep", lambda _: None)
+    verify_p5.replace_checkpoint(source, target)
+    assert len(calls) == 3 and target.read_text() == "new checkpoint"
+
+    source.write_text("next checkpoint")
+    calls.clear()
+
+    def permanent(path, destination):
+        calls.append(path)
+        error = PermissionError("persistent Windows lock double")
+        error.winerror = 5
+        raise error
+
+    monkeypatch.setattr(Path, "replace", permanent)
+    with pytest.raises(PermissionError):
+        verify_p5.replace_checkpoint(source, target)
+    assert len(calls) == 5 and target.read_text() == "new checkpoint"
+    assert source.read_text() == "next checkpoint"

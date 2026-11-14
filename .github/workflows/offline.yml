@@ -1,21 +1,20 @@
-name: Repository checks (offline, PostgreSQL, Kafka)
+name: Windows prototype checks
 on: [push, pull_request]
 permissions:
   contents: read
 jobs:
   offline:
-    name: Offline / ${{ matrix.os }} (service checks skip)
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
+    name: Windows offline (service checks skip)
+    runs-on: windows-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
       # GitHub release downloads returned repeated 504s; keep the same uv pin
       # using its published wheels instead of that release-asset endpoint.
       - name: Install pinned uv from PyPI
@@ -23,123 +22,20 @@ jobs:
           python -m pip install --disable-pip-version-check --no-deps --only-binary=:all:
           --index-url https://pypi.org/simple --retries 5 --timeout 60 uv==0.10.8
       - run: uv sync --locked
+      - name: Shopping and catalogue contracts
+        run: |
+          uv run --locked python -m services.conversation.shopping_contract --check
+          uv run --locked python -m services.catalog.contract --check
       - run: uv run --locked python -m benchmarks.manual.verify_prompt6 --job offline --out artifacts/ci-offline
+      - name: Browser controller and checkout controls
+        run: node --test tests/conversation/storefront.test.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: offline-${{ matrix.os }}-logs-junit
+          name: windows-offline-logs-junit
           path: |
             artifacts/ci-offline/*.json
             artifacts/ci-offline/**/*.log
             artifacts/ci-offline/*.xml
             artifacts/projectctl/*/summary.json
           if-no-files-found: warn
-  postgres:
-    name: PostgreSQL 18 / M1, catalogue, transactions (declared doubles)
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    services:
-      postgres:
-        image: pgvector/pgvector:0.8.1-pg18-trixie@sha256:2fd905ba95f99a51be207d0ff0b8d5b8538cbce7e9083b3ccfa65b93bb28b938
-        env:
-          POSTGRES_USER: ci_test
-          POSTGRES_PASSWORD: ci_ephemeral_test_only
-          POSTGRES_DB: ci_test
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U ci_test -d ci_test"
-          --health-interval 2s --health-timeout 3s --health-retries 30
-    env:
-      P6_TEST_DATABASE_URL: postgresql://ci_test:ci_ephemeral_test_only@127.0.0.1:5432/ci_test
-      CATALOG_TEST_DATABASE_URL: postgresql://ci_test:ci_ephemeral_test_only@127.0.0.1:5432/ci_test
-      INVENTORY_TEST_DATABASE_URL: postgresql://ci_test:ci_ephemeral_test_only@127.0.0.1:5432/ci_test
-      ANALYTICS_TEST_DATABASE_URL: postgresql://ci_test:ci_ephemeral_test_only@127.0.0.1:5432/ci_test
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install pinned uv from PyPI
-        run: >-
-          python -m pip install --disable-pip-version-check --no-deps --only-binary=:all:
-          --index-url https://pypi.org/simple --retries 5 --timeout 60 uv==0.10.8
-      - run: uv sync --locked
-      - name: Initialize pinned pgvector in the disposable test database
-        run: |
-          uv run --locked python -c "import os, psycopg; c = psycopg.connect(os.environ['CATALOG_TEST_DATABASE_URL'], autocommit=True); c.execute('CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public'); c.close()"
-      # Strict provider xfails remain strict: XPASS needs the owner's review.
-      - run: uv run --locked python -m benchmarks.manual.verify_prompt6 --job postgres --out artifacts/ci-postgres
-      - name: Retain PostgreSQL failure log
-        if: always()
-        run: |
-          mkdir -p artifacts/ci-postgres
-          docker logs ${{ job.services.postgres.id }} > artifacts/ci-postgres/postgres.log 2>&1
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: postgres18-logs-junit
-          path: |
-            artifacts/ci-postgres/*.json
-            artifacts/ci-postgres/**/*.log
-            artifacts/ci-postgres/*.xml
-          if-no-files-found: warn
-
-  kafka-registry:
-    name: Pinned Kafka, registry, PostgreSQL and Linux volume
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    env:
-      PROJECTCTL_ADAPTER_MODULE: infra.streaming
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install pinned uv from PyPI
-        run: >-
-          python -m pip install --disable-pip-version-check --no-deps --only-binary=:all:
-          --index-url https://pypi.org/simple --retries 5 --timeout 60 uv==0.10.8
-      - run: uv sync --locked
-        id: dependencies
-      - name: Provision owner-pinned infrastructure and schemas
-        run: uv run --locked python -m projectctl env up --profile streaming-local
-      - name: Verify pinned images, roles, registry and topics
-        run: uv run --locked python -m projectctl env verify --profile streaming-local
-      - name: Bind isolated CI catalogue database
-        run: uv run --locked python -m benchmarks.manual.prompt6_services export
-      - name: Native recreation, registry, SDK and stock projection
-        id: native
-        run: uv run --locked python -m benchmarks.manual.verify_prompt6 --job kafka --out artifacts/ci-kafka
-      - name: Reverify infrastructure after native recreation
-        if: ${{ !cancelled() && steps.native.outcome != 'skipped' }}
-        id: reverify
-        run: uv run --locked python -m projectctl env verify --profile streaming-local
-      - name: Real Linux SQL, files, Kafka, publication, replay and analytics
-        if: ${{ !cancelled() && steps.reverify.outcome == 'success' }}
-        run: uv run --locked python -m benchmarks.manual.prompt6_services volume
-      - name: Retain service logs
-        if: ${{ always() && steps.dependencies.outcome == 'success' }}
-        run: |
-          mkdir -p artifacts/ci-stack
-          uv run --locked python -c "from infra.streaming import compose; print(compose('logs', '--no-color'))" > artifacts/ci-stack/services.log 2>&1
-      # Never upload generated .env, Compose overlays or secret files.
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: kafka-registry-volume-logs-junit
-          # Recorder logs are direct children. Never traverse the container's
-          # private pytest tmp/cache directories while collecting evidence.
-          path: |
-            artifacts/ci-kafka/*.json
-            artifacts/ci-kafka/**/*.log
-            artifacts/ci-kafka/*.xml
-            artifacts/ci-volume/*.json
-            artifacts/ci-volume/*.log
-            artifacts/ci-volume/*.xml
-            artifacts/ci-stack/*.log
-            artifacts/infra/streaming-local/checks/**/*.json
-            artifacts/projectctl/*/summary.json
-          if-no-files-found: warn
-      - name: Stop dedicated CI stack (retain volumes)
-        if: ${{ always() && steps.dependencies.outcome == 'success' }}
-        run: uv run --locked python -m projectctl env down

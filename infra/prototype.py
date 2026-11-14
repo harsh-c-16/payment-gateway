@@ -94,6 +94,7 @@ def environment(*, host=False):
     values = postgres.credentials()
     return {
         **context,
+        **shopping_environment(),
         "INTERNAL_API_TOKEN": token,
         "POSTGRES_SECRETS_DIR": (postgres.RUNTIME / "secrets").as_posix(),
         "EVENT_SCHEMA_CACHE_PATH": streaming.SCHEMA_CACHE.as_posix(),
@@ -107,24 +108,53 @@ def environment(*, host=False):
     }
 
 
-def compose(*arguments):
+def shopping_environment():
+    """Read only the private M1 model settings; never include them in public context/evidence."""
+    names = {"SHOPPING_LLM_ENABLED", "SHOPPING_LLM_MODEL", "GEMINI_API_KEY"}
+    values = {k: os.environ[k] for k in names if k in os.environ}
+    path = RUNTIME / "shopping-llm.env"
+    if path.is_file():
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip() or line.lstrip().startswith("#"):
+                continue
+            name, separator, value = line.partition("=")
+            if not separator or name not in names or not value or any(c.isspace() for c in value):
+                raise postgres.SetupError("Invalid private shopping-llm.env entry")
+            values[name] = value
+    return values
+
+
+def compose(*arguments, semantic=None):
+    from infra import retrieval
+
+    semantic = retrieval.enabled() if semantic is None else semantic
+    files = FILES + (("compose.retrieval.yaml",) if semantic else ())
     return postgres.command(
         [
             "docker",
             "compose",
             "--project-name",
             postgres.PROJECT,
-            *[arg for name in FILES for arg in ("--file", str(postgres.ROOT / "infra" / name))],
+            *[arg for name in files for arg in ("--file", str(postgres.ROOT / "infra" / name))],
             *arguments,
         ],
         environment={**os.environ, **environment()},
-        timeout=600 if arguments[0] in {"up", "run"} else 180,
+        timeout=1800
+        if "pipelines.catalog.embeddings" in arguments
+        else 600
+        if arguments[0] in {"up", "run"}
+        else 180,
     )
 
 
 def allocations():
+    from infra import retrieval
+
     infrastructure = json.loads((postgres.ROOT / "infra/streaming-profile.json").read_text())
     overlay = yaml.safe_load((postgres.ROOT / "infra/compose.prototype.yaml").read_text())
+    if retrieval.enabled():
+        semantic = yaml.safe_load((postgres.ROOT / "infra/compose.retrieval.yaml").read_text())
+        overlay["services"]["catalog"]["mem_limit"] = semantic["services"]["catalog"]["mem_limit"]
     return {
         **infrastructure["services"],
         **{
@@ -186,6 +216,18 @@ def prerequisites(*, migrate=False):
                     name + " owner migrations required; missing tables: " + ", ".join(missing)
                 )
             else:
+                if (
+                    name == "conversation"
+                    and not tx.execute(
+                        "SELECT EXISTS (SELECT 1 FROM information_schema.columns "
+                        "WHERE table_schema='public' AND table_name='sessions' "
+                        "AND column_name='shopping_context')"
+                    ).fetchone()[0]
+                ):
+                    unavailable.append(
+                        "conversation migration 005 required; run services.conversation.database "
+                        "to add saved shopping_context"
+                    )
                 tx.execute(
                     sql.SQL("SELECT event_id,published_at FROM {} LIMIT 0").format(
                         sql.Identifier("outbox")
@@ -218,6 +260,10 @@ def build_image():
             ],
             timeout=600,
         )
+    from infra import retrieval
+
+    if retrieval.enabled():
+        retrieval.build_image()
 
 
 def verify():

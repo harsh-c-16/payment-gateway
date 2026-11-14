@@ -1,0 +1,10 @@
+# Added by the prototype launcher only after explicit semantic provisioning.
+services:
+  catalog:
+    image: group3-catalog-retrieval:local
+    mem_limit: 768m
+    environment:
+      EMBEDDING_MODEL_DIR: /app/embedding-model
+    volumes:
+      - ../artifacts/models/all-MiniLM-L6-v2:/app/embedding-model:ro
+      - ../artifacts/retrieval:/app/retrieval-artifacts

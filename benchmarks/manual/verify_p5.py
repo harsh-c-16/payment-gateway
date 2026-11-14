@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from time import sleep
 from uuid import uuid4
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -13,6 +14,18 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from benchmarks.manual.verifier_state import Preservation  # noqa: E402
+
+
+def replace_checkpoint(source, target):
+    """Bound transient Windows scanner/OneDrive locks without losing the old checkpoint."""
+    for attempt in range(5):
+        try:
+            source.replace(target)
+            return
+        except PermissionError as error:
+            if getattr(error, "winerror", None) not in {5, 32, 33} or attempt == 4:
+                raise
+            sleep(0.05 * (attempt + 1))
 
 
 def main():
@@ -155,7 +168,7 @@ def main():
         )
         temporary = evidence / "checks.json.tmp"
         temporary.write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
-        temporary.replace(evidence / "checks.json")
+        replace_checkpoint(temporary, evidence / "checks.json")
         print(json.dumps({"check": len(checks), "passed": checks[-1]["passed"]}), flush=True)
     print(
         json.dumps(
