@@ -658,7 +658,7 @@ def run_worker(database, args):
                 ["docker", "logs", identity],
                 capture_output=True,
                 text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
                 timeout=20,
             )
             error_log = re.sub(r"(?i)(password\s*[=:]\s*)[^\s]+", r"\1<redacted>", log.stderr)

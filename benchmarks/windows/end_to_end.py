@@ -55,7 +55,7 @@ def set_batch(rows, directory):
         env={**os.environ, **prototype.environment()},
         capture_output=True,
         timeout=150,
-        creationflags=subprocess.CREATE_NO_WINDOW,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     if result.returncode:
         raise RuntimeError("Analytics batch deployment failed (private output withheld)")

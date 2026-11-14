@@ -145,3 +145,44 @@ def test_unrequested_filter_relaxation_or_unknown_facets_are_rejected(change, te
             text,
             WorkflowProviderDouble().facets,
         )
+
+
+def test_new_search_or_another_product_starts_from_blank_preferences():
+    dictionary = WorkflowProviderDouble().facets
+    memory = ShoppingMemory(
+        intent={
+            **blank_intent("black shirt"),
+            "category": "clothing",
+            "colour": "black",
+            "max_price_minor": 99999,
+        }
+    )
+    for text in ("New search: furniture", "show me furniture"):
+        intent = merged_intent(
+            SearchArguments.model_validate({"query": "furniture"}), memory, text, dictionary
+        )
+        assert intent["category"] == "furniture"
+        assert intent["colour"] is None and intent["max_price_minor"] is None
+
+
+def test_named_product_and_rupee_budget_are_hard_filters_the_model_cannot_drop():
+    dictionary = WorkflowProviderDouble().facets
+    args = SearchArguments.model_validate({"query": "shirt"})
+    intent = merged_intent(args, ShoppingMemory(), "Shirts under ₹1,000", dictionary)
+    assert intent["category"] == "clothing" and intent["max_price_minor"] == 99999
+    intent = merged_intent(args, ShoppingMemory(), "shirt 500 ke andar", dictionary)
+    assert intent["category"] == "clothing" and intent["max_price_minor"] == 50000
+    intent = merged_intent(args, ShoppingMemory(), "size XL shirt", dictionary)
+    assert intent["category"] == "clothing" and intent["size"] == "XL"
+
+
+def test_unrequested_model_change_keeps_the_earlier_filter_instead_of_failing():
+    dictionary = WorkflowProviderDouble().facets
+    memory = ShoppingMemory(
+        intent={**blank_intent("shirt"), "category": "clothing", "colour": "black"}
+    )
+    for change in ({"colour": "blue"}, {"colour": None}):
+        args = SearchArguments.model_validate({"more": True, "filters": change})
+        assert merged_intent(args, memory, "more options", dictionary)["colour"] == "black"
+    cleared = SearchArguments.model_validate({"filters": {"colour": None}})
+    assert merged_intent(cleared, memory, "any colour is fine", dictionary)["colour"] is None

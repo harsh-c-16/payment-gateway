@@ -7,7 +7,7 @@
   <title>ShopTalk · Find your kind of thing</title>
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/store.css">
-  <script src="/assets/store.js?v=home-controls-2" defer></script>
+  <script src="/assets/store.js?v=qa-fixes-1" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#catalogue">Skip to products</a>
@@ -37,7 +37,7 @@
         <details id="preferences-panel" class="preferences-panel" hidden><summary>Your preferences</summary><div id="preferences" class="preferences"></div></details>
       </div>
       <div class="chat-composer">
-        <div class="chat-controls"><button id="new-search" class="text-button" type="button">New search</button></div>
+        <div class="chat-controls"><button id="new-search" class="text-button" type="button">New search</button><button id="more-options" class="text-button" type="button" disabled>Show more</button></div>
         <p id="chat-status" class="chat-status" role="status" hidden></p>
         <form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Describe the product or answer the assistant</label><textarea id="chat-input" maxlength="2000" rows="2" placeholder="Tell me what you have in mind…" required></textarea><button id="send-chat" type="submit" aria-label="Send message" disabled>↑</button></form>
         <p class="chat-footnote">You choose what to buy and confirm every order in your cart.</p>
@@ -45,7 +45,7 @@
     </aside>
   </main>
   <dialog id="product-dialog" aria-labelledby="product-title"><div class="dialog-heading"><span class="eyebrow">A CLOSER LOOK</span><button type="button" data-close="product-dialog" class="icon-button" aria-label="Close product details">×</button></div><div id="product-detail"></div></dialog>
-  <dialog id="cart-dialog" aria-labelledby="cart-title"><div class="dialog-heading"><div><p class="eyebrow">YOUR FINDS</p><h2 id="cart-title">Shopping cart</h2></div><button type="button" data-close="cart-dialog" class="icon-button" aria-label="Close cart">×</button></div><p class="muted">Check your items, then review the latest prices and availability.</p><div id="cart-lines"></div><div id="quote"></div><div id="order" role="status"></div><div class="cart-actions"><button id="request-quote" type="button" class="primary">Review order</button><label id="review-label" class="review-label" hidden><input id="review-quote" type="checkbox">I've checked the items and total, and I'm ready to place this demo order.</label><button id="confirm-purchase" type="button" class="primary" hidden disabled>Place demo order</button></div><p class="muted small">This is a demo order. You won't be charged or asked for payment details.</p></dialog>
+  <dialog id="cart-dialog" aria-labelledby="cart-title"><div class="dialog-heading"><div><p class="eyebrow">YOUR FINDS</p><h2 id="cart-title">Shopping cart</h2></div><button type="button" data-close="cart-dialog" class="icon-button" aria-label="Close cart">×</button></div><p class="muted">Check your items, then review the latest prices and availability.</p><p id="cart-notice" class="notice error" role="alert" hidden></p><div id="cart-lines"></div><div id="quote"></div><div id="order" role="status"></div><div class="cart-actions"><button id="request-quote" type="button" class="primary">Review order</button><label id="review-label" class="review-label" hidden><input id="review-quote" type="checkbox">I've checked the items and total, and I'm ready to place this demo order.</label><button id="confirm-purchase" type="button" class="primary" hidden disabled>Place demo order</button></div><p class="muted small">This is a demo order. You won't be charged or asked for payment details.</p></dialog>
   <template id="product-card"><article class="product-card"><button type="button" class="product-image-button" data-action="detail"><img class="product-image" alt="" loading="lazy" referrerpolicy="no-referrer"></button><div class="product-copy"><p class="product-category"></p><h3 class="product-title"></h3><p class="product-price"></p><p class="product-stock"></p><div class="product-actions"><button type="button" class="secondary" data-action="detail">View details</button><button type="button" class="add-button" data-action="add" aria-label="Add to cart">+</button></div></div></article></template>
 </body>
 </html>

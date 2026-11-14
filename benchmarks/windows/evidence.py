@@ -49,7 +49,7 @@ def command(*args, timeout=30, env=None):
         errors="replace",
         timeout=timeout,
         env=env,
-        creationflags=subprocess.CREATE_NO_WINDOW,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     if result.returncode:
         # Never include stderr: Docker initialization errors can contain private bindings.
@@ -221,7 +221,7 @@ def _live_snapshot(out, *, max_error_ms=500):
         ["w32tm", "/query", "/status"],
         capture_output=True,
         text=True,
-        creationflags=subprocess.CREATE_NO_WINDOW,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         timeout=10,
     )
     facts["windows_time_service"] = {

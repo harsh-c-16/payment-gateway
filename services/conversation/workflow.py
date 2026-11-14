@@ -523,6 +523,22 @@ class FixedWorkflow:
                 if cached is not None:
                     return cached
             else:
+                if operation == "checkout_cart":
+                    # Acceptance empties the cart, so a new transport key for an already
+                    # accepted quote must replay that order before any cart-version check.
+                    accepted = tx.execute(
+                        "SELECT response FROM workflow_commands WHERE namespace=%s AND user_id=%s "
+                        "AND operation=%s AND remote_key=%s AND state='complete' LIMIT 1",
+                        (
+                            *scope[:3],
+                            "m1-checkout-"
+                            + canonical_hash(
+                                (context.namespace, context.user_id, request.quote_id)
+                            ),
+                        ),
+                    ).fetchone()
+                    if accepted is not None:
+                        return accepted["response"]
                 # Fail before journalling or contacting a mutation provider if
                 # the required event path cannot be initialized.
                 self.state.events.ready()
@@ -696,6 +712,17 @@ class FixedWorkflow:
                             "confirmation_id": command["provider_input"]["confirmation_id"],
                         },
                         self.clock(),
+                    )
+                    # The accepted order owns these lines now; the shopper starts a new cart.
+                    tx.execute(
+                        "DELETE FROM cart_items WHERE namespace=%s AND cart_id=%s",
+                        (context.namespace, cart_id),
+                    )
+                    tx.execute(
+                        "UPDATE carts SET version=version+1,updated_at=clock_timestamp(),"
+                        "quote_id=NULL,quote_cart_version=NULL,confirmation_id=NULL,"
+                        "quote_payload=NULL WHERE namespace=%s AND cart_id=%s",
+                        (context.namespace, cart_id),
                     )
                 else:
                     if accepted["response"]["order_id"] != result["order_id"]:

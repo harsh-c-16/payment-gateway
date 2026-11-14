@@ -44,9 +44,7 @@ QUESTIONS = {
         "Use the product and cart buttons to shop. "
         "Open your cart, select Review order, then confirm when you're ready."
     ),
-    "reference": (
-        "Which product do you mean? Choose ‘Find similar’ on a product, or say ‘the first one’."
-    ),
+    "reference": ("Which product do you mean? Say ‘the first one’ or ‘the second one’."),
     "limit": (
         "You've seen 200 options for this search. "
         "Refine your preferences to start a fresh result set."
@@ -309,14 +307,22 @@ class ShoppingWorkflow(FixedWorkflow):
         dictionary = self.call(
             "facets", context, deadline=deadline, params={"namespace": context.namespace}
         )
+        # The search box is free text: resolved filters apply, and anything the rules
+        # cannot resolve (quotes, "or", unknown values) stays a plain keyword search.
         parsed = extract_intent(params["q"], context, dictionary)
-        if parsed.missing_fields:
+        if "unsupported_attribute" in parsed.missing_fields:
             raise ServiceError(
                 422,
                 ErrorCode.UNSUPPORTED_FILTER,
-                "Please describe the product in chat so we can clarify your preferences.",
+                "That detail (for example waterproof, sleeve, size of shoe or rating) isn't "
+                "recorded in this catalogue. Remove it from your search.",
             )
         intent = dict(parsed.intent)
+        for field in parsed.missing_fields:
+            if field in intent:
+                intent[field] = None
+        if intent.get("size") is not None and intent.get("category") != "clothing":
+            intent["size"] = None
         if params.get("category") is not None:
             if intent.get("category") not in (None, params["category"]):
                 raise ServiceError(
