@@ -27,11 +27,11 @@
   }
   function selection() {
     const scenario=el("scenario").value;if(scenario!=="analytics") el("mode").value="automated";
-    el("mode").options[0].disabled=scenario!=="analytics";
+    el("mode").querySelector('option[value="manual"]').disabled=scenario!=="analytics";
     const automated=el("mode").value==="automated",[heading,description]=concepts[scenario];
     el("concept").replaceChildren(make("strong",heading),make("p",description));el("consent-label").hidden=!automated;
-    el("preconditions").textContent=automated ? "Prepare selects one available product and captures owner stock. Review the product and check the consent box before triggering. No purchase occurs during Prepare." : "Add your product to the store cart first, then Prepare → Trigger. Place the order through normal store review and confirmation; return here to Watch it before recovery.";
-    buttons();
+    el("preconditions").textContent=automated ? "Capture baseline selects an available product and reads stock and ledger state. Then review the product and approve one simulated checkout before Run test." : "Add a product to the store cart, capture baseline, and pause analytics. Place the order through normal store confirmation, then watch it here before resuming processing.";
+    error("");buttons();
   }
   function buttons() {
     const r=current?.run,live=r?.status==="Pending",selected=r && r.scenario===el("scenario").value && r.mode===el("mode").value;
@@ -43,6 +43,18 @@
     el("retry").disabled=!ready || !live || !r?.response_lost || r.test_running || !r.checkout;
     el("verify").disabled=!ready || !live || !r?.triggered || r.test_running;
     el("watch").disabled=!ready || !live || !r?.triggered || r.mode!=="manual" || r.test_running;
+    el("prepare").hidden=!!live || !!r?.fault_active;
+    el("trigger").hidden=automated || !live || !!r?.triggered;
+    el("test").hidden=!automated || !live || !!r?.triggered;
+    el("recover").hidden=!!r?.test_running || !r?.fault_active && (!live || !r?.triggered || !!r?.recovered);
+    el("verify").hidden=!live || !r?.triggered || !!r?.fault_active || !!r?.test_running;
+    el("retry").hidden=!live || !r?.response_lost || !!r?.test_running;
+    el("watch").closest(".failure-watch").hidden=automated || !live || !r?.triggered;
+    el("consent-label").hidden=!automated || !live || !!r?.triggered;
+    el("preconditions").hidden=!!live || !!r && selected;
+    el("next").textContent=!connected ? "Connect the local controller to begin." : busy ? "Waiting for the controller..." : r?.test_running ? "Test running: fault injection, checkout, recovery and independent verification are automatic. No further purchase will be submitted." : r?.fault_active && !live ? "The run has ended with a fault still active. Resume processing to clear it before another test." : !live ? "Choose a scenario and capture a fresh stock and ledger baseline. Capturing a baseline does not place an order." : !r.triggered ? automated ? "Review the selected product, approve one simulated checkout, then click Run test. Recovery and verification are automatic." : "Click Pause analytics, then place one order in the store." : !automated && !r.order_id ? "Place the order in the store, then click Watch order. The saved order ID is used automatically; enter an ID only if needed." : r.fault_active ? "Inspect the order and Gold state, then resume processing." : "Processing is restored. Click Verify recovery to reconcile the order, stock, ledger and active Gold.";
+    const workspace=el("run-title").closest(".failure-workspace");workspace.hidden=!selected;
+    el("observations").hidden=!selected;
     el("evidence").disabled=!connected || !r;el("scenario").disabled=busy || live;el("mode").disabled=busy || live;
   }
   function fact(label,value,cls="") {const e=make("div","",cls);e.append(make("span",label),make("strong",value));el("facts").append(e);}
@@ -50,7 +62,7 @@
     current=data;const r=data.run;
     el("connection").textContent=`Local controller connected · namespace ${data.namespace} · observed ${stamp(data.observed_at)} · independent 2-second sampling while active`;
     el("connect").textContent="Refresh controller";
-    if(first && r){el("scenario").value=r.scenario;el("mode").value=r.mode;selection();}first=false;
+    if(first && r && (r.status==="Pending" || r.fault_active)){el("scenario").value=r.scenario;el("mode").value=r.mode;selection();}first=false;
     if(r){
       el("status").textContent=r.status;el("status").className=`badge ${r.status==="Passed" ? "" : "warning"} ${r.status==="Failed" ? "failed" : ""}`;
       el("run-title").textContent=data.scenarios[r.scenario];el("run-scope").textContent=`${r.mode==="manual" ? "LIVE MANUAL DEMO" : "AUTOMATED TEST · SCRIPTED SIMULATED PURCHASE"} · Run ${r.id} · ${r.completed_at ? "Completed "+stamp(r.completed_at)+" · retained evidence" : "Started "+stamp(r.started_at)}`;
@@ -128,4 +140,5 @@
   el("evidence").addEventListener("click",()=>download(current.run.id));el("scenario").addEventListener("change",selection);el("mode").addEventListener("change",selection);el("consent").addEventListener("change",buttons);
   document.addEventListener("visibilitychange",()=>{clearTimeout(poll);if(connected && !document.hidden)refreshController();});
   window.addEventListener("storage",event=>{if(event.key==="shoptalk-session" && current?.run?.mode==="manual" && document.activeElement!==el("order-id")){try{const id=JSON.parse(event.newValue || "{}").order_id;if(id && !current.run.baseline_orders.includes(id))el("order-id").value=id;}catch{/* wait for input */}}});selection();
+  document.getElementById("failure-demo").addEventListener("toggle",e=>{if(e.target.open)refreshController();});
 })();

@@ -5199,3 +5199,236 @@ Final focused verification after the diagnostic helper: the same pytest command
 for `test_windows_measurements.py` and `test_failure_demo.py` passed 32 tests;
 Ruff and changed-path whitespace checks passed. The only pytest warning was the
 existing Starlette/httpx deprecation. No CI/CD workflow was run.
+
+## 14 November 2026 — simpler prototype pages and hybrid search repair
+
+Simplified the dashboard and journey page wording, navigation and default layout.
+Kept detailed charts, scheduled-workload rates, resource/lag history, raw receipts,
+file lineage, stock updates, recordings/playback, and manual/automated failure
+controls accessible in expandable sections or through the linked dashboard.
+Removed the store chat-mode selector and preference note; UI requests AI
+conversation while deterministic mode remains available through the HTTP contract.
+Search now uses advertised keyword search when hybrid alone is unavailable.
+
+Prepared embeddings with the existing owner command for the active presentation
+namespace: 19,998 vectors, locked model/template, batch size 16, 905.25 encoding
+seconds. No catalogue reseed or stock reset. The one-off container removed itself.
+An initial cold fixed-mode search exceeded its existing three-second deadline;
+the repeated real hybrid check passed with that deadline unchanged. Restarted the
+stale local helper after checking no active test/fault, restoring its receipt,
+lag and clock observations (1,200 timed events, six lag readings, qualified clock,
+zero pending Gold). Core containers remain running because the user asked to use
+the local prototype. No commit, push or CI/CD execution.
+
+Changed paths: conversation web dashboard/journey HTML/JS, shared prototype CSS,
+store HTML/controller and AI error copy; related browser/controller rehearsals;
+presentation guide and this progress record. Exact commands, evidence and limits
+are recorded in [SIMPLE_PROTOTYPE_2026_11_14.md](SIMPLE_PROTOTYPE_2026_11_14.md).
+
+Validation: real Edge + Gemini + hybrid search and pipeline metrics, trace, export,
+saved playback safety and manual-control availability passed at
+`artifacts/simple-prototype-browser/1794664688446`. No purchase/fault submitted.
+Hybrid follow-up/filter verification passed at
+`artifacts/retrieval/verify-20c8ae91f3614452bfcb799192f222ee`.
+Store controller tests: 11 passed; journey model tests: 12 passed; isolated HTTP
+browser rendering passed. Python model/dialogue selection: 19 passed, five tests
+skipped without their isolated database binding; this is not a live pass for
+those skipped tests. Changed Python lint and whitespace checks passed.
+
+## 14 November 2026 — home-page controls and retained session recovery
+
+Reproduced the user's home-page failures against the real running service: a
+client record from the old `dev` dataset stopped startup before categories and
+retrieval initialized, and changing the category sent no request without Apply.
+The earlier fresh-browser check had missed the retained-session case.
+
+Removed More options and its JavaScript references. Category, sort and price now
+apply on change. The send button stays disabled until startup finishes; Enter
+uses the actual submit button, while Shift+Enter and IME composition stay in the
+textarea. Old-dataset sessions (including exact pending checkout identities) are
+archived locally rather than replayed into the active dataset. Missing saved
+server sessions reconnect only after a definite 404 and with no pending request.
+Added a store-script version to ensure the updated controller is fetched.
+
+Changed `services/conversation/web/index.html`, `store.js`, their controller and
+layout tests, and added `tests/conversation/storefront.controls.live.cjs`.
+`RUN_HOME_CONTROLS_LIVE=1 node tests/conversation/storefront.controls.live.cjs`
+passed with real services and AI: retained-session reconnect, automatic category/
+sort/price filters with returned data checked, suggestion click, Enter submission,
+send-button click, Shift+Enter, chat restoration after reload and zero purchases.
+The old client record is an explicitly synthetic browser fixture; backend/AI
+responses are real. Evidence: `artifacts/home-controls-browser/1794665812424`.
+`node --test tests/conversation/storefront.test.cjs`: 13 passed after extending
+the explicit DOM double for the new keyboard check. Syntax and whitespace checks
+passed. No commit, push or CI/CD execution; prototype services remain running.
+
+## 14 November 2026 - guided Journey and real edge-case repairs
+
+Replaced the Journey lab's manual Run/Finish/Save/source controls with one
+Run test action, a plain expected result and short checks. The browser completes
+publication automatically and shows the selected test's result only. Old failures
+are retained in explicit history. View test events handles isolated scope without
+asking the presenter to pick namespaces. Recording/playback and full reports
+remain available in optional sections. Leaving playback or test scope clears the
+old trace instead of mixing it with store activity. All seven cases remain.
+
+Real fixture setup exposed an empty metrics vocabulary in the catalogue adapter;
+omitting empty vocabularies fixes valid clean imports without changing the shared
+Telemetry validator. The race runner now waits for first queryable publication
+within its existing deadline; original stock/debit/Gold assertions are unchanged.
+Added worker-active state so controls also wait for fixture cleanup to finish.
+
+Changed paths: conversation web journey HTML/controller and prototype CSS;
+`benchmarks/journey/lab.py`, `lab_worker.py`, the narrow metrics integration in
+`pipelines/catalog/adapter.py`, `tests/benchmarks/test_journey.py`, guided/live/
+rendering browser rehearsals and simple-prototype rehearsal compatibility.
+The catalogue change is an integration repair in another owner's adapter, with
+the exact defect and evidence documented for review; public service contracts
+and business rules are unchanged.
+
+All seven fixtures passed both direct real-service checks and the actual guided
+Edge page. Browser evidence: `artifacts/journey-guided-browser/1794666758168/`;
+direct evidence: `artifacts/journey-fixture-recheck/`. The two-buyer case created
+two isolated simulated orders and verified one sale, one cancellation, one
+matching debit, no overselling and exact reconciliation in active Gold. Real
+recording/save/playback passed with zero playback mutations and zero page errors.
+Python Journey/failure tests: 48 passed. Journey model: 12 passed. Final explicit
+HTTP-double rendering/playback checks and changed-file syntax/lint/whitespace
+checks passed. Commands, limits and manual steps are recorded in
+[SIMPLE_PROTOTYPE_2026_11_14.md](SIMPLE_PROTOTYPE_2026_11_14.md).
+
+Manual demo: open `/journey`, choose a case, click Run test (approve two simulated
+orders only for the two-buyer case), then read the checks or View test events.
+Previous runs and presentation recording remain collapsed until requested.
+No old failures deleted and no unmeasured result represented as a pass. No
+remaining integration blocker was observed for these seven cases in the running
+Windows environment. No CI/CD, commit or push. Disposable fixture containers are
+gone; twelve healthy core containers remain for the user to run the prototype.
+
+## 14 November 2026 - remove presentation recording controls
+
+At the user's request, removed the Record or replay a presentation section and
+its browser recording/import/playback controller, automatic recordings listing,
+and Back to live button. Live tracing, all seven pipeline cases, history and
+report downloads remain. Backend saved evidence is retained. Updated the three
+affected browser rehearsals for the current UI; explicit HTTP-double rendering
+and live-control checks passed. JavaScript syntax and whitespace checks passed.
+This supersedes the earlier description of optional recording on the page.
+No commit, push or CI/CD execution.
+
+## 14 November 2026 - show technical evidence for pipeline tests
+
+Replaced generic PASS-only result rows with a delivery/input/handling table,
+a scenario-specific processing rule and an expected-versus-observed table.
+The UI reads actual emissions, payloads, Kafka coordinates, durable receipts,
+checkout/order responses and reconciliation checks. Repeated event IDs share
+an E1/E2 display alias; changed duration values, stock versions, available units
+and event times remain visible. Missing observations stay explicitly unavailable.
+Stock tuples are labelled with stock_version/available, and race stock tuples
+with on_hand/reserved/available. Full reports and event traces remain accessible.
+This is correctness evidence, not an end-to-end latency benchmark.
+
+Changed journey HTML/controller, prototype CSS and the existing opt-in guided
+browser rehearsal assertions. JavaScript syntax and explicit HTTP-double desktop
+rendering passed: artifacts/journey-browser-double/1794671440618. A further
+read-only sweep of retained real runs could not start: Node ran out of memory;
+Windows reported only about 240 MiB free virtual commit space. No user processes
+or core services were stopped. The new technical-result sweep is NOT_RUN;
+earlier real pipeline case passes are retained but are not claimed as a new UI
+sweep. No new purchases, CI/CD, commit or push.
+
+## 14 November 2026 - activity selection layout
+
+Made recent activity the primary full-row control, with the existing Find a
+specific ID disclosure below it. Expanded ID lookup has aligned Type/ID/Find
+fields and stacks on narrow screens. All lookup IDs and handlers are preserved.
+Changed journey HTML and prototype CSS; no service, pipeline or purchase changes.
+No commit or push.
+Validation: node tests/conversation/journey.browser.cjs passed with explicit HTTP doubles at artifacts/journey-browser-double/1794671765077 (desktop/narrow rendering and live lookup). git diff --check passed.
+
+## 14 November 2026 - guided recovery tests and infrastructure empty states
+
+Dashboard failure controls now default to automated testing, connect read-only
+when expanded, and guide baseline capture, product review/explicit purchase
+consent, then Run test. Only actions relevant to the selected mode and run state
+are visible. Automated Run test retains the existing backend workflow for fault,
+checkout, recovery and verification; no new automatic mutation was added.
+Manual analytics pause/store checkout/watch/recover/verify remains available.
+Old results for a different selected scenario/mode are hidden from the current
+workspace; previous evidence remains downloadable. Technical verification,
+timelines, stock/ledger charts and journal are in an expandable evidence panel.
+
+Infrastructure has a labelled Kafka consumer-lag time graph and per-container
+CPU/memory tables. Added current lag summary, zero-axis label, bounded plot size,
+initial/unavailable placeholders and missing-field CPU guards. Missing lag samples
+are not graphed as zero; cached readings remain labelled stale on connection loss.
+Live helper returned six lag rows and twelve resource rows. Later some partition
+readings were unavailable; the UI now states that rather than leaving whitespace.
+
+Changed dashboard HTML, failure-demo.js, infrastructure.js, prototype CSS and the
+existing opt-in failure rehearsal's entry expectations. node --check for changed
+scripts and git diff --check passed. Browser verification passed at
+artifacts/recovery-guidance/1794672216584: real infrastructure reads and explicit
+HTTP doubles for prepared/running/completed/manual workflow states, zero lag and
+endpoint failure. Checked desktop/narrow overflow, no JavaScript errors and no
+checkout/fault POSTs (normal dashboard session bootstrap is retained). These are
+UI checks, not new live fault-scenario passes. No purchases, CI/CD, commit or push.
+
+## 14 November 2026 - professor justification experiments and delivery
+
+Reviewed existing measurements, owner experiment notes, real journey/failure
+artifacts and correctness suites before adding a separate exploratory harness.
+Added benchmarks/defense.py (B-tree/hash/BRIN/GIN vs integrity-only, shuffled vs
+price-sorted layout, build/index-size/WAL/100-price-update costs, analytical raw
+vs summary storage/query costs, lineage-loss and unsafe dedup-retirement probes),
+benchmarks/defense_report.py (hash/result/repetition guards and report generator),
+and tests/benchmarks/test_defense.py. No production index or retention policy was
+changed. New measurements reuse the canonical original catalogue normalization;
+unknown categories remain null. The first probe exposed that nullable category
+case; its failed evidence is retained rather than overwritten.
+
+The final run has three randomized repetitions, three warmups and ten timed
+calls for six query cases, five variants and two layouts: 1,800 timed index calls,
+180 EXPLAIN plans, 30 cost probes and 60 summary-query observations. PostgreSQL
+was isolated at 1 CPU/512 MiB with 256 MiB tmpfs, removed in finally; DuckDB used
+one thread/64 MiB query memory. All prototype containers were stopped first.
+This is warm component evidence, not SSD, HTTP/Kafka end-to-end, capacity or P9.
+Final evidence: artifacts/defense/20261114-professor-final. Earlier exploratory
+runs, including the nullable-category setup failure, are retained separately.
+
+The generated PROFESSOR_QUESTIONS_AND_RESULTS.md covers fourteen likely questions,
+actual tables, negative results, provenance, controls and remaining NOT_RUN work.
+Revalidated all seven saved real journey runs, including independent saved race
+ledger/order identities and stock-version facts. Reused earlier real failure
+campaigns and the hash-verified 276-observation Windows journal, preserving its
+FAILED/resource-incomplete status. Owner-host COPY/compaction/ANN results remain
+explicitly attributed, with no claim that their missing raw bundles were replayed.
+The fresh refund rehearsal could not prepare: store product listing returned
+HTTP 503 before any checkout. artifacts/defense/refund-20261114/attempt.json records
+NOT_RUN; refund unit/oracle tests are not substituted for a real debit/reversal.
+
+Exact new execution: .venv/Scripts/python.exe -m benchmarks.defense --out
+artifacts/defense/20261114-professor-final --samples 10. Rebuild command is in the
+report. Focused pytest over test_defense, test_journey, test_failure_demo,
+test_metrics, test_scheduler, test_comparison, test_windows_measurements,
+test_performance_metrics, oracle reconciliation, catalogue normalization and
+pipeline replay: 234 passed, zero skips/failures, existing Starlette/httpx warning.
+JUnit: artifacts/defense/correctness-20261114.xml. Storefront/Journey Node model
+checks: 25 passed. Explicit HTTP-double Edge rendering passed at
+artifacts/journey-browser-double/1794673963962. Ruff, syntax and whitespace checks
+passed. No CI/CD execution.
+
+C: had only about 200 MiB free. Applied reversible NTFS compression with
+compact /C /S:artifacts\windows /I /Q *.csv *.json *.jsonl *.prom *.log to retained
+old measurement text files. 1,929 files: 551,799,652 logical bytes stored in
+241,923,061 bytes. No data deleted or paths changed; the prior raw journal hash
+still matches its original manifest. New timings were taken outside that tree
+after compression completed. This filesystem maintenance is not the analytical
+summary comparison.
+
+User explicitly superseded the earlier no-push instruction and authorized
+commit/push after container cleanup. Ran stop-failure-demo.ps1 (faults recovered,
+hook support disabled, helper stopped), then stop-prototype.ps1. Final scratch
+PostgreSQL cleanup is verified and docker ps -a returned no containers. Retained
+PostgreSQL/Kafka/lakehouse volumes and model files remain. Prepared delivery on
+jaineel/prototype-demo. Raw datasets, artifacts and private bindings stay ignored.

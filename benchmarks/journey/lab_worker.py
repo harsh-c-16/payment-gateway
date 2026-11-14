@@ -416,11 +416,20 @@ class Fixture:
         self.await_recovery()
         # Relays run independently; wait until both terminal event IDs are durable.
         deadline = time.monotonic() + 35
+        result, facts = None, {}
         while time.monotonic() < deadline:
             self.pipeline.ingest_once(self.group, run_id=self.identity, max_records=100)
-            self.pipeline.publish_snapshot(self.ns)
-            day = datetime.now(UTC).date()
-            result = self.pipeline.query_gold(self.ns, "order_fact", day, day + timedelta(days=1))
+            try:
+                self.pipeline.publish_snapshot(self.ns)
+                day = datetime.now(UTC).date()
+                result = self.pipeline.query_gold(
+                    self.ns, "order_fact", day, day + timedelta(days=1)
+                )
+            except LookupError:
+                # A new Kafka consumer may still be receiving its first assignment.
+                # No active publication is expected before the first accepted fact.
+                time.sleep(0.25)
+                continue
             facts = {r["order_id"]: r for r in result.rows}
             if all(
                 o["order_id"] in facts
@@ -429,6 +438,8 @@ class Fixture:
             ):
                 break
             time.sleep(0.25)
+        if result is None:
+            raise TimeoutError("No order publication became queryable before the deadline")
         self.run["business_result"] = result.model_dump(mode="json")
         self.check(
             "Both terminal orders exactly reconciled in active Gold",

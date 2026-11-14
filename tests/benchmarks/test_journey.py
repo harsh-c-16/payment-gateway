@@ -279,6 +279,21 @@ def test_recording_rejects_path_traversal(tmp_path):
         store.read("../../private")
 
 
+def test_clean_catalogue_fixture_can_publish_metrics_without_inventing_issues(tmp_path):
+    from pipelines.catalog.adapter import write_import_metrics
+
+    write_import_metrics(
+        tmp_path,
+        {"selected_counts": {"canonical_active": 1}, "issue_counts": {}},
+        {"parse_seconds": 0.01},
+        "copy",
+        SimpleNamespace(canonical_rows=1),
+    )
+    metrics = (tmp_path / "import_metrics.prom").read_text()
+    assert "catalog_source_rows_total" in metrics
+    assert "catalog_issues_total" not in metrics
+
+
 def test_recording_capture_bound_is_explicit(tmp_path):
     store = Recordings(tmp_path, lambda: {"observed_at": "2026-11-14T00:00:00Z"})
     identity = store.start()["id"]

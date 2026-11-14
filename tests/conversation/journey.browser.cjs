@@ -41,14 +41,15 @@ const snapshot={schema:'journey-snapshot-v1',namespace:'demo',observed_at:'2026-
   });
   try{
     await page.goto('http://127.0.0.1:8001/journey');
-    await page.waitForFunction(()=>document.getElementById('journey-mode').textContent==='Live observations');
+    await page.waitForFunction(()=>document.getElementById('journey-mode').textContent==='Live');
     await page.locator('#journey-pause').click();
     assert.equal(await page.locator('[data-stage="archive"]').getAttribute('class').then(s=>s.includes('failed')),true);
-    assert.match(await page.locator('[data-stage="queries"]').innerText(),/No query observation/);
+    assert.match(await page.locator('[data-stage="queries"]').innerText(),/No query yet/);
     await page.locator('#recent-actions').selectOption(`order:${order}`);
     await page.locator('.service-lane').nth(2).waitFor();
     assert.equal(await page.locator('.event-button').count(),3);
     assert.equal(await page.locator('#action-timeline li').count(),6);
+    await page.locator('.record-inspector details>summary').click();
     assert.match(await page.locator('#record-fields').innerText(),/bronze\/example/);
     assert.match(await page.locator('[data-stage="queries"]').innerText(),/Queried generation 2/);
     for(const width of [1440,1366,1280,1067,760]){
@@ -62,21 +63,13 @@ const snapshot={schema:'journey-snapshot-v1',namespace:'demo',observed_at:'2026-
     await page.waitForFunction(()=>document.getElementById('journey-mode').textContent==='Unavailable / stale');
     stale=false;await page.locator('#journey-refresh').click();
     await page.waitForFunction(()=>document.getElementById('journey-mode').textContent==='Paused');
-    const second=structuredClone(snapshot);second.observed_at='2026-11-14T00:00:11Z';
-    second.events[0].receipt.gold_visible_at=null;second.events[0].receipt.timing_validity='missing';
-    const recording={schema:'journey-observations-v1',frames:[snapshot,second]};
-    await page.locator('#evidence-file').setInputFiles({name:'explicit-double.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(recording))});
-    await page.waitForFunction(()=>document.getElementById('journey-mode').textContent==='Saved playback');
-    const count=requests.length;
-    assert(await page.locator('#journey-record').isDisabled());
+    assert.equal(await page.locator('#recordings,#journey-record,#back-live,#evidence-file').count(),0);
+    await page.locator('#lab-scenario').selectOption('race');
     assert(await page.locator('#lab-start').isDisabled());
-    assert(await page.locator('#lab-recover').isDisabled());
-    await page.locator('#playback-position').fill('1');
-    await page.locator('#recent-actions').selectOption(`order:${order}`);
-    await page.waitForFunction(()=>document.querySelector('#action-timeline li:last-child')?.className==='pending');
-    assert.equal(requests.length,count,'Saved playback must make no controller requests');
+    await page.locator('#lab-consent').check();
+    assert(await page.locator('#lab-start').isEnabled());
     assert.deepEqual(errors,[]);
-    write('checks.json',{status:'PASS',mode:'explicit_http_doubles',geometry,page_errors:errors,mutations:0,playback_requests:0});
+    write('checks.json',{status:'PASS',mode:'explicit_http_doubles',geometry,page_errors:errors,mutations:0,recording_controls_removed:true});
     console.log('Data Journey desktop rendering: PASS (explicit HTTP doubles). Evidence:',out);
   }catch(error){write('failure.json',{message:error.message,stack:error.stack,errors,requests});await page.screenshot({path:path.join(out,'failure.png'),fullPage:true}).catch(()=>{});throw error;}
   finally{await browser.close();}

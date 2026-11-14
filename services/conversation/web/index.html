@@ -7,7 +7,7 @@
   <title>ShopTalk · Find your kind of thing</title>
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/assets/store.css">
-  <script src="/assets/store.js" defer></script>
+  <script src="/assets/store.js?v=home-controls-2" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#catalogue">Skip to products</a>
@@ -30,17 +30,16 @@
       <footer class="store-footer">Group 3 · Our CSV-backed catalogue, PostgreSQL, Kafka and lakehouse.<br>Displayed availability is advisory; checkout rechecks stock and prices.</footer>
     </section>
     <aside class="assistant" aria-labelledby="assistant-title">
-      <div class="assistant-heading"><div class="assistant-symbol" aria-hidden="true">✳</div><div><h2 id="assistant-title">Your shopping companion</h2><p>Describe it. Refine it. Find it.</p></div><span class="assistant-label">SHOPPING CHAT</span></div>
+      <div class="assistant-heading"><div class="assistant-symbol" aria-hidden="true">✳</div><div><h2 id="assistant-title">AI conversation</h2></div></div>
       <div class="chat-scroll">
         <div class="chat-intro"><h3>What are you looking for?</h3><p>Tell me the kind of product and your budget. We can narrow it down together.</p><div class="suggestions"><button type="button" data-prompt="I need a gift">Help me find a gift</button><button type="button" data-prompt="Show watches under 1000 rupees">Watches under ₹1,000</button><button type="button" data-prompt="Show shirts under 1000 rupees">Shirts under ₹1,000</button></div></div>
         <div id="messages" class="messages" role="log" aria-live="polite" aria-label="Shopping conversation"></div>
         <details id="preferences-panel" class="preferences-panel" hidden><summary>Your preferences</summary><div id="preferences" class="preferences"></div></details>
       </div>
       <div class="chat-composer">
-        <div class="chat-controls"><button id="more-options" class="secondary" type="button" disabled>More options</button><button id="new-search" class="text-button" type="button">New search</button></div>
+        <div class="chat-controls"><button id="new-search" class="text-button" type="button">New search</button></div>
         <p id="chat-status" class="chat-status" role="status" hidden></p>
-        <form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Describe the product or answer the assistant</label><textarea id="chat-input" maxlength="2000" rows="2" placeholder="Tell me what you have in mind…" required></textarea><button id="send-chat" type="submit" aria-label="Send message">↑</button></form>
-        <details id="assistant-settings" class="assistant-settings"><summary>Chat settings</summary><div class="assistant-settings-body"><label for="assistant-mode">Chat mode</label><select id="assistant-mode" aria-label="Assistant mode"><option value="assist" disabled>AI conversation</option><option value="fixed" selected>Basic chat</option></select><p id="assistant-note" class="muted small">Checking chat availability…</p></div></details>
+        <form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Describe the product or answer the assistant</label><textarea id="chat-input" maxlength="2000" rows="2" placeholder="Tell me what you have in mind…" required></textarea><button id="send-chat" type="submit" aria-label="Send message" disabled>↑</button></form>
         <p class="chat-footnote">You choose what to buy and confirm every order in your cart.</p>
       </div>
     </aside>

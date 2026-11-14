@@ -1,0 +1,61 @@
+// Real local UI and one AI search. No purchases or faults are submitted.
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+if(process.env.RUN_SIMPLE_PROTOTYPE_LIVE!=='1')process.exit(2);
+const {chromium}=require(path.resolve('artifacts/tooling/prototype-browser/node_modules/playwright'));
+const out=path.resolve(`artifacts/simple-prototype-browser/${Date.now()}`);fs.mkdirSync(out,{recursive:true});
+const write=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(value,null,2));
+(async()=>{
+  const browser=await chromium.launch({channel:'msedge',headless:true}),context=await browser.newContext({viewport:{width:1440,height:950}}),page=await context.newPage();
+  const errors=[],mutations=[],turnBodies=[];
+  page.on('pageerror',e=>errors.push(e.message));
+  page.on('request',r=>{if(r.method()==='POST')mutations.push(r.url());if(r.url().endsWith('/shopping-turns'))turnBodies.push(r.postDataJSON());});
+  try{
+    let ready=false;for(let i=0;i<30;i++){const r=await page.request.get('http://127.0.0.1:8001/health/ready').catch(()=>null);if(r?.ok()){ready=true;break;}await page.waitForTimeout(500);}assert(ready,'Conversation service must be ready');
+    await page.goto('http://127.0.0.1:8001/');
+    await page.locator('#products .product-card').first().waitFor({timeout:45000});
+    assert.equal(await page.locator('#assistant-settings,#assistant-mode,#assistant-note').count(),0);
+    assert.equal(await page.locator('#assistant-title').innerText(),'AI conversation');
+    assert(await page.locator('#send-chat').isEnabled());
+    await page.locator('#chat-input').fill('Show shirts under 1000 rupees');
+    const turn=page.waitForResponse(r=>r.url().endsWith('/shopping-turns'),{timeout:40000});await page.locator('#send-chat').click();
+    const response=await turn,result=await response.json();write('ai-search.json',result);
+    assert.equal(response.status(),200);assert.equal(result.outcome,'success',result.response_text);
+    assert.equal(turnBodies.at(-1).mode,'assist');assert.equal(turnBodies.at(-1).retrieval_mode,'hybrid_exact');
+    assert(result.products.length);assert(result.products.every(p=>p.retrieval_mode==='hybrid_exact'));
+    await page.waitForFunction(()=>!document.body.classList.contains('busy'));
+    assert(await page.locator('#chat-status').isHidden());
+    await page.screenshot({path:path.join(out,'store.png'),fullPage:true});
+    await page.goto('http://127.0.0.1:8001/dashboard');
+    await page.locator('#kpis .kpi').nth(3).waitFor({timeout:40000});
+    await page.waitForFunction(()=>!document.getElementById('refresh').disabled);
+    await page.locator('#pause').click();
+    await page.locator('#boundary-cards .boundary-card').nth(3).waitFor({timeout:40000});
+    await page.waitForFunction(()=>!document.getElementById('producer-quantiles').textContent.includes('Unavailable'),{},{timeout:45000});
+    for(const id of ['latency-chart','session-stats','event-types','event-services','receipt-dispositions','receipts','datasets','positions','catalogue','coverage','infra-lag-chart','infra-resources','schedule-quantiles','workload-rates','latency-breakdown','failure-mode','failure-trigger','failure-watch','failure-verify'])assert.equal(await page.locator('#'+id).count(),1,`Preserve ${id}`);
+    assert.equal(await page.locator('#failure-demo').getAttribute('open'),null);
+    await page.locator('#failure-demo>summary').click();await page.locator('#failure-connect').click();
+    await page.waitForFunction(()=>!document.getElementById('failure-prepare').disabled,{},{timeout:20000});
+    assert(await page.locator('#failure-trigger').isDisabled());
+    await page.locator('#failure-demo>summary').click();
+    await page.screenshot({path:path.join(out,'dashboard.png'),fullPage:true});
+    for(const width of [1440,1280,1067]){await page.setViewportSize({width,height:950});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),`Dashboard overflow at ${width}`);}
+    await page.setViewportSize({width:1440,height:950});
+    await page.goto('http://127.0.0.1:8001/journey');
+    await page.waitForFunction(()=>document.getElementById('journey-mode').textContent==='Live',{},{timeout:45000});
+    await page.locator('#journey-pause').click();
+    assert.equal(await page.locator('#catalogue-path button').count(),6);assert.equal(await page.locator('#transaction-path button').count(),8);
+    const recent=await page.locator('#recent-actions option').evaluateAll(options=>options.map(o=>o.value).find(v=>v.startsWith('search:')));
+    assert(recent,'Search must appear in recent activity');await page.locator('#recent-actions').selectOption(recent);
+    await page.locator('.event-button').first().waitFor({timeout:35000});
+    assert.equal(await page.locator('#action-timeline li').count(),6);assert.match(await page.locator('#record-summary').innerText(),/In analytics|Waiting/);
+    const before=mutations.length;await page.locator('#lab-scenario').selectOption('duplicate');
+    assert(await page.locator('#lab-start').isEnabled());assert(await page.locator('#lab-consent-label').isHidden());
+    await page.locator('#lab-scenario').selectOption('race');
+    assert(await page.locator('#lab-start').isDisabled());await page.locator('#lab-consent').check();assert(await page.locator('#lab-start').isEnabled());
+    assert.equal(mutations.length,before,'Selecting a test must not run it');
+    assert.equal(await page.locator('#lab-recover,#namespace-select,pre').count(),0);
+    assert.equal(await page.locator('#recordings,#journey-record,#back-live').count(),0);
+    assert.deepEqual(errors,[]);assert(!mutations.some(p=>p.endsWith('/checkout') || p.includes('/journey/lab/start') || p.endsWith('/trigger')));
+    write('checks.json',{status:'PASS',ai_search:'assist + hybrid_exact',preserved_details:true,recording_controls_removed:true,page_errors:errors});console.log('Simple prototype: PASS. Evidence:',out);
+  }catch(error){write('failure.json',{message:error.message,stack:error.stack,errors,mutations});await page.screenshot({path:path.join(out,'failure.png'),fullPage:true}).catch(()=>{});throw error;}finally{await browser.close();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

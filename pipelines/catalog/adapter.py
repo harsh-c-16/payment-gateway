@@ -79,10 +79,14 @@ def write_import_metrics(out, profile, stages, load_mode, report):
     """Common §14 names. A finite job has no scrape target, so they are saved for the collector."""
     metrics = Telemetry(
         label_values={
-            "disposition": set(profile["selected_counts"]),
-            "reason": set(profile["issue_counts"]),
-            "stage": set(stages),
-            "mode": {"row", "copy"},
+            key: values
+            for key, values in {
+                "disposition": set(profile["selected_counts"]),
+                "reason": set(profile["issue_counts"]),
+                "stage": set(stages),
+                "mode": {"row", "copy"},
+            }.items()
+            if values
         }
     )
     for disposition, count in profile["selected_counts"].items():

@@ -43,20 +43,20 @@
     const analyticsLag=(lag || []).filter(r=>r.group===`${data.namespace}.analytics.v1`);
     const knownLag=analyticsLag.length>=5 && analyticsLag.every(r=>M.finite(r.lag)),lagTotal=knownLag ? analyticsLag.reduce((s,r)=>s+r.lag,0) : null;
     const e=$("boundary-cards");if(e){e.replaceChildren();const cards=[
-      ["Before Kafka",total,"Pending outbox events · five producer services"],
-      ["Kafka consumption",lagTotal,"Committed analytics-group lag · all expected partitions"],
-      ["After sink processing",pending.count,`Awaiting active Gold · oldest ${age(pending.oldest_age_seconds)}`],
-      ["Final output",gold?.generation,`Active Gold generation · ${stamp(gold?.created_at)}`]];
+      ["Waiting to send",total,"Saved events waiting for Kafka"],
+      ["Waiting in Kafka",lagTotal,"Events the analytics worker has not read"],
+      ["Waiting for analytics",pending.count,`Awaiting active Gold · oldest ${age(pending.oldest_age_seconds)}`],
+      ["Analytics version",gold?.generation,`Active Gold generation · ${stamp(gold?.created_at)}`]];
       cards.forEach(([label,value,note],i)=>{const d=n("article","",`boundary-card ${!M.finite(value) ? "missing" : i<3 && value>0 ? "warn" : ""}`);d.append(n("span",label),n("strong",fmt(value)),n("small",note));e.append(d);});}
-    if($("boundary-health"))$("boundary-health").textContent=!allOut || !knownLag || pending.count===null || pending.count===undefined || !gold ? "Some boundaries are unavailable. Overall pipeline health is not established." : total || lagTotal || pending.count ? "Backlog is observed. Low Kafka lag alone does not establish Gold freshness; inspect each boundary." : "All observed backlogs are zero at this snapshot. This is a point-in-time observation.";
+    if($("boundary-health"))$("boundary-health").textContent=!allOut || !knownLag || pending.count==null || !gold ? "Some readings are unavailable." : total || lagTotal || pending.count ? "Events are still being processed." : "No events waiting at this check.";
     rows("outbox-table",out.map(r=>[r.service,fmt(r.pending),r.pending===0 ? "No pending events" : age(r.oldest_pending_age_seconds),`${r.status} · ${stamp(r.observed_at)}`]));
     rows("journey-lag",(lag || []).map(r=>[r.group,r.topic,r.partition,fmt(r.log_end_next_offset),fmt(r.committed_next_offset),fmt(r.lag)]));
     rows("journey-resources",(infra.resources || []).map(r=>[`${r.service} · ${r.container_id}`,r.status==="warming_up" ? "First sample · warming up" : `${fmt(r.cpu_percent)}% / ${fmt(r.allocated_cpus)} CPU`,`${mib(r.memory_bytes)} / ${mib(r.memory_limit_bytes)}`,mib(r.memory_peak_bytes),fmt(r.oom_kill_count),r.status]));
     if($("resource-note"))$("resource-note").textContent=`Observed ${stamp(infra.observed_at)} · CPU relative to allocation · cgroup memory includes page cache · first samples warm up. ${!infra.resources ? "Resource collection unavailable." : ""}`;
     const latency=data.latency || M.latency(data.events || [],data.clock || {});
     quantiles("producer-quantiles",latency.producer_to_gold);quantiles("schedule-quantiles",latency.schedule_to_gold);
-    const counts=$("completion-counts");if(counts){counts.replaceChildren();for(const [label,key]of [["Samples","sample_count"],["Completed","completed_count"],["Unresolved","unresolved_count"]]){const d=n("div",label);d.append(n("strong",fmt(key==="sample_count" ? latency.producer_to_gold?.sample_count : latency[key])));counts.append(d);}}
-    if($("quantile-note"))$("quantile-note").textContent=`Completed-only nearest-rank quantiles · clock ${data.clock?.status || "unavailable"}. ${latency.cohort_p99_established ? "Observed cohort p99 has sufficient completion coverage." : "Complete-cohort p99 is not established."} Bounded namespace sample, not a sustained benchmark.`;
+    const counts=$("completion-counts");if(counts){counts.replaceChildren();for(const [label,key]of [["Timed events","sample_count"],["Completed","completed_count"],["Waiting","unresolved_count"]]){const d=n("div",label);d.append(n("strong",fmt(key==="sample_count" ? latency.producer_to_gold?.sample_count : latency[key])));counts.append(d);}}
+    if($("quantile-note"))$("quantile-note").textContent=`p95 means 95% of timed events were faster. Waiting events are excluded. ${data.clock?.status!=="qualified" ? "Clock check unavailable: timings withheld." : ""}`;
     rows("latency-breakdown",(latency.breakdown || []).slice(-30).map(r=>[`${r.event_type || "Event"} · ${short(r.event_id)}`,ms(r.relay_to_observation_ms),ms(r.ingestion_ms),ms(r.publication_ms),ms(r.producer_to_gold_ms)]));
     line("end-to-end-chart",(latency.breakdown || []).map(r=>r.producer_to_gold_ms),"Observed producer-to-active-Gold milliseconds");
     const completion=$("completion-chart");if(completion){completion.replaceChildren();const total=latency.cohort_count || 0,done=latency.completed_count || 0; if(total){const graph=svg("svg",{viewBox:"0 0 340 150",role:"img","aria-label":`${done} completed and ${latency.unresolved_count} unresolved events`});graph.append(svg("rect",{x:15,y:25,width:310,height:22,rx:8,fill:"#f2e6cf"}),svg("rect",{x:15,y:25,width:310*done/total,height:22,rx:8,fill:"#648568"}),svg("text",{x:15,y:80},`${fmt(done)} completed / ${fmt(total)} observed unique IDs`),svg("text",{x:15,y:105},`${fmt(latency.unresolved_count)} unresolved`));completion.append(graph);}else completion.append(n("p","No observed cohort.","empty"));}

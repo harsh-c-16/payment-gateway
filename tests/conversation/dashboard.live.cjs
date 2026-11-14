@@ -10,6 +10,8 @@ const write=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(va
 (async()=>{
   const browser=await chromium.launch({channel:'msedge',headless:true});
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  // Select fixed mode through the HTTP contract for this deterministic rehearsal.
+  await page.route('**/shopping-turns',route=>route.continue({postData:JSON.stringify({...route.request().postDataJSON(),mode:'fixed'})}));
   const errors=[],purchases=[],snapshots=[],geometry=[];
   page.on('pageerror',e=>errors.push(e.message));
   page.on('console',m=>{if(m.type()==='error') errors.push(m.text());});
@@ -41,9 +43,6 @@ const write=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(va
     await page.goto('http://127.0.0.1:8001/',{waitUntil:'domcontentloaded'});
     await page.locator('#products .product-card').first().waitFor();
     assert.equal(await page.locator('#demo-metrics').count(),0);
-    await page.locator('#assistant-settings>summary').click();
-    await page.locator('#assistant-mode').selectOption('fixed');
-    await page.locator('#assistant-settings>summary').click();
     await page.locator('#chat-input').fill('shirts under 1000 rupees');
     const turn=page.waitForResponse(r=>r.url().endsWith('/shopping-turns'));
     await page.locator('#send-chat').click();
@@ -80,7 +79,7 @@ const write=(name,value)=>fs.writeFileSync(path.join(out,name),JSON.stringify(va
     await page.locator('#refresh').click();
     await page.waitForFunction(()=>!document.getElementById('refresh').disabled);
     assert.equal(await page.locator('#live-status').innerText(),'Paused');
-    assert.match(await page.locator('#error').innerText(),/providers are unavailable/);
+    assert.match(await page.locator('#error').innerText(),/services could not be read/);
     assert.equal(await page.locator('#throughput-chart svg').count(),0);
     assert.match(await page.locator('#kpis .kpi').first().innerText(),/Unavailable/);
     await page.screenshot({path:path.join(out,'partial-data-ui-double.png'),fullPage:true});
