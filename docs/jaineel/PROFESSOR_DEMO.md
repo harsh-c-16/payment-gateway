@@ -70,10 +70,10 @@ a purchase. Once it reports ready, open http://127.0.0.1:8001/.
    dates. Missing providers show Unavailable; missing timings show No samples.
    These observations are not a controlled optimization benchmark.
 
-AI conversation is selected when configured. **Basic chat** in **Chat settings**
-keeps deterministic operation available with zero generative calls. Hybrid is
-automatic; if it is unavailable the interface says so and full-catalogue browsing
-remains available. Search pages show up to twenty ranked matches, with sorting
+The store uses AI conversation without a mode selector. The fixed mode remains
+available through the API for deterministic evaluation. Search automatically uses
+hybrid when ready, with keyword search available during hybrid maintenance.
+Search pages show up to twenty ranked matches, with sorting
 within that set. Private model settings belong only in the ignored
 `artifacts/infra/prototype-local/shopping-llm.env` (`SHOPPING_LLM_ENABLED=true`,
 `GEMINI_API_KEY=...`, `SHOPPING_LLM_MODEL=gemini-3.5-flash-lite`). Startup reads
@@ -121,3 +121,9 @@ node tests/conversation/storefront.live.cjs
 
 The first check needs the server's private Gemini configuration. Both save their
 own evidence under ignored artifacts. Neither is part of normal startup or CI.
+
+
+For viva questions, measured alternatives and their limits, use
+[Professor questions and results](PROFESSOR_QUESTIONS_AND_RESULTS.md). It separates
+new component measurements, reused real edge-case evidence, owner-host findings
+and unexecuted formal performance claims.

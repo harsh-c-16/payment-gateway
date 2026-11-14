@@ -1,66 +1,25 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>ShopTalk · Platform dashboard</title>
-  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/assets/dashboard.css">
-  <link rel="stylesheet" href="/assets/failure-demo.css">
-  <link rel="stylesheet" href="/assets/journey.css">
-  <script src="/assets/journey-model.js" defer></script>
-  <script src="/assets/journey-view.js" defer></script>
-  <script src="/assets/dashboard-observability.js" defer></script>
-  <script src="/assets/dashboard.js" defer></script>
-  <script src="/assets/failure-demo.js" defer></script>
-  <script src="/assets/infrastructure.js" defer></script>
-</head>
-<body>
-  <a class="skip" href="#overview">Skip to dashboard</a>
-  <aside class="sidebar">
-    <a href="/" class="brand"><img src="/assets/mark.svg" width="34" height="34" alt="">ShopTalk<span>.</span></a>
-    <p class="sidebar-label">PLATFORM OBSERVATORY</p>
-    <nav aria-label="Dashboard sections"><a href="#overview" class="active">◫ <span>Overview</span></a><a href="#pipeline">⇢ <span>Event pipeline</span></a><a href="#failure-demo">⌁ <span>Failure Demo</span></a><a href="#infrastructure">CPU / lag</a><a href="#transactions">▤ <span>Orders &amp; reliability</span></a><a href="#data">▦ <span>Data &amp; lineage</span></a></nav>
-    <div class="sidebar-bottom"><span class="pulse"></span> Windows desktop prototype<p>Group 3 · Data Engineering</p><a href="/">← Back to shopping</a></div>
-  </aside>
-  <main>
-    <a class="journey-dashboard-link" href="/journey"><strong>Explore the Data Journey →</strong><span>Branching order and search traces · record lineage · measured timelines · saved observation playback · Edge Case Lab</span></a>
-    <header class="page-header"><div><p class="eyebrow">FROM TRANSACTION TO ANALYTICS</p><h1>Inside the platform<span>.</span></h1><p class="subtitle">A live view of the services, data and events behind your shopping session.</p></div><a href="/" class="button light">Open store ↗</a></header>
-    <div class="toolbar"><div><span id="live-status" class="badge">Connecting</span><span id="updated">Waiting for the first snapshot</span></div><div class="toolbar-actions"><button id="pause" class="button light" type="button">Pause updates</button><button id="refresh" class="button" type="button">Refresh</button><button id="export" class="button light" type="button" disabled>Export snapshot ↓</button></div></div>
-    <p id="error" class="alert" role="status" hidden></p>
-    <div class="scope"><span id="namespace">Demo namespace: loading…</span><span id="session-scope">Current browser session</span><span id="date-scope">Gold: today in UTC</span></div>
-    <section id="overview" aria-labelledby="overview-title"><h2 id="overview-title" class="sr-only">Overview</h2><div id="kpis" class="kpis"></div>
-      <div id="services" class="services" aria-label="Service readiness"></div>
-    </section>
-    <section id="boundary-observations" aria-labelledby="boundary-title">
-      <div class="section-title"><div><p class="eyebrow">WHERE PROCESSING IS DELAYED</p><h2 id="boundary-title">Backlog at every boundary</h2></div><a href="/journey#boundaries" class="button light">Inspect stages &amp; resources ↗</a></div>
-      <p id="boundary-status" class="description" role="status">Waiting for the local observation controller. Start start-failure-demo.ps1.</p>
-      <div id="boundary-cards" class="boundary-cards"></div><p id="boundary-health" class="footnote"></p>
-      <article class="panel table-panel"><h3>Transactional outboxes · separate producer services</h3><div class="table-scroll"><table><thead><tr><th>Service</th><th>Pending</th><th>Oldest age</th><th>Observation</th></tr></thead><tbody id="outbox-table"></tbody></table></div></article>
-      <div class="charts"><article class="panel"><h3>Producer → active Gold latency</h3><div id="producer-quantiles" class="quantiles"></div><div id="completion-counts" class="mini-stats"></div><p id="quantile-note" class="footnote"></p></article><article class="panel"><h3>Schedule → active Gold</h3><div id="schedule-quantiles" class="quantiles"></div><p class="footnote">Only generated workloads with recorded schedules. Missing times stay missing.</p></article><article class="panel"><h3>Workload rates</h3><div id="workload-rates" class="rate-cards"></div><p id="rates-note" class="footnote"></p></article></div>
-      <div class="charts"><article class="panel span-two"><h3>Observed end-to-end latency · ms</h3><div id="end-to-end-chart" class="chart"></div></article><article class="panel"><h3>Completion coverage</h3><div id="completion-chart" class="chart"></div></article></div>
-    </section>
-    <section id="pipeline" aria-labelledby="pipeline-title">
-      <div class="section-title"><div><p class="eyebrow">THE STREAMING JOURNEY</p><h2 id="pipeline-title">Every event has a path</h2></div><span class="section-note">HTTP / JSON → PostgreSQL outbox → Kafka → Parquet / DuckDB</span></div>
-      <div class="journey" aria-label="Data architecture"><div><span>01</span><strong>Services</strong><small>Local transactions</small></div><b aria-hidden="true">→</b><div><span>02</span><strong>Outbox</strong><small>Durable publication</small></div><b aria-hidden="true">→</b><div><span>03</span><strong>Kafka</strong><small>Topics &amp; partitions</small></div><b aria-hidden="true">→</b><div><span>04</span><strong>Bronze</strong><small>Raw capture</small></div><b aria-hidden="true">→</b><div><span>05</span><strong>Silver</strong><small>Validate &amp; deduplicate</small></div><b aria-hidden="true">→</b><div><span>06</span><strong>Gold</strong><small>Versioned analytics</small></div></div>
-      <div class="charts"><article class="panel span-two"><div class="panel-heading"><div><h3>Published event throughput</h3><p>Unique events by event-time minute · last 60 minutes in today's active Gold</p></div><span class="chart-key"><i></i> Events / minute</span></div><div id="throughput-chart" class="chart"></div><p id="throughput-note" class="footnote"></p></article>
-      <article class="panel"><div class="panel-heading"><div><h3>What is flowing?</h3><p>Published events by type · today in UTC</p></div></div><div id="event-types" class="bar-list"></div></article>
-      <article class="panel span-two"><div class="panel-heading"><div><h3>Conversation response time</h3><p>Latest 60 saved turns · current session · milliseconds</p></div><div class="chart-key"><i></i> Total <i class="gold"></i> AI model</div></div><div id="latency-chart" class="chart"></div><div id="session-stats" class="mini-stats"></div></article>
-      <article class="panel"><div class="panel-heading"><div><h3>Event producers</h3><p>Unique events by source service · today in UTC</p></div></div><div id="event-services" class="bar-list"></div></article></div>
-    </section>
-    <section id="failure-demo" aria-labelledby="failure-title">
-      <div class="section-title"><div><p class="eyebrow">BREAK A STEP. FOLLOW THE RECOVERY.</p><h2 id="failure-title">Failure Demo<span class="demo-dot">.</span></h2></div><span class="section-note">Real local services · independent checks · simulated money</span></div>
-      <div class="failure-banner"><div><span class="failure-symbol" aria-hidden="true">⌁</span><div><h3>See resilience happen.</h3><p>Pause processing, lose a response or interrupt a saga. Follow the exact order from fault to verified recovery.</p></div></div><button id="failure-connect" class="button light" type="button">Connect local controller</button></div>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/assets/failure-demo.css">
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/dashboard.css"><link rel="stylesheet" href="/assets/journey.css"><link rel="stylesheet" href="/assets/prototype.css?v=recovery-guide-1"><title>ShopTalk · Dashboard</title><script src="/assets/journey-model.js" defer></script><script src="/assets/journey-view.js" defer></script><script src="/assets/dashboard.js" defer></script><script src="/assets/dashboard-observability.js" defer></script><script src="/assets/failure-demo.js?v=recovery-guide-1" defer></script><script src="/assets/infrastructure.js?v=recovery-guide-1" defer></script></head><body><aside class="sidebar"><a href="/" class="brand">ShopTalk.</a><nav aria-label="Pages"><a href="/">Store</a><a href="/dashboard" class="active" aria-current="page">Dashboard</a><a href="/journey" >Data journey</a></nav></aside>
+<main><header class="page-header"><div><h1>Dashboard</h1><p class="subtitle">Is the pipeline working, and how quickly does data reach analytics?</p></div><a href="/journey" class="button light">Follow the data →</a></header>
+<div class="toolbar"><div><span id="live-status" class="badge">Connecting</span><span id="updated">Waiting for data</span></div><div><button id="pause" class="button light">Pause</button><button id="refresh" class="button">Refresh</button><button id="export" class="button light" disabled>Save results</button></div></div><p id="error" class="alert" hidden role="status"></p>
+<section id="overview"><h2>Overview</h2><div id="kpis" class="kpis"></div><div id="services" class="services"></div><div class="scope"><span id="date-scope"></span><span id="session-scope"></span></div></section>
+<section id="metrics"><h2>Where is data waiting?</h2><p class="description">Events pass through each step before they appear in analytics.</p><div id="boundary-cards" class="boundary-cards"></div><p id="boundary-health" class="footnote"></p><p id="boundary-status" class="footnote" role="status">Connecting to pipeline metrics…</p>
+<div class="simple-grid"><article class="panel"><h3>Time to reach analytics</h3><p class="description">From event creation to queryable Gold data.</p><div id="producer-quantiles" class="quantiles"></div><div id="completion-counts" class="mini-stats"></div><p id="quantile-note" class="footnote"></p></article><article class="panel"><h3>Events in analytics</h3><p class="description">Unique events by event-time minute, today in UTC.</p><div id="throughput-chart" class="chart"></div><p id="throughput-note" class="footnote"></p></article></div></section>
+<section id="transactions"><h2>Orders</h2><div class="simple-grid"><article class="panel"><h3>Order results today</h3><div id="order-statuses" class="bar-list"></div><div id="order-stats" class="mini-stats"></div></article><article class="panel"><h3>Your latest order</h3><div id="watched-order"></div></article></div></section>
+<details id="failure-demo" class="panel"><summary>Try an order failure</summary>
+
+      <div class="failure-banner"><div><span class="failure-symbol" aria-hidden="true">⌁</span><div><h3>Order recovery tests</h3><p>Pause processing, lose a response or interrupt a saga. Follow the exact order from fault to verified recovery.</p></div></div><button id="failure-connect" class="button light" type="button">Connect tests</button></div>
       <p id="failure-connection" class="footnote" role="status">Controller unavailable until connected. Run .\start-failure-demo.ps1 after starting the prototype. Connecting only observes.</p>
       <div class="failure-layout">
         <article class="panel failure-controls">
-          <p class="eyebrow">CHOOSE A DEMONSTRATION</p>
+          <p class="eyebrow">Choose a test</p>
           <label for="failure-scenario">Scenario</label><select id="failure-scenario"><option value="analytics">01 / Analytics pause &amp; catch-up</option><option value="retry">02 / Duplicate checkout &amp; lost response</option><option value="decline">03 / Payment decline &amp; compensation</option><option value="crash">04 / Saga crash &amp; restart</option><option value="late">05 / Payment after reservation expiry</option><option value="refund">06 / Successful debit then reversal</option></select>
           <div id="failure-concept" class="failure-concept"></div>
-          <label for="failure-mode">Demonstration mode</label><select id="failure-mode"><option value="manual">Live manual demo · normal store checkout</option><option value="automated">Automated test · one scripted simulated purchase</option></select>
+          <label for="failure-mode">Demonstration mode</label><select id="failure-mode"><option value="automated">Automated test (one simulated checkout)</option><option value="manual">Manual store checkout (analytics test only)</option></select>
           <p id="failure-preconditions" class="footnote"></p>
           <div id="failure-prepared-product" class="failure-product" hidden></div>
           <label id="failure-consent-label" class="failure-consent" hidden><input id="failure-consent" type="checkbox"> I authorize one scripted simulated purchase for this run.</label>
-          <div class="failure-actions"><button id="failure-prepare" class="button" type="button" disabled>1. Prepare baseline</button><button id="failure-trigger" class="button light" type="button" disabled>2. Trigger fault</button><button id="failure-test" class="button light" type="button" disabled>Run automated test</button></div>
+          <p id="failure-next" class="failure-message" role="status">Connecting to the local controller...</p><div class="failure-actions"><button id="failure-prepare" class="button" type="button" disabled>Capture baseline</button><button id="failure-trigger" class="button light" type="button" disabled>Pause analytics</button><button id="failure-test" class="button light" type="button" disabled>Run test</button></div>
           <p class="footnote">Each trigger is single-use. Loading, polling and recovery never submit a purchase. One scenario at a time; recovery is attempted after 240 seconds.</p>
         </article>
         <article class="panel failure-workspace">
@@ -69,40 +28,30 @@
           <p id="failure-message" class="failure-message" role="status">Connect the local controller, choose a scenario and capture its baseline.</p>
           <div id="failure-facts" class="failure-facts"></div>
           <div class="failure-watch"><label for="failure-order-id">Watched order ID</label><div><input id="failure-order-id" placeholder="Use the new order from your store tab" autocomplete="off"><button id="failure-watch" class="button light" type="button" disabled>Watch order</button></div></div>
-          <div class="failure-actions"><a href="/" class="button light" target="_blank" rel="noopener">Open store ↗</a><button id="failure-recover" class="button light" type="button" disabled>4. Recover processing</button><button id="failure-retry" class="button light" type="button" disabled>Retry identical request</button><button id="failure-verify" class="button" type="button" disabled>5. Verify effects</button><button id="failure-evidence" class="button light" type="button" disabled>Evidence ↓</button></div>
+          <div class="failure-actions"><a href="/" class="button light" target="_blank" rel="noopener">Open store ↗</a><button id="failure-recover" class="button light" type="button" disabled>Resume processing</button><button id="failure-retry" class="button light" type="button" disabled>Retry identical request</button><button id="failure-verify" class="button" type="button" disabled>Verify recovery</button><button id="failure-evidence" class="button light" type="button" disabled>Evidence ↓</button></div>
           <p id="failure-error" class="alert" role="alert" hidden></p>
         </article>
       </div>
-      <div class="failure-charts">
+      <details id="failure-observations"><summary>Technical evidence: verification, timelines and owner API observations</summary><div class="failure-charts">
         <article class="panel"><div class="panel-heading"><div><h3>Fault → order → Gold</h3><p>Timestamped samples · unavailable values stay unmeasured</p></div></div><div id="failure-timeline" class="chart"><div class="empty">A measured timeline appears when the run begins.</div></div></article>
         <article class="panel"><div class="panel-heading"><div><h3>Stock effects</h3><p>Owner API observations · quantity relative to captured baseline</p></div><span class="chart-key"><i></i> Consumed <i class="gold"></i> Reserved</span></div><div id="failure-stock-chart" class="chart"><div class="empty">No stock measurements yet.</div></div></article>
         <article class="panel"><div class="panel-heading"><div><h3>Payment ledger</h3><p>Independent signed entries · INR · watched order only</p></div></div><div id="failure-ledger-chart" class="chart"><div class="empty">No ledger measurements yet.</div></div></article>
       </div>
       <div class="failure-layout failure-evidence-grid"><article class="panel"><h3>Verification checklist</h3><p class="description">HTTP acceptance alone never establishes correctness.</p><div id="failure-checks" class="failure-checks"><div class="empty">Verification has not run.</div></div></article><article class="panel"><h3>Observation journal</h3><p class="description">Actual timestamps, selected identities and acknowledged checkpoints</p><ol id="failure-journal" class="failure-journal"><li>No run has started.</li></ol></article></div>
-      <details class="failure-history"><summary>Previous local runs</summary><div class="table-scroll"><table><thead><tr><th>Run</th><th>Scenario</th><th>Mode</th><th>Result</th><th>Evidence</th></tr></thead><tbody id="failure-history"></tbody></table></div></details>
-      <p class="footnote">Local prototype demonstrations do not establish production high availability. Gold positions are publication offsets, not broker-head lag. Operational outbox growth is not required while analytics consumption is paused.</p>
-    </section>
-    <section id="infrastructure" aria-labelledby="infra-title">
-      <div class="section-title"><div><p class="eyebrow">BROKER &amp; CONTAINERS</p><h2 id="infra-title">Live infrastructure</h2></div><button id="infra-export" class="button light" type="button">Export infrastructure</button><button id="infra-refresh" class="button light" type="button">Refresh infrastructure</button></div>
+      </details><details class="failure-history"><summary>Previous local runs</summary><div class="table-scroll"><table><thead><tr><th>Run</th><th>Scenario</th><th>Mode</th><th>Result</th><th>Evidence</th></tr></thead><tbody id="failure-history"></tbody></table></div></details>
+
+    </details><details class="panel"><summary>Detailed measurements</summary><div class="simple-grid"><article class="panel"><h3>Time from scheduled send to analytics</h3><div id="schedule-quantiles" class="quantiles"></div><p class="footnote">Only available for test traffic with a recorded send schedule.</p></article><article class="panel"><h3>Test traffic rates</h3><div id="workload-rates"></div><p id="rates-note" class="footnote"></p></article><article class="panel"><h3>End-to-end latency samples</h3><div id="end-to-end-chart" class="chart"></div></article><article class="panel"><h3>Completed and waiting</h3><div id="completion-chart" class="chart"></div></article><article class="panel"><h3>Chat response time</h3><div id="latency-chart" class="chart"></div><div id="session-stats" class="mini-stats"></div></article><article class="panel"><h3>Event types</h3><div id="event-types"></div><h3>Event sources</h3><div id="event-services"></div></article></div><h3>Time spent at each step</h3><div class="table-scroll"><table><thead><tr><th>Event</th><th>To Kafka observation</th><th>To Silver</th><th>Silver to Gold</th><th>Total</th></tr></thead><tbody id="latency-breakdown"></tbody></table></div><h3>Events waiting to be sent</h3><div class="table-scroll"><table><thead><tr><th>Service</th><th>Events</th><th>Oldest waiting</th><th>Updated</th></tr></thead><tbody id="outbox-table"></tbody></table></div><p id="namespace" class="footnote"></p></details><details class="panel"><summary>CPU, memory and Kafka queue details</summary><section id="infrastructure">
+      <button id="infra-export" class="button light" type="button">Save readings</button><button id="infra-refresh" class="button light" type="button">Refresh</button>
       <p id="infra-state" class="description" role="status">Waiting for local helper on port 8010. Start start-failure-demo.ps1 to connect.</p>
-      <div id="infra-lag-chart" class="chart" aria-label="Measured total consumer lag history"></div>
+      <h3>Kafka consumer lag over time</h3><p id="infra-lag-summary" class="description" role="status">Waiting for a lag reading.</p><p class="footnote">Lag is the number of records consumers have not committed. Zero means caught up. CPU and memory are current readings in the table below.</p><div id="infra-lag-chart" class="chart" aria-label="Measured total consumer lag history"><p class="empty">Waiting for the first infrastructure reading.</p></div>
       <p class="footnote">Committed group lag = broker log-end next offset minus committed next offset. Missing partitions stay unavailable; charts retain actual observation times.</p>
       <article class="panel table-panel"><h3>Consumer lag by partition</h3><div class="table-scroll"><table><thead><tr><th>Group</th><th>Topic</th><th>Partition</th><th>Log end</th><th>Committed</th><th>Lag</th></tr></thead><tbody id="infra-lag"></tbody></table></div></article>
       <article class="panel table-panel"><h3>Container CPU and memory</h3><p class="description">CPU relative to each container's allocation. First sample warms up. Cgroup memory includes page cache; it is not process RSS.</p><div class="table-scroll"><table><thead><tr><th>Service</th><th>CPU / allocation</th><th>Memory / limit</th><th>Peak memory</th><th>OOM kills</th><th>State</th></tr></thead><tbody id="infra-resources"></tbody></table></div></article>
-    </section>
-    <section id="transactions" aria-labelledby="transactions-title"><div class="section-title"><div><p class="eyebrow">DISTRIBUTED SYSTEMS, IN VIEW</p><h2 id="transactions-title">Orders &amp; reliability</h2></div><span class="section-note">Observed facts from owner APIs</span></div>
-      <div class="charts"><article class="panel"><h3>Order outcomes</h3><p class="description">Active Gold order facts · created today in UTC</p><div id="order-statuses" class="bar-list"></div><div id="order-stats" class="mini-stats"></div></article>
-      <article class="panel"><h3>Delivery &amp; duplicate handling</h3><p id="receipt-scope" class="description">Bounded namespace receipt sample</p><div id="receipt-dispositions" class="bar-list"></div><p id="receipt-latency" class="footnote"></p></article>
-      <article class="panel"><h3>Your latest order</h3><p class="description">This browser's order → exact active Gold match</p><div id="watched-order" class="watched-order"></div></article></div>
+    </section></details><details class="panel"><summary>Event receipts and duplicate handling</summary>      <article class="panel"><h3>Delivery &amp; duplicate handling</h3><p id="receipt-scope" class="description">Bounded namespace receipt sample</p><div id="receipt-dispositions" class="bar-list"></div><p id="receipt-latency" class="footnote"></p></article>
       <article class="panel table-panel"><div class="panel-heading"><div><h3>Kafka receipt trail</h3><p id="receipt-table-note">Most recently ingested entries within the bounded sample</p></div></div><div class="table-scroll"><table><thead><tr><th>Event ID</th><th>Topic / source</th><th>Partition : offset</th><th>Disposition</th><th>Gold visible</th><th>Ingest → Gold</th></tr></thead><tbody id="receipts"></tbody></table></div></article>
-    </section>
-    <section id="data" aria-labelledby="data-title"><div class="section-title"><div><p class="eyebrow">REPRODUCIBILITY &amp; PROVENANCE</p><h2 id="data-title">The data behind the numbers</h2></div></div>
+    </details><details class="panel"><summary>Stored data and product coverage</summary><section id="data">
       <div class="charts"><article class="panel span-two"><h3>Active dataset publications</h3><p class="description">Manifest-backed files and physical rows · dataset totals across dates</p><div id="datasets" class="dataset-grid"></div><details><summary>Published source positions</summary><p class="footnote">Exclusive next offsets in active manifests. These are publication positions, not broker-head consumer lag.</p><div class="table-scroll"><table><thead><tr><th>Dataset</th><th>Topic</th><th>Partition</th><th>Next offset</th></tr></thead><tbody id="positions"></tbody></table></div></details></article>
       <article class="panel"><h3>Catalogue &amp; retrieval</h3><p class="description">Recorded metadata, never inferred product facts</p><div id="catalogue"></div></article></div>
       <article class="panel table-panel"><div class="panel-heading"><div><h3>Catalogue attribute coverage</h3><p id="coverage-note">Canonical listings with recorded attributes</p></div><span class="chart-key"><i></i> Recorded <i class="missing"></i> Missing</span></div><div id="coverage" class="coverage-grid"></div></article>
-      <div class="explain-grid"><article><h3>How consistency is maintained</h3><p>Explicit checkout confirmation and idempotency keys protect purchase requests. The order saga coordinates reservations and payments; compensation handles unsuccessful steps.</p><p>Local outboxes retain events for publication. Receipt identities, event IDs and versions support replay and duplicate suppression. Active manifests publish consistent analytical snapshots.</p></article><article><h3>How to read this dashboard</h3><p>Session charts cover this browser. Pipeline and order charts cover the displayed namespace and UTC day. Dataset sizes cover the entire active manifest. Receipt charts use a bounded sample.</p><p>Readiness probes are point-in-time observations. This demo runs on one Windows machine with Docker services. Failure Demo collects scoped stock and ledger audits. Live infrastructure observations are supplied by the local helper with explicit unavailable states.</p></article></div>
-    </section>
-    <footer>Group 3 · Live demo observations, not a controlled performance benchmark. Missing data is shown as unavailable.</footer>
-  </main>
-</body>
-</html>
+
+    </section></details><footer>Local prototype · Missing readings are shown as unavailable. Live snapshots are not a controlled benchmark.</footer></main></body></html>

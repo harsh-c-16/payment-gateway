@@ -15,7 +15,8 @@ fs.mkdirSync(out,{recursive:true});const write=(n,v)=>fs.writeFileSync(path.join
   try{
     await page.goto('http://127.0.0.1:8001/dashboard',{waitUntil:'domcontentloaded'});
     await page.locator('#kpis .kpi').first().waitFor({timeout:25000});
-    assert.equal(requests.length,0,'Page load must not connect or mutate failure controls');
+    assert.equal(requests.filter(r=>r.method==='POST').length,0,'Page load must not mutate failure controls');
+    await page.locator('#failure-demo>summary').click();
     await page.locator('#failure-connect').click();await page.waitForFunction(()=>!document.getElementById('failure-prepare').disabled);
     for(const scenario of ['analytics','retry','decline','crash','late','refund']){
       await page.locator('#failure-scenario').selectOption(scenario);

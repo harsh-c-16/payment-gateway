@@ -18,15 +18,15 @@ function controller(fetch) {
   const document = {getElementById(id) {if (!elements.has(id)) elements.set(id, element()); return elements.get(id);},
     createElement: element, createTextNode: value => ({textContent: value}),
     querySelectorAll: () => [], querySelector: () => null, body: element()};
-  let saved;
+  let saved;const stored=new Map();
   const context = vm.createContext({document, fetch, URL, URLSearchParams, Intl,
     crypto: {randomUUID}, AbortController, console,
-    localStorage: {getItem: () => null, setItem: (_, value) => {saved = JSON.parse(value);}},
+    localStorage: {getItem: key => stored.get(key) || null, setItem: (key, value) => {stored.set(key,value);if(key==='shoptalk-session')saved=JSON.parse(value);}},
     setInterval() {}, setTimeout() {}, clearTimeout() {}});
   const source = fs.readFileSync('services/conversation/web/store.js', 'utf8').replace('safe(boot)();', '');
   vm.runInContext(source, context);
   vm.runInContext(`S = {namespace:'bench-ui', user_id:'ui-test', run_id:uid(), correlation_id:uid(),
-    session_id:uid(), cart_id:uid(), cart:{version:1,lines:[]}};`, context);
+    session_id:uid(), cart_id:uid(), cart:{version:1,lines:[]}};initialized=true;`, context);
   return {elements, run: code => vm.runInContext(code, context), saved: () => saved};
 }
 
@@ -80,27 +80,28 @@ test('untrusted image schemes use the local placeholder', () => {
   assert.equal(app.elements.get('picture').src, '/assets/placeholder.svg');
 });
 
-test('search always uses hybrid and discards a saved keyword preference', () => {
+test('search prefers hybrid and keeps working when keyword search is available', () => {
   const app = controller(async () => {});
   app.run(`S.retrieval_preference='lexical'`);
   app.run(`configureRetrieval({search_modes:['lexical','hybrid_exact']})`);
   assert.equal(app.run('retrievalReady'), true);
   assert.equal(app.run('S.retrieval_preference'), undefined);
   app.run(`configureRetrieval({search_modes:['lexical']})`);
+  assert.equal(app.run('retrievalReady'), true);
+  assert.equal(app.run('retrievalMode'), 'lexical');
+  assert.equal(app.elements.get('send-chat').disabled, false);
+  app.run(`configureRetrieval({search_modes:[]})`);
   assert.equal(app.run('retrievalReady'), false);
-  assert.equal(app.elements.get('send-chat').disabled, true);
 });
 
-test('AI conversation is selected when configured and explicit deterministic choice survives refresh', () => {
+test('the store removes the old mode preference and exposes no chat settings', () => {
   const app = controller(async () => {});
   app.run(`configureAssistant({conversation_available:true})`);
-  assert.equal(app.elements.get('assistant-mode').value, 'assist');
-  app.elements.get('assistant-mode').value = 'fixed';
-  app.elements.get('assistant-mode').listeners.change();
+  app.run(`S.assistant_preference='fixed'`);
   app.run(`configureAssistant({conversation_available:true})`);
-  assert.equal(app.elements.get('assistant-mode').value, 'fixed');
-  app.run(`configureAssistant({conversation_available:false})`);
-  assert.equal(app.elements.get('assistant-mode').value, 'fixed');
+  assert.equal(app.run('S.assistant_preference'),undefined);
+  assert.equal(app.elements.has('assistant-mode'),false);
+  assert(!fs.readFileSync('services/conversation/web/index.html','utf8').includes('Chat settings'));
 });
 
 test('chat request uses the selected assistant independently of retrieval', async () => {
@@ -137,7 +138,7 @@ test('a dependency error preserves displayed products and offers a fresh search 
   assert.equal(app.elements.get('retry-chat').hidden,false);
   assert.equal(app.run('S.pending'),undefined);
   assert.equal(app.saved().failed_search.text,'white shirt');
-  assert.match(app.elements.get('notice-text').textContent,/temporarily unavailable/);
+  assert.match(app.elements.get('notice-text').textContent,/Search is temporarily unavailable/);
 });
 
 test('terminal order polling releases the quote control and analytics never submits checkout', async () => {
@@ -160,6 +161,26 @@ test('a capabilities outage shows search unavailable and does not switch algorit
   await app.run('loadRetrieval()');
   assert.equal(app.run('retrievalReady'), false);
   assert.equal(app.elements.get('send-chat').disabled,true);
-  assert.match(app.elements.get('chat-status').textContent,/temporarily unavailable/);
+  assert.match(app.elements.get('chat-status').textContent,/Search is unavailable/);
   assert.equal(app.run('S.pending'),undefined);
+});
+
+test('changing demo datasets preserves pending checkout identity without replaying it',()=>{
+  const app=controller(async()=>{throw new Error('Dataset selection must not send a mutation');});
+  app.run(`S.pending={label:'checkout',path:'/checkout',headers:{'Idempotency-Key':'original-key'},body:{confirmed:true}};connectDataset('bench-new');`);
+  assert.equal(app.run('S.pending'),undefined);
+  app.run(`S={namespace:'bench-new'};connectDataset('bench-ui');`);
+  assert.equal(app.run('S.pending.headers["Idempotency-Key"]'),'original-key');
+  assert.equal(app.run('S.pending.body.confirmed'),true);
+});
+
+test('Enter submits one ready message, Shift+Enter and composition do not submit',()=>{
+  const app=controller(async()=>{});let submissions=0;
+  app.elements.get('chat-form').requestSubmit=()=>submissions++;
+  app.elements.get('chat-input').value='hello';app.run(`document.getElementById('send-chat').disabled=false`);
+  const enter=app.elements.get('chat-input').listeners.keydown;
+  const event={key:'Enter',shiftKey:false,isComposing:false,preventDefault(){}};
+  enter(event);assert.equal(submissions,1);
+  enter({...event,shiftKey:true});enter({...event,isComposing:true});assert.equal(submissions,1);
+  app.elements.get('send-chat').disabled=true;enter(event);assert.equal(submissions,1);
 });

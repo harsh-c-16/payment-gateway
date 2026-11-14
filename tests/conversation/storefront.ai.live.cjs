@@ -32,7 +32,8 @@ const write = (name,value) => fs.writeFileSync(path.join(out,name),JSON.stringif
   try {
     await page.goto('http://127.0.0.1:8001/',{waitUntil:'domcontentloaded'});
     await page.locator('#products .product-card').first().waitFor({timeout:20000});
-    assert.equal(await page.locator('#assistant-mode').inputValue(),'assist');
+    assert.equal(await page.locator('#assistant-mode').count(),0);
+    assert.equal(await page.locator('#assistant-title').innerText(),'AI conversation');
     assert.equal(await page.locator('#retrieval').count(),0);
     assert.equal((await turn('I need a gift')).outcome,'clarification');
     const first=await turn('A shirt under 1000 rupees');

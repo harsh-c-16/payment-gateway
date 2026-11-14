@@ -18,6 +18,8 @@ const write = (name,data) => fs.writeFileSync(path.join(out,name),JSON.stringify
   const browser = await chromium.launch({channel:process.env.BROWSER_CHANNEL || 'msedge',headless:true});
   const context = await browser.newContext({viewport:{width:1440,height:1000}});
   const page = await context.newPage();
+  // This checkout rehearsal selects the deterministic HTTP mode; the UI stays AI-only.
+  await page.route('**/shopping-turns',route=>route.continue({postData:JSON.stringify({...route.request().postDataJSON(),mode:'fixed'})}));
   const journal = [], errors = [], checkoutRequests = [];
   page.on('pageerror',error=>errors.push(error.message));
   page.on('request',request=>{
@@ -48,9 +50,6 @@ const write = (name,data) => fs.writeFileSync(path.join(out,name),JSON.stringify
     assert.match(await page.locator('#result-count').innerText(),/19,920/);
     assert.equal(await page.locator('#retrieval').count(),0);
     // This regression has no external model dependency. AI dialogue is rehearsed separately.
-    await page.locator('#assistant-settings > summary').click();
-    await page.locator('#assistant-mode').selectOption('fixed');
-    await page.locator('#assistant-settings > summary').click();
     assert.equal((await turn('I need a gift')).outcome,'clarification');
     let first = await turn('shirt under 1000 rupees');
     if (first.outcome==='dependency_error') {

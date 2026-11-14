@@ -169,6 +169,7 @@ class Lab:
             return {
                 "scenarios": SCENARIOS,
                 "run": copy.deepcopy(self.current),
+                "worker_active": self.process is not None or self.detached,
                 "observed_at": now(),
                 "history": self.history(),
             }

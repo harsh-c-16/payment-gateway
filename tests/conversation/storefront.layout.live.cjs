@@ -14,6 +14,8 @@ const write = (name, value) => fs.writeFileSync(path.join(out,name),JSON.stringi
 (async () => {
   const browser = await chromium.launch({channel:'msedge',headless:true});
   const page = await browser.newPage({viewport:{width:1366,height:768}});
+  // Select fixed mode through the HTTP contract for this deterministic rehearsal.
+  await page.route('**/shopping-turns',route=>route.continue({postData:JSON.stringify({...route.request().postDataJSON(),mode:'fixed'})}));
   const errors=[], purchases=[], checks=[], turns=[];
   page.on('pageerror', e=>errors.push(e.message));
   page.on('request', r=>{if(r.url().endsWith('/checkout')) purchases.push(r.postDataJSON());});
@@ -27,8 +29,7 @@ const write = (name, value) => fs.writeFileSync(path.join(out,name),JSON.stringi
       return {viewport:{width:innerWidth,height:innerHeight},
         width:document.documentElement.scrollWidth, sidebar:rect('aside.assistant'),
         scroll:rect('.chat-scroll'), composer:rect('.chat-composer'),
-        controls:['#more-options','#new-search','#chat-input','#send-chat',
-          '#assistant-settings>summary'].map(selector=>({selector,...rect(selector)}))};
+        controls:['#new-search','#chat-input','#send-chat'].map(selector=>({selector,...rect(selector)}))};
     });
     assert(data.width<=data.viewport.width,'Page must not scroll sideways');
     assert(data.scroll.bottom<=data.composer.top+1,'Messages must not overlap the composer');
@@ -51,9 +52,6 @@ const write = (name, value) => fs.writeFileSync(path.join(out,name),JSON.stringi
     assert.equal(await page.locator('#retrieval').count(),0);
     assert(!/A real catalogue\. A simulated checkout\.|Historical INR prices/.test(await page.locator('body').innerText()));
     await page.screenshot({path:path.join(out,'welcome.png'),fullPage:true});
-    await page.locator('#assistant-settings>summary').click();
-    await page.locator('#assistant-mode').selectOption('fixed');
-    await page.locator('#assistant-settings>summary').click();
     await page.locator('#chat-input').fill('shirts under 1000 rupees');
     const response=page.waitForResponse(r=>r.url().endsWith('/shopping-turns'));
     await page.locator('#send-chat').click();
@@ -70,8 +68,6 @@ const write = (name, value) => fs.writeFileSync(path.join(out,name),JSON.stringi
       await page.setViewportSize({width,height}); await page.evaluate(()=>window.scrollTo(0,0));
       await geometry();
       await page.screenshot({path:path.join(out,`chat-${width}x${height}.png`),fullPage:true});
-      await page.locator('#assistant-settings>summary').click(); await geometry();
-      await page.locator('#assistant-settings>summary').click();
     }
     await page.setViewportSize({width:1366,height:768});
     await page.locator('#search').fill('shirts under 1000 rupees');

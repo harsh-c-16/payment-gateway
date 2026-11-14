@@ -76,27 +76,8 @@ function lineChart(target, points, series, caption, xLabel) {
   for(const i of ticks) graph.append(svg("text",{x:x(i),y:height-7,"text-anchor":"middle"},xLabel(points[i],i)));
   $(target).replaceChildren(graph);
 }
-function render(data) {
-  const m=data.session,p=data.pipeline,a=data.activity,ready=data.services.filter(s=>s.status==="ready").length;
-  $("namespace").textContent=`Namespace: ${data.namespace}`;
-  $("session-scope").textContent=`Session: ${S.session_id.slice(0,8)}… · latest ${m.sampled_turns} turns`;
-  $("date-scope").textContent=`Gold window: ${data.pipeline_date_utc} UTC`;
-  $("kpis").replaceChildren();
-  for(const [label,value,detail] of [["Published events today",p ? fmt(p.events) : "Unavailable","Unique events in active Gold · UTC day"],
-    ["Conversation P95",ms(m.turn_p95_ms),`Current session · ${m.sampled_turns} sampled turns`],
-    ["Events awaiting publication",fmt(a.outbox_pending),"Conversation outbox · entire namespace"],
-    ["Services ready",`${ready} / ${data.services.length}`,"Point-in-time readiness · not uptime"]]) {
-    const k=node("article","","kpi");k.append(node("span",label,"label"),node("strong",value),node("p",detail,"detail"));$("kpis").append(k);
-  }
-  $("services").replaceChildren();
-  for(const service of data.services) {
-    const n=node("div","",`service ${service.status}`);n.append(node("span","","indicator"),document.createTextNode(service.name),
-      node("small",service.status==="ready" ? service.response_ms===null ? "Local storage read OK" : `Ready · ${Math.round(service.response_ms)} ms` : "Unavailable"));
-    $("services").append(n);
-  }
-  lineChart("throughput-chart",p?.minutes ?? null,[{key:"events",colour:"#356b50",label:"Events"}],
-    "Published unique events per minute over the last hour",point=>new Date(point.minute).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",timeZone:"UTC"}));
-  $("throughput-note").textContent=p ? `Active Gold generation ${fmt(p.generation)} · x-axis UTC · historical buckets update as events become visible. This is published event-time throughput, not live Kafka ingress.` : "Gold publication data is unavailable.";
+function renderDetailed(data) {
+ const m=data.session,p=data.pipeline,a=data.activity;
   bars("event-types",p?.by_type,!p);bars("event-services",p?.by_service,!p);
   lineChart("latency-chart",a.turns,[{key:"total_ms",colour:"#356b50",label:"Total ms"},{key:"model_ms",colour:"#c89c4e",label:"Model ms"}],
     "Measured total and model response time for saved session turns",(point,i)=>`Turn ${Math.max(0,m.sampled_turns-a.turns.length)+i+1}`);
@@ -157,23 +138,39 @@ function render(data) {
       card.append(labels,graph,node("p",`${fmt(count)} recorded · ${fmt(Math.max(0,total-count))} missing`,"footnote"));$("coverage").append(card);
     }
   } else {empty("catalogue","Catalogue metadata is unavailable.");empty("coverage","Catalogue coverage is unavailable.");}
-  $("updated").textContent=`Updated ${localTime(data.checked_at)} · refresh every 5 seconds`;
+}
+function render(data) {
+  renderDetailed(data);
+  const m=data.session,p=data.pipeline,ready=data.services.filter(s=>s.status==="ready").length;
+  $("namespace").textContent=`Dataset: ${data.namespace}`;
+  $("session-scope").textContent=`Chat: ${m.sampled_turns} saved messages in this session`;
+  $("date-scope").textContent=`Activity: ${data.pipeline_date_utc} UTC`;
+  $("kpis").replaceChildren();
+  for(const [label,value] of [["Events in analytics",p ? fmt(p.events) : "Unavailable"],["Orders today",data.orders ? fmt(data.orders.count) : "Unavailable"],["Chat response p95",ms(m.turn_p95_ms)],["Services ready",`${ready} / ${data.services.length}`]]) {
+    const card=node("article","","kpi");card.append(node("span",label,"label"),node("strong",value));$("kpis").append(card);
+  }
+  $("services").replaceChildren();
+  for(const service of data.services) {const row=node("div","",`service ${service.status}`);row.append(node("span","","indicator"),document.createTextNode(title(service.name)),node("small",service.status==="ready" ? "Ready" : "Unavailable"));$("services").append(row);}
+  lineChart("throughput-chart",p?.minutes ?? null,[{key:"events",colour:"#356b50",label:"Events"}],"Unique events by event-time minute",point=>new Date(point.minute).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",timeZone:"UTC"}));
+  $("throughput-note").textContent=p ? `Gold version ${fmt(p.generation)}. Late events can update an earlier minute.` : "Analytics is unavailable.";
+  bars("order-statuses",data.orders?.by_status,!data.orders);
+  statList("order-stats",[["Confirmed order value",data.orders ? currency(data.orders.confirmed_minor) : "Unavailable"]]);
+  $("updated").textContent=`Updated ${localTime(data.checked_at)}`;
   const partial=data.unavailable.length>0 || ready<data.services.length;
-  $("live-status").textContent=paused ? "Paused" : partial ? "Partial data" : "Live observations";
+  $("live-status").textContent=paused ? "Paused" : partial ? "Some data unavailable" : "Live";
   $("live-status").classList.toggle("warning",partial || paused);
-  $("error").hidden=!partial;
-  $("error").textContent=partial ? `Some providers are unavailable: ${[...data.unavailable,...data.services.filter(s=>s.status!=="ready").map(s=>s.name)].join(", ")}. Available measurements remain visible.` : "";
+  $("error").hidden=!partial;$("error").textContent=partial ? "Some services could not be read. Available readings are shown below." : "";
 }
 async function watchedOrder() {
   $("watched-order").replaceChildren();
-  if(!S.order_id) {empty("watched-order","No order in this browser yet. Complete a demo checkout in the store to trace it here.");return;}
+  if(!S.order_id) {empty("watched-order","No order yet. Place a demo order in the store to follow it here.");return;}
   try {
     const [order,publication]=await Promise.all([request(`/v1/store/orders/${S.order_id}`),request(`/v1/store/orders/${S.order_id}/pipeline`)]);
     const match=publication.status==="visible" && publication.order_version===order.order_version;
     $("watched-order").append(node("strong",title(order.status)),node("p",`Order ${order.order_id}`,"mono"),
       node("span",match ? `Matched in Gold · generation ${publication.generation}` : publication.status==="unavailable" ? "Analytics unavailable" : "Waiting for matching Gold version",`tag ${match ? "" : "warning"}`),
       node("p",`Order version ${order.order_version} · ${currency(order.total_amount_minor)}`),
-      node("p","This trace reads status only. It never places or retries a purchase."));
+      node("p",""));
   } catch {empty("watched-order","Order status is unavailable. No purchase was resubmitted.");}
 }
 async function refresh() {
@@ -211,7 +208,7 @@ async function boot() {
 }
 $("refresh").addEventListener("click",()=>{if(S.session_id) refresh();else boot().catch(showBootError);});
 $("pause").addEventListener("click",()=>{
-  paused=!paused;clearTimeout(timer);$("pause").textContent=paused ? "Resume updates" : "Pause updates";
+  paused=!paused;clearTimeout(timer);$("pause").textContent=paused ? "Resume" : "Pause";
   window.dashboardObservationPaused=paused;
   window.dispatchEvent(new CustomEvent("observation-pause",{detail:{paused}}));
   if(paused) {$("live-status").textContent="Paused";$("live-status").classList.add("warning");}
@@ -225,10 +222,5 @@ $("export").addEventListener("click",()=>{
 });
 document.addEventListener("visibilitychange",()=>{clearTimeout(timer);if(!document.hidden && !paused && S.session_id) refresh();});
 window.addEventListener("storage",e=>{if(e.key==="shoptalk-session" && !document.hidden && !paused && S.session_id) refresh();});
-const navigation=[...document.querySelectorAll(".sidebar nav a")];
-const observer=new IntersectionObserver(entries=>{
-  for(const entry of entries) if(entry.isIntersecting) for(const a of navigation) a.classList.toggle("active",a.hash===`#${entry.target.id}`);
-},{rootMargin:"-10% 0px -60% 0px"});
-document.querySelectorAll("main>section").forEach(section=>observer.observe(section));
 function showBootError(e) {$("error").hidden=false;$("error").textContent=e.message;$("live-status").textContent="Unavailable";}
 boot().catch(showBootError);

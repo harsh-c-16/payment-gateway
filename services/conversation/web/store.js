@@ -7,8 +7,9 @@ const text = (tag, value, className = "") => { const n = document.createElement(
 const cache = new Map();
 let S;
 try { S = JSON.parse(localStorage.getItem("shoptalk-session")) || {}; } catch { S = {}; }
-const RETRIEVAL_MODE = "hybrid_exact";
+let retrievalMode = "hybrid_exact";
 let retrievalReady = false;
+let initialized = false;
 let busy = false, offset = 0, pageTotal = 0, chatView = false, orderTimer, pipelineTimer;
 const save = () => localStorage.setItem("shoptalk-session", JSON.stringify(S));
 const contextHeaders = (requestId = uid()) => ({
@@ -42,14 +43,13 @@ function notice(message, error = false) {
 function setBusy(value) {
   busy = value;
   document.body.classList.toggle("busy", value);
-  $("send-chat").disabled = value || !retrievalReady;
-  $("more-options").disabled = value || !S.memory?.intent || !retrievalReady;
+  $("send-chat").disabled = value || !initialized || !retrievalReady;
   $("new-search").disabled = value;
-  document.querySelectorAll("[data-prompt]").forEach(button => { button.disabled = value || !retrievalReady; });
+  document.querySelectorAll("[data-prompt]").forEach(button => { button.disabled = value || !initialized || !retrievalReady; });
   $("chat-status").hidden = !value && retrievalReady;
   $("chat-status").classList.toggle("error", !value && !retrievalReady);
   $("chat-status").textContent = value ? "Working on it…" : retrievalReady ? "" :
-    "Product search is temporarily unavailable. You can still browse the collection. Please try again shortly.";
+    "Search is unavailable. Please try again.";
   $("request-quote").disabled = value || !S.cart?.lines.length;
   refreshConfirmation();
 }
@@ -63,6 +63,17 @@ const safe = (action) => async (event) => {
     $("chat-status").classList.add("error");
   }
 };
+
+function connectDataset(namespace) {
+  if (!S.namespace || S.namespace === namespace) return false;
+  // Keep the previous dataset's exact pending request and resource identities.
+  localStorage.setItem(`shoptalk-session:dataset:${S.namespace}`, JSON.stringify(S));
+  let previous;
+  try { previous = JSON.parse(localStorage.getItem(`shoptalk-session:dataset:${namespace}`)); } catch { /* Start a fresh session for this dataset. */ }
+  S = previous?.namespace === namespace ? previous : {};
+  cache.clear();
+  return true;
+}
 
 async function applyMutation(operation, data) {
   if (operation.label === "session") {
@@ -200,13 +211,13 @@ async function restoreConversation() {
     if (intent.max_price_minor !== null && intent.max_price_minor !== undefined) values.push(`maximum ${money(intent.max_price_minor)}`);
     $("preferences").textContent = "Remembered preferences: " + values.filter(Boolean).join(" · ");
   }
-  $("more-options").disabled = busy || !intent || !retrievalReady;
   for (const p of S.memory.products || []) cache.set(p.sku, p);
 }
-async function sendChat(value, selectedSku, assistantMode = $("assistant-mode").value || "fixed") {
-  if (!value.trim()) return;
+async function sendChat(value, selectedSku, assistantMode = "assist") {
+  if (!value.trim() || busy) return;
+  if (!initialized || !S.session_id) throw new Error("The store is still connecting. Please try again in a moment.");
   await mutate("chat", `/v1/sessions/${S.session_id}/shopping-turns`, {
-    text: value.trim(), mode: assistantMode, retrieval_mode: RETRIEVAL_MODE,
+    text: value.trim(), mode: assistantMode, retrieval_mode: retrievalMode,
     ...(selectedSku ? {selected_sku: selectedSku} : {}),
   });
 }
@@ -336,13 +347,23 @@ async function pollPipeline(started = Date.now()) {
   if (Date.now() - started < 120000 && S.order_id === orderId) pipelineTimer = setTimeout(() => pollPipeline(started), 2500);
 }
 async function boot() {
+  initialized = false;
   const config = await request("/v1/store/bootstrap", {headers: {"Accept": "application/json"}});
   configureAssistant(config);
-  if (S.namespace && S.namespace !== config.namespace) throw new Error("This saved session belongs to another namespace. Keep its saved state and open this deployment in a separate browser profile.");
+  const changedDataset = connectDataset(config.namespace);
   S.namespace = config.namespace; S.user_id ||= "shopper-" + uid(); S.run_id ||= uid(); S.correlation_id ||= uid(); save();
   if (!S.session_id && !S.pending) await mutate("session", "/v1/sessions", {});
   if (S.pending) await executePending();
-  await loadCart(); await restoreConversation();
+  try { await loadCart(); await restoreConversation(); }
+  catch (error) {
+    if (error.status !== 404 || S.pending) throw error;
+    // The server no longer has this saved session. Preserve it before reconnecting.
+    localStorage.setItem(`shoptalk-session:missing:${S.session_id}`, JSON.stringify(S));
+    const {namespace, user_id} = S;
+    S = {namespace, user_id, run_id: uid(), correlation_id: uid()}; save();
+    await mutate("session", "/v1/sessions", {});
+    await loadCart(); await restoreConversation();
+  }
   const facets = await request("/v1/store/facets");
   $("category").replaceChildren(new Option("All categories", "")); $("category-chips").replaceChildren();
   for (const root of facets.roots) $("category").append(new Option(root.label, root.id));
@@ -354,26 +375,26 @@ async function boot() {
   await loadRetrieval();
   if (S.view === "chat" && S.memory.intent) showChatProducts(S.memory.products || []);
   else await browse();
+  initialized = true;
+  setBusy(false);
+  if (changedDataset) notice("Connected to the current demo. Your earlier cart and chat are saved.");
   if (S.order_id) pollOrder();
 }
 function configureRetrieval(capabilities) {
-  retrievalReady = capabilities.search_modes.includes(RETRIEVAL_MODE);
+  const modes=capabilities.search_modes || [];
+  retrievalMode=modes.includes("hybrid_exact") ? "hybrid_exact" : "lexical";
+  retrievalReady=modes.includes(retrievalMode);
   delete S.retrieval_preference; save();
   setBusy(busy);
   if (!retrievalReady) {
     $("chat-status").hidden = false;
-    $("chat-status").textContent = "Product search is temporarily unavailable. You can still browse the collection. Please try again shortly.";
+    $("chat-status").textContent = "Search is unavailable. Please try again.";
     $("chat-status").classList.add("error");
   }
 }
 function configureAssistant(config) {
-  $("assistant-mode").querySelector('[value="assist"]').disabled = !config.conversation_available;
-  $("assistant-mode").value = config.conversation_available && S.assistant_preference !== "fixed" ? "assist" : "fixed";
-  $("assistant-note").textContent = config.conversation_available ?
-    "AI chat remembers your preferences during this visit." :
-    "AI chat is unavailable. Basic chat can still help you find products.";
+  delete S.assistant_preference;
 }
-$("assistant-mode").addEventListener("change", () => { S.assistant_preference = $("assistant-mode").value; save(); });
 async function loadRetrieval() {
   try {
     const capabilities = await request("/v1/store/capabilities");
@@ -385,13 +406,20 @@ async function loadRetrieval() {
 
 $("search-form").addEventListener("submit", safe(() => browse()));
 $("filters").addEventListener("submit", safe(() => browse()));
+$("category").addEventListener("change", safe(() => browse()));
+$("sort").addEventListener("change", safe(() => browse()));
+$("budget").addEventListener("change", safe(() => browse()));
 $("browse-reset").addEventListener("click", safe(() => browse()));
 $("previous").addEventListener("click", safe(async () => { offset = Math.max(0, offset - 12); await browse(false); }));
 $("next").addEventListener("click", safe(async () => { if (offset + 12 < pageTotal) { offset += 12; await browse(false); } }));
 $("chat-form").addEventListener("submit", safe(() => sendChat($("chat-input").value)));
-$("chat-input").addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); $("chat-form").requestSubmit(); } });
+$("chat-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+    event.preventDefault();
+    if (!$("send-chat").disabled && $("chat-input").value.trim()) $("chat-form").requestSubmit($("send-chat"));
+  }
+});
 document.querySelectorAll("[data-prompt]").forEach(b => b.addEventListener("click", safe(() => sendChat(b.dataset.prompt))));
-$("more-options").addEventListener("click", safe(() => sendChat("Show more options")));
 $("new-search").addEventListener("click", () => { $("chat-input").value = "New search: "; $("chat-input").focus(); });
 $("cart-open").addEventListener("click", safe(async () => { await loadCart(); $("cart-dialog").showModal(); }));
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => $(b.dataset.close).close()));

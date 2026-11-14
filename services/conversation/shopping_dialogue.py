@@ -21,24 +21,24 @@ RESPONSES = {
     "out_of_scope": "I can help with shopping in this catalogue. What product would you like?",
 }
 FAILURES = {
-    "MODEL_DISABLED": "AI chat is unavailable. Choose Basic chat in Chat settings to continue.",
-    "MODEL_TIMEOUT": "AI chat took too long. Retry or choose Basic chat in Chat settings.",
+    "MODEL_DISABLED": "AI chat is unavailable. Please try again later.",
+    "MODEL_TIMEOUT": "AI chat took too long. Please try again.",
     "MODEL_HTTP_ERROR": "The AI provider rejected this request (key, quota or service error). "
-    "Retry later or choose Basic chat in Chat settings.",
+    "Please try again later.",
     "MODEL_PREVIOUS_ATTEMPT": "This message already used its model attempt. "
-    "Send it as a new message or choose Basic chat in Chat settings.",
+    "Please send it as a new message.",
     "MODEL_INVALID_OUTPUT": "The AI returned an invalid shopping instruction. "
-    "Please rephrase or choose Basic chat in Chat settings.",
+    "Please rephrase your message.",
 }
 
 
 def provider_error_text(code, usage):
     status = (usage or {}).get("http_status")
     if status == 429:
-        return "AI chat reached its usage limit. Retry later or choose Basic chat in Chat settings."
+        return "AI chat reached its usage limit. Please try again later."
     if status in {500, 502, 503, 504}:
         return (
-            "Gemini is temporarily busy. Retry this message or choose Basic chat in Chat settings."
+            "AI chat is busy. Please try again shortly."
         )
     if status in {401, 403}:
         return (
@@ -48,7 +48,7 @@ def provider_error_text(code, usage):
         return "The configured Gemini model is unavailable. Check SHOPPING_LLM_MODEL on the server."
     return FAILURES.get(
         code,
-        "AI chat is unavailable. Try again or choose Basic chat in Chat settings.",
+        "AI chat is unavailable. Please try again.",
     )
 
 

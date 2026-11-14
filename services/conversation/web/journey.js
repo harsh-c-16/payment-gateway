@@ -2,40 +2,39 @@
 (() => {
   const M=window.JourneyModel,V=window.JourneyView,{$,n,fmt,ms,age,stamp,short,json}=V;
   const base="http://127.0.0.1:8010";
-  let data=null,paused=false,busy=false,stale=false,timer=null,trace=null,eventKey=null,stageKey="bronze",recording=null,frame=0,playing=false,playTimer=null,traceSequence=0,selectedScenario=null,labRun=null,recordingId=null,selectedNamespace="";
+  let data=null,paused=false,busy=false,stale=false,timer=null,trace=null,eventKey=null,stageKey="bronze",traceSequence=0,selectedScenario="duplicate",labRun=null,selectedNamespace="";
+  let labShown=null,labWorkerActive=false,testBusy=false,labTimer=null,labPolling=false,refreshQueued=false,pendingTraceFirst=false;
+  const autoRuns=new Set(),finishRequests=new Set();
+  const localTime=value=>new Date(value).toLocaleString('en-IN',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+  const testCases={
+    duplicate:{title:"Send the same event twice",description:"Send three messages, including a repeated event.",expected:"Analytics should count two unique events.",purchases:0},
+    malformed:{title:"Send a bad message",description:"Send one broken message between two valid events.",expected:"Reject the bad message and process the two valid events.",purchases:0},
+    conflict:{title:"Send a changed duplicate",description:"Reuse an event ID with different contents.",expected:"Keep the original event and reject the changed copy.",purchases:0},
+    out_of_order:{title:"Send stock updates in the wrong order",description:"Send a newer stock update before an older one.",expected:"Keep the newer stock value.",purchases:0},
+    late_event:{title:"Send an event late",description:"Send an event for an earlier time period.",expected:"Update the earlier analytics result without losing the event.",purchases:0},
+    replay:{title:"Rebuild analytics from saved events",description:"Process the saved events again in a separate test dataset.",expected:"The rebuilt result should match the original.",purchases:0},
+    race:{title:"Two buyers, one item",description:"Two simulated buyers try to buy the last available item.",expected:"One purchase succeeds, one is rejected, and only one payment is taken.",purchases:2}
+  };
+  const activeRun=()=>labWorkerActive || ["Running","Awaiting recovery","Interrupted"].includes(labRun?.status);
+  const shownRun=()=>labShown?.scenario===selectedScenario ? labShown : null;
   const stages={
-    csv:["CSV","Verify source checksum, CSV structure and immutable observation identities. The original historical source has no live stock or payment data."],
-    archive:["Raw archive","Retain the original CSV by content hash before normalization. The archive is separate from event-stream Bronze."],
-    normalize:["Validate / normalize","Parse bounded source fields, normalize values deterministically, preserve provenance and retain missing attributes as null."],
-    deduplicate:["Deduplicate","Select the latest observation per source PID. Keep superseded source rows and withhold conflicting latest identities."],
-    catalogue:["Catalogue","Promote canonical listings with authoritative integer prices and dataset revisions. Simulation stock is maintained separately."],
-    search:["Search","Apply recorded filters and the catalogue stock projection. Availability is a display hint and is revalidated at checkout."],
-    checkout:["Checkout","An explicit confirmation binds the quote and cart version. Idempotency preserves the identity of a repeated request."],
-    services:["Orders / Inventory / Payments","A durable saga coordinates independent service transactions. One order can produce multiple events on several branches."],
-    outbox:["Transactional outboxes","Store immutable events in the same transaction as each service's business change. Relays publish them at least once."],
-    kafka:["Kafka","Retain ordered records within each topic partition. Consumer-group committed offsets measure one backlog boundary."],
-    bronze:["Bronze","Durably capture original Kafka bytes with their topic, partition, offset, raw hash and file/row locator before acknowledging durable processing."],
-    silver:["Silver","Validate and normalize each delivery. Accept a new event ID, suppress an identical duplicate, or quarantine conflicting and malformed input."],
-    gold:["Active Gold","Publish versioned immutable Parquet files and atomically activate their manifest. Durable Silver alone does not establish query visibility."],
-    queries:["Analytical queries","Pin one active manifest generation at query start. Exact event membership and the corresponding business result are separate checks."],
-    projection:["Catalogue stock projection","Inventory events update absolute stock only when their versions are newer. Late older versions must not replace newer state."]
+    csv:["CSV","Read the original product CSV. Stock and payments are created separately by the demo."],
+    archive:["Raw archive","Keep an unchanged copy of the CSV so the import can be checked or repeated."],
+    normalize:["Clean rows","Check each row and turn values into a consistent format. Missing values stay unknown."],
+    deduplicate:["Remove duplicates","Choose one current product record and keep track of duplicate or conflicting rows."],
+    catalogue:["Products","Save the cleaned product records and prices for the store."],
+    search:["Search","Find products using the shopper’s filters and the latest stock updates."],
+    checkout:["Checkout","The shopper confirms the items and price. Retrying the same request should create one order."],
+    services:["Services","Orders, Inventory and Payments handle their own steps and save the results."],
+    outbox:["Save events","Save an event with the business change, then send it to Kafka."],
+    kafka:["Kafka","Queue events so the other services can read them."],
+    bronze:["Bronze","Keep the original event with its Kafka position and a file reference."],
+    silver:["Silver","Check events, remove identical duplicates and set aside bad records."],
+    gold:["Gold","Build the analytics tables and make the completed version available to query."],
+    queries:["Query result","Check that the event is in the current analytics version and read the result."],
+    projection:["Catalogue stock projection","Update product availability when a newer stock event arrives. Ignore older versions."]
   };
   const catalogueKeys=["csv","archive","normalize","deduplicate","catalogue","search"],transactionKeys=["checkout","services","outbox","kafka","bronze","silver","gold","queries"];
-  const fallbackScenarios={
-    race:{title:"Two shoppers, one unit",purchase_count:2,explanation:"Two confirmed checkouts compete for one isolated unit.",preconditions:"Real transactional services, Kafka, relays and scoped success plans ready.",recovery:"Finish observation and publish isolated analytics.",verification:"One confirmed sale; stock never negative; one matching debit; final Gold reconciles."},
-    duplicate:{title:"Identical duplicate delivery",purchase_count:0,explanation:"Deliver one immutable event twice at different Kafka offsets.",preconditions:"Kafka and analytical storage ready.",recovery:"Drain and publish valid facts.",verification:"Multiple deliveries; one analytical contribution per unique ID."},
-    conflict:{title:"Same ID, conflicting payload",purchase_count:0,explanation:"Change the second payload while preserving its event ID.",preconditions:"Kafka, schema cache and analytics ready.",recovery:"Publish valid facts and retain quarantine.",verification:"EVENT_ID_CONFLICT reason and original result preserved."},
-    out_of_order:{title:"Out-of-order stock updates",purchase_count:0,explanation:"Stock version 2 arrives before version 1.",preconditions:"Isolated catalogue and stock consumer ready.",recovery:"Drain projection and publish analytics.",verification:"Version 2 applied; version 1 stale; newer state preserved."},
-    late_event:{title:"Late analytical event",purchase_count:0,explanation:"An old event-time window receives another fact after the watermark advances.",preconditions:"Kafka and retained lakehouse storage ready.",recovery:"Publish the late correction.",verification:"LATE_RECONCILIATION and a newer Gold revision."},
-    malformed:{title:"Malformed event among valid events",purchase_count:0,explanation:"Place malformed JSON between two valid events.",preconditions:"Kafka and analytical storage ready.",recovery:"Publish valid facts and retain quarantine.",verification:"INVALID_JSON quarantined; valid traffic continues."},
-    replay:{title:"Isolated analytical replay",purchase_count:0,explanation:"Rebuild a pinned publication in a fresh replay namespace.",preconditions:"An original fixture publication and Bronze archive.",recovery:"Explicit isolated replay and comparison.",verification:"Original/replayed values agree; no operational commands or republishing."}
-  };
-  const existing=[
-    ["analytics","Consumer pause & recovery","Pause the real analytics worker; observe partition lag, then drain and reconcile."],
-    ["crash","Crash & restart","Acknowledge the saga.after_commit crash boundary, then recover without repeated business effects."],
-    ["late","Reservation expiry","Observe cancellation, released stock and suppression of an expired pending debit."],
-    ["refund","Debit followed by reversal","Observe a real simulated debit, one matching reversal, restored stock and cancelled order."]
-  ];
   async function request(path,options={}) {
     const response=await fetch(base+path,{cache:"no-store",credentials:"omit",...options,
       headers:{"Content-Type":"application/json",...(options.headers || {})},signal:AbortSignal.timeout(40000)});
@@ -44,14 +43,18 @@
   }
   function error(message){$("journey-error").hidden=false;$("journey-error").textContent=message;}
   function mode() {
-    $("journey-mode").textContent=recording ? "Saved playback" : stale ? "Unavailable / stale" : paused ? "Paused" : data ? "Live observations" : "Unavailable";
-    $("journey-mode").className="badge"+(!recording && (paused || stale || !data) ? " warning" : "");
-    $("journey-pause").textContent=paused ? "Resume" : "Pause";$("journey-pause").disabled=!!recording;
-    $("journey-refresh").disabled=!!recording || busy;$("journey-record").disabled=!!recording;
-    $("lab-start").disabled=!!recording || !selectedScenario || !$("lab-consent").checked || ["Running","Awaiting recovery","Interrupted"].includes(labRun?.status);
-    $("lab-recover").disabled=!!recording || !labRun || !["Running","Awaiting recovery","Interrupted"].includes(labRun.status);
-    document.body.classList.toggle("playback",!!recording);
-    $("namespace-select").disabled=!!recording;
+    $("journey-mode").textContent=stale ? "Unavailable / stale" : paused ? "Paused" : data ? "Live" : "Unavailable";
+    $("journey-mode").className="badge"+((paused || stale || !data) ? " warning" : "");
+    $("journey-pause").textContent=paused ? "Resume" : "Pause";$("journey-pause").disabled=false;
+    $("journey-refresh").disabled=busy;
+    const active=activeRun(),resume=active && ["Awaiting recovery","Interrupted"].includes(labRun?.status);
+    $("lab-start").textContent=testBusy ? "Starting…" : resume ? "Resume test" : active ? "Test running…" : shownRun() ? "Run again" : "Run test";
+    $("lab-start").disabled=testBusy || !data || (active ? !resume : !!testCases[selectedScenario]?.purchases && !$("lab-consent").checked);
+    $("lab-scenario").disabled=testBusy || active;
+    $("lab-consent").disabled=testBusy || active;
+    $("lab-history-open").disabled=testBusy || active || !$("lab-history").value;
+    $("lab-history").disabled=testBusy || active;
+    $("source-banner").hidden=!selectedNamespace;
   }
   function stageState(key) {
     if(!data)return {status:"unavailable",label:"Unavailable"};
@@ -61,19 +64,19 @@
       if(key==="archive")return {status:catalogue.source?.archive_verified===true ? "observed" : catalogue.source?.archive_verified===false ? "failed" : "unavailable",label:catalogue.source?.archive_verified===true ? "Archive hash verified" : catalogue.source?.archive_verified===false ? "Matching archive missing" : "Archive not verified"};
       if(key==="search"){const matches=events.filter(e=>["SEARCH_REQUESTED","PRODUCT_RETRIEVED"].includes(e.event_type));return {status:matches.length ? "observed" : "unavailable",label:matches.length ? `${matches.length} observed events` : "No search observation"};}
       const present=key==="csv" || key==="archive" ? catalogue.source : catalogue.normalization;
-      return {status:present ? "observed" : "unavailable",label:present ? "Recorded import evidence" : "Evidence unavailable"};
+      return {status:present ? "observed" : "unavailable",label:present ? "Import recorded" : "No reading"};
     }
     if(chosen && ["bronze","silver","gold","kafka"].includes(key)) {
       const state=M.timeline(chosen,data.clock).find(stage=>stage.key===key)?.status || "unavailable";
-      return {status:state,label:state==="observed" ? "Observed on selected event" : state==="failed" ? "Quarantined" : state==="pending" ? "Pending observation" : "Evidence unavailable"};
+      return {status:state,label:state==="observed" ? "Event recorded" : state==="failed" ? "Quarantined" : state==="pending" ? "Pending observation" : "No reading"};
     }
     if(key==="outbox"){const known=data.outboxes?.every(r=>r.pending!==null);return {status:known ? "observed" : "unavailable",label:known ? `${data.outboxes.reduce((s,r)=>s+r.pending,0)} pending` : "Audit unavailable"};}
-    if(key==="queries")return {status:trace?.visibility?.queryable ? "observed" : "unavailable",label:trace?.visibility?.queryable ? `Queried generation ${trace.visibility.generation}` : "No query observation"};
+    if(key==="queries")return {status:trace?.visibility?.queryable ? "observed" : "unavailable",label:trace?.visibility?.queryable ? `Queried generation ${trace.visibility.generation}` : "No query yet"};
     if(key==="gold")return {status:data.manifests?.gold ? "observed" : "unavailable",label:data.manifests?.gold ? `Generation ${data.manifests.gold.generation}` : "No active manifest observed"};
     if(key==="silver")return {status:data.manifests?.silver ? "observed" : "unavailable",label:data.manifests?.silver ? `Generation ${data.manifests.silver.generation}` : "Unavailable"};
     if(key==="projection"){const known=events.filter(e=>e.projection);return {status:known.length ? "observed" : "unavailable",label:`${known.length} linked receipts`};}
     const known=key==="checkout" ? events.filter(e=>e.event_type==="CHECKOUT_STARTED") : events;
-    return {status:known.length ? "observed" : "unavailable",label:known.length ? `${known.length} bounded observations` : "No observations"};
+    return {status:known.length ? "observed" : "unavailable",label:known.length ? `${known.length} recent events` : "No events yet"};
   }
   function drawPaths() {
     for(const [target,keys]of [["catalogue-path",catalogueKeys],["transaction-path",transactionKeys]]) {
@@ -101,12 +104,14 @@
       const kind=order ? "order" : search ? "search" : "event",id=order || search || e.event_id;
       if(id && !choices.has(`${kind}:${id}`))choices.set(`${kind}:${id}`,`${kind.toUpperCase()} · ${short(id)} · ${e.event_type || "Unidentified delivery"}`);
     }
-    for(const [value,label]of [...choices].slice(0,100)){const option=n("option",label);option.value=value;select.append(option);}select.value=old;
+    for(const [value,label]of [...choices].sort(([a],[b])=>Number(a.startsWith("event:"))-Number(b.startsWith("event:"))).slice(0,25)){const option=n("option",label);option.value=value;select.append(option);}select.value=old;
   }
   function traceGraph() {
     const events=trace?.events || [];$("trace-graph").replaceChildren();
-    $("trace-count").textContent=trace ? `${new Set(events.map(e=>e.event_id).filter(Boolean)).size} logical event IDs · ${events.length} observed deliveries` : "Choose a recent action or enter its UUID";
-    if(!events.length){$("trace-graph").append(n("p",trace ? "No matching observations. Check the identity, namespace, provider availability and sample bounds." : "Select an action to reveal its service branches.","empty"));return;}
+    document.querySelector(".trace-layout").hidden=!events.length;
+    $("timeline-panel").hidden=!events.length;
+    $("trace-count").textContent=trace ? `${new Set(events.map(e=>e.event_id).filter(Boolean)).size} unique events · ${events.length} messages` : "Choose an action above.";
+    if(!events.length){$("trace-graph").append(n("p",trace ? "No matching observations. Check the identity, namespace, provider availability and sample bounds." : "Choose an order or search to see its events.","empty"));return;}
     $("trace-graph").append(n("div",`${trace.kind.toUpperCase()} · ${trace.id}`,"trace-root"));
     const services=new Map();for(const e of events){const service=e.source_service || "Unavailable producer";if(!services.has(service))services.set(service,[]);services.get(service).push(e);}
     for(const [service,branch]of services){const lane=n("div","","service-lane");lane.append(n("h4",`${service} · ${branch.length} ${branch.length===1 ? "delivery" : "deliveries"}`));
@@ -122,90 +127,140 @@
       ["Bronze source",r.source?.raw_locator],["Content SHA-256",r.raw_sha256],["Silver disposition",{new_valid:"Accepted",duplicate_delivery:"Duplicate",invalid:"Quarantined",redelivery_noop:"Source redelivery · no-op"}[r.disposition] || "Unavailable"],
       ["Quarantine reason",r.reason_code || "None recorded"],["Gold first generation",fmt(r.visibility_generation)],["Gold visibility observed",stamp(r.gold_visible_at)],["Latest queried generation",fmt(trace.visibility?.generation)],
       ["Exact active membership",trace.visibility?.queryable ? trace.visibility.visible_event_ids?.includes(e.event_id) ? "Present" : "Absent in the pinned active generation" : "Unavailable"],["Timing validity",r.timing_validity || "missing"]]);
-    $("business-result").textContent=json(trace.business_result);
-    $("transformation-result").textContent=json({schema_version:e.schema_version,aggregate_type:e.aggregate_type,aggregate_version:e.aggregate_version,
-      transform_version:data?.manifests?.gold?.transform_version,publication_code_commit:data?.manifests?.gold?.code_commit,
-      metadata:e.metadata || null,event_time:e.event_time,produced_at:e.produced_at,projection:e.projection || null});
+    V.fields("record-summary",[["Event",e.event_type],["Service",e.source_service],["Processing",r.disposition==="invalid" ? "Rejected" : r.gold_visible_at ? "In analytics" : r.disposition==="duplicate_delivery" ? "Duplicate ignored" : "Waiting"],["Analytics version",r.visibility_generation]]);
+    V.fields("business-result",[["Table",trace.business_result?.table],["Version",trace.business_result?.generation],...Object.entries(trace.business_result?.rows?.[0] || {}).filter(([key])=>key!=="namespace")]);
+    V.fields("transformation-result",[["Schema version",e.schema_version],["Data version",data?.manifests?.gold?.transform_version],["Event time",stamp(e.event_time)],["Saved time",stamp(e.produced_at)],["Stock update",e.projection?.outcome]]);
     const timeline=trace.timelines?.[key] || M.timeline(e,data?.clock);$("action-timeline").replaceChildren();
     for(const stage of timeline){const li=n("li","",stage.status);li.append(n("strong",stage.label),n("time",stage.at ? stamp(stage.at) : stage.status==="failed" ? "Quarantined · excluded from Gold" : stage.status==="pending" ? "Pending observation" : "Unavailable"),n("small",stage.ordering ? "Invalid clock order · duration unavailable" : stage.since_previous_observed_ms!==null ? `+ ${ms(stage.since_previous_observed_ms)} since previous observed stage` : "No duration observation"));if(stage.timing_validity!=="observed")li.append(n("small",`Timing: ${stage.timing_validity}`));$("action-timeline").append(li);}
     const total=M.elapsed(e.produced_at,r.gold_visible_at),qualified=data?.clock?.status==="qualified" && r.timing_validity==="observed";
-    $("overall-latency").textContent=qualified && total!==null ? `Producer → Gold ${ms(total)}` : "Overall qualified latency unavailable";
+    $("overall-latency").textContent=qualified && total!==null ? `Time to analytics: ${ms(total)}` : "Time not measured";
     $("timeline-clock").textContent=`Clock: ${data?.clock?.status || "unavailable"} · error bound ${ms(data?.clock?.error_bound_ms)}. Post-commit timestamps are observation upper bounds. Missing stages remain missing; inter-stage durations can span an unavailable stage.`;
-    const summary=M.latency(trace.events,data?.clock);$("action-completion").replaceChildren();for(const [label,value]of [["Action event IDs",summary.cohort_count],["Gold completed",summary.completed_count],["Unresolved",summary.unresolved_count]]){const d=n("div",label);d.append(n("strong",fmt(value)));$("action-completion").append(d);}
+    const summary=M.latency(trace.events,data?.clock);$("action-completion").replaceChildren();for(const [label,value]of [["Events",summary.cohort_count],["In analytics",summary.completed_count],["Waiting",summary.unresolved_count]]){const d=n("div",label);d.append(n("strong",fmt(value)));$("action-completion").append(d);}
     traceGraph();drawPaths();
   }
   async function loadTrace(kind,id) {
     const sequence=++traceSequence;
     $("trace-kind").value=kind;$("trace-id").value=id;$("trace-submit").disabled=true;
     try {
-      let next;
-      if(recording)next={kind,id,events:M.related(data?.events || [],kind,id),observed_at:data?.observed_at,
-        visibility:data?.selected_trace?.id===id ? data.selected_trace.visibility : null,
-        business_result:data?.selected_trace?.id===id ? data.selected_trace.business_result : null};
-      else next=await request(`/journey/trace?kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}${selectedNamespace ? "&namespace="+encodeURIComponent(selectedNamespace) : ""}`);
+      const next=await request(`/journey/trace?kind=${encodeURIComponent(kind)}&id=${encodeURIComponent(id)}${selectedNamespace ? "&namespace="+encodeURIComponent(selectedNamespace) : ""}`);
       if(sequence!==traceSequence)return;
-      trace=next;$("trace-note").textContent=`${recording ? "Saved observations" : "Targeted audit"} · ${stamp(next.observed_at)} · ${next.events.length} deliveries. Shared correlation IDs alone never establish causality. ${next.unavailable?.length ? "Unavailable: "+next.unavailable.join(", ") : ""}`;
+      trace=next;$("trace-note").textContent=`Live view · ${next.events.length} event records`;
       eventKey=trace.events.some(e=>e.key===eventKey) ? eventKey : trace.events[0]?.key;
       traceGraph();if(eventKey)inspect(eventKey);
     } catch(e){error(`Trace unavailable: ${e.message}`);}finally{$("trace-submit").disabled=false;}
   }
-  function scenarioCards(definitions=fallbackScenarios) {
-    $("scenario-cards").replaceChildren();
-    for(const [id,scenario]of Object.entries(definitions)){const card=n("button","",`scenario-card${id===selectedScenario ? " selected" : ""}`);card.type="button";card.dataset.scenario=id;card.append(n("span","Isolated controlled fixture"),n("strong",scenario.title),n("small",scenario.explanation));card.addEventListener("click",()=>selectScenario(id,definitions));$("scenario-cards").append(card);}
-    for(const [id,title,description]of existing){const card=n("a","","scenario-card existing");card.href=`/dashboard?scenario=${id}#failure-demo`;card.append(n("span","Existing real fault mechanism ↗"),n("strong",title),n("small",description));$("scenario-cards").append(card);}
+  function scenarioCards() {
+    const select=$("lab-scenario");
+    if(!select.options.length)for(const [id,info] of Object.entries(testCases))select.append(new Option(info.title,id));
+    select.value=selectedScenario;
   }
-  function selectScenario(id,definitions=fallbackScenarios) {
-    selectedScenario=id;const s=definitions[id];$("lab-title").textContent=s.title;$("lab-explanation").textContent=s.explanation;$("lab-preconditions").textContent=s.preconditions;$("lab-recovery-description").textContent=s.recovery;$("lab-verification").textContent=s.verification;$("lab-consent").checked=false;$("lab-consent-text").textContent=s.purchase_count ? `I explicitly authorize ${s.purchase_count} competing simulated purchases using one isolated fixture unit.` : "I authorize publishing this controlled fixture to isolated Kafka topics and analytical state.";
-    document.querySelectorAll("[data-scenario]").forEach(e=>e.classList.toggle("selected",e.dataset.scenario===id));mode();
+  function selectScenario(id) {
+    selectedScenario=id;labShown=null;$("lab-consent").checked=false;renderTest();
+  }
+  const processingRules={
+    duplicate:"Deduplication: repeated delivery of the same event ID and content must produce one Silver row and one Gold contribution.",
+    conflict:"Conflict detection: an existing event ID with changed content must be quarantined with EVENT_ID_CONFLICT; the original remains valid.",
+    malformed:"Fault isolation: invalid JSON must be quarantined with INVALID_JSON while valid messages continue to Silver and Gold.",
+    out_of_order:"Version ordering: the catalogue stock projection applies a newer stock_version and rejects stale versions. Both valid events remain in the analytical history.",
+    late_event:"Event-time reconciliation: a late event revises its earlier time window in a new Gold publication instead of being dropped or counted in the current window.",
+    replay:"Replay consistency: rebuild analytics from archived events in an isolated output and reconcile against the original; repeated replay must not multiply logical effects.",
+    race:"Concurrency control: two independent checkout requests compete for one unit. Reconcile terminal orders, stock, payment ledger and active Gold; only one sale and one matching debit are allowed."
+  };
+  function checkValue(name,value) {
+    if(value===null || value===undefined)return "Not observed";
+    if(Array.isArray(value)){
+      if(name==="Newer projection preserved")return `stock_version=${value[0]}, available=${value[1]}`;
+      if(name==="No overselling; last unit consumed")return `on_hand=${value[0]}, reserved=${value[1]}, available=${value[2]}`;
+      return value.map(v=>checkValue("",v)).join("; ") || "No rows";
+    }
+    if(typeof value==="object")return Object.entries(value).map(([k,v])=>`${k}=${checkValue("",v)}`).join(", ");
+    return String(value);
+  }
+  function renderEvidence(run) {
+    const labels=new Map(),seen=new Map();
+    const rows=(run.emissions || []).map((delivery,i)=>{
+      const id=delivery.event_id,count=seen.get(id) || 0;seen.set(id,count+1);
+      if(id && !labels.has(id))labels.set(id,`E${labels.size+1}`);
+      const event=(run.events || []).filter(e=>e.event_id===id)[count];
+      const receipt=delivery.source && (run.receipts || []).find(r=>r.source?.topic===delivery.source?.topic && r.source?.partition===delivery.source?.partition && r.source?.offset===delivery.source?.offset);
+      const payload=event?.payload || {};
+      const fields=[event?.event_type || (delivery.kind==="malformed_fixture" ? "Invalid JSON" : "No decoded event"),...Object.entries(payload).filter(([k])=>["stock_version","available","on_hand","reserved","duration_ms","mode","outcome"].includes(k)).map(([k,v])=>`${k}=${v}`)];
+      if(event?.event_time)fields.push(`event_time=${event.event_time}`);
+      return [`${i+1} / ${labels.get(id) || "No event ID"}`,fields.join(" | "),delivery.source ? `${delivery.source.partition}:${delivery.source.offset}` : "Not acknowledged",receipt ? [receipt.disposition,receipt.reason_code].filter(Boolean).join(" | ") : "Not observed"];
+    });
+    if(run.scenario==="race")for(const [i,request] of (run.requests || []).entries()){
+      const order=run.orders?.find(o=>o.order_id===request.order_id);
+      rows.push([`Checkout ${i+1}`,`${request.user_id} | quantity=${order?.lines?.reduce((s,l)=>s+l.quantity,0) ?? "Not observed"}`,"See order event trace",order?.status || "Not observed"]);
+    }
+    V.rows("lab-inputs",rows,"No sent input observed yet.");
+    const target=$("lab-checks");
+    for(const c of run.checks || []){
+      const row=n("tr");
+      for(const value of [c.name,checkValue(c.name,c.expected),checkValue(c.name,c.observed)])row.append(n("td",value));
+      const cell=n("td");cell.append(n("strong",c.passed===true ? "PASS" : c.passed===false ? "FAIL" : "Not measured",`verdict ${c.passed===false ? "failed" : ""}`));row.append(cell);target.append(row);
+    }
+    if(!run.checks?.length)V.rows("lab-checks",[],"Verification has not completed. No pass is inferred.");
+  }
+  function renderTest() {
+    const info=testCases[selectedScenario],run=shownRun();
+    $("lab-rule").textContent=processingRules[selectedScenario];
+    $("lab-explanation").textContent=info.description;$("lab-verification").textContent="Expected: "+info.expected;
+    $("lab-consent-label").hidden=!info.purchases;
+    $("lab-result").hidden=!run;$("lab-progress").hidden=!run;
+    $("lab-export").disabled=!run;$("lab-show-data").hidden=!run?.receipts?.length && !run?.business_result;
+    $("lab-checks").replaceChildren();
+    if(!run){$("lab-status").textContent="Ready";$("lab-message").textContent=activeRun() ? `A previous test is still running: ${testCases[labRun.scenario]?.title || "test"}.` : "Click Run test. It sends the data, processes it and checks the result.";mode();return;}
+    const incomplete=!!run.error_type || ["Unavailable","Interrupted"].includes(run.status) || run.status==="Failed" && !run.checks?.some(c=>c.passed===false);
+    $("lab-status").textContent=incomplete ? "Could not finish" : run.status==="Awaiting recovery" ? "Processing" : run.status;
+    $("lab-status").className="badge"+(incomplete || run.status==="Failed" ? " warning" : "");
+    $("lab-message").textContent=incomplete ? "The test stopped before verification completed. Try again or download the report." : run.status==="Passed" ? "The result matches what we expected." : run.status==="Failed" ? "The result did not match. See the checks below." : "Running the test. This usually takes a few seconds.";
+    $("lab-result-title").textContent=testCases[run.scenario].title;
+    $("lab-result-time").textContent="Run on "+localTime(run.started_at);
+    renderEvidence(run);
+    const sent=!!run.emissions?.length || !!run.requests?.length,processed=!!run.receipts?.length || !!run.orders?.length,checked=!!run.business_result;
+    [...$("lab-progress").children].forEach((li,i)=>{li.className=[sent,processed,checked][i] ? "done" : incomplete ? "stopped" : "";});mode();
   }
   function renderLab(value) {
-    labRun=value?.run || null;if(value?.scenarios)scenarioCards(value.scenarios);
-    for(const saved of value?.history || [])if(![...$("namespace-select").options].some(o=>o.value===saved.namespace)){
-      const option=n("option",`${saved.scenario} · ${saved.namespace}`);option.value=saved.namespace;$("namespace-select").append(option);
-    }
-    $("lab-status").textContent=labRun?.status || "NOT_RUN";$("lab-message").textContent=labRun ? `${labRun.message} · ${labRun.namespace}` : "No experiment has started.";$("lab-checks").replaceChildren();
-    if(!labRun?.checks?.length)$("lab-checks").append(n("p","Verification has not run. HTTP acceptance alone is not a pass.","empty"));
-    for(const c of labRun?.checks || []){const row=n("div"),label=n("span",c.passed===true ? "PASS" : c.passed===false ? "FAIL" : "MISSING",`verdict ${c.passed===false ? "failed" : c.passed===null ? "missing" : ""}`),detail=n("div",c.name);detail.append(n("small",`Expected ${json(c.expected)} · Observed ${json(c.observed)}`));row.append(label,detail);$("lab-checks").append(row);}
-    $("lab-journal").replaceChildren();for(const e of (labRun?.journal || []).slice(-20))$("lab-journal").append(n("li",`${stamp(e.at)} · ${e.message}`));
-    $("lab-raw").textContent=json(labRun ? {dispositions:labRun.dispositions,receipts:labRun.receipts,projection_receipts:labRun.projection_receipts,
-      before_business_result:labRun.before_business_result,business_result:labRun.business_result,replay:labRun.replay,orders:labRun.orders,ledger:labRun.ledger} : null);
-    $("lab-export").disabled=!labRun;mode();
+    labRun=value?.run || null;labWorkerActive=value?.worker_active===true;scenarioCards();
+    if(labShown?.id===labRun?.id)labShown=labRun;
+    const history=$("lab-history"),fingerprint=(value?.history || []).map(r=>r.id+":"+r.status).join(",");
+    if(history.dataset.history!==fingerprint){const previous=history.value;history.replaceChildren(new Option("Choose an earlier test",""));for(const run of value?.history || [])history.append(new Option(`${testCases[run.scenario]?.title || "Test"} · ${localTime(run.started_at)} · ${run.status}`,run.id));history.value=previous;history.dataset.history=fingerprint;}
+    renderTest();
+    if(labRun?.status==="Awaiting recovery" && autoRuns.has(labRun.id))finishTest(labRun.id);
+  }
+  async function finishTest(id) {
+    if(finishRequests.has(id))return;finishRequests.add(id);
+    try {renderLab(await request(`/journey/lab/${id}/recover`,{method:"POST"}));}
+    catch(e){autoRuns.delete(id);finishRequests.delete(id);error("The test paused. Click Resume test to continue.");}
+  }
+  async function watchLab() {
+    clearTimeout(labTimer);if(labPolling)return;labPolling=true;
+    try {const value=await request("/journey/lab");renderLab(value);}
+    catch(e){error("Test updates are unavailable. Click Refresh to reconnect.");}
+    finally{labPolling=false;if(activeRun())labTimer=setTimeout(watchLab,1000);}
+  }
+  function setScope(namespace) {
+    selectedNamespace=namespace;traceSequence++;trace=null;eventKey=null;$("trace-note").textContent="";traceGraph();
+    $("source-banner").hidden=!namespace;$("journey-scope").textContent=namespace ? `Showing test data: ${testCases[shownRun()?.scenario]?.title || "saved test"}` : "Store activity";
+    if(busy)refreshQueued=true;else refresh(true);
   }
   function render(next) {
-    data=next;$("journey-scope").textContent=`Namespace: ${next.namespace} · ${next.events.length} bounded event/delivery observations`;
-    $("journey-updated").textContent=`Observed ${stamp(next.observed_at)}`;$("journey-clock").textContent=`Clock: ${next.clock?.status || "unavailable"} · bound ${ms(next.clock?.error_bound_ms)}`;
-    $("journey-clock").classList.toggle("clock-bad",next.clock?.status!=="qualified");$("journey-export").disabled=false;
-    recordingId=next.recording?.id || recordingId;$("journey-record").textContent=next.recording ? `Stop recording · ${next.recording.frame_count} frames` : "Record observations";
-    drawPaths();recentActions();V.boundaries(next);renderLab(next.lab);mode();
+    data=next;
+    $("journey-updated").textContent=`Updated ${localTime(next.observed_at)}`;
+    $("journey-export").disabled=false;
+    drawPaths();recentActions();renderLab(next.lab);mode();
+    if(pendingTraceFirst){pendingTraceFirst=false;const first=next.events.find(e=>e.event_id);if(first)loadTrace("event",first.event_id);}
   }
   async function refresh(manual=false) {
-    clearTimeout(timer);if(recording || busy || (paused && !manual))return;busy=true;mode();
-    try {const next=await request("/journey/snapshot"+(selectedNamespace ? "?namespace="+encodeURIComponent(selectedNamespace) : ""));if(recording)return;stale=false;$("journey-updated").classList.remove("stale-label");render(next);$("journey-error").hidden=true;
-      if(next.unavailable?.length)error(`Some observations are unavailable: ${next.unavailable.join(", ")}. Their values remain unmeasured.`);
+    clearTimeout(timer);if(busy || (paused && !manual))return;busy=true;mode();
+    const requestedNamespace=selectedNamespace;
+    try {const next=await request("/journey/snapshot"+(selectedNamespace ? "?namespace="+encodeURIComponent(selectedNamespace) : ""));if(requestedNamespace!==selectedNamespace)return;stale=false;$("journey-updated").classList.remove("stale-label");render(next);$("journey-error").hidden=true;
+      if(next.unavailable?.length)error("Some data could not be read. Try Refresh.");
       if(trace)await loadTrace(trace.kind,trace.id);
-    }catch(e){stale=true;error(`${data ? "Displayed observations are stale; their original timestamps are retained. " : "No live observations yet. "}${e.message}. Start .\\start-failure-demo.ps1 after the prototype, or open saved JSON evidence.`);$("journey-updated").classList.add("stale-label");}
-    finally{busy=false;mode();if(!recording && !paused && !document.hidden)timer=setTimeout(refresh,5000);}
+    }catch(e){stale=true;error(`${data ? "Displayed observations are stale; their original timestamps are retained. " : "No live observations yet. "}${e.message}. Start .\\start-failure-demo.ps1 after the prototype.`);$("journey-updated").classList.add("stale-label");}
+    finally{busy=false;mode();if(refreshQueued){refreshQueued=false;timer=setTimeout(()=>refresh(true),0);}else if(!paused && !document.hidden)timer=setTimeout(refresh,5000);}
   }
   function download(value,name){const url=URL.createObjectURL(new Blob([json(value)],{type:"application/json"})),a=n("a");a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-  async function listRecordings() {
-    if(recording)return;try{const value=await request("/journey/recordings");$("recording-select").replaceChildren(n("option","Choose a recording"));$("recording-select").firstChild.value="";for(const saved of value.recordings){const option=n("option",`${stamp(saved.started_at)} · ${saved.frame_count} frames · ${saved.status}`);option.value=saved.id;$("recording-select").append(option);}$("recording-state").textContent=value.recordings.length ? "Open a saved observation run; playback disables all fixture controls." : "No recorded frames yet. Record a real run or open an exported observation file.";}catch(e){$("recording-state").textContent=`Saved-run list unavailable. Local JSON evidence still opens without services. ${e.message}`;}
-  }
-  function showFrame(index) {
-    frame=Math.max(0,Math.min(recording.frames.length-1,index));traceSequence++;const old=trace;render(recording.frames[frame]);
-    $("playback-position").value=String(frame);$("playback-label").textContent=`Frame ${frame+1} / ${recording.frames.length} · observed ${stamp(data.observed_at)}`;
-    if(old){trace={...old,events:M.related(data.events,old.kind,old.id),visibility:data.selected_trace?.id===old.id ? data.selected_trace.visibility : null,business_result:data.selected_trace?.id===old.id ? data.selected_trace.business_result : null,timelines:null};eventKey=trace.events.some(e=>e.key===eventKey) ? eventKey : trace.events[0]?.key;traceGraph();if(eventKey)inspect(eventKey);}
-  }
-  function openPlayback(value) {
-    const parsed=M.recording(value);recording=parsed;clearTimeout(timer);clearTimeout(playTimer);playing=false;traceSequence++;
-    $("playback-bar").hidden=false;$("playback-position").max=String(parsed.frames.length-1);$("playback-play").textContent="Play observations";
-    $("recording-state").textContent=`Saved run ${parsed.id || "imported"} · ${parsed.frames.length} frames · ${parsed.integrity || "imported evidence"}. Playback performs no network mutations.`;$("journey-error").hidden=true;showFrame(0);
-  }
-  function tick() {
-    if(!playing || !recording)return;
-    if(frame>=recording.frames.length-1){playing=false;$("playback-play").textContent="Play observations";return;}
-    const gap=M.elapsed(recording.frames[frame].observed_at,recording.frames[frame+1].observed_at),delay=Math.min(30000,Math.max(100,(gap ?? 1000)/Number($("playback-speed").value)));
-    playTimer=setTimeout(()=>{showFrame(frame+1);tick();},delay);
-  }
   $("trace-form").addEventListener("submit",e=>{e.preventDefault();loadTrace($("trace-kind").value,$("trace-id").value.trim());});
   $("recent-actions").addEventListener("change",()=>{const [kind,id]=$("recent-actions").value.split(":");if(id)loadTrace(kind,id);});
   $("projection-stage").addEventListener("click",()=>selectStage("projection"));
@@ -213,18 +268,25 @@
   $("journey-pause").addEventListener("click",()=>{paused=!paused;clearTimeout(timer);mode();if(!paused)refresh();});
   $("journey-refresh").addEventListener("click",()=>refresh(true));
   $("journey-export").addEventListener("click",()=>{if(data)download({...data,selected_trace:trace},`data-journey-${data.namespace}-${Date.now()}.json`);});
-  $("journey-record").addEventListener("click",async()=>{if(recording)return;try{if(data?.recording){const result=await request("/journey/recordings/stop",{method:"POST"});recordingId=result?.id;$("recording-state").textContent=`Saved observation recording ${recordingId}.`;}else{const result=await request("/journey/recordings/start"+(selectedNamespace ? "?namespace="+encodeURIComponent(selectedNamespace) : ""),{method:"POST"});recordingId=result.id;}await refresh(true);await listRecordings();}catch(e){error(e.message);}});
-  $("namespace-select").addEventListener("change",()=>{if(recording)return;selectedNamespace=$("namespace-select").value;traceSequence++;trace=null;eventKey=null;traceGraph();refresh(true);});
+  $("lab-scenario").addEventListener("change",()=>selectScenario($("lab-scenario").value));
   $("lab-consent").addEventListener("change",mode);
-  $("lab-start").addEventListener("click",async()=>{if(recording || !selectedScenario || !$("lab-consent").checked)return;$("lab-start").disabled=true;try{renderLab(await request("/journey/lab/start",{method:"POST",body:JSON.stringify({scenario:selectedScenario,confirmed:true})}));$("lab-consent").checked=false;}catch(e){error(e.message);}finally{mode();}});
-  $("lab-recover").addEventListener("click",async()=>{if(recording || !labRun)return;try{renderLab(await request(`/journey/lab/${labRun.id}/recover`,{method:"POST"}));}catch(e){error(e.message);}});
-  $("lab-export").addEventListener("click",()=>{if(labRun)download(labRun,`edge-lab-${labRun.id}.json`);});
-  $("recordings-refresh").addEventListener("click",listRecordings);
-  $("open-recording").addEventListener("click",async()=>{const id=$("recording-select").value;if(!id || recording)return;try{openPlayback(await request(`/journey/recordings/${id}`));}catch(e){error(e.message);}});
-  $("evidence-file").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{if(file.size>40*1024*1024)throw new Error("Evidence file exceeds the 40 MiB presentation limit.");openPlayback(JSON.parse(await file.text()));}catch(errorValue){error(errorValue.message);}finally{e.target.value="";}});
-  $("playback-position").addEventListener("input",()=>{clearTimeout(playTimer);playing=false;$("playback-play").textContent="Play observations";showFrame(Number($("playback-position").value));});
-  $("playback-play").addEventListener("click",()=>{if(!recording)return;playing=!playing;clearTimeout(playTimer);if(playing && frame===recording.frames.length-1)showFrame(0);$("playback-play").textContent=playing ? "Pause playback" : "Play observations";tick();});
-  $("back-live").addEventListener("click",()=>{recording=null;playing=false;data=null;clearTimeout(playTimer);$("playback-bar").hidden=true;trace=null;eventKey=null;paused=false;mode();refresh();});
-  document.addEventListener("visibilitychange",()=>{clearTimeout(timer);if(!document.hidden && !paused && !recording)refresh();});
-  scenarioCards();drawPaths();mode();refresh();listRecordings();
+  $("lab-start").addEventListener("click",async()=>{
+    if(testBusy)return;
+    if(activeRun()){
+      if(!["Awaiting recovery","Interrupted"].includes(labRun.status))return;
+      selectedScenario=labRun.scenario;labShown=labRun;autoRuns.add(labRun.id);finishRequests.delete(labRun.id);scenarioCards();await finishTest(labRun.id);watchLab();return;
+    }
+    if(testCases[selectedScenario].purchases && !$("lab-consent").checked)return;
+    testBusy=true;labShown=null;renderTest();
+    try {const state=await request("/journey/lab/start",{method:"POST",body:JSON.stringify({scenario:selectedScenario,confirmed:true})});labShown=state.run;autoRuns.add(state.run.id);$("lab-consent").checked=false;renderLab(state);watchLab();}
+    catch(e){$("lab-message").textContent=e.message;$("lab-status").textContent="Could not start";}
+    finally{testBusy=false;mode();}
+  });
+  $("lab-export").addEventListener("click",()=>{const run=shownRun();if(run)download(run,`test-result-${run.id}.json`);});
+  $("lab-show-data").addEventListener("click",()=>{const run=shownRun();if(!run)return;pendingTraceFirst=true;setScope(run.namespace);$("trace").scrollIntoView({behavior:"smooth"});});
+  $("lab-history").addEventListener("change",mode);
+  $("lab-history-open").addEventListener("click",async()=>{const id=$("lab-history").value;if(!id)return;try{labShown=await request(`/journey/lab/${id}`);selectedScenario=labShown.scenario;$("lab-consent").checked=false;scenarioCards();renderTest();}catch(e){error("That test result could not be opened.");}});
+  $("store-data").addEventListener("click",()=>{pendingTraceFirst=false;setScope("");});
+  document.addEventListener("visibilitychange",()=>{clearTimeout(timer);if(!document.hidden && !paused)refresh();});
+  scenarioCards();drawPaths();renderTest();mode();refresh();
 })();
