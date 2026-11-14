@@ -29,6 +29,8 @@ def document():
         in {
             "/v1/sessions/{session_id}",
             "/v1/sessions/{session_id}/shopping-turns",
+            "/v1/sessions/{session_id}/metrics",
+            "/v1/sessions/{session_id}/dashboard",
         }
     }
     return schema

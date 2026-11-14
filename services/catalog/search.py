@@ -5,8 +5,9 @@ from time import perf_counter
 from uuid import uuid4
 
 from pipelines.catalog.normalize import clean_text, load_dictionary
-from services.catalog.embedding import vector_text
+from services.catalog.embedding import load_lock, vector_text
 from services.catalog.errors import ServiceError
+from services.catalog.product_types import restrict_product_type
 from services.catalog.products import dataset_revision
 from shared.contracts.catalog import ProductHit, SearchResponse
 from shared.contracts.common import ErrorCode
@@ -281,9 +282,29 @@ def search_catalog(db, events, request, context, *, encoder=None, frozen_vector=
         where, parameters, eligible = filter_catalog(
             tx, request.intent, namespace, request.exclude_skus
         )
+        if vector is not None:
+            # Do not fuse vectors from another model, or silently omit unembedded products.
+            revision = encoder.revision if encoder is not None else load_lock()["revision"]
+            incomplete = tx.execute(
+                f"SELECT count(*) AS n FROM {FROM_ELIGIBLE} WHERE {where} "
+                "AND (p.embedding IS NULL OR p.embedding_revision IS DISTINCT FROM %(revision)s)",
+                {**parameters, "revision": revision},
+            ).fetchone()["n"]
+            if incomplete:
+                raise ServiceError(
+                    503,
+                    ErrorCode.DEPENDENCY_UNAVAILABLE,
+                    "Vector retrieval needs current embeddings for every eligible product.",
+                    details={"mode": request.mode},
+                )
         filter_ms = (perf_counter() - started) * 1000
         started = perf_counter()
-        rows = ranker(tx, where, parameters, request.top_k, request.intent.query_text, vector)
+        rank_where, rank_parameters = restrict_product_type(
+            where, parameters, request.intent.query_text
+        )
+        rows = ranker(
+            tx, rank_where, rank_parameters, request.top_k, request.intent.query_text, vector
+        )
         rank_ms = (perf_counter() - started) * 1000
         candidates = rows[0]["candidates"] if rows else 0
         hits = [

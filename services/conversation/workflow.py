@@ -135,8 +135,21 @@ class FixedWorkflow:
             lambda body, ctx: self._turn(body, ctx, key, started),
         )
 
-    def _turn(self, request, context, key, started, *, prepare=None, search_options=None):
-        turn_tools = []
+    def _turn(
+        self,
+        request,
+        context,
+        key,
+        started,
+        *,
+        prepare=None,
+        search_options=None,
+        deadline_seconds=3.0,
+        intent_fallback=True,
+        model_config=None,
+        prepared_tools=None,
+    ):
+        turn_tools = prepared_tools if prepared_tools is not None else []
         parse_ms, search_ms, compose_ms = 0.0, 0.0, 0.0
         intent, search, products = None, None, []
         outcome, source = "clarification", "clarification"
@@ -146,7 +159,7 @@ class FixedWorkflow:
         intent_at = None
         attempt_config = None
         try:
-            deadline = started + 3.0
+            deadline = started + deadline_seconds
             dictionary = self.call(
                 "facets",
                 context,
@@ -162,7 +175,9 @@ class FixedWorkflow:
                 else extract_intent(request.text, context, dictionary)
             )
             parse_ms = (monotonic() - stage) * 1000
-            if request.mode == "assist" and eligible(result, request.text):
+            if not intent_fallback and result.llm_ms is not None:
+                parse_ms = max(0.0, parse_ms - result.llm_ms)
+            if intent_fallback and request.mode == "assist" and eligible(result, request.text):
                 if self.assistant_mode == "assist" and self.allow_intent_llm:
                     if self.intent_provider is not None and monotonic() < deadline:
                         reservation = self.state.claim_intent_attempt(
@@ -266,7 +281,7 @@ class FixedWorkflow:
             "model_ms": model_ms,
             "model_usage": result.model_usage if result else None,
             "model_cost": None,
-            "model_settings": attempt_config if calls else None,
+            "model_settings": (attempt_config or model_config) if calls else None,
             "dictionary_version": dictionary["dictionary_version"] if dictionary else None,
             "deterministic_extractor_version": result.extractor_version if result else None,
             "query_embedding_calls": search["embedding_calls"] if search else None,
@@ -278,7 +293,7 @@ class FixedWorkflow:
         response = response.model_copy(
             update={"timings_ms": response.timings_ms.model_copy(update={"total": elapsed * 1000})}
         )
-        if elapsed >= 3:
+        if elapsed >= deadline_seconds:
             response = response.model_copy(
                 update={
                     "outcome": "dependency_error",
@@ -382,18 +397,22 @@ class FixedWorkflow:
         turn_tools=None,
         mode="lexical",
         exclude_skus=(),
+        top_k=5,
     ):
         request = {
             "request_id": context.request_id,
             "session_id": context.session_id,
             "intent": intent,
-            "top_k": 5,
+            "top_k": top_k,
             "mode": mode,
         }
         if exclude_skus:
             request["exclude_skus"] = list(exclude_skus)
         result = self.call(
             "search", context, body=request, key=key, deadline=deadline, turn_tools=turn_tools
+        )
+        semantic_query = mode in {"vector_exact", "hybrid_exact", "hybrid_ann"} and any(
+            (intent.get(field) or "").strip() for field in ("query_text", "occasion")
         )
         if (
             result["mode"] != mode
@@ -403,12 +422,16 @@ class FixedWorkflow:
             or result["returned_count"] > result["eligible_count"]
             or result["eligible_count"] > result["candidate_count"]
             or len({hit["sku"] for hit in result["hits"]}) != len(result["hits"])
+            or (
+                semantic_query
+                and (result["embedding_calls"] != 1 or not result["embedding_revision"])
+            )
         ):
             raise ContractViolation("fixed search response mode/count mismatch")
         for rank, hit in enumerate(result["hits"], 1):
             if hit["sku"] in exclude_skus:
                 raise ContractViolation("provider repeated an explicitly excluded product")
-            if hit["rank"] != rank or hit["stock_available"] <= 0:
+            if hit["retrieval_mode"] != mode or hit["rank"] != rank or hit["stock_available"] <= 0:
                 raise ContractViolation("search hit rank/availability mismatch")
             if hit["dataset_revision"] != dictionary["dataset_revision"]:
                 raise ContractViolation("search/dictionary revision mismatch")

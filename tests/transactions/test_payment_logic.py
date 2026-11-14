@@ -49,8 +49,9 @@ class TestAuthorize:
             for call in tx.execute.call_args_list
             if "INSERT INTO payment_attempts" in call.args[0]
         )
-        assert insert.args[1][6] == expected_failure
-        assert "interval '100 milliseconds'" in insert.args[0]
+        assert insert.args[1][6] == 100  # normal presentation delay remains 100 ms
+        assert insert.args[1][7] == expected_failure
+        assert "%s * interval '1 millisecond'" in insert.args[0]
         events.append.assert_not_called()
 
     def test_rejects_quiesced_order(self):

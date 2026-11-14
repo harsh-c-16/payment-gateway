@@ -1,5 +1,10 @@
 # Professor demonstration: prepared Windows machine
 
+For the current storefront, chat, checkout and in-browser Gold observation,
+use [the browser demonstration guide](PROFESSOR_DEMO.md). It provides one-command
+startup and container cleanup. The 12 November CLI rehearsal below remains
+historical evidence and an alternative demonstration.
+
 The connected prototype was rehearsed on this Windows machine on 12 November
 2026 against real PostgreSQL, Kafka and all six APIs. Search, cart, quote,
 simulated purchase, safe resume, declined confirmation and active Gold passed.

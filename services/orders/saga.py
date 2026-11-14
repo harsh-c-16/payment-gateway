@@ -322,6 +322,26 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
 
     elif step == "COMMIT_STOCK":
         order = _get_order(db, ns, oid)
+        from shared.local_diagnostics.demo_controls import read_control, refund_hold_until
+
+        plan = read_control("orders", context.run_id, ns)
+        if plan and plan["scenario"] == "refund":
+            hold = _HTTP.get(
+                f"{inventory_url}/internal/v1/reservations/by-order/{oid}",
+                headers=headers,
+                timeout=2.0,
+            )
+            if hold.status_code != 200:
+                raise RuntimeError("Refund demo reservation deadline unavailable")
+            deadline = refund_hold_until(context, hold.json()["expires_at"])
+            if deadline:
+                with db.transaction() as tx:
+                    tx.execute(
+                        "UPDATE saga_jobs SET next_attempt_at=%s,updated_at=clock_timestamp() "
+                        "WHERE namespace=%s AND order_id=%s AND planned_step='COMMIT_STOCK'",
+                        (deadline, ns, oid),
+                    )
+                return
         op_key = _operation_key(oid, "commit")
         _record_operation_key(db, ns, oid, op_key, step)
 
@@ -333,6 +353,10 @@ def _execute_step(db, events, job, context, *, inventory_url, payments_url, inte
             timeout=2.0,
         )
         FaultBarrier.check(db, ns, "saga.after_commit")
+
+        from shared.local_diagnostics.demo_controls import crash_after_commit
+
+        crash_after_commit(context, oid, resp.status_code)
 
         if resp.status_code == 200:
             _advance(db, events, ns, oid, "COMMITTING_STOCK", "CONFIRM", now, context)

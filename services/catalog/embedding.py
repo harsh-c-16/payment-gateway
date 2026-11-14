@@ -1,7 +1,7 @@
 """Local sentence encoder over the locked model files. No download or model choice at runtime.
 
-numpy, onnxruntime and tokenizers are the optional `embeddings` dependency group, so these imports
-stay inside the class: a deployment without the group still serves lexical search.
+numpy, onnxruntime and tokenizers use the separate hash-pinned embedding requirements.
+Imports stay inside the class, so a deployment without that runtime still serves lexical search.
 """
 
 import hashlib
@@ -38,8 +38,13 @@ class Encoder:
         self.tokenizer = Tokenizer.from_file(str(Path(directory) / "tokenizer.json"))
         self.tokenizer.enable_truncation(max_length=self.max_tokens)
         self.tokenizer.enable_padding()
+        options = onnxruntime.SessionOptions()
+        options.intra_op_num_threads = 1
+        options.inter_op_num_threads = 1
         self.session = onnxruntime.InferenceSession(
-            str(Path(directory) / "model.onnx"), providers=["CPUExecutionProvider"]
+            str(Path(directory) / "model.onnx"),
+            sess_options=options,
+            providers=["CPUExecutionProvider"],
         )
         self.inputs = {item.name for item in self.session.get_inputs()}
 

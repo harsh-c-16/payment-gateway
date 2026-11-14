@@ -42,6 +42,58 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/sessions/{session_id}/metrics:
+    get:
+      summary: Shopping Metrics
+      operationId: shopping_metrics_v1_sessions__session_id__metrics_get
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          format: uuid
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShoppingMetrics'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+  /v1/sessions/{session_id}/dashboard:
+    get:
+      summary: Dashboard Snapshot
+      operationId: dashboard_snapshot_v1_sessions__session_id__dashboard_get
+      parameters:
+      - name: session_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          format: uuid
+          title: Session Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSnapshot'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /v1/sessions/{session_id}/shopping-turns:
     post:
       summary: Shopping Turn
@@ -221,6 +273,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HTTPValidationError'
+  /v1/store/orders/{order_id}/pipeline:
+    get:
+      summary: Store Order Pipeline
+      operationId: store_order_pipeline_v1_store_orders__order_id__pipeline_get
+      parameters:
+      - name: order_id
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          format: uuid
+          title: Order Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderPipelineStatus'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
 components:
   schemas:
     CartLine:
@@ -374,6 +452,92 @@ components:
       - confirmed
       - confirmation_id
       title: CheckoutRequest
+    DashboardSnapshot:
+      properties:
+        namespace:
+          type: string
+          maxLength: 128
+          minLength: 1
+          pattern: ^[!-~]+$
+          title: Namespace
+        checked_at:
+          type: string
+          pattern: (Z|\+00:00)$
+          format: date-time
+          title: Checked At
+        pipeline_date_utc:
+          type: string
+          title: Pipeline Date Utc
+        session:
+          $ref: '#/components/schemas/ShoppingMetrics'
+        activity:
+          additionalProperties:
+            $ref: '#/components/schemas/JsonValue'
+          type: object
+          title: Activity
+        pipeline:
+          anyOf:
+          - additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          - type: 'null'
+          title: Pipeline
+        datasets:
+          items:
+            additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          type: array
+          title: Datasets
+        catalogue:
+          anyOf:
+          - additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          - type: 'null'
+          title: Catalogue
+        services:
+          items:
+            additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          type: array
+          title: Services
+        receipt_sample:
+          anyOf:
+          - additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          - type: 'null'
+          title: Receipt Sample
+        orders:
+          anyOf:
+          - additionalProperties:
+              $ref: '#/components/schemas/JsonValue'
+            type: object
+          - type: 'null'
+          title: Orders
+        unavailable:
+          items:
+            type: string
+          type: array
+          title: Unavailable
+      additionalProperties: false
+      type: object
+      required:
+      - namespace
+      - checked_at
+      - pipeline_date_utc
+      - session
+      - activity
+      - pipeline
+      - datasets
+      - catalogue
+      - services
+      - receipt_sample
+      - orders
+      - unavailable
+      title: DashboardSnapshot
     FacetBrand:
       properties:
         key:
@@ -478,6 +642,43 @@ components:
       type: object
       title: HTTPValidationError
     JsonValue: {}
+    OrderPipelineStatus:
+      properties:
+        order_id:
+          type: string
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          format: uuid
+          title: Order Id
+        order_version:
+          type: integer
+          minimum: 1.0
+          title: Order Version
+        status:
+          type: string
+          enum:
+          - pending
+          - visible
+          - unavailable
+          title: Status
+        generation:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Generation
+        checked_at:
+          type: string
+          pattern: (Z|\+00:00)$
+          format: date-time
+          title: Checked At
+      additionalProperties: false
+      type: object
+      required:
+      - order_id
+      - order_version
+      - status
+      - checked_at
+      title: OrderPipelineStatus
     OrderSnapshot:
       properties:
         order_id:
@@ -978,6 +1179,15 @@ components:
           const: true
           title: Simulation
           default: true
+        conversation_available:
+          type: boolean
+          title: Conversation Available
+          default: false
+        conversation_model:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Conversation Model
       additionalProperties: false
       type: object
       required:
@@ -1036,6 +1246,111 @@ components:
       additionalProperties: false
       type: object
       title: ShoppingMemory
+    ShoppingMetrics:
+      properties:
+        session_id:
+          type: string
+          pattern: ^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$
+          format: uuid
+          title: Session Id
+        sampled_turns:
+          type: integer
+          maximum: 500.0
+          minimum: 0.0
+          title: Sampled Turns
+        sample_limit:
+          type: integer
+          const: 500
+          title: Sample Limit
+          default: 500
+        searches:
+          type: integer
+          minimum: 0.0
+          title: Searches
+        model_attempts:
+          type: integer
+          minimum: 0.0
+          title: Model Attempts
+        query_embeddings:
+          type: integer
+          minimum: 0.0
+          title: Query Embeddings
+        dependency_errors:
+          type: integer
+          minimum: 0.0
+          title: Dependency Errors
+        turn_p50_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Turn P50 Ms
+        turn_p95_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Turn P95 Ms
+        model_mean_ms:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Model Mean Ms
+        session_outbox_pending:
+          type: integer
+          minimum: 0.0
+          title: Session Outbox Pending
+        pipeline_status:
+          type: string
+          enum:
+          - available
+          - unavailable
+          title: Pipeline Status
+        pipeline_events_today:
+          anyOf:
+          - type: integer
+            minimum: 0.0
+          - type: 'null'
+          title: Pipeline Events Today
+        pipeline_events_by_type:
+          anyOf:
+          - additionalProperties:
+              type: integer
+            type: object
+          - type: 'null'
+          title: Pipeline Events By Type
+        gold_generation:
+          anyOf:
+          - type: integer
+            minimum: 1.0
+          - type: 'null'
+          title: Gold Generation
+        pipeline_date_utc:
+          type: string
+          title: Pipeline Date Utc
+        checked_at:
+          type: string
+          pattern: (Z|\+00:00)$
+          format: date-time
+          title: Checked At
+      additionalProperties: false
+      type: object
+      required:
+      - session_id
+      - sampled_turns
+      - searches
+      - model_attempts
+      - query_embeddings
+      - dependency_errors
+      - turn_p50_ms
+      - turn_p95_ms
+      - model_mean_ms
+      - session_outbox_pending
+      - pipeline_status
+      - pipeline_events_today
+      - pipeline_events_by_type
+      - gold_generation
+      - pipeline_date_utc
+      - checked_at
+      title: ShoppingMetrics
     ShoppingSession:
       properties:
         session_id:

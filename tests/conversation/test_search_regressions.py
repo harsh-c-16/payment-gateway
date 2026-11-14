@@ -7,6 +7,7 @@ from uuid import uuid4
 import pytest
 
 from services.conversation.intent import extract_intent
+from services.conversation.provider_contracts import ContractViolation
 from services.conversation.workflow import FixedWorkflow
 from shared.contracts.conversation import TurnRequest
 
@@ -113,6 +114,15 @@ def test_display_brand_uses_catalogue_canonicalization(
     assert result["hits"] and all(hit["brand"] == display for hit in result["hits"])
     sent = next(r for r in noisy_provider.requests if r.url.path == "/v1/search")
     assert json.loads(sent.content)["intent"]["brand"] == key
+
+
+def test_consumer_rejects_hit_mode_different_from_requested_mode(noisy_provider, search_context):
+    noisy_provider.tamper_search = lambda response: response["hits"][0].update(
+        retrieval_mode="hybrid_exact"
+    )
+    workflow = FixedWorkflow(None, noisy_provider.gateway())
+    with pytest.raises(ContractViolation, match="rank/availability mismatch"):
+        workflow.structured_search({}, search_context, key=str(uuid4()))
 
 
 @pytest.mark.parametrize("display", [None, "Other", "Acme plus"])

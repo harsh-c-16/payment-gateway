@@ -24,7 +24,8 @@ docs/jaineel docs/decisions .github/workflows data/raw
 
 def test_complete_team_scaffold_exists():
     assert all((ROOT / path).is_dir() for path in DIRECTORIES)
-    assert len(list((ROOT / "docs" / "specs").glob("[0-9][0-9]_*.md"))) == 11
+    specifications = sorted((ROOT / "docs" / "specs").glob("[0-9][0-9]_*.md"))
+    assert [p.name[:2] for p in specifications] == [f"{i:02d}" for i in range(12)]
     assert all(
         name in (ROOT / "docs" / "OWNERSHIP.md").read_text(encoding="utf-8-sig")
         for name in ["Jaineel", "Harsh", "Aditya", "Vichitr"]

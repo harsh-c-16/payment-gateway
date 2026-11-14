@@ -52,7 +52,7 @@ def build_embeddings(connection, namespace, encoder, *, out=None, batch_size=BAT
     version = lock["text_template_version"]
     columns = (
         "sku,title,category,category_path,brand,material,colour,attributes,description,"
-        "embedding_text_hash,embedding_revision"
+        "embedding_text_hash,embedding_revision,embedding IS NULL AS missing_embedding"
     )
     with connection.cursor(row_factory=psycopg.rows.dict_row) as cursor:
         rows = cursor.execute(
@@ -63,7 +63,11 @@ def build_embeddings(connection, namespace, encoder, *, out=None, batch_size=BAT
         text = embedding_text(row)
         digest = text_hash(text, version)
         input_pairs.append([row["sku"], digest])
-        if row["embedding_text_hash"] != digest or row["embedding_revision"] != lock["revision"]:
+        if (
+            row["missing_embedding"]
+            or row["embedding_text_hash"] != digest
+            or row["embedding_revision"] != lock["revision"]
+        ):
             pending.append((row["sku"], text, digest))
     # Sorting by length keeps padding, and therefore inference time, small within each batch.
     pending.sort(key=lambda item: (len(item[1]), item[0]))
@@ -115,10 +119,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--namespace", required=True)
     parser.add_argument("--out", required=True)
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
     arguments = parser.parse_args()
+    if not 1 <= arguments.batch_size <= BATCH_SIZE:
+        parser.error("--batch-size must be between 1 and 64")
     encoder = Encoder(os.environ["EMBEDDING_MODEL_DIR"])
     with psycopg.connect(os.environ["CATALOG_DATABASE_URL"], autocommit=True) as connection:
-        manifest = build_embeddings(connection, arguments.namespace, encoder, out=arguments.out)
+        manifest = build_embeddings(
+            connection,
+            arguments.namespace,
+            encoder,
+            out=arguments.out,
+            batch_size=arguments.batch_size,
+        )
     print(json.dumps(manifest.model_dump(mode="json"), indent=2))
 
 

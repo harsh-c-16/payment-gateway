@@ -9,6 +9,36 @@ from services.conversation.intent import blank_intent
 from tests.catalog.service_helpers import headers, search
 
 
+def test_shirt_type_uses_taxonomy_and_preserves_colour_budget_stock(world, db):
+    client, namespace, _ = world
+    with db.transaction() as tx:
+        tx.execute("UPDATE products SET colour='white' WHERE namespace=%s", (namespace,))
+        for sku, path in (
+            ("FK-SHIRT2", ["clothing", "lingerie", "bras"]),
+            ("FK-DRESS1", ["clothing", "trousers"]),
+        ):
+            tx.execute(
+                "UPDATE products SET title='White T-shirt bra and shirt trousers', "
+                "category_path=%s,category_path_folded=%s, "
+                "search_vector=to_tsvector('english','white shirt bra trousers') "
+                "WHERE namespace=%s AND sku=%s",
+                (path, path, namespace, sku),
+            )
+    result = search(
+        client, namespace, query_text="white shirt", colour="white", max_price_minor=50000, top_k=20
+    )
+    assert [p["sku"] for p in result["hits"]] == ["FK-SHIRT1"]
+    assert all(
+        p["colour"] == "white" and p["price_minor"] <= 50000 and p["stock_available"] > 0
+        for p in result["hits"]
+    )
+    page = client.get(
+        "/v1/products?q=white+shirt&max_price_minor=50000", headers=headers(namespace)
+    )
+    assert page.status_code == 200
+    assert [p["sku"] for p in page.json()["items"]] == ["FK-SHIRT1"]
+
+
 @pytest.mark.parametrize(
     "sort,first_sku", [("price_asc", "FK-SHIRT2"), ("price_desc", "FK-SHIRT3")]
 )

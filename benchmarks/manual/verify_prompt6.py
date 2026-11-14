@@ -81,6 +81,9 @@ def environment(job):
             "PROJECTCTL_CONTRACT_REVIEW_PATH",
             "ANALYTICS_BINDING_REVIEW_PATH",
             "OPENAI_API_KEY",
+            "GEMINI_API_KEY",
+            "SHOPPING_LLM_MODEL",
+            "SHOPPING_LLM_ENABLED",
         }
     }
     env.update(PYTHONIOENCODING="utf-8", ASSISTANT_MODE="fixed", ALLOW_INTENT_LLM="false")

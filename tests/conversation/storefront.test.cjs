@@ -8,8 +8,8 @@ const {randomUUID} = require('node:crypto');
 function controller(fetch) {
   const elements = new Map();
   function element() {
-    return {checked: false, disabled: false, hidden: false, children: [], listeners: {},
-      classList: {toggle() {}}, append(...values) {this.children.push(...values);},
+    return {checked: false, disabled: false, hidden: false, children: [], listeners: {}, dataset:{},
+      classList: {toggle() {}, add() {}, remove() {}}, append(...values) {this.children.push(...values);},
       replaceChildren(...values) {this.children = values;},
       get lastChild() {return this.children.at(-1);},
       setAttribute() {}, addEventListener(event, fn) {this.listeners[event] = fn;},
@@ -17,7 +17,7 @@ function controller(fetch) {
   }
   const document = {getElementById(id) {if (!elements.has(id)) elements.set(id, element()); return elements.get(id);},
     createElement: element, createTextNode: value => ({textContent: value}),
-    querySelectorAll: () => [], body: element()};
+    querySelectorAll: () => [], querySelector: () => null, body: element()};
   let saved;
   const context = vm.createContext({document, fetch, URL, URLSearchParams, Intl,
     crypto: {randomUUID}, AbortController, console,
@@ -78,4 +78,88 @@ test('untrusted image schemes use the local placeholder', () => {
   const app = controller(async () => {});
   app.run(`image(document.getElementById('picture'), ['javascript:alert(1)'], 'Product');`);
   assert.equal(app.elements.get('picture').src, '/assets/placeholder.svg');
+});
+
+test('search always uses hybrid and discards a saved keyword preference', () => {
+  const app = controller(async () => {});
+  app.run(`S.retrieval_preference='lexical'`);
+  app.run(`configureRetrieval({search_modes:['lexical','hybrid_exact']})`);
+  assert.equal(app.run('retrievalReady'), true);
+  assert.equal(app.run('S.retrieval_preference'), undefined);
+  app.run(`configureRetrieval({search_modes:['lexical']})`);
+  assert.equal(app.run('retrievalReady'), false);
+  assert.equal(app.elements.get('send-chat').disabled, true);
+});
+
+test('AI conversation is selected when configured and explicit deterministic choice survives refresh', () => {
+  const app = controller(async () => {});
+  app.run(`configureAssistant({conversation_available:true})`);
+  assert.equal(app.elements.get('assistant-mode').value, 'assist');
+  app.elements.get('assistant-mode').value = 'fixed';
+  app.elements.get('assistant-mode').listeners.change();
+  app.run(`configureAssistant({conversation_available:true})`);
+  assert.equal(app.elements.get('assistant-mode').value, 'fixed');
+  app.run(`configureAssistant({conversation_available:false})`);
+  assert.equal(app.elements.get('assistant-mode').value, 'fixed');
+});
+
+test('chat request uses the selected assistant independently of retrieval', async () => {
+  const app = controller(async () => {});
+  app.run(`globalThis.chatRequest=null; mutate=async(label,path,body)=>{globalThis.chatRequest=body};
+    document.getElementById('assistant-mode').value='assist';`);
+  await app.run(`sendChat('Find a gift')`);
+  assert.equal(app.run('chatRequest.mode'), 'assist');
+  assert.equal(app.run('chatRequest.retrieval_mode'), 'hybrid_exact');
+  await app.run(`sendChat('shirts',undefined,'fixed')`);
+  assert.equal(app.run('chatRequest.mode'), 'fixed');
+  assert.equal(app.run('chatRequest.retrieval_mode'), 'hybrid_exact');
+});
+
+test('product results use shopper language without retrieval controls', () => {
+  const app = controller(async () => {});
+  app.run(`S.memory={retrieval_mode:'hybrid_exact'}; showChatProducts([]);`);
+  assert.equal(app.elements.get('result-count').textContent, '0 matching products');
+  assert.equal(app.elements.has('retrieval'), false);
+});
+
+test('a dependency error preserves displayed products and offers a fresh search retry', async () => {
+  const calls = [];
+  const app = controller(async (path, options) => {
+    calls.push({path,...options});
+    return {ok:true,json:async()=>path.endsWith('/shopping-turns') ?
+      {outcome:'dependency_error',products:[]} : {conversation:{messages:[],intent:null,products:[]}}};
+  });
+  app.elements.get('products') || app.run("document.getElementById('products')");
+  const previous={marker:'previous actual products'};
+  app.elements.get('products').append(previous);
+  await app.run("mutate('chat','/v1/sessions/test/shopping-turns',{text:'white shirt',mode:'fixed'})");
+  assert.equal(app.elements.get('products').children[0],previous);
+  assert.equal(app.elements.get('retry-chat').hidden,false);
+  assert.equal(app.run('S.pending'),undefined);
+  assert.equal(app.saved().failed_search.text,'white shirt');
+  assert.match(app.elements.get('notice-text').textContent,/temporarily unavailable/);
+});
+
+test('terminal order polling releases the quote control and analytics never submits checkout', async () => {
+  const calls=[];
+  const app=controller(async path=>{
+    calls.push(path);
+    return {ok:true,json:async()=>path.endsWith('/pipeline') ?
+      {order_id:'test-order',order_version:6,status:'visible',generation:9} :
+      {order_id:'test-order',order_version:6,status:'CONFIRMED'}};
+  });
+  app.run("S.cart.lines=[{sku:'TEST-SKU',quantity:1}]; S.order_id='test-order'; S.order={status:'PENDING'}; renderCart()");
+  assert.equal(app.elements.get('request-quote').disabled,true);
+  await app.run('pollOrder()');
+  assert.equal(app.elements.get('request-quote').disabled,false);
+  assert(calls.every(p=>p.startsWith('/v1/store/orders/')));
+});
+
+test('a capabilities outage shows search unavailable and does not switch algorithms', async () => {
+  const app=controller(async()=>({ok:false,status:503,json:async()=>({error:{message:'unavailable'}})}));
+  await app.run('loadRetrieval()');
+  assert.equal(app.run('retrievalReady'), false);
+  assert.equal(app.elements.get('send-chat').disabled,true);
+  assert.match(app.elements.get('chat-status').textContent,/temporarily unavailable/);
+  assert.equal(app.run('S.pending'),undefined);
 });

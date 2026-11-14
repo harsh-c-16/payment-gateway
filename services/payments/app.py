@@ -93,6 +93,23 @@ def create_app(*, db=None, events=None):
         for status in (400, 401, 404, 409, 422, 503)
     }
     app = FastAPI(title="Payments service", version="1.0.0", responses=errors)
+    from shared.local_diagnostics.demo_controls import install_routes
+
+    install_routes(app, role="payments", dependencies=[Internal])
+
+    @app.get("/internal/v1/demo-audit/{run_id}", dependencies=[Internal])
+    def demo_audit(run_id: UUIDText, context: Context):
+        if os.environ.get("LOCAL_FAILURE_DEMOS_ENABLED") != "true":
+            raise ServiceError(403, ErrorCode.FORBIDDEN, "Local failure demos are disabled.")
+        with db.transaction() as tx:
+            rows = tx.execute(
+                "SELECT payment_id,order_id,status,created_at,completion_due_at,"
+                "planned_failure_code FROM payment_attempts "
+                "WHERE namespace=%s AND origin_context->>'run_id'=%s ORDER BY created_at LIMIT 10",
+                (context.namespace, run_id),
+            ).fetchall()
+        return {"items": rows}
+
     telemetry = Telemetry(
         label_values={
             "service": {"payments"},

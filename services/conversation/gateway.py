@@ -12,6 +12,8 @@ class Gateway:
         catalog_url,
         orders_url,
         *,
+        analytics_url="http://analytics:8006",
+        internal_token=None,
         contracts=None,
         transport=None,
         mode="real",
@@ -29,9 +31,11 @@ class Gateway:
         ):
             raise ValueError("gateway doubles require explicit stub/contract_test mode")
         self.transport = transport
+        self.internal_token = internal_token
         self.configs = {
             "catalog": TransportConfig(catalog_url, mode=mode, purpose=purpose),
             "transactions": TransportConfig(orders_url, mode=mode, purpose=purpose),
+            "analytics": TransportConfig(analytics_url, mode=mode, purpose=purpose),
         }
 
     def ready(self):
@@ -41,6 +45,9 @@ class Gateway:
 
     async def call(self, name, context, **kwargs):
         async with ProviderHTTP(
-            self.configs[ENDPOINTS[name].provider], self.contracts, transport=self.transport
+            self.configs[ENDPOINTS[name].provider],
+            self.contracts,
+            transport=self.transport,
+            internal_token=self.internal_token,
         ) as http:
             return await http.request(name, context, **kwargs)

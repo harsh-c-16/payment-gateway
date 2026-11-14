@@ -36,7 +36,14 @@ from shared.contracts.conversation import (
     TurnRequest,
     TurnResponse,
 )
-from shared.contracts.shopping import ShoppingBootstrap, ShoppingSession, ShoppingTurnRequest
+from shared.contracts.shopping import (
+    DashboardSnapshot,
+    OrderPipelineStatus,
+    ShoppingBootstrap,
+    ShoppingMetrics,
+    ShoppingSession,
+    ShoppingTurnRequest,
+)
 from shared.contracts.transactions import OrderSnapshot
 from shared.telemetry.benchmark import benchmark_headers
 from shared.telemetry.context import bind_context, log_operation
@@ -53,15 +60,19 @@ from .workflow import FixedWorkflow
 LOGGER = logging.getLogger("conversation")
 ROUTES = (
     "/",
+    "/dashboard",
     "/v1/store/bootstrap",
     "/v1/store/products",
     "/v1/store/products/{sku}",
     "/v1/store/facets",
     "/v1/store/capabilities",
     "/v1/store/orders/{order_id}",
+    "/v1/store/orders/{order_id}/pipeline",
     "/v1/sessions",
     "/v1/sessions/{session_id}",
     "/v1/sessions/{session_id}/shopping-turns",
+    "/v1/sessions/{session_id}/metrics",
+    "/v1/sessions/{session_id}/dashboard",
     "/v1/sessions/{session_id}/turns",
     "/v1/carts/{cart_id}",
     "/v1/carts/{cart_id}/items/{sku}",
@@ -135,6 +146,7 @@ def create_app(
     turn_handler=None,
     workflow=None,
     intent_provider=None,
+    shopping_provider=None,
 ):
     if mode not in {"real", "stub"} or purpose not in {"service", "contract_test"}:
         raise ValueError("explicit real/service or stub/contract_test configuration required")
@@ -166,6 +178,8 @@ def create_app(
             Gateway(
                 os.environ.get("CATALOG_BASE_URL", "http://catalog:8002"),
                 os.environ.get("ORDERS_BASE_URL", "http://orders:8003"),
+                analytics_url=os.environ.get("ANALYTICS_BASE_URL", "http://analytics:8006"),
+                internal_token=os.environ.get("INTERNAL_API_TOKEN"),
             ),
             assistant_mode=assistant_mode,
             allow_intent_llm=allow,
@@ -180,6 +194,10 @@ def create_app(
     app = FastAPI(title="Conversation", docs_url=None, redoc_url=None, openapi_url=None)
     app.state.conversation = state
     app.state.execution_mode = mode
+    if shopping_provider is None and mode == "real":
+        from .shopping_llm import GeminiShoppingProvider
+
+        shopping_provider = GeminiShoppingProvider.from_env()
     shopping = (
         ShoppingWorkflow(
             state,
@@ -187,10 +205,13 @@ def create_app(
             assistant_mode=assistant_mode,
             allow_intent_llm=allow,
             intent_provider=workflow.intent_provider,
+            shopping_provider=shopping_provider,
         )
         if workflow is not None
         else None
     )
+    if shopping is not None:
+        shopping.telemetry = workflow.telemetry
     telemetry = Telemetry(
         label_values={
             "service": {"conversation"},
@@ -304,11 +325,31 @@ def create_app(
 
     @app.get("/v1/store/bootstrap", response_model=ShoppingBootstrap)
     def bootstrap():
-        return {"namespace": os.environ.get("DEFAULT_NAMESPACE", "dev"), "simulation": True}
+        return {
+            "namespace": os.environ.get("DEFAULT_NAMESPACE", "dev"),
+            "simulation": True,
+            "conversation_available": shopping is not None
+            and shopping.shopping_provider is not None,
+            "conversation_model": shopping.shopping_provider.model
+            if shopping is not None and shopping.shopping_provider is not None
+            else None,
+        }
 
     @app.get("/v1/sessions/{session_id}", response_model=ShoppingSession)
     def session_snapshot(session_id: UUIDText, context: Context):
         return state.shopping_session(session_id, context)
+
+    @app.get("/v1/sessions/{session_id}/metrics", response_model=ShoppingMetrics)
+    def shopping_metrics(session_id: UUIDText, context: Context):
+        from .shopping_metrics import snapshot
+
+        return snapshot(state, shopping, session_id, context)
+
+    @app.get("/v1/sessions/{session_id}/dashboard", response_model=DashboardSnapshot)
+    def dashboard_snapshot(session_id: UUIDText, context: Context):
+        from .dashboard import snapshot
+
+        return snapshot(state, shopping, session_id, context)
 
     @app.post("/v1/sessions/{session_id}/shopping-turns", response_model=TurnResponse)
     def shopping_turn(session_id: UUIDText, body: ShoppingTurnRequest, context: Context, key: Key):
@@ -359,6 +400,12 @@ def create_app(
             workflow_unavailable()
         return shopping.store_call("order_status", context, order_id=order_id)
 
+    @app.get("/v1/store/orders/{order_id}/pipeline", response_model=OrderPipelineStatus)
+    def store_order_pipeline(order_id: UUIDText, context: Context):
+        if shopping is None:
+            workflow_unavailable()
+        return shopping.order_pipeline(order_id, context)
+
     @app.get("/health/ready")
     def ready():
         state.ready()
@@ -390,6 +437,36 @@ def create_app(
             headers={
                 "Content-Security-Policy": "default-src 'self'; img-src 'self' https: http:; "
                 "script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; "
+                "base-uri 'self'; frame-ancestors 'none'",
+                "Referrer-Policy": "no-referrer",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
+    @app.get("/dashboard", include_in_schema=False)
+    def dashboard_page():
+        return FileResponse(
+            assets / "dashboard.html",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Security-Policy": "default-src 'self'; img-src 'self'; "
+                "script-src 'self'; style-src 'self'; "
+                "connect-src 'self' http://127.0.0.1:8010; object-src 'none'; "
+                "base-uri 'self'; frame-ancestors 'none'",
+                "Referrer-Policy": "no-referrer",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
+    @app.get("/journey", include_in_schema=False)
+    def journey_page():
+        return FileResponse(
+            assets / "journey.html",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Security-Policy": "default-src 'self'; img-src 'self'; "
+                "script-src 'self'; style-src 'self'; "
+                "connect-src 'self' http://127.0.0.1:8010; object-src 'none'; "
                 "base-uri 'self'; frame-ancestors 'none'",
                 "Referrer-Policy": "no-referrer",
                 "X-Content-Type-Options": "nosniff",

@@ -113,6 +113,9 @@ def create_app(*, db=None, events=None):
         for status in (400, 401, 403, 404, 409, 422, 503)
     }
     app = FastAPI(title="Orders service", version="1.0.0", responses=errors)
+    from shared.local_diagnostics.demo_controls import install_routes
+
+    install_routes(app, role="orders", dependencies=[Internal])
     telemetry = Telemetry(
         label_values={
             "service": {"orders"},
