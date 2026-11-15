@@ -8,7 +8,7 @@ import pytest
 
 from services.conversation.intent import blank_intent
 from services.conversation.intent_fallback import ModelFailure
-from services.conversation.shopping_dialogue import merged_intent
+from services.conversation.shopping_dialogue import MIN_BUDGET, merged_intent, named_categories
 from services.conversation.shopping_llm import (
     GeminiShoppingProvider,
     SearchArguments,
@@ -186,3 +186,11 @@ def test_unrequested_model_change_keeps_the_earlier_filter_instead_of_failing():
         assert merged_intent(args, memory, "more options", dictionary)["colour"] == "black"
     cleared = SearchArguments.model_validate({"filters": {"colour": None}})
     assert merged_intent(cleared, memory, "any colour is fine", dictionary)["colour"] is None
+
+
+def test_two_products_and_minimum_budgets_are_asked_about_not_dropped():
+    assert named_categories("shirt and shoes") == {"clothing", "footwear"}
+    assert named_categories("necklace and earrings") == {"jewellery"}
+    assert named_categories("in size M") == set()
+    assert MIN_BUDGET.search("watches above 500") and MIN_BUDGET.search("between 500 and 1000")
+    assert not MIN_BUDGET.search("under 1000 rupees")

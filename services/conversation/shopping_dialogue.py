@@ -6,14 +6,21 @@ from time import monotonic
 
 from shared.contracts.shopping import ShoppingMemory
 
-from .intent import IntentResult, blank_intent, extract_intent, validate_constraints
+from .intent import (
+    PRODUCT_NOUNS,
+    IntentResult,
+    blank_intent,
+    canonical_text,
+    extract_intent,
+    validate_constraints,
+)
 from .intent_fallback import ModelFailure
 from .shopping import QUESTIONS
 from .shopping_llm import PROMPT_REVISION, TURN_SECONDS
 
 RESPONSES = {
     "greeting": "Hello! Tell me what you're shopping for, including any colour or budget.",
-    "thanks": "You're welcome! You can refine these choices or ask about a product.",
+    "thanks": "You're welcome! Tell me if you'd like to refine your search or find something else.",
     "help": "I can find catalogue products, remember your preferences, show alternatives and "
     "compare recorded product details. What would you like to find?",
     "checkout": "Add your favourite products to the cart, then select Review order. "
@@ -40,6 +47,15 @@ NEW_SEARCH = re.compile(r"\s*new search\b", re.I)
 GREETING = re.compile(r"\s*(hi+|hello|hey+|namaste|good (morning|afternoon|evening))[\s!.]*", re.I)
 THANKS = re.compile(r"\s*(thanks|thank you|thx|ty)[\s!.]*", re.I)
 REMOVAL = r"\b(any|all|no|remove|clear|ignore|forget|don't|do not|doesn't|does not)\b"
+# Only a maximum price is a supported filter; minimum budgets are asked about, not dropped.
+MIN_BUDGET = re.compile(
+    r"\b(above|over|at least|more than|minimum|min|between)\s*(?:₹|rs\.?|inr)?\s*\d", re.I
+)
+CLARIFY_TEXT = {
+    "min_price": "I can only filter by a maximum price. What's the most you'd like to spend, "
+    "for example ‘under 1000 rupees’?",
+    "category": "I can search for one kind of product at a time. Which should I look for first?",
+}
 
 
 def provider_error_text(code, usage):
@@ -58,6 +74,16 @@ def provider_error_text(code, usage):
         code,
         "AI chat is unavailable. Please try again.",
     )
+
+
+def named_categories(text):
+    """Root categories named by product nouns, e.g. {"clothing", "footwear"} for shirt and shoes."""
+    folded = canonical_text(text)
+    return {
+        root
+        for root, nouns in PRODUCT_NOUNS.items()
+        if re.search(r"(?<![\w-])(?:" + nouns + r")(?![\w-])", folded)
+    }
 
 
 def stated_category(text, dictionary):
@@ -117,7 +143,15 @@ def merged_intent(arguments, memory, text, dictionary):
     # Unambiguous rule-extracted filters, including the named product category, are hard
     # constraints the model cannot drop or change. Strict "under" bounds come from rules.
     explicit = extract_intent(text, None, dictionary)
-    for field in ("category", "colour", "material", "size", "brand", "max_price_minor"):
+    for field in (
+        "category",
+        "category_path_prefix",
+        "colour",
+        "material",
+        "size",
+        "brand",
+        "max_price_minor",
+    ):
         value = explicit.intent.get(field)
         if value is not None and field not in explicit.missing_fields:
             intent[field] = value
@@ -172,7 +206,8 @@ def dispatch_turn(workflow, session_id, request, context, key):
             tick = monotonic()
 
             def clarify(field, reason="UNRESOLVED_CONSTRAINT", intent=None):
-                info["pending"], info["text"] = [field], QUESTIONS[field]
+                info["pending"] = ["max_price_minor" if field == "min_price" else field]
+                info["text"] = CLARIFY_TEXT.get(field) or QUESTIONS[field]
                 return IntentResult(
                     outcome="clarification_required",
                     intent=intent or memory.intent,
@@ -275,6 +310,10 @@ def dispatch_turn(workflow, session_id, request, context, key):
                             ),
                             None,
                         )
+                        if MIN_BUDGET.search(text):
+                            return clarify("min_price", intent=intent)
+                        if len(named_categories(text)) > 1:
+                            return clarify("category", intent=intent)
                         if issue:
                             return clarify(issue, intent=intent)
                         # A new search never compares against earlier results.
@@ -419,14 +458,16 @@ def dispatch_turn(workflow, session_id, request, context, key):
                 if intent.get("max_price_minor") is not None:
                     preferences.append(f"up to INR {intent['max_price_minor'] / 100:,.2f}")
                 more_label = "more " if info["more"] else ""
-                intro = f"I found {len(response.products)} {more_label}options for "
+                count = len(response.products)
+                intro = f"I found {count} {more_label}option{'' if count == 1 else 's'} for "
                 message = intro + ", ".join(preferences) + ". Choose one or tell me what to refine."
                 if not response.products:
                     # Name every active filter, so a kept preference is never hidden.
+                    hint = "say ‘any colour’ or" if intent.get("colour") else "try"
                     message = (
                         f"No {'more ' if info['more'] else ''}matches for "
                         + ", ".join(preferences)
-                        + ". Change a filter (for example say ‘any colour’ or a new budget) "
+                        + f". Change a filter (for example {hint} a new budget) "
                         "or choose New search."
                     )
                     if intent.get("size") is not None:

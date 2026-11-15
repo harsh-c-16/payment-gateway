@@ -429,7 +429,7 @@ def verify_effects(run):
     elif run["scenario"] == "refund":
         check("Debit observed before reversal", True, bool(run.get("debit_observed")))
         check(
-            "Exactly one real debit and reversal",
+            "Exactly one ledger debit and reversal",
             [1, 1],
             [sum(e["kind"] == kind for e in ledger) for kind in ("DEBIT", "REVERSAL")]
             if ledger is not None

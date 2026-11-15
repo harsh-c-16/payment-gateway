@@ -117,8 +117,9 @@ class Controller:
             # The finished current run belongs in the history list too, listed once.
             history = list(self.history)
             if self.run and self.run.get("completed_at"):
-                history = [h for h in history if h["id"] != self.run["id"]]
                 history.append(self.summary(self.run))
+            # Restored evidence and the restored current run can name the same run twice.
+            history = list({h["id"]: h for h in history}.values())
             # Saved checkout contains only synthetic public identity; no API credentials.
             return copy.deepcopy(
                 {
@@ -568,7 +569,8 @@ class Controller:
                             run["debit_observed"] = {"at": now(), "entries": entries}
                             self.event(
                                 "Observe",
-                                "Real debit observed; reservation held before stock commit.",
+                                "Simulated ledger debit observed; reservation held before "
+                                "stock commit.",
                             )
                 if order["status"] in TERMINAL:
                     run["current_orders"] = self.runtime.orders(context)

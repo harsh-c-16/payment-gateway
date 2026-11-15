@@ -40,7 +40,8 @@ function notice(message, error = false, chat = false) {
   $("notice-text").textContent = message;
   $("notice").classList.toggle("error", error);
   $("retry-pending").hidden = !S.pending;
-  $("retry-load").hidden = !error || !!S.pending || chat;
+  // "Try again" reloads the store, so it is only for a failed page load.
+  $("retry-load").hidden = !error || !!S.pending || chat || initialized;
   $("retry-chat").hidden = !chat || !S.failed_search || !!S.pending;
   // The cart dialog covers the page, so its errors are repeated inside it.
   const inCart = $("cart-dialog").open && error;
@@ -239,24 +240,31 @@ async function restoreConversation() {
   }
   const scroll = document.querySelector(".chat-scroll");
   if (scroll) scroll.scrollTop = scroll.scrollHeight;
-  const intent = S.memory.intent;
+  renderPreferences();
+  for (const p of S.memory.products || []) cache.set(p.sku, p);
+  setBusy(busy);
+}
+function renderPreferences() {
+  const intent = S.memory?.intent;
   const values = intent ? [intent.query_text, ...["category", "colour", "material", "brand", "size"].filter(k => intent[k])
     .map(k => `${k}: ${k === "category" ? categoryLabels.get(intent[k]) || intent[k] : intent[k]}`)] : [];
   if (intent && intent.max_price_minor !== null && intent.max_price_minor !== undefined) values.push(`maximum ${money(intent.max_price_minor)}`);
   const shown = values.filter(Boolean);
   $("preferences-panel").hidden = !shown.length;
   $("preferences").textContent = shown.length ? "Remembered preferences: " + shown.join(" · ") : "";
-  for (const p of S.memory.products || []) cache.set(p.sku, p);
-  setBusy(busy);
 }
 async function sendChat(value, selectedSku, assistantMode = "assist") {
   if (!value.trim() || busy) return;
   if (!initialized || !S.session_id) throw new Error("The store is still connecting. Please try again in a moment.");
   if (value.trim().length > 2000) throw new Error("Messages can be up to 2,000 characters. Please shorten yours.");
+  // New search stays requested even if the shopper replaces the "New search:" text.
+  let message = value.trim();
+  if (S.new_search && !/^new search\b/i.test(message)) message = "New search: " + message;
   await mutate("chat", `/v1/sessions/${S.session_id}/shopping-turns`, {
-    text: value.trim(), mode: assistantMode, retrieval_mode: retrievalMode,
+    text: message.slice(0, 2000), mode: assistantMode, retrieval_mode: retrievalMode,
     ...(selectedSku ? {selected_sku: selectedSku} : {}),
   });
+  delete S.new_search; save();
 }
 async function showProduct(sku) {
   const response = await request("/v1/store/products/" + encodeURIComponent(sku));
@@ -352,7 +360,9 @@ function renderOrder() {
   if (!S.order_id) return;
   const box = text("div", "", "order-box"), status = S.order?.status || "PENDING";
   const titles = {CONFIRMED:"Order confirmed", CANCELLED:"Order cancelled", MANUAL_REVIEW:"Order needs attention"};
-  box.append(text("h3", titles[status] || "Placing your order"), text("p", `Order ${S.order_id}`, "quote-meta"));
+  // Once new items are in the cart, the finished order is shown as the previous one.
+  const previous = S.cart?.lines.length && titles[status];
+  box.append(text("h3", previous ? `Previous order · ${titles[status].replace("Order ", "")}` : titles[status] || "Placing your order"), text("p", `Order ${S.order_id}`, "quote-meta"));
   const explanation = {CONFIRMED: "Your demo order has been placed. You're all set!", CANCELLED: "We couldn't complete this order, and nothing was charged. Add the product to your cart again to place a new order.", MANUAL_REVIEW: "We're checking a problem with this order. Please keep this order number and avoid placing it again."};
   box.append(text("p", explanation[status] || "We're checking stock and processing your demo order. This page updates automatically."));
   if (S.order?.total_amount_minor !== undefined) box.append(text("p", `Order total ${money(S.order.total_amount_minor, S.order.currency)}`));
@@ -413,6 +423,7 @@ async function boot() {
   }
   const facets = await request("/v1/store/facets");
   for (const root of facets.roots) categoryLabels.set(root.id, root.label);
+  renderPreferences();
   $("category").replaceChildren(new Option("All categories", "")); $("category-chips").replaceChildren();
   for (const root of facets.roots) $("category").append(new Option(root.label, root.id));
   for (const root of facets.roots.slice(0, 6)) {
@@ -472,6 +483,7 @@ $("new-search").addEventListener("click", () => {
   // The "New search:" prefix makes the server start from blank preferences.
   $("chat-input").value = "New search: "; $("chat-input").focus();
   $("preferences-panel").hidden = true;
+  S.new_search = true; save();
 });
 $("more-options").addEventListener("click", safe(() => sendChat("Show more options")));
 $("cart-open").addEventListener("click", safe(async () => { await loadCart(); $("cart-dialog").showModal(); }));

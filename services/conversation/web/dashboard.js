@@ -5,7 +5,8 @@ const node = (tag, value = "", className = "") => {
   const n = document.createElement(tag); n.textContent = value; n.className = className; return n;
 };
 const fmt = value => value === null || value === undefined ? "Unavailable" : Number(value).toLocaleString("en-IN");
-const ms = value => value === null || value === undefined ? "No samples" : `${fmt(Math.round(value))} ms`;
+const ms = value => value === null || value === undefined ? "No samples" :
+  value >= 60000 ? `${(value / 60000).toFixed(1)} min` : value >= 1000 ? `${(value / 1000).toFixed(1)} s` : `${fmt(Math.round(value))} ms`;
 const localTime = value => new Date(value).toLocaleTimeString("en-IN", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
 const currency = value => new Intl.NumberFormat("en-IN", {style:"currency",currency:"INR",maximumFractionDigits:0}).format(value/100);
 const title = value => String(value).replaceAll("_"," ").toLowerCase().replace(/\b\w/g, c=>c.toUpperCase());

@@ -51,7 +51,23 @@ PRODUCT_NOUNS = {
     "home_furnishing": r"cushions?",
     "beauty_and_personal_care": r"deodorants?|lipsticks?",
     "home_decor_festive_needs": r"wall clocks?|clocks?",
+    # Catalogue "wallet" titles are phone cases; a shopper's wallet is this category.
+    "bags_wallets_belts": r"(?<!phone )(?<!mobile )wallets?|purses?|clutch(?:es)?|"
+    r"card ?holders?|(?<!seat )belts?|sling bags?",
 }
+# Product types that sit under exactly one catalogue path. They add a strict path filter
+# inside the category, so "red saree" cannot return red bras.
+TYPE_PREFIXES = (
+    (r"sarees?|saris?", ["Clothing", "Women's Clothing", "Ethnic Wear", "Sarees"]),
+    (r"necklaces?", ["Jewellery", "Necklaces & Chains"]),
+    (r"earrings?", ["Jewellery", "Earrings"]),
+    (r"(?<!nose )rings?", ["Jewellery", "Rings"]),
+    (r"bangles?|bracelets?|armlets?", ["Jewellery", "Bangles, Bracelets & Armlets"]),
+    (
+        r"(?<!phone )(?<!mobile )wallets?|clutch(?:es)?",
+        ["Bags, Wallets & Belts", "Wallets & Clutches"],
+    ),
+)
 # Baby apparel and accessories are a separate root, so these words keep nouns loose.
 NOUN_EXCEPTIONS = r"\b(baby|babies|infants?|newborns?|toddlers?)\b"
 FACET_CUES = {
@@ -259,6 +275,20 @@ def extract_intent(text, context, dictionary):
             intent[field] = found.pop()
         elif found:
             missing.append(field)
+    if intent["category_path_prefix"] is None and not re.search(NOUN_EXCEPTIONS, normalized):
+        prefixes = [
+            prefix
+            for nouns, prefix in TYPE_PREFIXES
+            if re.search(r"(?<![\w-])(?:" + nouns + r")(?![\w-])", source)
+        ]
+        roots = {canonical_text(r["label"]): r["id"] for r in dictionary["roots"]}
+        root = roots.get(canonical_text(prefixes[0][0])) if len(prefixes) == 1 else None
+        if (
+            root is not None
+            and prefixes[0] in dictionary["path_prefixes"]
+            and intent["category"] in (None, root)
+        ):
+            intent["category"], intent["category_path_prefix"] = root, prefixes[0]
     if intent["size"] is not None and intent["category"] != "clothing":
         missing.append("category")
     # Unsupported explicit attributes cannot be silently passed as loose keywords.
