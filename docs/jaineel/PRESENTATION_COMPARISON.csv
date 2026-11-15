@@ -1,0 +1,9 @@
+workload,layout,candidate,alternative,candidate_value,alternative_value,unit,reduction_percent,evidence_status,limitation
+category_price,shuffled,btree,hash,1.2953000114066526,2.609649978694506,ms,50.36499063163119,MEASURED_COMPONENT_CANDIDATE,Equality plus range/order; not deployed by these tests
+category_price,shuffled,btree,none,1.2953000114066526,4.15959999372717,ms,68.85998621598199,MEASURED_COMPONENT_CANDIDATE,Integrity primary key retained in baseline
+lexical_shirt,shuffled,gin,none,3.302949990029447,4.755700007081032,ms,30.547553775227687,MEASURED_COMPONENT_NOT_DEPLOYED,Positive-hit title-vector query; not full production search
+price_range,shuffled,btree,brin,1.4263000048231333,2.472050007781945,ms,42.302946933388064,MEASURED_COMPONENT_CANDIDATE,Physical order matters
+price_range,price_sorted,brin,btree,0.7475500024156645,1.3867000088794157,ms,46.09144028060147,MEASURED_COMPONENT_NOT_DEPLOYED,Sorting/rewrite cost excluded
+summary_representation,synthetic,summary,raw,3009,93828,bytes,96.79306816728483,LOCAL_ANALYTICAL_PROBE,Reduction compares representations; retaining both needs additional storage
+aggregate_query,warm_parquet,summary,raw,2.805249998345971,2.5851499958662316,ms,-8.514012836070984,LOCAL_ANALYTICAL_PROBE,Negative reduction means summary latency increased
+repeated_event_effects,isolated_policy_probe,retain_seen_id,unsafe_early_id_retirement,1,2,logical_effects,,POLICY_COUNTEREXAMPLE,Deleting ID is deliberately unsafe; no production keys deleted

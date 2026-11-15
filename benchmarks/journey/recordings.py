@@ -3,6 +3,7 @@
 import hashlib
 import json
 import threading
+import time
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -15,7 +16,16 @@ def write_json(path, value):
     raw = (json.dumps(value, indent=2, allow_nan=False, default=str) + "\n").encode("utf-8")
     temporary = path.with_name(path.name + "." + uuid4().hex + ".pending")
     temporary.write_bytes(raw)
-    temporary.replace(path)
+    # Docker's Windows bind mount can briefly deny replacement while a dashboard
+    # reader/OneDrive holds the destination. Keep the old complete JSON intact.
+    for attempt, delay in enumerate((0.05, 0.1, 0.2, 0.4, 0.8, 0)):
+        try:
+            temporary.replace(path)
+            break
+        except PermissionError:
+            if attempt == 5:
+                raise
+            time.sleep(delay)
     return hashlib.sha256(raw).hexdigest()
 
 

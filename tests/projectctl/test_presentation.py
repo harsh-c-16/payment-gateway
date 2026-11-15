@@ -62,6 +62,8 @@ class PresentationDouble(DemoProviderDouble):
                 "brand": None,
                 "category_path_prefix": None,
             }
+            if "shirt" in text:
+                intent["category"] = "clothing"
             if "watches" in text:
                 intent.update(category="watches", max_price_minor=99999)
             if "black" in text:
@@ -266,7 +268,7 @@ def test_normal_search_cannot_pass_missing_or_changed_intent(tmp_path, intent):
         if request.url.path.endswith("/turns") and "formal" in json.loads(request.content)["text"]:
             value = response.json()
             if intent == "extra_filter":
-                value["intent"]["category"] = "clothing"
+                value["intent"]["material"] = "linen"
             else:
                 value["intent"] = intent
             return httpx.Response(200, json=value)

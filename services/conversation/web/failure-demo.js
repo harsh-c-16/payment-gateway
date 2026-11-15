@@ -12,7 +12,15 @@
     purchase: ["End-to-end observation", "One confirmed simulated purchase through the real services and active Gold."],
     late: ["Expiry and a delayed callback", "A persisted 35-second payment delay outlives the 30-second reservation. Current saga rules quiesce and cancel the pending callback, release stock and prevent a late debit. Manual review never passes."]
   };
-  let connected=false,busy=false,current=null,poll,first=true;
+  const descriptions={
+    analytics:"Pause analytics, place a test order, then check that analytics catches up.",
+    retry:"Retry the same checkout and check that only one order and payment are created.",
+    decline:"Decline the payment and check that the order is cancelled and stock is restored.",
+    crash:"Stop order processing, restart it and check that the order recovers correctly.",
+    late:"Delay payment beyond the stock reservation and check that the order cancels safely.",
+    refund:"Debit a simulated payment, then check that it is reversed and stock is restored."
+  };
+  let connected=false,busy=false,current=null,poll,first=true,logSignature="";
   const requestedScenario=new URLSearchParams(location.search).get("scenario");
   if(requestedScenario && concepts[requestedScenario]) document.getElementById("failure-scenario").value=requestedScenario;
   const el=id=>document.getElementById(`failure-${id}`);
@@ -28,36 +36,65 @@
   function selection() {
     const scenario=el("scenario").value;if(scenario!=="analytics") el("mode").value="automated";
     el("mode").querySelector('option[value="manual"]').disabled=scenario!=="analytics";
-    const automated=el("mode").value==="automated",[heading,description]=concepts[scenario];
-    el("concept").replaceChildren(make("strong",heading),make("p",description));el("consent-label").hidden=!automated;
-    el("preconditions").textContent=automated ? "Capture baseline selects an available product and reads stock and ledger state. Then review the product and approve one simulated checkout before Run test." : "Add a product to the store cart, capture baseline, and pause analytics. Place the order through normal store confirmation, then watch it here before resuming processing.";
-    error("");buttons();
+    const automated=el("mode").value==="automated";
+    el("concept").replaceChildren(make("p",!automated ? "Add an item to your store cart, then prepare the test and place the order yourself." : descriptions[scenario]));el("consent-label").hidden=!automated;
+    el("preconditions").textContent=automated ? "Approve one simulated checkout, then click Prepare test. It captures the baseline, injects the fault, runs the checkout and verifies recovery automatically." : "Add a product to the store cart, then click Prepare test to capture its baseline and pause analytics. Place the order through normal store confirmation, then watch it here before resuming processing.";
+    el("consent").checked=false;error("");buttons();
   }
   function buttons() {
     const r=current?.run,live=r?.status==="Pending",selected=r && r.scenario===el("scenario").value && r.mode===el("mode").value;
     const ready=connected && !busy,automated=el("mode").value==="automated",consent=!automated || el("consent").checked;
-    el("prepare").disabled=!ready || live || !!r?.fault_active;
-    el("trigger").disabled=!ready || !selected || !live || r.triggered || !consent;
-    el("test").disabled=!ready || !selected || !live || r.triggered || !automated || !consent;
+    el("prepare").disabled=!ready || !consent || !!r?.fault_active || !!r?.test_running || !!live && (!selected || !!r.triggered);
+    el("prepare").textContent=busy ? "Preparing and starting..." : live && (r.triggered || r.test_running) ? "Test running..." : "Prepare test";
     el("recover").disabled=!ready || !r || r.test_running || !live && !r.fault_active;
     el("retry").disabled=!ready || !live || !r?.response_lost || r.test_running || !r.checkout;
     el("verify").disabled=!ready || !live || !r?.triggered || r.test_running;
     el("watch").disabled=!ready || !live || !r?.triggered || r.mode!=="manual" || r.test_running;
-    el("prepare").hidden=!!live || !!r?.fault_active;
-    el("trigger").hidden=automated || !live || !!r?.triggered;
-    el("test").hidden=!automated || !live || !!r?.triggered;
     el("recover").hidden=!!r?.test_running || !r?.fault_active && (!live || !r?.triggered || !!r?.recovered);
     el("verify").hidden=!live || !r?.triggered || !!r?.fault_active || !!r?.test_running;
     el("retry").hidden=!live || !r?.response_lost || !!r?.test_running;
     el("watch").closest(".failure-watch").hidden=automated || !live || !r?.triggered;
-    el("consent-label").hidden=!automated || !live || !!r?.triggered;
-    el("preconditions").hidden=!!live || !!r && selected;
-    el("next").textContent=!connected ? "Connect the local controller to begin." : busy ? "Waiting for the controller..." : r?.test_running ? "Test running: fault injection, checkout, recovery and independent verification are automatic. No further purchase will be submitted." : r?.fault_active && !live ? "The run has ended with a fault still active. Resume processing to clear it before another test." : !live ? "Choose a scenario and capture a fresh stock and ledger baseline. Capturing a baseline does not place an order." : !r.triggered ? automated ? "Review the selected product, approve one simulated checkout, then click Run test. Recovery and verification are automatic." : "Click Pause analytics, then place one order in the store." : !automated && !r.order_id ? "Place the order in the store, then click Watch order. The saved order ID is used automatically; enter an ID only if needed." : r.fault_active ? "Inspect the order and Gold state, then resume processing." : "Processing is restored. Click Verify recovery to reconcile the order, stock, ledger and active Gold.";
+    el("consent-label").hidden=!automated;
+    el("consent").disabled=busy || !!r?.test_running || !!live && !!r.triggered;
+    el("preconditions").hidden=true;
+    el("next").hidden=connected && !busy && !live && !r?.fault_active;
+    el("next").textContent=!connected ? "Connecting automatically. Test controls become available when the local helper is ready." : busy ? "Waiting for the controller..." : r?.test_running ? "Test running. Follow the log below." : r?.fault_active && !live ? "The run has ended with a fault still active. Resume processing to clear it before another test." : !live ? (automated ? "Approve one simulated checkout and click Prepare test. Baseline capture, fault injection, checkout and recovery run automatically." : "Click Prepare test to capture the cart baseline and pause analytics. Then place one order in the store.") : !r.triggered ? automated ? "This test has a saved baseline. Approve one simulated checkout and click Prepare test to continue it." : "Click Prepare test to pause analytics, then place one order in the store." : !automated && !r.order_id ? "Place the order in the store, then click Watch order. The saved order ID is used automatically; enter an ID only if needed." : r.fault_active ? "Inspect the order and Gold state, then resume processing." : "Processing is restored. Click Verify recovery to reconcile the order, stock, ledger and active Gold.";
     const workspace=el("run-title").closest(".failure-workspace");workspace.hidden=!selected;
     el("observations").hidden=!selected;
+    el("prepared-product").hidden=!selected || !live || !r?.product;
+    renderEvidence(selected ? r : null);
     el("evidence").disabled=!connected || !r;el("scenario").disabled=busy || live;el("mode").disabled=busy || live;
   }
   function fact(label,value,cls="") {const e=make("div","",cls);e.append(make("span",label),make("strong",value));el("facts").append(e);}
+  function renderEvidence(run) {
+    const rows=window.FailureEvidence.executionLog(run),signature=JSON.stringify([run?.id,rows]);
+    el("log-scope").textContent=run ? `${run.status==="Pending" ? "Live" : "Saved result"} / run ${run.id} / ${rows.length} entries. Actions and API observations are timestamped in UTC; service-record timestamps are marked. Sampling can miss intermediate states.` : "Prepare a test to capture a baseline, then run it to see fault injection, service observations and recovery here.";
+    if(signature!==logSignature){
+      const log=el("journal"),bottom=log.scrollHeight-log.scrollTop-log.clientHeight<40,top=log.scrollTop;
+      const opened=new Set([...log.querySelectorAll("details[open]")].map(d=>d.dataset.entryId));
+      log.replaceChildren();
+      if(!run)log.append(make("li","Choose a scenario and click Prepare test. No fault or purchase has been submitted.","empty"));
+      for(const row of rows){
+        const li=make("li","",`execution-entry ${row.basis}`),time=make("time",Number.isFinite(Date.parse(row.at)) ? new Date(row.at).toISOString().replace("T"," ").replace("Z"," UTC") : "Time unavailable");
+        if(row.at)time.dateTime=row.at;
+        li.append(time,make("strong",row.source),make("span",row.message));
+        const detailKeys=Object.keys(row.details).filter(k=>row.details[k]!==undefined && row.details[k]!==null);
+        if(detailKeys.length || row.basis==="service_record"){
+          const detail=make("details"),key=`${row.at}/${row.source}/${row.message}`;detail.dataset.entryId=key;detail.open=opened.has(key);
+          detail.append(make("summary",row.basis==="service_record" ? "Service record / IDs and values" : "IDs and observed fields"),make("pre",JSON.stringify(row.details,null,2)));li.append(detail);
+        }
+        log.append(li);
+      }
+      if(bottom)log.scrollTop=log.scrollHeight;else log.scrollTop=top;
+      logSignature=signature;
+    }
+    el("checks").replaceChildren();
+    if(!run?.checks?.length)el("checks").append(make("div",run?.status==="Pending" ? "Waiting for observation and recovery. Checks will compare the actual order, stock, ledger and Gold with the expected result." : "Checks appear after the selected test runs.","empty"));
+    for(const c of run?.checks || []){
+      const row=make("div","",`failure-check ${c.passed===true ? "pass" : c.passed===false ? "fail" : "pending"}`);
+      row.append(make("span",c.passed===true ? "PASS" : c.passed===false ? "FAIL" : "WAIT"),make("strong",c.name),make("small",`Expected ${valueText(c.expected)} / observed ${valueText(c.observed)}`));el("checks").append(row);
+    }
+  }
   function render(data) {
     current=data;const r=data.run;
     el("connection").textContent=`Local controller connected · namespace ${data.namespace} · observed ${stamp(data.observed_at)} · independent 2-second sampling while active`;
@@ -81,9 +118,6 @@
       if(document.activeElement!==el("order-id") && r.order_id) el("order-id").value=r.order_id;
       el("prepared-product").hidden=!r.product;
       if(r.product) el("prepared-product").replaceChildren(make("strong",r.product.title),make("span",`${r.product.sku} · ${currency(r.product.price_minor)} · quantity 1`));
-      el("checks").replaceChildren();if(!r.checks.length) el("checks").append(make("div","No verification result yet. Complete observation and recovery, then Verify.","empty"));
-      for(const c of r.checks){const row=make("div","",`failure-check ${c.passed===true ? "pass" : c.passed===false ? "fail" : "pending"}`);row.append(make("span",c.passed===true ? "✓" : c.passed===false ? "×" : "○"),make("strong",c.name),make("small",`Expected ${valueText(c.expected)} · observed ${valueText(c.observed)}`));el("checks").append(row);}
-      el("journal").replaceChildren();for(const e of r.events.slice(-30).reverse()){const row=make("li");row.append(make("time",stamp(e.at)),make("strong",e.phase),make("p",e.message));el("journal").append(row);}
       timeline(r);graphs(r);
     }
     el("history").replaceChildren();for(const previous of data.history.slice().reverse()){
@@ -119,26 +153,38 @@
     measuredChart("failure-ledger-chart",points,[{key:"ledger",label:"Signed net ledger INR",colour:"#537f9d"}],"Independent signed payment ledger in INR; elapsed seconds");
   }
   async function refreshController() {
-    clearTimeout(poll);try{const data=await api("/state");connected=true;render(data);}catch(e){connected=false;el("connection").textContent=`Controller unavailable. Displayed evidence is stale. ${e.message}`;buttons();}finally{if(connected && !document.hidden) poll=setTimeout(refreshController,2500);}
+    clearTimeout(poll);try{const data=await api("/state");connected=true;render(data);}catch(e){connected=false;el("connection").textContent=current ? "Controller disconnected. Showing the last observation; reconnecting automatically." : "Connecting to the local controller. If it stays offline, run .\\start-failure-demo.ps1.";buttons();}finally{if(!document.hidden) poll=setTimeout(refreshController,connected ? 2500 : 5000);}
   }
   async function act(action) {
     if(busy)return;busy=true;buttons();error("");try{
       let result;if(action==="prepare"){
         const saved=JSON.parse(localStorage.getItem("shoptalk-session") || "{}"),body={scenario:el("scenario").value,mode:el("mode").value};
         if(body.mode==="manual")for(const k of ["session_id","run_id","user_id","correlation_id"])body[k]=saved[k];
-        result=await api("/prepare",body);el("consent").checked=false;el("order-id").value="";
+        const approved=body.mode==="manual" || el("consent").checked;
+        if(!approved)throw new Error("Approve one simulated checkout before starting the test.");
+        const pending=current?.run;
+        if(pending?.status==="Pending"){
+          if(pending.scenario!==body.scenario || pending.mode!==body.mode || pending.triggered || pending.test_running)throw new Error("The current test is already running or requires recovery.");
+          result=current;
+        }else result=await api("/prepare",body);
+        const run=result.run;render(result);el("order-id").value="";
+        result=await api(`/runs/${run.id}/${body.mode==="automated" ? "test" : "trigger"}`,{confirmed:approved});
+        el("consent").checked=false;
       }else if(action==="watch"){
         const saved=JSON.parse(localStorage.getItem("shoptalk-session") || "{}"),order=el("order-id").value.trim() || saved.order_id;
         if(!/^[0-9a-f-]{36}$/i.test(order || ""))throw new Error("Place a new order in the store, then enter its order ID.");result=await api(`/runs/${current.run.id}/watch/${order}`,{});
       }else result=await api(`/runs/${current.run.id}/${action}`,{confirmed:el("consent").checked});render(result);
+      if(action==="prepare")el("journal").closest(".failure-log-panel").scrollIntoView({behavior:"smooth",block:"center"});
     }catch(e){error(e.message);await refreshController();}finally{busy=false;buttons();}
   }
   async function download(id) {
     try{const response=await fetch(`${endpoint}/evidence/${id}`,{cache:"no-store",credentials:"omit",signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error("Evidence download unavailable");const url=URL.createObjectURL(await response.blob()),a=make("a");a.href=url;a.download=`failure-demo-${id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){error(e.message);}
   }
-  el("connect").addEventListener("click",refreshController);for(const id of ["prepare","trigger","recover","retry","verify","watch","test"])el(id).addEventListener("click",()=>act(id));
+  el("connect").addEventListener("click",refreshController);for(const id of ["prepare","recover","retry","verify","watch"])el(id).addEventListener("click",()=>act(id));
   el("evidence").addEventListener("click",()=>download(current.run.id));el("scenario").addEventListener("change",selection);el("mode").addEventListener("change",selection);el("consent").addEventListener("change",buttons);
-  document.addEventListener("visibilitychange",()=>{clearTimeout(poll);if(connected && !document.hidden)refreshController();});
+  document.addEventListener("visibilitychange",()=>{clearTimeout(poll);if(!document.hidden)refreshController();});
   window.addEventListener("storage",event=>{if(event.key==="shoptalk-session" && current?.run?.mode==="manual" && document.activeElement!==el("order-id")){try{const id=JSON.parse(event.newValue || "{}").order_id;if(id && !current.run.baseline_orders.includes(id))el("order-id").value=id;}catch{/* wait for input */}}});selection();
+  window.addEventListener("observation-refresh",refreshController);
   document.getElementById("failure-demo").addEventListener("toggle",e=>{if(e.target.open)refreshController();});
+  refreshController();
 })();

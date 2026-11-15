@@ -12,8 +12,19 @@
     }catch(e){label.textContent=last ? "Connection lost. Readings show the last update." : "Pipeline readings are unavailable.";}
     finally{busy=false;if(!paused && !document.hidden)timer=setTimeout(refresh,5000);}
   }
+  let measuring=false;
+  async function measurements(manual=false) {
+    if(measuring || document.hidden || (paused && !manual))return;
+    measuring=true;
+    try{
+      const response=await fetch("http://127.0.0.1:8010/journey/measurement",{cache:"no-store",credentials:"omit",signal:AbortSignal.timeout(40000)});
+      if(!response.ok)throw new Error(`HTTP ${response.status}`);
+      window.JourneyView.scheduled(await response.json());
+    }catch{window.JourneyView.scheduled(null);}
+    finally{measuring=false;}
+  }
   window.addEventListener("observation-pause",e=>{paused=e.detail.paused;clearTimeout(timer);if(!paused)refresh();});
-  window.addEventListener("observation-refresh",()=>refresh(true));
+  window.addEventListener("observation-refresh",()=>{refresh(true);measurements(true);});
   document.addEventListener("visibilitychange",()=>{clearTimeout(timer);if(!document.hidden && !paused)refresh();});
-  refresh();
+  refresh();measurements();setInterval(()=>measurements(),10000);
 })();

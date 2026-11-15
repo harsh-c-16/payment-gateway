@@ -352,6 +352,8 @@ def test_local_api_enforces_origin_namespace_and_uuid(tmp_path, monkeypatch):
     with TestClient(app) as client:
         assert client.get("/journey/snapshot").status_code == 403
         headers = {"Origin": ORIGIN}
+        assert client.get("/journey/measurement").status_code == 403
+        assert client.get("/journey/measurement", headers=headers).json()["status"] == "NOT_RUN"
         assert client.get("/journey/snapshot", headers=headers).status_code == 200
         assert (
             client.get("/journey/snapshot?namespace=bench-unrelated", headers=headers).status_code
@@ -376,3 +378,27 @@ def test_local_api_enforces_origin_namespace_and_uuid(tmp_path, monkeypatch):
             == 422
         )
     assert not list((tmp_path / "data-journey/lab").glob("*/run.json"))
+
+
+def test_atomic_result_retries_windows_reader_collision(tmp_path, monkeypatch):
+    import json
+    from pathlib import Path
+
+    from benchmarks.journey import recordings
+
+    target = tmp_path / "result.json"
+    target.write_text('{"old": true}')
+    replace, attempts = Path.replace, []
+
+    def sharing_collision(path, destination):
+        attempts.append(path)
+        if len(attempts) == 1:
+            assert json.loads(target.read_text()) == {"old": True}
+            raise PermissionError("explicit Windows sharing collision")
+        return replace(path, destination)
+
+    monkeypatch.setattr(Path, "replace", sharing_collision)
+    monkeypatch.setattr(recordings.time, "sleep", lambda _: None)
+    recordings.write_json(target, {"new": True})
+    assert len(attempts) == 2
+    assert json.loads(target.read_text()) == {"new": True}
