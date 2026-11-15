@@ -22,14 +22,18 @@
         if(!rows?.length){const tr=document.createElement('tr'),td=cell('Unavailable');td.colSpan=6;tr.append(td);body.append(tr);}
         for(const row of rows || []){const tr=document.createElement('tr');values(row).forEach(v=>tr.append(cell(v)));body.append(tr);}
       }
-      const known=data.lag?.length && data.lag.every(r=>Number.isFinite(r.lag));
-      $('infra-lag-summary').textContent=known ? `${data.lag.reduce((n,r)=>n+r.lag,0)} records waiting across ${data.lag.length} partitions. Updated ${new Date(data.observed_at).toLocaleTimeString()}.` : 'Consumer lag unavailable: one or more partitions have no reading.';
-      history.push({at:data.observed_at,lag:known ? data.lag.reduce((n,r)=>n+r.lag,0) : null});
+      const measured=(data.lag || []).filter(r=>Number.isFinite(r.lag)),count=data.lag?.length || 0;
+      const total=measured.reduce((n,r)=>n+r.lag,0),known=count>0 && measured.length===count;
+      const coverage=measured.map(r=>`${r.group}:${r.topic}:${r.partition}`).sort().join('|');
+      $('infra-lag-summary').textContent=known ? `${total} records waiting across ${count} partitions. Updated ${new Date(data.observed_at).toLocaleTimeString()}.` : measured.length ? `${total} records waiting in ${measured.length} of ${count} measured partitions. Remaining partitions have no committed reading yet; this is a partial total.` : 'Waiting for committed Kafka offsets. No missing reading is treated as zero.';
+      // Break the line when coverage changes: subtotals from different sets are not comparable.
+      if(history.length && history.at(-1).coverage!==coverage)history.push({at:data.observed_at,lag:null,coverage});
+      history.push({at:data.observed_at,lag:measured.length ? total : null,coverage,complete:known});
       if(history.length>60)history.shift();
       const chart=$('infra-lag-chart');chart.replaceChildren();
       const svg=(tag,attrs={},text)=>{const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));if(text!==undefined)e.textContent=text;return e;};
       if(!history.some(p=>p.lag!==null)){const message=document.createElement('p');message.className='empty';message.textContent='No measured Kafka lag yet. Missing readings are not zero.';chart.append(message);return;}
-      const graph=svg('svg',{viewBox:'0 0 680 210',role:'img','aria-label':'Total committed consumer lag, measured records over time'});
+      const graph=svg('svg',{viewBox:'0 0 680 210',role:'img','aria-label':'Committed consumer lag in measured partitions; gaps mark missing or changed coverage'});
       const start=Date.parse(history[0].at),duration=Math.max(1,Date.parse(history.at(-1).at)-start),max=Math.max(1,...history.map(p=>p.lag ?? 0));
       graph.append(svg('text',{x:30,y:179},'0'));
       graph.append(svg('line',{x1:50,y1:175,x2:660,y2:175,stroke:'#b3beb6'}));
@@ -38,7 +42,7 @@
       graph.append(svg('text',{x:5,y:25},`${max} records`),svg('text',{x:50,y:200},new Date(history[0].at).toLocaleTimeString()),svg('text',{x:660,y:200,'text-anchor':'end'},new Date(history.at(-1).at).toLocaleTimeString()));chart.append(graph);
     } catch(e) {
       if(!history.length){$('infra-lag-summary').textContent='Kafka lag unavailable.';$('infra-lag-chart').textContent='No infrastructure readings received. Start the local helper and click Refresh.';for(const id of ['infra-lag','infra-resources']){const row=document.createElement('tr'),td=cell('Readings unavailable');td.colSpan=6;row.append(td);$(id).replaceChildren(row);}}
-      $('infra-state').textContent=`Infrastructure unavailable; displayed values are stale. ${e.message}. Start the local helper.`;
+      $('infra-state').textContent=history.length ? 'Connection lost. Showing the last readings; reconnecting automatically.' : 'Connecting to the local helper. If it stays offline, run .\\start-failure-demo.ps1.';
     } finally {busy=false;}
   }
   $('infra-refresh').addEventListener('click',()=>refresh(true));

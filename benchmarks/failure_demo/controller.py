@@ -324,6 +324,10 @@ class Controller:
                 self.event(
                     "Observe",
                     "Analytics worker paused. Read API and operational checkout remain separate.",
+                    source="Docker",
+                    operation="pause",
+                    target_id=run["target_id"],
+                    acknowledged=True,
                 )
                 if run["mode"] == "manual":
                     self.event(
@@ -337,8 +341,24 @@ class Controller:
             if run["mode"] == "automated":
                 plan = run["scenario"] if run["scenario"] in {"decline", "late"} else "success"
                 self.runtime.arm("payments", context, plan)
+                self.event(
+                    "Trigger",
+                    "Payments acknowledged the run-scoped simulated outcome plan.",
+                    source="Payments API",
+                    operation="arm",
+                    plan=plan,
+                    run_id=context["run_id"],
+                )
                 if run["scenario"] in {"crash", "refund"}:
                     self.runtime.arm("orders", context, run["scenario"])
+                    self.event(
+                        "Trigger",
+                        "Orders acknowledged the run-scoped fault plan.",
+                        source="Orders API",
+                        operation="arm",
+                        plan=run["scenario"],
+                        run_id=context["run_id"],
+                    )
                 try:
                     self.purchase(run)
                 except ResponseLost:
@@ -376,6 +396,14 @@ class Controller:
         if quote["total_amount_minor"] != run["product"]["price_minor"]:
             raise Unavailable("Prepared price changed; prepare again before confirming")
         run["quote"] = quote
+        self.event(
+            "Observe",
+            "Quote returned by the store API; total matches the prepared price.",
+            source="Store API",
+            operation="quote",
+            quote_id=quote["quote_id"],
+            total_amount_minor=quote["total_amount_minor"],
+        )
         run["checkout"] = {
             "path": f"/v1/carts/{run['cart_id']}/checkout",
             "request_id": str(uuid4()),
@@ -400,7 +428,15 @@ class Controller:
         )
         run["order_id"] = response["order_id"]
         run["commit_ack"] = {"at": now(), "status": 202, "order_id": response["order_id"]}
-        self.save()
+        self.event(
+            "Observe",
+            "Checkout acknowledgement received; durable order ID saved.",
+            source="Store API",
+            operation="checkout",
+            order_id=response["order_id"],
+            request_id=operation["request_id"],
+            idempotency_key=operation["key"],
+        )
         if run["scenario"] == "retry":
             # Fail at the server gateway boundary. Neither HTTP nor CLI caller
             # receives checkout success; its committed effect is retained.
@@ -470,6 +506,14 @@ class Controller:
                 state = self.runtime.worker_state()
                 if state["paused"] or state["container_id"] != run["target_id"]:
                     raise Unavailable("Retained analytics-worker recovery not established")
+                self.event(
+                    "Recover",
+                    "Analytics worker resumed in the same retained container.",
+                    source="Docker",
+                    operation="unpause",
+                    target_id=state["container_id"],
+                    acknowledged=True,
+                )
             if run["scenario"] == "crash" and run["triggered"]:
                 try:
                     marker = self.runtime.checkpoint(run["context"]["run_id"])
@@ -598,9 +642,11 @@ class Controller:
                 "at": now(),
                 "worker_paused": worker["paused"],
                 "worker_running": worker["running"],
+                "worker_container_id": worker["container_id"],
                 "analytics_api_ready": api_ready,
                 "order_status": order["status"] if order else None,
                 "order_version": order["order_version"] if order else None,
+                "order_failure_code": order.get("failure_code") if order else None,
                 "gold_match": (
                     run["publication"]["status"] == "visible"
                     and run["publication"]["order_version"] == order["order_version"]
@@ -616,6 +662,12 @@ class Controller:
             }
             if run.get("audit") and order:
                 audit = run["audit"]
+                reservation = audit.get("reservation")
+                sample["reservation_state"] = reservation["state"] if reservation else None
+                sample["payment_attempts"] = [
+                    {k: attempt.get(k) for k in ("payment_id", "status", "failure_code")}
+                    for attempt in (audit.get("payments") or {}).get("attempts", [])
+                ] if audit.get("payments") is not None else None
                 sample["stock_on_hand"] = sum(s["on_hand"] for s in audit["stocks"].values())
                 sample["stock_reserved"] = sum(s["reserved"] for s in audit["stocks"].values())
                 sample["net_ledger_minor"] = (

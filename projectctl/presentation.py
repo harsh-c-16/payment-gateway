@@ -22,7 +22,7 @@ from shared.contracts.common import ErrorResponse, RequestContext
 
 REVISION = "flipkart-v1-3a401f32ca99379f8298ce42"
 SEARCHES = (
-    ("normal", "men's formal shirt", {}),
+    ("normal", "men's formal shirt", {"category": "clothing"}),
     ("filtered", "watches under 1000 rupees", {"category": "watches", "max_price_minor": 99999}),
     (
         "unavailable",

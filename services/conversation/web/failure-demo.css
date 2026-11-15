@@ -3,3 +3,12 @@
 @media(max-width:1000px){.failure-layout{grid-template-columns:1fr}.failure-charts{grid-template-columns:1fr 1fr}.failure-charts>.panel:first-child{grid-column:1/-1}.failure-banner p{font-size:10px}}
 @media(max-width:760px){.failure-banner{align-items:start;flex-direction:column}.failure-symbol{display:none}.failure-charts{grid-template-columns:1fr}.failure-charts>.panel:first-child{grid-column:auto}.failure-watch>div{flex-wrap:wrap}.failure-watch input{flex:1;min-width:160px}.failure-steps{gap:4px}.failure-steps li{font-size:9px}}
 .failure-charts .chart svg text{font-size:17px}
+.failure-howto{font-size:12px;line-height:1.8;padding:14px 0;color:var(--ink)}.failure-howto span{margin:0 8px;color:var(--muted)}
+.failure-live-evidence{display:grid;gap:17px;margin:17px 0}.failure-live-evidence .description{line-height:1.8;overflow-wrap:anywhere}
+.failure-execution-log{list-style:none;padding:14px;margin:15px 0 0;background:#17362f;color:#e1eee6;border-radius:9px;max-height:440px;overflow:auto;font:11px/1.8 Consolas,"Cascadia Mono",monospace;scrollbar-color:#719485 #17362f}
+.failure-execution-log .empty{color:#d0dfd5;padding:12px;text-align:left}
+.execution-entry{display:grid;grid-template-columns:200px 120px minmax(0,1fr);gap:5px 12px;padding:10px 0;border-bottom:1px solid #365349;overflow-wrap:anywhere}
+.execution-entry:last-child{border-bottom:0}.execution-entry time{color:#b6d1bc;font-size:10px}.execution-entry>strong{font-size:10px;color:#dfeba7;font-weight:600}.execution-entry>details{grid-column:3;margin:0;color:#d9e7de}.execution-entry summary{font-size:10px;cursor:pointer;color:#b8d7d0}.execution-entry pre{font:10px/1.6 Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere;margin:6px 0 0}.execution-entry.observed>strong{color:#b9dfe5}.execution-entry.service_record>strong{color:#f1d59a}
+.failure-live-evidence .failure-checks{max-height:none}.failure-live-evidence .failure-check{grid-template-columns:42px minmax(0,1fr)}.failure-live-evidence .failure-check>span{font-size:10px;font-weight:700}
+@media(max-width:1100px){.execution-entry{grid-template-columns:190px minmax(0,1fr)}.execution-entry>span,.execution-entry>details{grid-column:1/-1}}
+@media(max-width:600px){.failure-execution-log{padding:10px}.execution-entry{grid-template-columns:1fr}.execution-entry>span,.execution-entry>details{grid-column:auto}}

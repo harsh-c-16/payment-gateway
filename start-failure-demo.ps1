@@ -20,11 +20,10 @@ if ($demoState -and $demoState.available) {
         $demoState.PSObject.Properties.Name -notcontains 'journey_schema') {
         throw 'An older helper is running. Run stop-failure-demo.ps1, then start-failure-demo.ps1 to load the new scenarios.'
     }
-    $demoSupport = Join-Path $demoDirectory 'hook-support.json'
-    if (!(Test-Path -LiteralPath $demoSupport) -or !(Get-Content -LiteralPath $demoSupport -Raw | ConvertFrom-Json).enabled) {
-        & $demoPython -m benchmarks.failure_demo.setup enable
-        if ($LASTEXITCODE -ne 0) { throw 'Could not restore scoped hook support.' }
-    }
+    # Prototype startup can recreate Orders/Payments without the hook overlay.
+    # Reconcile Compose even if the previous hook-support receipt says enabled.
+    & $demoPython -m benchmarks.failure_demo.setup enable
+    if ($LASTEXITCODE -ne 0) { throw 'Could not restore scoped hook support.' }
     Write-Host 'Local failure and infrastructure helper already running. Open http://127.0.0.1:8001/dashboard'
     return
 }

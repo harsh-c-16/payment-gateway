@@ -54,16 +54,27 @@
     rows("journey-resources",(infra.resources || []).map(r=>[`${r.service} · ${r.container_id}`,r.status==="warming_up" ? "First sample · warming up" : `${fmt(r.cpu_percent)}% / ${fmt(r.allocated_cpus)} CPU`,`${mib(r.memory_bytes)} / ${mib(r.memory_limit_bytes)}`,mib(r.memory_peak_bytes),fmt(r.oom_kill_count),r.status]));
     if($("resource-note"))$("resource-note").textContent=`Observed ${stamp(infra.observed_at)} · CPU relative to allocation · cgroup memory includes page cache · first samples warm up. ${!infra.resources ? "Resource collection unavailable." : ""}`;
     const latency=data.latency || M.latency(data.events || [],data.clock || {});
-    quantiles("producer-quantiles",latency.producer_to_gold);quantiles("schedule-quantiles",latency.schedule_to_gold);
+    quantiles("producer-quantiles",latency.producer_to_gold);if(!$("schedule-note"))quantiles("schedule-quantiles",latency.schedule_to_gold);
     const counts=$("completion-counts");if(counts){counts.replaceChildren();for(const [label,key]of [["Timed events","sample_count"],["Completed","completed_count"],["Waiting","unresolved_count"]]){const d=n("div",label);d.append(n("strong",fmt(key==="sample_count" ? latency.producer_to_gold?.sample_count : latency[key])));counts.append(d);}}
-    if($("quantile-note"))$("quantile-note").textContent=`p95 means 95% of timed events were faster. Waiting events are excluded. ${data.clock?.status!=="qualified" ? "Clock check unavailable: timings withheld." : ""}`;
+    if($("quantile-note"))$("quantile-note").textContent=`p95 means 95% of timed events were faster. This bounded sample includes retained import and startup traffic. Waiting events are excluded. ${data.clock?.status!=="qualified" ? "Clock check unavailable: timings withheld." : ""}`;
     rows("latency-breakdown",(latency.breakdown || []).slice(-30).map(r=>[`${r.event_type || "Event"} · ${short(r.event_id)}`,ms(r.relay_to_observation_ms),ms(r.ingestion_ms),ms(r.publication_ms),ms(r.producer_to_gold_ms)]));
     line("end-to-end-chart",(latency.breakdown || []).map(r=>r.producer_to_gold_ms),"Observed producer-to-active-Gold milliseconds");
     const completion=$("completion-chart");if(completion){completion.replaceChildren();const total=latency.cohort_count || 0,done=latency.completed_count || 0; if(total){const graph=svg("svg",{viewBox:"0 0 340 150",role:"img","aria-label":`${done} completed and ${latency.unresolved_count} unresolved events`});graph.append(svg("rect",{x:15,y:25,width:310,height:22,rx:8,fill:"#f2e6cf"}),svg("rect",{x:15,y:25,width:310*done/total,height:22,rx:8,fill:"#648568"}),svg("text",{x:15,y:80},`${fmt(done)} completed / ${fmt(total)} observed unique IDs`),svg("text",{x:15,y:105},`${fmt(latency.unresolved_count)} unresolved`));completion.append(graph);}else completion.append(n("p","No observed cohort.","empty"));}
     const workload=data.workload || (data.lab?.run?.namespace===data.namespace ? data.lab.run : null);
     const rates=workload ? M.workloadRates(workload) : data.rates || M.workloadRates(null),target=$("workload-rates");
-    if(target){target.replaceChildren();for(const [label,key]of [["Offered traffic","offered_per_second"],["Admitted traffic","admitted_per_second"],["Completed Gold goodput","gold_goodput_per_second"]]){const row=n("div","","rate-row");row.append(n("span",label),n("strong",M.finite(rates[key]) ? `${fmt(rates[key])} / s` : "Unavailable"));target.append(row);}}
+    if(target && !$("schedule-note")){target.replaceChildren();for(const [label,key]of [["Offered traffic","offered_per_second"],["Admitted traffic","admitted_per_second"],["Completed Gold goodput","gold_goodput_per_second"]]){const row=n("div","","rate-row");row.append(n("span",label),n("strong",M.finite(rates[key]) ? `${fmt(rates[key])} / s` : "Unavailable"));target.append(row);}}
+    if($("rates-note") && !$("schedule-note"))$("rates-note").textContent=rates.basis;
+  }
+  function scheduled(data) {
+    const q=data?.latency?.schedule_to_gold,target=$("schedule-quantiles"),note=$("schedule-note");
+    if(!target || !note)return;
+    const count=q?.sample_count || 0;
+    if(count)quantiles("schedule-quantiles",q);
+    else target.replaceChildren(n("p",!data ? "Test readings could not be loaded. Refresh to retry." : data.status==="NOT_RUN" ? "No scheduled pipeline test has run yet." : data.clock?.status!=="qualified" ? "Clock check is not qualified; timings are withheld." : "Waiting for scheduled events to reach Gold.","empty"));
+    note.textContent=data?.run_id ? `${data.scenario} / ${data.status} / ${count} timed unique events, ${data.latency?.unresolved_count ?? "unknown"} waiting. Test started ${stamp(data.started_at)}. Namespace ${data.namespace}. Scheduled Kafka test delivery to active Gold; excludes storefront HTTP. Small fixture, not a capacity benchmark.` : "Run a pipeline test on Data journey. Store visits have no intended send schedule.";
+    const rates=M.workloadRates(data?.workload),rateTarget=$("workload-rates");
+    if(rateTarget){rateTarget.replaceChildren();for(const [label,key]of [["Offered traffic","offered_per_second"],["Admitted traffic","admitted_per_second"],["Completed Gold goodput","gold_goodput_per_second"]]){const row=n("div","","rate-row");row.append(n("span",label),n("strong",M.finite(rates[key]) ? `${fmt(rates[key])} / s` : "No scheduled test readings"));rateTarget.append(row);}}
     if($("rates-note"))$("rates-note").textContent=rates.basis;
   }
-  root.JourneyView={$: $,n,fmt,ms,age,stamp,short,mib,json,fields,rows,svg,line,quantiles,boundaries};
+  root.JourneyView={scheduled,$: $,n,fmt,ms,age,stamp,short,mib,json,fields,rows,svg,line,quantiles,boundaries};
 })(window);

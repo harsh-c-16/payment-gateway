@@ -57,6 +57,7 @@ Invoke-ProjectPython -Arguments @('-m','pipelines.catalog.migrate','--variant','
 $env:PROJECTCTL_ADAPTER_MODULE = 'infra.prototype'
 Invoke-ProjectPython -Arguments @('-m','projectctl','env','up','--profile','prototype-local')
 Invoke-ProjectPython -Arguments @('-m','projectctl','env','verify','--profile','prototype-local')
+& (Join-Path $PSScriptRoot 'start-failure-demo.ps1')
 $skuManifest = Join-Path $PSScriptRoot 'artifacts/prototype-setup/prototype-data/sku_manifest.json'
 if (!(Test-Path -LiteralPath $skuManifest)) { throw 'The retained SKU manifest is missing; restore it before presenting. See infra/PROTOTYPE.md.' }
 Invoke-ProjectPython -Arguments @('-m','projectctl','projection','wait','--namespace',$env:RUN_NAMESPACE,'--sku-manifest','artifacts/prototype-setup/prototype-data/sku_manifest.json','--timeout-seconds','600')

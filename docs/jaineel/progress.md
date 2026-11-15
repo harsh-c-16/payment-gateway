@@ -5432,3 +5432,181 @@ hook support disabled, helper stopped), then stop-prototype.ps1. Final scratch
 PostgreSQL cleanup is verified and docker ps -a returned no containers. Retained
 PostgreSQL/Kafka/lakehouse volumes and model files remain. Prepared delivery on
 jaineel/prototype-demo. Raw datasets, artifacts and private bindings stay ignored.
+
+## 15 November 2026 - presentation comparison handout
+
+Created PRESENTATION_COMPARISON.md with two slide-ready tables, numerical reasons,
+trade-offs, candidate/deployment labels, scope footnotes and a copyable LLM prompt.
+PRESENTATION_COMPARISON.csv contains machine-readable exact values derived from
+artifacts/defense/20261114-professor-final/defense-report.json. Verified index values
+and percent arithmetic against saved evidence. Clarified that summary-only size
+reduction is not a saving from retaining both raw and summary files; the measured
+summary query was slower. Kept unqualified comparisons/refund NOT_RUN explicit.
+No new experiments or Docker containers. These presentation files are local additions;
+no new commit or push was requested for this documentation follow-up.
+
+## 15 November 2026 - restore live dashboard observations
+
+The prototype's 12 containers were healthy but the dashboard controller on 8010
+was absent. Started start-failure-demo.ps1; state and infrastructure reads became
+available. Added that launcher to start-prototype.ps1 after environment readiness.
+Its existing-helper branch now reconciles the hook Compose overlay rather than
+trusting an old enabled receipt after Orders/Payments were recreated. Shutdown
+now delegates recovery/helper stop before removing containers; its new branch
+was syntax-checked, not exercised because the user requested the running app.
+
+Recovery controls now connect on page load and retry after connection failures.
+Main Refresh and visibility restore also retry. Infrastructure plots measured
+partitions when peers lack committed offsets, labels the partial total and breaks
+the line when coverage changes. Missing values remain null. Initial and stale
+messages are distinct. Hide a prepared product from an unrelated finished run;
+show 'No events awaiting active Gold' at zero, and identify retained import/startup
+traffic in the latency sample. Updated asset versions for refreshed browsers.
+
+Corrected presentation preflight's explicit normal-query expectation to category
+clothing, matching current deterministic parsing and returned product categories.
+Missing/changed filters still fail; adjusted the extra-filter negative fixture.
+Command: .venv/Scripts/python.exe -m pytest tests/projectctl/test_presentation.py -q
+Outcome: 36 passed. Ruff, JS syntax, PowerShell parser and git diff --check passed.
+No CI/CD execution.
+
+Added benchmarks/manual/dashboard_activity.py: six bounded fixed-mode public
+shopping searches by default, with exact event-ID membership checks against
+queryable active Gold. Optional --simulate-purchases submits one consent-gated
+controller checkout and requires independent verification to pass. No page load
+generates activity; no raw Kafka writes, reset or fake metric data. Progress and
+raw responses remain under a fresh ignored artifact directory.
+
+Ran .\start-prototype.ps1 successfully: all 12 containers verified; projection
+19920/19920, six presentation checks PASS, real hybrid check PASS. Evidence:
+artifacts/presentation/540f2b37-0c58-4b39-bac4-5b655e95a6ff;
+artifacts/retrieval/verify-a147221e5fea4d7cbaf013bad5d81b82.
+Ran .venv/Scripts/python.exe -m benchmarks.manual.dashboard_activity
+--simulate-purchases --out artifacts/dashboard-activity/20261115-live.
+Six searches each had two exact search events visible in Gold; one confirmed
+order 5b2adb31-e7b9-4dee-b42e-456786e16fe9 passed 12 independent checks.
+No fault remained active. All six committed lag partitions then measured zero;
+all 12 cgroup resource rows were available. This is demo activity, not a benchmark.
+
+Live Edge verification: RUN_DASHBOARD_BROWSER_LIVE=1, DASHBOARD_ACTIVITY_FILE=
+artifacts/dashboard-activity/20261115-live/activity.json, node
+tests/conversation/dashboard-helper.browser.cjs. PASS at
+artifacts/dashboard-helper-browser/1794740464721. Verified initial automatic
+connection after two browser-only aborted state requests; one explicitly labelled
+partial-reading UI projection retained the graph; restored real readings;
+12 container rows, six lag rows, desktop/mobile widths, no JS errors or mutation
+requests beyond optional session bootstrap. Live Journey also reached Live with
+no connection/JS errors; journey-live.json and PNG retained in the same directory.
+Dashboard and prototype left running for the user. Current task did not request
+a commit or push; existing presentation-handout edits preserved.
+
+## 15 November 2026 - visible failure execution log
+
+The existing recovery test controls worked, but journal/checks were hidden under
+the technical-evidence disclosure. Made the execution log and expected/observed
+checks visible, added the numbered Prepare test / Run failure test instructions,
+and kept stock/payment/timing graphs in their existing optional disclosure.
+Moved the error alert outside the conditionally hidden result workspace so a
+failed baseline request is visible before a run exists. Consent and single-use
+purchase controls remain required. Normal refresh does not submit another test.
+
+Added services/conversation/web/failure-evidence.js to merge real journal actions
+and changed sampled API states into a chronological execution log. UTC timestamps,
+component names and expandable IDs/fields show fault acknowledgement, quote and
+checkout acknowledgement, order version/failure code, reservation, stock,
+payment attempts/ledger, recovery and exact active Gold visibility. Actual ledger
+and checkpoint records retain their own timestamps and are marked service records.
+Missing readings stay missing; repeated samples add no fake transitions. No raw
+container stdout is exposed or claimed. Log details use a fixed field allowlist.
+
+Enriched the existing controller journal after acknowledged fault-plan/quote/
+checkout actions and worker resume. Added worker identity, reservation state,
+payment status/failure code and order failure code to bounded observation samples.
+Stopped and restarted only the helper after confirming no run/fault was active.
+
+Checks: node --test tests/conversation/failure-evidence.test.cjs: 8 passed.
+.venv/Scripts/python.exe -m pytest tests/benchmarks/test_failure_demo.py -q:
+25 passed, one existing Starlette/httpx deprecation warning. Ruff, JS syntax and
+git diff --check passed. No CI/CD execution.
+
+Real Edge run: RUN_FAILURE_BROWSER_LIVE=1, SIMULATE_PURCHASES=1, node
+tests/conversation/failure-execution.live.cjs. PASS. One explicitly consented
+analytics-pause test submitted one simulated checkout; worker paused, order
+CONFIRMED v6 while exact Gold was pending, worker resumed in the same container,
+then exact Gold became visible at generation 264. Order
+1f94532a-8d8d-4441-8cc1-80b5df2f53d8; run b9cf3c62-2ef9-429f-b1da-ed74adcc05e1.
+All 14 independent checks passed and the browser displayed 24 actual log entries.
+Evidence and screenshots: artifacts/failure-execution-browser/1794741367085.
+One separately labelled browser-only 503 projection proved Prepare errors are
+visible; the following fault/checkout/recovery run used real services. Desktop
+and mobile widths passed; no JS errors. A read-only fresh page retained the
+completed result, 24 log entries and 14 checks, and the main dashboard returned
+to Live. No fault remains active. Prototype and helper remain running.
+
+## 15 November 2026 - scheduled measurements on the dashboard
+
+Scheduled-send quantiles were null because dashboard-observability read only the
+store namespace, where interactive requests have no intended schedule. Added the
+read-only /journey/measurement helper route. It selects the latest fixture with
+planned emissions, joins actual delivery coordinates to observed receipt/Gold
+evidence using the existing attach/latency logic, and returns a distinct cohort.
+The panel and traffic rates now read that cohort every ten seconds and on Refresh;
+the live store producer-to-Gold panel retains its own source. Display run status,
+namespace, started time, timed sample count, waiting count and Kafka-to-Gold scope.
+With no test, no qualified clock or no completed observations, display the actual
+reason and a link to Data journey rather than three generic Unavailable values.
+
+First fresh duplicate fixture d462fd93-6cc2-4c3a-bf96-be340a1d103f failed while
+atomically replacing run.json on the Windows Docker bind mount (PermissionError
+with a concurrent reader). Its failed evidence is retained. The first browser
+attempt timed out waiting for that incomplete fixture. Added bounded retries to
+write_json, preserving the previous complete JSON and raising if access does not
+recover. A focused test injects a sharing collision and checks replacement safety.
+
+Re-ran a real isolated duplicate fixture: run
+6cfde2b4-ef80-4aab-950c-faeada2e9228, Passed; two unique timed events, zero waiting.
+Scheduled-to-Gold p50=6552.684 ms, p95=p99=6802.684 ms. Browser displays 6.6/6.8/6.8 s.
+Three planned/acknowledged deliveries over the five-second window: offered and
+admitted 0.6/s, within-window Gold goodput 0/s (completions occurred during drain,
+as the rate note explains). These tiny-fixture quantiles are not a load benchmark.
+Evidence, raw fixture, derived measurement and real Edge screenshot:
+artifacts/scheduled-dashboard/live-20261115. No JS errors on the final dashboard
+check. Tests: tests/benchmarks/test_journey.py, 24 passed; Ruff, JS syntax and diff
+checks passed. The helper was restarted to load the new route. No purchases were
+submitted for this task. Prototype/helper remain running; no commit/push requested.
+
+## 15 November 2026 - one failure-test action
+
+Combined the separate Prepare and Run controls into the single Prepare test
+button requested by the user. Automated mode requires consent before that click;
+it captures the baseline, then starts the controller's existing single-use test.
+Manual analytics mode uses the same button to capture baseline and pause the
+worker; the normal store confirmation and manual recovery remain available.
+Removed the separate Run and Pause buttons, updated instructions, and disabled
+the main button/consent while submission or a run is active. Busy handling blocks
+double clicks; an existing untriggered baseline can be resumed without creating
+another run. Polling/reloading never starts a purchase. Log/evidence remain visible.
+
+Updated live browser verification for consent before preparation and a single
+click through real baseline, fault injection, checkout and recovery. Passed:
+artifacts/failure-execution-browser/1794749167730. Exactly one test submission,
+14 independent checks, 26 displayed log entries, no JavaScript errors; completed
+refresh does not submit again. The explicit Prepare-error UI projection remains
+separate from the real transaction. JS syntax/diff checks passed. No load-testing
+implementation or commit/push. Prototype/helper remain running.
+
+## 15 November 2026 - shorter failure-test form
+
+Shortened the default controls to one Test picker, one scenario-specific sentence,
+Allow one simulated order (no real payment), and Prepare test. Removed duplicate
+headings, numbered option prefixes, repeated how-to/precondition paragraphs and
+the always-visible implementation/bounds footnote. Manual checkout remains in a
+collapsed Manual demo disclosure. Progress/error messages still show when needed;
+technical observations, bounds, logs, checks and recovery controls remain available.
+Consent still gates the single combined action and resets when the scenario changes.
+
+Read-only Edge verification passed for all six scenario descriptions and consent
+gating, a single visible select, collapsed manual mode, desktop/mobile widths,
+zero controller mutation requests and zero JS errors. Evidence:
+artifacts/simple-failure-controls/1794749625209. JS syntax and diff checks passed.
+No extra simulated purchases, load tests or commit/push. Services remain running.

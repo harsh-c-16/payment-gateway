@@ -96,6 +96,32 @@ def install(app, controller, infrastructure):
     def observations(namespace: str | None = Query(default=None, max_length=62)):
         return snapshot(namespace)
 
+    @app.get("/journey/measurement")
+    def scheduled_measurement():
+        # Store visits have no intended send schedule. Keep this fixture cohort
+        # separate from the store's live producer-to-Gold observations.
+        for saved in lab.history():
+            run = lab.evidence(saved["id"])
+            if not run.get("planned_emissions"):
+                continue
+            observed = scoped(run["namespace"]).snapshot()
+            attach(observed, run)
+            return {
+                "status": run["status"],
+                "run_id": run["id"],
+                "scenario": run["scenario"],
+                "namespace": run["namespace"],
+                "started_at": run["started_at"],
+                "observed_at": observed["observed_at"],
+                "clock": observed["clock"],
+                "latency": observed["latency"],
+                "workload": {
+                    key: run.get(key)
+                    for key in ("measurement_window", "planned_emissions", "emissions", "receipts")
+                },
+            }
+        return {"status": "NOT_RUN", "latency": None, "workload": None}
+
     @app.get("/journey/trace")
     def trace(
         kind: Literal["order", "search", "event"],
