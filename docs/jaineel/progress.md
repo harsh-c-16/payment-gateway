@@ -5800,3 +5800,161 @@ helper were kept available. No load test, new purchase or fault injected by this
 Manual presentation: Ctrl+F5 /dashboard in the same browser as the store; search in the
 store to update session timings; explain the four graphs; expand Failure & recovery lab,
 choose a test and authorize one simulated order only when ready to demonstrate it.
+
+## 15 November 2026 - personal M1/M0 presentation and viva preparation
+
+User requested their own architecture comparisons, schema choices/alternatives,
+what worked/failed, edge-case handling and data engineering explanation for the
+16 November presentation, with tests where useful. Branch inspected first:
+`jaineel/prototype-demo`; initial working tree was clean. Read ownership, Jaineel's
+brief, relevant context/common/evaluation/dataset/runbook sections, shopping
+extension, implementation, existing reports and retained local evidence.
+
+Changed paths:
+- `docs/jaineel/PERSONAL_VIVA_GUIDE_2026_11_16.md`: detailed personal guide, architecture
+  diagram, actual schema/table grains, considered versus measured alternatives,
+  retention/summary/index answers, M1 and cross-service edge cases, DE methodology,
+  failed attempts, measured limits, assistant-mode distinction and source provenance.
+- `docs/jaineel/PERSONAL_SPEAKING_NOTES_2026_11_16.md`: six-slide rehearsal outline,
+  short answers and measured numbers, with the same ownership/evidence boundaries.
+- This progress entry. Application implementations, migrations and shared contracts
+  were not edited. No commit/push was requested or performed.
+
+Local evidence/helper paths (ignored):
+`artifacts/presentation/20261115-jaineel/{verify.py,command.json,correctness.xml,pytest.log,evidence-verification.json}`.
+The helper invokes existing `benchmarks.defense_report.verified_run`, `aggregate`
+and `edge_evidence`. It verified 190 saved measurement-file hashes, 60 index
+comparator groups containing 1,800 timed observations, and all seven retained real
+pipeline scenario records. These are reused measurements/live-run receipts, not
+newly executed SQL timings or seven new real transactions.
+
+Exact orchestration command from repository root:
+
+```powershell
+$env:PYTHONPATH = '.'
+.venv/Scripts/python.exe artifacts/presentation/20261115-jaineel/verify.py
+```
+
+The helper privately derives the test DB binding from the existing Conversation
+container, changes only its network host to the published loopback endpoint, and
+sets `CONVERSATION_MAX_CONNECTIONS=3` to match that deployment. Credentials are not
+written into command manifests or documentation; any connection detail in retained
+failure logs/XML was redacted. Each PostgreSQL test creates/drops only its own
+`p6_test_*` schema. No operational rows were changed.
+
+Exact final child invocation (repository-relative paths; `command.json` retains
+the resolved absolute executable and JUnit path):
+
+```powershell
+.venv/Scripts/python.exe -m pytest tests/conversation/test_state.py tests/conversation/test_workflow.py tests/conversation/test_assist.py tests/conversation/test_shared_events.py tests/conversation/test_intent.py tests/conversation/test_search_regressions.py tests/conversation/test_shopping.py tests/conversation/test_shopping_llm.py tests/conversation/test_dashboard.py tests/benchmarks/test_scheduler.py tests/benchmarks/test_metrics.py tests/benchmarks/test_comparison.py tests/benchmarks/test_performance_metrics.py tests/benchmarks/test_assistant_evaluation.py tests/benchmarks/test_defense.py tests/benchmarks/test_failure_demo.py tests/benchmarks/test_journey.py tests/oracles/test_reconciliation.py tests/telemetry -q -ra -o cache_dir=artifacts/presentation/20261115-jaineel/cache -o junit_family=legacy --tb=short --junitxml artifacts/presentation/20261115-jaineel/correctness.xml
+```
+
+Actual outcomes, with failed evidence preserved:
+- Initial wrapper attempt disabled pytest's cache provider while existing suite
+  conftests require its `cache_dir` setting: configuration error, exit 1, no tests
+  executed. Retained `pytest-initial-configuration-error.log`, `command-initial.json`.
+  Restored the normal provider with an explicit ignored cache directory.
+- First executed suite: 648 passed, 1 failed, 0 skipped in 128.30 s. The concurrent
+  optional-intent replay test hit the shared role's ten-connection limit because
+  tests used the default ten API slots while demo services also ran. Retained
+  `first-suite-{pytest.log,correctness.xml,command.json,evidence-verification.json}`.
+- Final same suite, aligned to the deployed three-slot API budget (including the
+  reserved audit slot): **649 passed, 0 failed, 0 errors, 0 skipped, exit 0**, 92.12 s.
+  No assertion/application changes. One existing Starlette/httpx deprecation warning.
+  Legacy JUnit output preserves existing scenario properties without the initial
+  xunit2 compatibility warnings.
+- Real PostgreSQL M1 storage; explicit catalogue/Orders/model/transport doubles
+  where applicable. Shared-event tests use real shared codec/outbox/diagnostics
+  with doubled registry identifiers. This is focused correctness coverage, not a
+  new real multi-service integration, live-model evaluation or throughput campaign.
+
+Provenance finding: retained measurements used original source SHA
+`56f8f699c9e847356666c2eab3c3ab1244340f6a98ad08e39ea2199ebe993ad1`;
+current working CSV hashes to
+`ee268fd4222dd68ea8429016b3ee044418aecffc89551a1409a2c4da063df466`
+after the earlier explicitly requested colour edit. The guide attributes old
+measurements to their source, points to the preserved snapshot, and requires an
+isolated original-source run or a Harsh-coordinated new revision for reproduction.
+No frozen checksum, source bytes or prior benchmark evidence was rewritten here.
+
+Remaining handoffs/limits: qualified B0/combined/scaling/stress matrix and its
+resource/clock/review gates remain outside this presentation checkpoint. The old
+276-observation collector-failed run stays unqualified; fresh refund rehearsal
+remains NOT_RUN after catalogue 503 before purchase. Retention/index probes remain
+local component evidence and do not establish production capacity. The operational
+M1 schema is relational plus JSONB, not a demonstrated star schema.
+
+Manual verification: rehearse the short notes, use the full guide for follow-up
+questions, keep the measured report open for controls/plans, and identify dashboard
+values as live versus saved. Use existing explicit purchase controls only if a new
+simulated demonstration is desired. No new live purchase, model call or service
+fault was injected by this preparation. Prototype containers remain available.
+
+Final document checks: `git diff --check` exit 0. A local Python check validated
+all 19 relative file links across both guides, balanced code fences and no trailing
+whitespace; no missing links. Final JSON receipt agrees with the 649-pass JUnit
+result. Only the two new personal guides and this progress file are Git changes.
+
+## 15 November 2026 - simplified recovery timeline
+
+User requested a simpler technical failure/recovery timeline, removal of the Stock,
+payment and timing graphs section, and removal of the supporting-evidence hint.
+
+Changed services/conversation/web/dashboard.html, failure-demo.js and
+dashboard-demo.css. Scenario selection now includes a clearly labelled expected
+sequence. Actual evidence appears as connected timeline nodes with relative time,
+source and observation/action/record basis. Default view selects important order,
+reservation, ledger, recovery and Gold observations; the checkbox exposes every
+existing observation/setup action. Final audit status and check counts are visible;
+exact assertions, service states and identifiers remain expandable. Consent and
+all six fault controls are preserved. Removed old graph markup and its rendering
+functions. No purchase or fault was submitted.
+
+Checks: node --check services/conversation/web/failure-demo.js passed;
+node --test tests/conversation/failure-evidence.test.cjs
+tests/conversation/dashboard-presentation.test.cjs: 16 passed.
+git diff --check passed. Read-only Playwright/Edge check against the running
+dashboard and saved refund result: 11 summary entries / 31 full entries, toggle
+works, no JS errors or horizontal overflow at 1440 and 390 pixels.
+Evidence: artifacts/recovery-timeline/final-checks.json and final-*.png.
+Initial screenshot review prompted the shorter default sequence and corrected
+the arrow glyph and controller copy. Final browser checks passed after those edits.
+
+Manual: hard-refresh /dashboard, expand Failure & recovery lab, select a scenario;
+inspect the labelled expected sequence and saved timeline. A new test still
+requires the explicit simulated-order checkbox. No backend changes, restart,
+commit or push.
+
+## 15 November 2026 - pipeline test story
+
+Simplified Test the pipeline in the Data journey page. Changed web/journey.html,
+journey.js, journey.css and added web/pipeline-story.js under services/conversation.
+Expected sequences cover all seven cases. Actual timeline uses producer records,
+consumer receipts, Gold queries, replay records and final checks; timestamps are
+taken only from the saved evidence. Consumer dispositions without a precise
+classification timestamp are explicitly Untimed. Result panel shows actual check
+values/verdicts. Raw delivery/offset and expected-versus-observed tables move into
+an expandable detail section. Consent and existing execution controls remain intact.
+
+Validation: node --check on both JavaScript files; git diff --check.
+node --test tests/conversation/journey.test.cjs: 12 passed.
+Read-only projection probes against seven retained real scenario records passed,
+including missing-run/pending behavior and no invented classification timestamps.
+The initial probe wrongly compared chronologically sorted rows by original receipt
+index; corrected the probe to compare timestamped classification counts.
+Playwright/Edge opened a saved passing race result through the real history UI:
+desktop 1440 and mobile 390, no overflow, no JS errors, no mutation requests.
+Evidence: artifacts/pipeline-story/checks.json and screenshots. Screenshot review
+also corrected an encoding artifact in the saved-result separator.
+No fresh test deliveries, orders or faults were submitted. Manual: Ctrl+F5 /journey,
+choose a case, inspect the expected sequence; open Previous test results to show
+a retained timeline or explicitly run a new test. No commit/push.
+
+## 15 November 2026 - requested current-code push
+
+Replaced the recovery timeline's accidental question-mark separator with an ASCII
+dash. User explicitly requested committing/pushing the current work. Included both
+timeline UI changes, the existing personal viva/speaking guides and progress notes.
+Validation: JavaScript syntax checks passed; the failure-evidence,
+dashboard-presentation and journey Node suites passed all 28 tests; git diff --check
+passed. No raw datasets, credentials or artifact directories are staged.
