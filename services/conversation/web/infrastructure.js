@@ -41,6 +41,8 @@
       for(const p of history){if(p.lag===null){draw();continue;}const x=50+(Date.parse(p.at)-start)/duration*610,y=175-p.lag/max*150;segment.push(`${x},${y}`);const dot=svg('circle',{cx:x,cy:y,r:3,fill:'#356b50'});dot.append(svg('title',{},`${p.at}: ${p.lag} records`));graph.append(dot);}draw();
       graph.append(svg('text',{x:5,y:25},`${max} records`),svg('text',{x:50,y:200},new Date(history[0].at).toLocaleTimeString()),svg('text',{x:660,y:200,'text-anchor':'end'},new Date(history.at(-1).at).toLocaleTimeString()));chart.append(graph);
     } catch(e) {
+      window.DashboardPresentation?.stale('infrastructure');
+      if(history.length)history.push({at:new Date().toISOString(),lag:null,coverage:null});
       if(!history.length){$('infra-lag-summary').textContent='Kafka lag unavailable.';$('infra-lag-chart').textContent='No infrastructure readings received. Start the local helper and click Refresh.';for(const id of ['infra-lag','infra-resources']){const row=document.createElement('tr'),td=cell('Readings unavailable');td.colSpan=6;row.append(td);$(id).replaceChildren(row);}}
       $('infra-state').textContent=history.length ? 'Connection lost. Showing the last readings; reconnecting automatically.' : 'Connecting to the local helper. If it stays offline, run .\\start-failure-demo.ps1.';
     } finally {busy=false;}

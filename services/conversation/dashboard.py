@@ -248,6 +248,11 @@ def snapshot(state, workflow, session_id, context):
             "total_ms": r["response"]["timings_ms"]["total"],
             "model_ms": r["response"]["timings_ms"]["llm"],
             "search_ms": r["response"]["timings_ms"]["search"],
+            "search_executed": r["response"]["search_id"] is not None
+            or r["response"]["timings_ms"]["search"] > 0,
+            "llm_calls": r["response"]["llm_call_count"],
+            "failure_code": (r["intent_diagnostic"] or {}).get("reason_code")
+            if r["response"]["outcome"] == "dependency_error" else None,
         }
         for r in reversed(rows)
     ]

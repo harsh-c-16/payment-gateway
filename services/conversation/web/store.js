@@ -110,6 +110,7 @@ async function executePending() {
     delete S.pending; save();
     notice("");
     if (operation.label === "chat") {
+      if(/^new search\b/i.test(operation.body.text.trim())){delete S.new_search;save();}
       await restoreConversation();
       if (data.outcome === "dependency_error") {
         S.failed_search = operation.body; save();
@@ -147,16 +148,28 @@ async function mutate(label, path, body, method = "POST") {
 }
 
 function image(element, urls, alt) {
-  let selected = "/assets/placeholder.svg";
+  const candidates=[];
   for (const raw of urls || []) {
-    try { const u = new URL(raw); if (["https:", "http:"].includes(u.protocol) && !u.username && !u.password) { selected = u.href; break; } } catch { /* Unusable source link: use a local placeholder. */ }
+    try {
+      const u=new URL(raw);
+      if(!["https:","http:"].includes(u.protocol) || u.username || u.password)continue;
+      if(["img5a.flixcart.com","img6a.flixcart.com"].includes(u.hostname)){
+        u.hostname="rukminim2.flixcart.com";u.protocol="https:";u.port="";
+      }
+      if(!candidates.includes(u.href))candidates.push(u.href);
+    }catch{/* Ignore malformed source URLs. */}
   }
   element.alt = alt; element.referrerPolicy = "no-referrer";
-  const fallback = () => { clearTimeout(timer); element.onerror = null; element.src = "/assets/placeholder.svg"; };
-  const timer = setTimeout(() => { if (!element.complete || !element.naturalWidth) fallback(); }, 5000);
-  element.onload = () => clearTimeout(timer);
-  element.onerror = fallback;
-  element.src = selected;
+  let timer,index=0;
+  const next=()=>{
+    clearTimeout(timer);
+    if(index>=Math.min(candidates.length,4)){
+      element.onerror=null;element.onload=null;element.src="/assets/placeholder.svg";return;
+    }
+    element.onerror=next;element.onload=()=>clearTimeout(timer);
+    timer=setTimeout(next,5000);element.src=candidates[index++];
+  };
+  next();
 }
 function renderProducts(products) {
   $("products").replaceChildren(); $("empty").hidden = products.length > 0;
@@ -231,7 +244,7 @@ async function browse(reset = true) {
 }
 async function restoreConversation() {
   const snapshot = await request(`/v1/sessions/${S.session_id}`);
-  S.memory = snapshot.conversation; save();
+  S.memory = S.new_search ? {retrieval_mode:snapshot.conversation.retrieval_mode,messages:[],products:[],intent:null,pending:[],seen_skus:[],selected_sku:null} : snapshot.conversation; save();
   $("messages").replaceChildren();
   for (const message of S.memory.messages || []) {
     const block = text("div", "", "message " + (message.role === "user" ? "user" : "assistant"));
@@ -480,9 +493,13 @@ $("chat-input").addEventListener("keydown", (event) => {
 });
 document.querySelectorAll("[data-prompt]").forEach(b => b.addEventListener("click", safe(() => sendChat(b.dataset.prompt))));
 $("new-search").addEventListener("click", () => {
-  // The "New search:" prefix makes the server start from blank preferences.
+  // Keep the cart/session identity, but clear this search immediately. The
+  // prefix resets durable search memory before the next model call.
   $("chat-input").value = "New search: "; $("chat-input").focus();
   $("preferences-panel").hidden = true;
+  $("messages").replaceChildren();
+  S.memory={retrieval_mode:retrievalMode,intent:null,pending:[],products:[],seen_skus:[],selected_sku:null,messages:[]};
+  delete S.failed_search;
   S.new_search = true; save();
 });
 $("more-options").addEventListener("click", safe(() => sendChat("Show more options")));

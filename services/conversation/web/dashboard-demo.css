@@ -1,0 +1,84 @@
+/* Dashboard-only presentation layer; the store and Data journey retain their layouts. */
+.demo-dashboard{--paper:#f4f6f4;--muted:#52675f;--line:#dce5df}
+.demo-dashboard main{max-width:1700px;padding:34px 36px 24px}
+.demo-dashboard .sidebar{width:180px;background:#163c33}
+.demo-dashboard .sidebar nav a{font-size:14px}
+.demo-dashboard .eyebrow{font-size:11px;letter-spacing:1.5px;color:#527467;margin-bottom:12px}
+.demo-dashboard h1{font-size:36px!important}
+.demo-dashboard .subtitle{font-size:14px}
+.demo-dashboard .toolbar{font-size:12px;padding:14px 0}
+.demo-dashboard .button{font-size:12px;min-height:39px;padding:10px 14px}
+.demo-dashboard .badge{font-size:11px}
+.demo-dashboard .section-title{margin:30px 0 16px;align-items:center}
+.demo-dashboard h2{margin:0;font-size:21px}
+.demo-dashboard .section-note{font-size:12px;max-width:390px}
+.demo-dashboard .kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.demo-dashboard .kpi{padding:18px;border-radius:12px;box-shadow:0 2px 3px #193e3203}
+.demo-dashboard .kpi:first-child{background:#e7efdf}
+.demo-dashboard .kpi .label{font-size:12px;font-weight:600}
+.demo-dashboard .kpi strong{font-size:29px;letter-spacing:-1px;margin:10px 0 7px;font-variant-numeric:tabular-nums}
+.demo-dashboard .kpi .detail{font-size:11px;line-height:1.6}
+.metric-stale{display:block;color:#9b5525;font-size:11px;margin-top:5px}
+.demo-dashboard .scope{padding:12px 0 0;font-size:11px}
+.demo-dashboard .services{margin-top:14px;background:transparent;border:0;display:flex;flex-wrap:wrap;gap:6px 18px}
+.demo-dashboard .service{border:0;padding:2px 0;font-size:12px;font-weight:500}
+.demo-dashboard .service small{display:inline;padding-left:6px;font-size:11px}
+.demo-dashboard .metrics-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.demo-dashboard .panel{border-radius:12px;padding:22px}
+.demo-dashboard .panel .panel{box-shadow:none}
+.demo-dashboard .chart-heading{display:flex;gap:12px;align-items:start;min-height:62px}
+.chart-number{background:#edf3eb;border:1px solid #dce7d8;border-radius:8px;font-size:12px;padding:7px;color:#527347;font-weight:600}
+.demo-dashboard h3{font-size:16px;margin-bottom:6px}
+.demo-dashboard .description{font-size:12px;line-height:1.7}
+.demo-dashboard .chart{min-height:190px;margin-top:14px}
+.demo-dashboard .chart svg text{font-size:11px;fill:#52675f}
+.demo-dashboard .chart svg{max-height:260px}
+.demo-dashboard #infra-lag-chart{min-height:190px;margin-top:14px}
+.demo-dashboard .footnote{font-size:11px;line-height:1.7}
+.demo-dashboard .quantiles{margin-top:12px;display:flex;gap:30px;padding:10px 0;border-bottom:1px solid var(--line)}
+.demo-dashboard .quantiles>div{font-size:11px;color:var(--muted)}
+.demo-dashboard .quantiles strong{display:block;font-size:19px;color:var(--ink);margin-top:4px}
+.legend{display:flex;flex-wrap:wrap;gap:18px;font-size:11px;color:var(--muted);margin-top:10px}
+.legend span:before{content:"";display:inline-block;width:14px;height:3px;margin:0 6px 3px 0;background:#356b50}
+.legend .model:before{background:#b77a21}.legend .retrieval:before{background:#3978ac}
+.demo-dashboard details.panel{margin:16px 0;padding:18px 22px}
+.demo-dashboard details.panel>summary{font-size:14px;padding:3px 0}
+.demo-dashboard details.panel[open]>summary{margin-bottom:20px}
+.demo-dashboard #failure-demo{margin-top:28px;border-left:4px solid #648568}
+.demo-dashboard .failure-banner{background:transparent;color:var(--ink);border-radius:0;padding:0 0 14px;border-bottom:1px solid var(--line)}
+.demo-dashboard .failure-banner h3{font-size:19px;font-weight:650}
+.demo-dashboard .failure-banner p{color:var(--muted);font-size:12px}
+.demo-dashboard .failure-banner>.button{background:white;border-color:var(--line)}
+.demo-dashboard #failure-demo .failure-layout{grid-template-columns:minmax(260px,.75fr) minmax(0,1.25fr);align-items:start}
+.demo-dashboard .failure-controls select{font-size:13px;padding:12px}
+.demo-dashboard .failure-controls label{font-size:12px}
+.demo-dashboard .failure-concept{margin:8px 0 14px;padding:12px}
+.demo-dashboard .failure-concept p{margin:0}
+.demo-dashboard .failure-facts{gap:10px 16px}
+.demo-dashboard .failure-facts strong{font-size:12px}
+.demo-dashboard .failure-facts span{font-size:11px}
+.demo-dashboard .failure-message{font-size:12px}
+.demo-dashboard .failure-workspace .panel-heading p{font-size:11px}
+.demo-dashboard .failure-live-evidence{grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);align-items:start}
+.demo-dashboard .failure-execution-log{background:#f8faf7;color:var(--ink);font-family:inherit;font-size:12px;line-height:1.7;border:1px solid var(--line);max-height:520px;padding:0 16px;scrollbar-color:#a5b6ac #f8faf7}
+.demo-dashboard .execution-entry{grid-template-columns:70px minmax(0,1fr);gap:5px 12px;border-color:var(--line);padding:14px 0}
+.demo-dashboard .execution-entry time{color:var(--muted);font-size:11px}
+.demo-dashboard .execution-entry>strong{font-size:12px;color:#285d4b}
+.demo-dashboard .execution-entry>span{grid-column:2;font-size:12px;line-height:1.7}
+.demo-dashboard .execution-entry>details{grid-column:2;color:var(--muted);border:0;padding:0}
+.demo-dashboard .execution-entry summary{color:var(--muted);font-size:10px;font-weight:500}
+.demo-dashboard .execution-entry pre{font-size:11px}
+.demo-dashboard .failure-execution-log .empty{color:var(--muted);background:transparent}
+.demo-dashboard .failure-check{grid-template-columns:44px minmax(0,1fr);gap:5px 8px}
+.demo-dashboard .failure-check strong{font-size:12px}.demo-dashboard .failure-check small{font-size:11px}
+.demo-dashboard .failure-checks{max-height:520px;overflow:auto}
+.demo-dashboard .failure-check>details{grid-column:2;padding:0;margin:0;border:0;font-size:11px}
+.demo-dashboard .failure-check pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:10px}
+.demo-dashboard table{font-size:12px}.demo-dashboard th{font-size:10px}
+.demo-dashboard .mini-stats>div{font-size:11px}
+.demo-dashboard #supporting{margin-top:30px}
+.demo-dashboard footer{font-size:11px}
+@media(max-width:1150px){.demo-dashboard main{padding:28px 24px}.demo-dashboard .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.demo-dashboard #failure-demo .failure-layout,.demo-dashboard .failure-live-evidence{grid-template-columns:1fr}}
+@media(max-width:800px){.demo-dashboard .metrics-grid{grid-template-columns:1fr}.demo-dashboard .section-note{display:none}.demo-dashboard main{padding:24px 20px}.demo-dashboard .panel{padding:18px}}
+@media(max-width:760px){.demo-dashboard .sidebar{width:auto}.demo-dashboard .sidebar nav{margin-top:12px}.demo-dashboard .page-header{flex-wrap:wrap}.demo-dashboard .section-title{gap:12px;flex-wrap:wrap}.demo-dashboard h1{font-size:30px!important}}
+@media(max-width:440px){.demo-dashboard .kpis{grid-template-columns:1fr 1fr;gap:8px}.demo-dashboard .kpi{padding:12px}.demo-dashboard .kpi strong{font-size:24px}.demo-dashboard .kpi .detail{font-size:10px}.demo-dashboard .quantiles{gap:18px}.demo-dashboard .panel{padding:14px}}

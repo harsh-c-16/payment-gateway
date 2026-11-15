@@ -60,6 +60,16 @@ class Resolution:
     selected_sku: str | None = None
 
 
+def category_question(dictionary):
+    roots = {r["id"]: r["label"] for r in dictionary.get("roots", [])}
+    preferred = [key for key in ("clothing", "footwear", "watches", "jewellery") if key in roots]
+    choices = [roots[key] for key in (preferred + [k for k in roots if k not in preferred])[:4]]
+    if not choices:
+        return "What kind of product would you like?"
+    options = ", ".join(choices[:-1]) + " or " + choices[-1] if len(choices) > 1 else choices[0]
+    return f"What kind of product would you like: {options}?"
+
+
 def resolve(text, memory, dictionary):
     """Merge explicit refinements; never infer a purchase or relax a hard constraint."""
     normalized = canonical_text(text)
@@ -194,6 +204,8 @@ def resolve(text, memory, dictionary):
         if missing
         else None
     )
+    if missing and missing[0] == "query_text" and not intent.get("category"):
+        question = category_question(dictionary)
     result = replace(
         result,
         intent=intent,
@@ -371,6 +383,9 @@ class ShoppingWorkflow(FixedWorkflow):
 
         def handle(body, scoped, raw):
             memory = ShoppingMemory.model_validate(raw)
+            fresh = bool(re.match(r"\s*(?:new search|start over|start again)\b", body.text, re.I))
+            if fresh:
+                memory = ShoppingMemory(retrieval_mode=memory.retrieval_mode)
             options = {"mode": body.retrieval_mode or memory.retrieval_mode}
             resolution = None
 
@@ -383,7 +398,7 @@ class ShoppingWorkflow(FixedWorkflow):
                         if "hybrid_exact" in capabilities["search_modes"]
                         else "lexical"
                     )
-                if body.selected_sku:
+                if body.selected_sku and not fresh:
                     product = next(
                         (p for p in memory.products if p["sku"] == body.selected_sku), None
                     )

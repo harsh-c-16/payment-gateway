@@ -90,6 +90,10 @@ def explicit_facets(text, maps):
     A recognized prefix cannot swallow an unsupported compound (size M/L,
     material cotton unknown). Separate constraints with a cue or a clause.
     """
+    # Emphasis/politeness is not a facet value. Mask complete tokens (preserving
+    # offsets) before parsing either cue order, for every supported facet.
+    # Negation, disjunction and unknown value words are deliberately retained.
+    text = re.sub(r"\b(?:only|please|thanks)\b", lambda m: " " * len(m[0]), text)
     pattern = (
         r"\b(?:"
         + "|".join(f"(?P<{field}>{cue})" for field, cue in FACET_CUES.items())
@@ -106,6 +110,20 @@ def explicit_facets(text, maps):
             continue
         field = cue.lastgroup
         tail = text[cue.end() :]
+        # "in black color" names the value before the cue. Keep that known
+        # value available to implicit extraction; an empty prefix cue alone
+        # must not mark an already supplied colour as missing.
+        if (
+            field == "colour"
+            and re.fullmatch(r"[\s?!.,]*", tail)
+            and any(
+                re.search(r"(?<![\w-])" + re.escape(phrase) + r"\s+$", text[: cue.start()])
+                for phrase in maps[field]
+            )
+        ):
+            masked[cue.start() : cue.end()] = " " * (cue.end() - cue.start())
+            consumed = cue.end()
+            continue
         found = next(
             (
                 phrase
@@ -296,7 +314,8 @@ def extract_intent(text, context, dictionary):
         missing.append("unsupported_attribute")
     price = re.findall(
         r"\b(under|below|at most|within a budget of|up to)\s+(?:inr\s*|₹\s*|rs\.?\s*)?"
-        r"(\d[\d,]*(?:\.\d+)?)(?![\w.,])\s*(?:rupees|inr|rs\b)?",
+        r"(\d[\d,]*(?:\.\d+)?)(?=\s*(?:rupees\b|inr\b|rs\b)|[^\w.,]|$)"
+        r"\s*(?:rupees|inr|rs\b)?",
         normalized,
     )
     suffix = re.findall(r"\b(\d+(?:\.\d+)?)\s+rupees or less\b", normalized)

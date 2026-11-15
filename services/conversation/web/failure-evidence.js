@@ -62,7 +62,38 @@
       return (Number.isFinite(at) ? at : Infinity)-(Number.isFinite(bt) ? bt : Infinity) || a.index-b.index;
     });
   }
-  const api={executionLog};
+  function presentationLog(run) {
+    const rows=executionLog(run);
+    let lastGold=null;
+    return rows.filter(row=>{
+      // Readiness probes and unrelated analytics-worker samples obscure the fault story.
+      // Keep unavailable transitions: a failed read must never look like success.
+      if(row.message==="Observation unavailable"){
+        if(row.source==="Active Gold")lastGold=null;
+        return true;
+      }
+      if(row.basis==="observed" && row.source==="Analytics API")return false;
+      if(row.basis==="observed" && row.source==="Docker" && run.scenario!=="analytics")return false;
+      if(row.source==="Active Gold"){
+        const key=JSON.stringify([row.details.match,row.details.order_version]);
+        if(lastGold===key)return false;
+        lastGold=key;
+      }
+      return true;
+    }).map(row=>{
+      if(row.message==="Observation unavailable")return row;
+      const d=row.details;
+      let message=row.message;
+      if(row.source==="Inventory API" && present(d.on_hand))message=`Stock: ${d.on_hand} on hand; ${d.reserved} reserved for pending orders.`;
+      if(row.source==="Inventory API" && d.state)message=`Reservation ${d.state}.`;
+      if(row.source==="Orders API" && d.status)message=`Order ${d.status} (version ${d.version})${d.failure_code ? ": "+d.failure_code : "."}`;
+      if(row.source==="Payments ledger" && present(d.net_amount_minor))message=`Net ledger balance: INR ${(d.net_amount_minor/100).toFixed(2)} (signed debits and reversals).`;
+      if(row.basis==="service_record" && d.currency && present(d.amount_minor))message=`${d.kind}: ${d.currency} ${(d.amount_minor/100).toFixed(2)} recorded in the payment ledger.`;
+      if(row.source==="Active Gold")message=d.match ? `Gold matches this exact order version (generation ${d.generation}).` : `Order version ${d.order_version} is not yet visible in Gold.`;
+      return {...row,message};
+    });
+  }
+  const api={executionLog,presentationLog};
   if(typeof module==="object" && module.exports)module.exports=api;
   else root.FailureEvidence=api;
 })(typeof window==="object" ? window : globalThis);

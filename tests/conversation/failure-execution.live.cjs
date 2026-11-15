@@ -47,7 +47,7 @@ fs.mkdirSync(out,{recursive:true});
     assert.equal(testRequests.length,1,'Exactly one explicit test trigger');
     assert.equal(testRequests[0].confirmed,true);
     const log=await page.locator('#failure-journal').innerText();
-    for(const text of ['Analytics worker paused','Checkout acknowledgement','CONFIRMED','Analytics worker resumed','Exact order match visible'])assert(log.includes(text),text);
+    for(const text of ['Analytics worker paused','Checkout acknowledgement','CONFIRMED','Analytics worker resumed','Gold matches this exact order version'])assert(log.includes(text),text);
     assert.equal(await page.locator('#failure-checks .fail').count(),0);
     assert(await page.locator('#failure-checks .pass').count()>=14);
     // Completed result refresh must remain a read and retain the original execution log.

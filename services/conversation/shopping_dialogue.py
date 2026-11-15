@@ -15,7 +15,7 @@ from .intent import (
     validate_constraints,
 )
 from .intent_fallback import ModelFailure
-from .shopping import QUESTIONS
+from .shopping import QUESTIONS, category_question
 from .shopping_llm import PROMPT_REVISION, TURN_SECONDS
 
 RESPONSES = {
@@ -43,7 +43,7 @@ FAILURES = {
     "MODEL_REFUSAL": RESPONSES["out_of_scope"],
     "MODEL_UNAVAILABLE": "AI chat couldn't reach the AI provider. Please try again.",
 }
-NEW_SEARCH = re.compile(r"\s*new search\b", re.I)
+NEW_SEARCH = re.compile(r"\s*(?:new search|start over|start again)\b", re.I)
 GREETING = re.compile(r"\s*(hi+|hello|hey+|namaste|good (morning|afternoon|evening))[\s!.]*", re.I)
 THANKS = re.compile(r"\s*(thanks|thank you|thx|ty)[\s!.]*", re.I)
 REMOVAL = r"\b(any|all|no|remove|clear|ignore|forget|don't|do not|doesn't|does not)\b"
@@ -192,6 +192,9 @@ def dispatch_turn(workflow, session_id, request, context, key):
 
     def handle(body, scoped, raw):
         memory = ShoppingMemory.model_validate(raw)
+        fresh = bool(NEW_SEARCH.match(body.text))
+        if fresh:
+            memory = ShoppingMemory(retrieval_mode=memory.retrieval_mode)
         provider = workflow.shopping_provider
         options = {"mode": body.retrieval_mode or memory.retrieval_mode}
         info = {
@@ -254,7 +257,7 @@ def dispatch_turn(workflow, session_id, request, context, key):
                     options["mode"] = (
                         "hybrid_exact" if "hybrid_exact" in caps["search_modes"] else "lexical"
                     )
-                if body.selected_sku:
+                if body.selected_sku and not fresh:
                     # UI selection is a reference, never an arbitrary tool target.
                     selected = next(
                         (p for p in memory.products if p["sku"] == body.selected_sku), None
@@ -291,6 +294,8 @@ def dispatch_turn(workflow, session_id, request, context, key):
                         info["selected"] = None
                     if plan.name == "ask_question":
                         info["text"], info["pending"] = args.question, [args.field]
+                        if args.field in {"query_text", "category"} and not intent.get("category"):
+                            info["text"] = category_question(dictionary)
                     else:
                         parsed = extract_intent(text, None, dictionary)
                         cleared = {
@@ -370,6 +375,11 @@ def dispatch_turn(workflow, session_id, request, context, key):
                                     memory.seen_skus + ([anchor["sku"]] if anchor else [])
                                 )
                             )[:200]
+                        if not intent["query_text"].strip() and intent.get("category"):
+                            intent["query_text"] = next(
+                                root["label"] for root in dictionary["roots"]
+                                if root["id"] == intent["category"]
+                            )
                         if not intent["query_text"].strip():
                             return clarify("query_text", intent=intent)
                         info["search"], info["more"] = True, more

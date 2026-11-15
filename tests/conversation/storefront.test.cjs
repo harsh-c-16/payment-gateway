@@ -80,6 +80,17 @@ test('untrusted image schemes use the local placeholder', () => {
   assert.equal(app.elements.get('picture').src, '/assets/placeholder.svg');
 });
 
+test('legacy Flipkart image hosts use HTTPS rukminim2 and try the next photo on failure',()=>{
+  const app=controller(async()=>{});
+  app.run(`image(document.getElementById('picture'), ['http://img5a.flixcart.com/image/first.jpeg','http://img6a.flixcart.com/image/second.jpeg'], 'Product');`);
+  const picture=app.elements.get('picture');
+  assert.equal(picture.src,'https://rukminim2.flixcart.com/image/first.jpeg');
+  picture.onerror();
+  assert.equal(picture.src,'https://rukminim2.flixcart.com/image/second.jpeg');
+  picture.onerror();
+  assert.equal(picture.src,'/assets/placeholder.svg');
+});
+
 test('search prefers hybrid and keeps working when keyword search is available', () => {
   const app = controller(async () => {});
   app.run(`S.retrieval_preference='lexical'`);

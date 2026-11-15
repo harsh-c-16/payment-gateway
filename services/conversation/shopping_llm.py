@@ -36,7 +36,10 @@ an explicit fresh start. A null filter removes it; omission preserves it. Do not
 a gender. If the user supplies a product subject and constraints, search without asking
 unnecessary questions. Do not convert ordinary shirt to T-shirt or bra.
 ask_question: for vague gifts or ambiguous/unsupported constraints, ask ONE useful natural
-question, and save any explicit product subject and preferences. The question must end
+question. When the product category is unknown, use field="category" and question exactly
+"What kind of product would you like?". The application adds supported category choices
+as plain text. Do not append a category list or any sentence after the question.
+Save any explicit product subject and preferences. The question must end
 in ?, contain no product claims, numbers, prices, URLs, stock claims or invented attributes.
 product_details: use references for factual questions or comparisons about shown products;
 the application re-fetches and renders their recorded attributes. Do not search instead.
@@ -45,7 +48,7 @@ requests. Checkout always directs the shopper to review and confirm using the ca
 The catalogue has historical prices and sparse recorded sizes. Unsupported features
 must prompt clarification, never silently become search keywords or disappear.
 """
-PROMPT_REVISION = "shopping-dialogue-v1"
+PROMPT_REVISION = "shopping-dialogue-v3-category-rendering"
 TURN_SECONDS = 25.0
 
 

@@ -17,6 +17,7 @@ from tests.conversation.workflow_doubles import common_error
 
 class DashboardProviderDouble(ShoppingProviderDouble):
     damaged_namespace = False
+    search_down = False
 
     def gateway(self):
         result = super().gateway()
@@ -26,6 +27,9 @@ class DashboardProviderDouble(ShoppingProviderDouble):
     async def __call__(self, request):
         path, now = request.url.path, datetime.now(UTC).isoformat()
         namespace = request.headers.get("X-Namespace")
+        if path == "/v1/search" and self.search_down:
+            self.requests.append(request)
+            return httpx.Response(503, json=common_error("DEPENDENCY_UNAVAILABLE", False))
         if path == "/health/ready":
             self.requests.append(request)
             assert "Authorization" not in request.headers
@@ -120,6 +124,11 @@ def test_dashboard_combines_scoped_storage_with_projected_owner_facts(dashboard)
     data = response.json()
     assert data["session"]["sampled_turns"] == data["session"]["searches"] == 1
     assert data["session"]["model_attempts"] == 0
+    turn = data["activity"]["turns"][0]
+    assert turn["search_executed"] is True
+    assert turn["llm_calls"] == 0
+    assert turn["search_ms"] >= 0
+    assert turn["failure_code"] is None
     assert data["pipeline"]["events"] == 3
     assert data["session"]["pipeline_events_today"] == 3
     assert len(data["datasets"]) == 2
@@ -140,6 +149,17 @@ def test_dashboard_authorizes_before_probing_any_external_provider(dashboard):
     )
     assert response.status_code == 403
     assert len(provider.requests) == before
+
+
+def test_dashboard_includes_timed_failed_retrieval(dashboard):
+    client, headers, session, provider = dashboard
+    provider.search_down = True
+    say(dashboard, "blue shirts")
+    data = client.get(f"/v1/sessions/{session}/dashboard", headers=headers).json()
+    turn = data["activity"]["turns"][0]
+    assert turn["outcome"] == "dependency_error"
+    assert turn["search_executed"] is True and turn["search_ms"] > 0
+    assert data["session"]["dependency_errors"] == 1
 
 
 def test_missing_pipeline_remains_null_while_local_metrics_are_available(dashboard):

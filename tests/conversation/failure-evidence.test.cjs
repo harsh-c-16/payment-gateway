@@ -1,6 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const {executionLog}=require('../../services/conversation/web/failure-evidence.js');
+const {presentationLog}=require('../../services/conversation/web/failure-evidence.js');
 const at=n=>`2026-11-15T10:00:0${n}Z`;
 
 test('missing observations stay missing, while measured zero is retained',()=>{
@@ -65,4 +66,33 @@ test('checkpoint uses its recorded timestamp; absent timestamps stay unavailable
   assert.equal(executionLog(run)[0].at,at(1));
   delete run.checkpoint.observed_at;
   assert.equal(executionLog(run)[0].at,null);
+});
+
+test('presentation removes repeated Gold generations, preserves order changes and missing reads',()=>{
+  const rows=presentationLog({scenario:'decline',samples:[
+    {at:at(0),analytics_api_ready:true,worker_running:true,worker_paused:false,gold_match:false,gold_generation:1,order_version:2},
+    {at:at(1),gold_match:false,gold_generation:2,order_version:2},
+    {at:at(2),gold_match:true,gold_generation:3,order_version:3},
+    {at:at(3),gold_match:null,order_version:3}
+  ]});
+  const gold=rows.filter(r=>r.source==='Active Gold');
+  assert.equal(gold.length,3);
+  assert.match(gold[0].message,/not yet visible/);
+  assert.match(gold[1].message,/matches this exact order version/);
+  assert.match(gold[2].message,/Observation unavailable/);
+  assert(!rows.some(r=>r.source==='Docker' && r.message!=='Observation unavailable'));
+});
+
+test('presentation formats minor units without changing ledger evidence',()=>{
+  const [row]=presentationLog({audit:{ledger:[{created_at:at(1),kind:'DEBIT',amount_minor:12345,currency:'INR'}]}});
+  assert.match(row.message,/INR 123.45/);assert.equal(row.details.amount_minor,12345);
+});
+
+test('presentation preserves a Gold match regression for the same order version',()=>{
+  const rows=presentationLog({samples:[
+    {at:at(0),gold_match:false,order_version:6,gold_generation:1},
+    {at:at(1),gold_match:true,order_version:6,gold_generation:2},
+    {at:at(2),gold_match:false,order_version:6,gold_generation:3}
+  ]}).filter(r=>r.source==='Active Gold');
+  assert.deepEqual(rows.map(r=>r.details.match),[false,true,false]);
 });

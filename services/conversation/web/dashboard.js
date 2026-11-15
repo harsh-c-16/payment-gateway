@@ -80,7 +80,7 @@ function lineChart(target, points, series, caption, xLabel) {
 function renderDetailed(data) {
  const m=data.session,p=data.pipeline,a=data.activity;
   bars("event-types",p?.by_type,!p);bars("event-services",p?.by_service,!p);
-  lineChart("latency-chart",a.turns,[{key:"total_ms",colour:"#356b50",label:"Total ms"},{key:"model_ms",colour:"#c89c4e",label:"Model ms"}],
+  lineChart("latency-chart",a.turns.map(t=>({...t,search_ms:t.search_executed ? t.search_ms : null})),[{key:"total_ms",colour:"#356b50",label:"Total ms"},{key:"model_ms",colour:"#b77a21",label:"Model ms"},{key:"search_ms",colour:"#3978ac",label:"Retrieval ms"}],
     "Measured total and model response time for saved session turns",(point,i)=>`Turn ${Math.max(0,m.sampled_turns-a.turns.length)+i+1}`);
   statList("session-stats",[["Saved turns",fmt(m.sampled_turns)],["Chat searches",fmt(m.searches)],
     ["Model attempts · whole session",fmt(m.model_attempts)],["Query embeddings",fmt(m.query_embeddings)],
@@ -161,6 +161,7 @@ function render(data) {
   $("live-status").textContent=paused ? "Paused" : partial ? "Some data unavailable" : "Live";
   $("live-status").classList.toggle("warning",partial || paused);
   $("error").hidden=!partial;$("error").textContent=partial ? "Some services could not be read. Available readings are shown below." : "";
+  window.DashboardPresentation.render(data);
 }
 async function watchedOrder() {
   $("watched-order").replaceChildren();
@@ -186,6 +187,7 @@ async function refresh() {
   } catch(e) {
     $("error").hidden=false;$("error").textContent=`Could not refresh. ${lastSnapshot ? "Displayed charts are stale; their timestamp is retained. " : "No snapshot is available yet. "}${e.message}`;
     $("live-status").textContent="Unavailable";$("live-status").classList.add("warning");
+    window.DashboardPresentation.stale("application");
   } finally {
     refreshing=false;$("refresh").disabled=false;
     if(!paused && !document.hidden) timer=setTimeout(refresh,5000);
@@ -218,7 +220,7 @@ $("pause").addEventListener("click",()=>{
 $("refresh").addEventListener("click",()=>window.dispatchEvent(new CustomEvent("observation-refresh")));
 $("export").addEventListener("click",()=>{
   if(!lastSnapshot) return;
-  const url=URL.createObjectURL(new Blob([JSON.stringify(lastSnapshot,null,2)],{type:"application/json"}));
+  const url=URL.createObjectURL(new Blob([JSON.stringify(window.DashboardPresentation.exportSnapshot(),null,2)],{type:"application/json"}));
   const a=node("a");a.href=url;a.download=`shoptalk-dashboard-${lastSnapshot.pipeline_date_utc}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 document.addEventListener("visibilitychange",()=>{clearTimeout(timer);if(!document.hidden && !paused && S.session_id) refresh();});
