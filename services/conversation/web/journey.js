@@ -177,6 +177,26 @@
     return String(value);
   }
   function renderEvidence(run) {
+    const timeline=$("lab-timeline");timeline.replaceChildren();
+    for(const row of window.PipelineStory.story(run)){
+      const item=n("li"),seconds=(Date.parse(row.at)-Date.parse(run.started_at))/1000;
+      const time=n("time",Number.isFinite(seconds) ? (seconds>=0 ? "+" : "")+seconds.toFixed(1)+"s" : "Untimed");
+      if(row.at){time.dateTime=row.at;time.title=row.at;}
+      item.append(time,n("strong",row.title),n("p",row.detail),n("small",row.basis));
+      timeline.append(item);
+    }
+    if(!timeline.children.length)timeline.append(n("li","Waiting for the first recorded delivery."));
+    const checks=run.checks || [],failed=checks.some(c=>c.passed===false);
+    const passed=checks.length>0 && checks.every(c=>c.passed===true) && run.status==="Passed";
+    const outcome=$("lab-outcome");outcome.replaceChildren();
+    outcome.append(n("strong",failed ? "Result differs" : passed ? "Result verified" : "Not yet verified"));
+    for(const c of checks){
+      const line=n("p",c.name+": "+checkValue(c.name,c.observed));
+      line.className=c.passed===true ? "verified" : c.passed===false ? "mismatch" : "unmeasured";
+      line.append(n("small",c.passed===true ? "Verified" : c.passed===false ? "Failed check" : "Not verified"));outcome.append(line);
+    }
+    if(!checks.length)outcome.append(n("p",run.error_type ? "The test stopped before verification. See the report." : "Waiting for independent checks."));
+
     const labels=new Map(),seen=new Map();
     const rows=(run.emissions || []).map((delivery,i)=>{
       const id=delivery.event_id,count=seen.get(id) || 0;seen.set(id,count+1);
@@ -203,10 +223,11 @@
   }
   function renderTest() {
     const info=testCases[selectedScenario],run=shownRun();
+    $("lab-plan").replaceChildren(...(window.PipelineStory.paths[selectedScenario] || []).map(text=>n("li",text)));
     $("lab-rule").textContent=processingRules[selectedScenario];
     $("lab-explanation").textContent=info.description;$("lab-verification").textContent="Expected: "+info.expected;
     $("lab-consent-label").hidden=!info.purchases;
-    $("lab-result").hidden=!run;$("lab-progress").hidden=!run;
+    $("lab-result").hidden=!run;$("lab-progress").hidden=true;
     $("lab-export").disabled=!run;$("lab-show-data").hidden=!run?.receipts?.length && !run?.business_result;
     $("lab-checks").replaceChildren();
     if(!run){$("lab-status").textContent="Ready";$("lab-message").textContent=activeRun() ? `A previous test is still running: ${testCases[labRun.scenario]?.title || "test"}.` : "Click Run test. It sends the data, processes it and checks the result.";mode();return;}
@@ -215,7 +236,7 @@
     $("lab-status").className="badge"+(incomplete || run.status==="Failed" ? " warning" : "");
     $("lab-message").textContent=incomplete ? "The test stopped before verification completed. Try again or download the report." : run.status==="Passed" ? "The result matches what we expected." : run.status==="Failed" ? "The result did not match. See the checks below." : "Running the test. This usually takes a few seconds.";
     $("lab-result-title").textContent=testCases[run.scenario].title;
-    $("lab-result-time").textContent="Run on "+localTime(run.started_at);
+    $("lab-result-time").textContent=(run.completed_at ? "Saved result" : "Live test")+" - started "+localTime(run.started_at);
     renderEvidence(run);
     const sent=!!run.emissions?.length || !!run.requests?.length,processed=!!run.receipts?.length || !!run.orders?.length,checked=!!run.business_result;
     [...$("lab-progress").children].forEach((li,i)=>{li.className=[sent,processed,checked][i] ? "done" : incomplete ? "stopped" : "";});mode();

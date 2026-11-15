@@ -20,6 +20,14 @@
     late:"Delay payment beyond the stock reservation and check that the order cancels safely.",
     refund:"Debit a simulated payment, then check that it is reversed and stock is restored."
   };
+  const expectedPaths={
+    analytics:["Analytics pauses","Order completes","Worker resumes","Gold catches up"],
+    retry:["Checkout accepted","Response lost","Same request retried","One order, one debit"],
+    decline:["Stock reserved","Payment declined","Order cancelled","Stock released"],
+    crash:["Stock committed","Order worker stops","Worker restarts","Same order completes"],
+    late:["Stock reserved","Payment delayed","Reservation expires","Cancelled without a late debit"],
+    refund:["Payment debited","Reservation expires","Debit reversed","Stock restored"]
+  };
   let connected=false,busy=false,current=null,poll,first=true,logSignature="";
   const requestedScenario=new URLSearchParams(location.search).get("scenario");
   if(requestedScenario && concepts[requestedScenario]) document.getElementById("failure-scenario").value=requestedScenario;
@@ -46,6 +54,9 @@
     el("mode").querySelector('option[value="manual"]').disabled=scenario!=="analytics";
     const automated=el("mode").value==="automated";
     el("concept").replaceChildren(make("p",!automated ? "Add an item to your store cart, then prepare the test and place the order yourself." : descriptions[scenario]));el("consent-label").hidden=!automated;
+    const path=make("ol","","recovery-plan");path.setAttribute("aria-label","Expected sequence, not observed results");
+    for(const step of expectedPaths[scenario] || [])path.append(make("li",step));
+    el("concept").append(make("small","Expected sequence","plan-label"),path);
     el("preconditions").textContent=automated ? "Approve one simulated checkout, then click Prepare test. It captures the baseline, injects the fault, runs the checkout and verifies recovery automatically." : "Add a product to the store cart, then click Prepare test to capture its baseline and pause analytics. Place the order through normal store confirmation, then watch it here before resuming processing.";
     el("consent").checked=false;error("");buttons();
   }
@@ -53,7 +64,7 @@
     const r=current?.run,live=r?.status==="Pending",selected=r && r.scenario===el("scenario").value && r.mode===el("mode").value;
     const ready=connected && !busy,automated=el("mode").value==="automated",consent=!automated || el("consent").checked;
     el("prepare").disabled=!ready || !consent || !!r?.fault_active || !!r?.test_running || !!live && (!selected || !!r.triggered);
-    el("prepare").textContent=busy ? "Preparing and starting..." : live && (r.triggered || r.test_running) ? "Test running..." : "Prepare test";
+    el("prepare").textContent=busy ? "Preparing and starting..." : live && (r.triggered || r.test_running) ? "Test running..." : "Run test";
     el("recover").disabled=!ready || !r || r.test_running || !live && !r.fault_active;
     el("retry").disabled=!ready || !live || !r?.response_lost || r.test_running || !r.checkout;
     el("verify").disabled=!ready || !live || !r?.triggered || r.test_running;
@@ -66,27 +77,42 @@
     el("consent").disabled=busy || !!r?.test_running || !!live && !!r.triggered;
     el("preconditions").hidden=true;
     el("next").hidden=connected && !busy && !live && !r?.fault_active;
-    el("next").textContent=!connected ? "Connecting automatically. Test controls become available when the local helper is ready." : busy ? "Waiting for the controller..." : r?.test_running ? "Test running. Follow the log below." : r?.fault_active && !live ? "The run has ended with a fault still active. Resume processing to clear it before another test." : !live ? (automated ? "Approve one simulated checkout and click Prepare test. Baseline capture, fault injection, checkout and recovery run automatically." : "Click Prepare test to capture the cart baseline and pause analytics. Then place one order in the store.") : !r.triggered ? automated ? "This test has a saved baseline. Approve one simulated checkout and click Prepare test to continue it." : "Click Prepare test to pause analytics, then place one order in the store." : !automated && !r.order_id ? "Place the order in the store, then click Watch order. The saved order ID is used automatically; enter an ID only if needed." : r.fault_active ? "Inspect the order and Gold state, then resume processing." : "Processing is restored. Click Verify recovery to reconcile the order, stock, ledger and active Gold.";
+    el("next").textContent=!connected ? "Connecting automatically. Test controls become available when the local helper is ready." : busy ? "Waiting for the controller..." : r?.test_running ? "Test running. Follow the timeline below." : r?.fault_active && !live ? "The run has ended with a fault still active. Resume processing to clear it before another test." : !live ? (automated ? "Approve one simulated checkout and click Prepare test. Baseline capture, fault injection, checkout and recovery run automatically." : "Click Prepare test to capture the cart baseline and pause analytics. Then place one order in the store.") : !r.triggered ? automated ? "This test has a saved baseline. Approve one simulated checkout and click Prepare test to continue it." : "Click Prepare test to pause analytics, then place one order in the store." : !automated && !r.order_id ? "Place the order in the store, then click Watch order. The saved order ID is used automatically; enter an ID only if needed." : r.fault_active ? "Inspect the order and Gold state, then resume processing." : "Processing is restored. Click Verify recovery to reconcile the order, stock, ledger and active Gold.";
     const workspace=el("run-title").closest(".failure-workspace");workspace.hidden=!selected;
     workspace.querySelector('a[href="/"]').hidden=automated;
-    el("observations").hidden=!selected;
     el("prepared-product").hidden=!selected || !live || !r?.product;
     renderEvidence(selected ? r : null);
     el("evidence").disabled=!connected || !r;el("scenario").disabled=busy || live;el("mode").disabled=busy || live;
   }
   function fact(label,value,cls="") {const e=make("div","",cls);e.append(make("span",label),make("strong",value));el("facts").append(e);}
   function renderEvidence(run) {
-    const rows=window.FailureEvidence.presentationLog(run),signature=JSON.stringify([run?.id,rows]);
-    el("log-scope").textContent=run ? `${run.status==="Pending" ? "Live test" : "Saved test result"} · ${rows.length} meaningful changes · local time. API states are sampled; intermediate states may be missed. Expand a row for identifiers.` : "Run a test to see the fault, order transitions, compensation and Gold reconciliation.";
+    const allRows=window.FailureEvidence.presentationLog(run),seenPhases=new Set();
+    const rows=el("all-events").checked ? allRows : allRows.filter(row=>{
+      if(row.message==="Observation unavailable")return true;
+      if(row.source==="Orders API" && row.basis==="observed")return true;
+      if(row.basis==="service_record")return true;
+      if(row.source==="Active Gold")return row.details.match===true;
+      if(row.source==="Inventory API" && row.details.state)return true;
+      if(row.basis==="action"){
+        const phase=row.message.split(":")[0];
+        if(["Trigger","Recover","Verify"].includes(phase) && !seenPhases.has(phase)){
+          seenPhases.add(phase);return true;
+        }
+      }
+      return false;
+    }),signature=JSON.stringify([run?.id,rows]);
+    el("log-scope").textContent=run ? (run.status==="Pending" ? "Live test" : "Saved result")+" - seconds from start. Dots show recorded actions or observed changes; sampling may miss intermediate states." : "Run a test to see its actual recovery sequence.";
     if(signature!==logSignature){
       const log=el("journal"),bottom=log.scrollHeight-log.scrollTop-log.clientHeight<40,top=log.scrollTop;
       const opened=new Set([...log.querySelectorAll("details[open]")].map(d=>d.dataset.entryId));
       log.replaceChildren();
       if(!run)log.append(make("li","Choose a scenario and click Prepare test. No fault or purchase has been submitted.","empty"));
       for(const row of rows){
-        const li=make("li","",`execution-entry ${row.basis}`),time=make("time",Number.isFinite(Date.parse(row.at)) ? stamp(row.at) : "No time");
+        const seconds=(Date.parse(row.at)-Date.parse(run.started_at))/1000;
+        const li=make("li","",`execution-entry ${row.basis}`),time=make("time",Number.isFinite(seconds) ? `${seconds>=0 ? "+" : ""}${seconds.toFixed(1)}s` : "Time unknown");
         if(row.at){time.dateTime=row.at;time.title=new Date(row.at).toISOString();}
-        li.append(time,make("strong",row.source),make("span",row.message));
+        const label=row.basis==="action" ? "Controller action" : row.basis==="service_record" ? "Recorded evidence" : "Observed state";
+        li.append(time,make("strong",row.source),make("span",row.message),make("small",label,"timeline-basis"));
         const detailKeys=Object.keys(row.details).filter(k=>row.details[k]!==undefined && row.details[k]!==null);
         if(detailKeys.length || row.basis==="service_record"){
           const detail=make("details"),key=`${row.at}/${row.source}/${row.message}`;detail.dataset.entryId=key;detail.open=opened.has(key);
@@ -98,6 +124,10 @@
       else log.scrollTop=signature!==logSignature && !logSignature ? 0 : top;
       logSignature=signature;
     }
+    const checks=run?.checks || [],failed=checks.filter(c=>c.passed===false),passed=checks.filter(c=>c.passed===true);
+    const outcome=el("outcome");outcome.replaceChildren();
+    outcome.append(make("strong",!run ? "No test yet" : failed.length ? "Recovery needs attention" : run.status==="Passed" && checks.length && passed.length===checks.length ? "Recovery verified" : "Verification pending"));
+    outcome.append(make("p",!run ? "The result appears after the timeline is verified." : `${passed.length} of ${checks.length} checks passed. ${failed.length ? failed.length+" failed." : run.status==="Passed" ? "See the recorded checks below." : "Wait for the final audit."}`));
     el("checks").replaceChildren();
     if(!run?.checks?.length)el("checks").append(make("div",run?.status==="Pending" ? "Waiting for observation and recovery. Checks will compare the actual order, stock, ledger and Gold with the expected result." : "Checks appear after the selected test runs.","empty"));
     for(const c of run?.checks || []){
@@ -112,8 +142,8 @@
   }
   function render(data) {
     current=data;const r=data.run;
-    el("connection").textContent=`Local controller connected · namespace ${data.namespace} · observed ${stamp(data.observed_at)} · independent 2-second sampling while active`;
-    el("connect").textContent="Refresh controller";
+    el("connection").textContent="Local controller connected";el("connection").title="Namespace "+data.namespace+"; sampled every 2 seconds; updated "+stamp(data.observed_at);
+    el("connect").textContent="Refresh";
     if(first && r && (!requestedScenario || r.status==="Pending" || r.fault_active)){el("scenario").value=r.scenario;el("mode").value=r.mode;selection();}first=false;
     if(r){
       el("status").textContent=r.status;el("status").className=`badge ${r.status==="Passed" ? "" : "warning"} ${r.status==="Failed" ? "failed" : ""}`;
@@ -131,39 +161,12 @@
       if(document.activeElement!==el("order-id") && r.order_id) el("order-id").value=r.order_id;
       el("prepared-product").hidden=!r.product;
       if(r.product) el("prepared-product").replaceChildren(make("strong",r.product.title),make("span",`${r.product.sku} · ${currency(r.product.price_minor)} · quantity 1`));
-      timeline(r);graphs(r);
+
     }
     el("history").replaceChildren();for(const previous of data.history.slice().reverse()){
       const row=make("tr");for(const v of [previous.id,data.scenarios[previous.scenario],previous.mode,previous.status]) row.append(make("td",v));
       const cell=make("td"),button=make("button","JSON ↓","button light");button.type="button";button.addEventListener("click",()=>download(previous.id));cell.append(button);row.append(cell);el("history").append(row);
     }buttons();
-  }
-  function timeline(r) {
-    if(!r.samples.length){empty("failure-timeline","Waiting for the first timestamped observation.");return;}
-    const graph=svg("svg",{viewBox:"0 0 620 205",role:"img","aria-label":"Timestamped observations of worker pause, analytics API readiness, terminal order and exact Gold match"});
-    const start=new Date(r.started_at).getTime(),duration=Math.max(1,(new Date(r.samples.at(-1).at).getTime()-start)/1000),x=at=>111+(new Date(at).getTime()-start)/1000/duration*493;
-    const lanes=[["Worker paused",s=>s.worker_paused,"#b28b3e"],["API ready",s=>s.analytics_api_ready,"#537f9d"],["Order terminal",s=>s.order_status===null ? null : ["CONFIRMED","CANCELLED","MANUAL_REVIEW"].includes(s.order_status),"#57795a"],["Gold matched",s=>s.gold_match,"#356b50"]];
-    graph.append(svg("title",{},"Filled dots are observed true; pale dots observed false. Missing measurements have no dot. Hover for timestamps."));
-    lanes.forEach(([label,read,colour],i)=>{const y=24+i*42;graph.append(svg("text",{x:0,y:y+3},label),svg("line",{x1:111,x2:604,y1:y,y2:y,stroke:"#edf0e8"}));
-      for(const s of r.samples){const v=read(s);if(v===null || v===undefined) continue;const dot=svg("circle",{cx:x(s.at),cy:y,r:3.5,fill:v ? colour : "#d9e1d6"});dot.append(svg("title",{},`${stamp(s.at)} · ${label}: ${v} · ${s.order_status || "order unmeasured"}`));graph.append(dot);}});
-    for(const ratio of [0,.5,1]) graph.append(svg("text",{x:111+493*ratio,y:194,"text-anchor":"middle"},`${Math.round(duration*ratio)}s`));el("timeline").replaceChildren(graph);
-  }
-  function measuredChart(target,points,series,caption) {
-    const values=points.flatMap(p=>series.map(s=>p[s.key])).filter(v=>v!==null && v!==undefined);
-    if(!values.length){empty(target,"No independent measurements yet.");return;}
-    const graph=svg("svg",{viewBox:"0 0 620 205",role:"img","aria-label":caption});graph.append(svg("title",{},caption));
-    const min=Math.min(0,...values),max=Math.max(1,...values),range=max-min,start=new Date(points[0].at).getTime(),duration=Math.max(1,new Date(points.at(-1).at).getTime()-start);
-    const x=p=>42+(new Date(p.at).getTime()-start)/duration*562,y=v=>174-(v-min)/range*160;
-    for(let i=0;i<=4;i++){const v=min+range*i/4;graph.append(svg("line",{x1:42,x2:605,y1:y(v),y2:y(v),stroke:"#e9ede5","stroke-dasharray":"3 4"}),svg("text",{x:35,y:y(v)+3,"text-anchor":"end"},v.toLocaleString("en-IN",{maximumFractionDigits:1})));}
-    for(const s of series){let segment=[];const draw=()=>{if(segment.length>1) graph.append(svg("polyline",{points:segment.join(" "),fill:"none",stroke:s.colour,"stroke-width":2}));segment=[];};
-      for(const p of points){const v=p[s.key];if(v===null || v===undefined){draw();continue;}segment.push(`${x(p)},${y(v)}`);const dot=svg("circle",{cx:x(p),cy:y(v),r:3,fill:s.colour});dot.append(svg("title",{},`${stamp(p.at)} · ${s.label}: ${v}`));graph.append(dot);}draw();}
-    for(const ratio of [0,.5,1]) graph.append(svg("text",{x:42+562*ratio,y:198,"text-anchor":"middle"},`${Math.round(duration*ratio/1000)}s`));$(target).replaceChildren(graph);
-  }
-  function graphs(r) {
-    const baseline=Object.values(r.baseline_stock),total=baseline.reduce((n,s)=>n+s.on_hand,0),reserved=baseline.reduce((n,s)=>n+s.reserved,0);
-    const points=r.samples.map(s=>({...s,consumed:s.stock_on_hand===null ? null : total-s.stock_on_hand,reserved:s.stock_reserved===null ? null : s.stock_reserved-reserved,ledger:s.net_ledger_minor===null ? null : s.net_ledger_minor/100}));
-    measuredChart("failure-stock-chart",points,[{key:"consumed",label:"Consumed stock",colour:"#356b50"},{key:"reserved",label:"Reserved stock",colour:"#bb964c"}],"Measured stock consumption and reservation change relative to baseline; elapsed seconds");
-    measuredChart("failure-ledger-chart",points,[{key:"ledger",label:"Signed net ledger INR",colour:"#537f9d"}],"Independent signed payment ledger in INR; elapsed seconds");
   }
   async function refreshController() {
     clearTimeout(poll);try{const data=await api("/state");connected=true;render(data);}catch(e){connected=false;el("connection").textContent=current ? "Controller disconnected. Showing the last observation; reconnecting automatically." : "Connecting to the local controller. If it stays offline, run .\\start-failure-demo.ps1.";buttons();}finally{if(!document.hidden) poll=setTimeout(refreshController,connected ? 2500 : 5000);}
@@ -193,6 +196,7 @@
   async function download(id) {
     try{const response=await fetch(`${endpoint}/evidence/${id}`,{cache:"no-store",credentials:"omit",signal:AbortSignal.timeout(10000)});if(!response.ok)throw new Error("Evidence download unavailable");const url=URL.createObjectURL(await response.blob()),a=make("a");a.href=url;a.download=`failure-demo-${id}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){error(e.message);}
   }
+  el("all-events").addEventListener("change",()=>buttons());
   el("connect").addEventListener("click",refreshController);for(const id of ["prepare","recover","retry","verify","watch"])el(id).addEventListener("click",()=>act(id));
   el("evidence").addEventListener("click",()=>download(current.run.id));el("scenario").addEventListener("change",selection);el("mode").addEventListener("change",selection);el("consent").addEventListener("change",buttons);
   document.addEventListener("visibilitychange",()=>{clearTimeout(poll);if(!document.hidden)refreshController();});
