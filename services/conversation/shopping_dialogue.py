@@ -137,9 +137,14 @@ def merged_intent(arguments, memory, text, dictionary):
     if getattr(arguments, "more", False) and memory.intent and not reset:
         intent["query_text"] = memory.intent["query_text"]
     elif arguments.query.strip():
-        intent["query_text"] = (
-            NEW_SEARCH.sub("", arguments.query).strip(" :") or intent["query_text"]
-        )
+        query = NEW_SEARCH.sub("", arguments.query).strip(" :")
+        spoken = NEW_SEARCH.sub("", text).strip(" :")
+        # The model can echo an earlier product ("watches" for "red saree"); the
+        # shopper's own words win when they name a different product.
+        said = stated_category(spoken, dictionary)
+        if said is not None and stated_category(query, dictionary) not in (None, said):
+            query = spoken
+        intent["query_text"] = query or intent["query_text"]
     # Unambiguous rule-extracted filters, including the named product category, are hard
     # constraints the model cannot drop or change. Strict "under" bounds come from rules.
     explicit = extract_intent(text, None, dictionary)

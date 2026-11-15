@@ -194,3 +194,11 @@ def test_two_products_and_minimum_budgets_are_asked_about_not_dropped():
     assert named_categories("in size M") == set()
     assert MIN_BUDGET.search("watches above 500") and MIN_BUDGET.search("between 500 and 1000")
     assert not MIN_BUDGET.search("under 1000 rupees")
+
+
+def test_model_echoing_an_earlier_product_does_not_replace_the_shoppers_words():
+    dictionary = WorkflowProviderDouble().facets
+    memory = ShoppingMemory(intent={**blank_intent("furniture"), "category": "furniture"})
+    args = SearchArguments.model_validate({"query": "furniture", "new_search": True})
+    intent = merged_intent(args, memory, "New search: blue shirt", dictionary)
+    assert intent["query_text"] == "blue shirt" and intent["category"] == "clothing"
