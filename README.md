@@ -1,168 +1,198 @@
-# Agentic Shopping Assistant with a Distributed, Fault-Tolerant E-Commerce Data Platform
+# ShopTalk Data Platform
 
-- **Course:** Data Engineering (Semester 5)
-- **Team:** Group 3
-- **Repository:** [github.com/harsh-c-16/payment-gateway](https://github.com/harsh-c-16/payment-gateway)
-- **Specification Version:** 2.0 (24 October 2026)
+**An agentic shopping assistant on a distributed, fault-tolerant e-commerce data platform.**
 
----
+Data Engineering course project (Semester 5), Group 3. Repository:
+[github.com/harsh-c-16/shoptalk-data-platform](https://github.com/harsh-c-16/shoptalk-data-platform).
+Specification version 2.0 (24 October 2026).
 
-## 1. Project Overview
+![ShopTalk store with the shopping assistant answering "Show shirts under 1000 rupees"](docs/images/store-and-assistant.png)
 
-The conversational shopping website runs at **http://127.0.0.1:8001/**. It uses our
-CSV-backed catalogue and existing cart, quote and simulated checkout services.
-See [startup commands](infra/PROTOTYPE.md) and
-[shopping behaviour](docs/specs/11_SHOPPING_EXPERIENCE.md).
+ShopTalk is a working online store built on the real 20,000-row Flipkart product catalogue. A shopper
+can browse, search or simply tell the assistant what they want ("shirts under 1000 rupees"), then
+add products to a cart, review a quote and confirm a simulated purchase. Behind the store, every
+search, cart change, order, stock movement and payment becomes an event. Each service records its
+events in its own database together with the business change (a transactional outbox), a relay
+sends them to Kafka, and an analytics pipeline turns them into queryable Bronze, Silver and Gold
+data. The focus of the project is the data engineering underneath: correct loading, indexing,
+idempotent transactions, streaming, deduplication, late events, compaction and recovery from
+failures, each measured against a baseline.
 
-On the prepared Windows machine, run `./start-prototype.ps1`. Follow the
-[professor demonstration](docs/jaineel/PROFESSOR_DEMO.md) for browser search,
-confirmed simulated checkout, refresh recovery and verified Gold publication.
-The desktop now offers real Gemini conversation, a separate deterministic mode,
-and a separate **[platform dashboard](http://127.0.0.1:8001/dashboard)** with live
-charts for session latency, event publication, data quality and service readiness.
-Run `./start-failure-demo.ps1` to enable the dashboard's scoped **Failure Demo**
-controls, measured timelines, stock/ledger charts and downloadable verification.
-See [failure demonstration controls and real test evidence](docs/jaineel/FAILURE_DEMOS_2026_11_14.md).
-Afterward, `./stop-prototype.ps1` removes this project's containers and preserves data.
+## Highlights
 
-This project implements an e-commerce platform and agentic shopping assistant with an emphasis on distributed systems engineering, fault tolerance, transaction isolation, and streaming data pipelines. The system is built around the 20,000-observation Flipkart product catalogue, using deterministic normalization, transactional outbox patterns, Kafka event streams, and an analytical lakehouse with Medallion architecture (Bronze/Silver/Gold).
+- **Real catalogue, loaded reproducibly.** 20,000 source rows become 19,998 canonical listings and
+  19,920 active products through deterministic normalization rules, with hash-pinned manifests.
+- **Hybrid product search.** Lexical ranking plus semantic vectors (`all-MiniLM-L6-v2` in PostgreSQL
+  with pgvector), fused, with hard filters for category, price, brand, colour, size and material.
+- **Shopping assistant.** The search box uses a deterministic intent parser with no model call; the
+  assistant uses Gemini for free-form conversation, with a model-free fixed mode in the API. Product
+  facts always come from catalogue tools, never from the model.
+- **Safe checkout.** Quotes, stock reservations, simulated payments and a durable saga with
+  compensation. Writes carry idempotency keys, so a retried or double-clicked checkout creates one
+  order and one charge (tested with 50 simultaneous copies).
+- **Streaming lakehouse.** Transactional outbox in every service, Kafka with a schema registry, then
+  Bronze (raw events as JSON lines, with their Kafka position), Silver (validated, deduplicated) and
+  Gold (business facts) as Parquet, all published through manifests, with event-time windows,
+  late-event reconciliation and replay.
+- **Observable and testable.** A live pipeline dashboard, a data-journey view that traces one order
+  or search through every stage, and a failure lab that injects real faults and verifies recovery.
 
-### Team Members & Module Ownership
+## Architecture
 
-| Member | Roll Number | Module & Responsibilities | Member Brief |
+```mermaid
+flowchart LR
+    subgraph APIs ["Services, one PostgreSQL database each"]
+        conv["Conversation M1 :8001<br/>store, assistant, cart, dashboard"]
+        cat["Catalogue M2 :8002<br/>search, products, quotes"]
+        ord["Orders M3 :8003<br/>saga"]
+        inv["Inventory M3 :8004"]
+        pay["Payments M3 :8005<br/>simulated ledger"]
+    end
+    shopper((Shopper)) --> conv
+    conv --> cat
+    conv --> ord
+    ord --> inv
+    ord --> pay
+    APIs --> relay["Outbox relays<br/>(one per service)"]
+    relay --> kafka[("Kafka + schema registry")]
+    kafka --> proj["Catalogue worker<br/>stock projection"]
+    proj --> cat
+    kafka --> aw["Analytics worker"]
+    aw --> lake[("Bronze, Silver, Gold<br/>files + manifests")]
+    lake --> an["Analytics API M4 :8006"]
+    an --> conv
+```
+
+Everything runs in 12 Docker containers bound to `127.0.0.1`. Ports, image pins and resource limits
+are in [infra/DEPLOYMENT_INFO.md](infra/DEPLOYMENT_INFO.md).
+
+| Pipeline dashboard | Data journey |
+|---|---|
+| ![Pipeline dashboard with events in Gold, event throughput and end-to-end latency](docs/images/pipeline-dashboard.png) | ![Data journey view showing each stage from checkout to Gold](docs/images/data-journey.png) |
+
+## Measured results
+
+All numbers below are owner-run on a single machine; each linked document states its exact setup,
+repetitions and limits.
+
+| Area | What was compared | Result | Details |
 |---|---|---|---|
-| **Jaineel Vora** | B24CM1080 | **M1 / M0**: Assistant workflow, session/cart state, measurement harness, oracle, dashboards, integration | [04_JAINEEL_VORA.md](docs/specs/04_JAINEEL_VORA.md) |
-| **Harsh Chaudhari** | B24CM1027 | **M2**: Catalogue ingestion, normalization, retrieval, stock read model, quotes, compaction & queries | [05_HARSH_CHAUDHARI.md](docs/specs/05_HARSH_CHAUDHARI.md) |
-| **Aditya Gaurav** | B24CM1003 | **M3**: Orders, Inventory, simulated Payments, durable saga orchestrator, shared outbox library | [06_ADITYA_GAURAV.md](docs/specs/06_ADITYA_GAURAV.md) |
-| **Vichitr Arora** | B24CM1067 | **M4**: Kafka streaming infrastructure, Schema Registry, Bronze/Silver/Gold pipelines, manifests, replay | [07_VICHITR_ARORA.md](docs/specs/07_VICHITR_ARORA.md) |
+| Whole system under load | 1 to 32 concurrent shoppers, full purchase flow | About **2.2-2.7 purchases/s**, **0 failed purchases**; catalogue search p50 **106 ms**; after the load, 818 orders, stock on 288 products and all Gold rows reconcile exactly | [Load, stress and failure tests](docs/harsh/LOAD_AND_STRESS_TEST.md) |
+| Failure and recovery | Analytics pause, lost response, payment decline, saga crash, late payment, refund, last-unit race, duplicate delivery | **8 of 8 passed, 97 of 97 independent checks** | [Load, stress and failure tests](docs/harsh/LOAD_AND_STRESS_TEST.md), [failure demos](docs/jaineel/FAILURE_DEMOS_2026_11_14.md) |
+| Catalogue import | Row-by-row `INSERT` vs `COPY` | Staging **3.74 → 1.13 s**, whole import **11.81 → 9.26 s**, identical output | [Import comparison](docs/harsh/IMPORT_COMPARISON.md) |
+| Search indexing | No index vs category + price B-tree | Lexical search p50 **42.7 → 13.5 ms** (p95 unchanged) | [M2 experiments](docs/harsh/experiments.md) |
+| Index type per query | B-tree vs hash vs none, category + price | **1.295 ms** vs 2.610 ms vs 4.160 ms; BRIN wins only on price-sorted data | [Presentation comparison](docs/jaineel/PRESENTATION_COMPARISON.md) |
+| Lakehouse layout | Many small Parquet files vs compaction | **11,146 → 91 files**; query 1,023 → 10 ms warm, 1,853 → 19 ms cold, same results | [M2 experiments](docs/harsh/experiments.md) |
+| Vector index | Exact search vs HNSW | Not adopted at this size: p95 worse, recall 0.906 | [M2 experiments](docs/harsh/experiments.md) |
+| Streaming correctness | Duplicate delivery, out-of-order stock, late event, malformed record | One logical effect per event, newer stock kept, late window corrected, bad record quarantined | [Presentation comparison](docs/jaineel/PRESENTATION_COMPARISON.md) |
 
----
+Known limits, also measured: PostgreSQL (0.5 CPU in the prototype) is the main bottleneck; under
+sustained checkout load an event takes about 35 s (p50) to reach Gold, mostly waiting in the outbox;
+the conversation container's 128 MiB memory limit was hit once under a burst. See the
+[load test](docs/harsh/LOAD_AND_STRESS_TEST.md#what-limits-capacity).
 
-## 2. Documentation and Specifications
+## Running the prototype
 
-All authoritative specifications and runbooks are maintained in [`docs/specs/`](docs/specs/):
+Requirements: Docker, Python 3.11 with [uv](https://docs.astral.sh/uv/) 0.10.x, and the Flipkart CSV
+in `data/raw/`. First-time setup (import, seed, projection, retrieval) is in
+[infra/PROTOTYPE.md](infra/PROTOTYPE.md).
 
-- [00_README.md](docs/specs/00_README.md) — Navigation and document index.
-- [01_PROJECT_CONTEXT.md](docs/specs/01_PROJECT_CONTEXT.md) — Architectural decisions, scope, and frozen technology stack.
-- [02_COMMON_SPEC.md](docs/specs/02_COMMON_SPEC.md) — Normative interface contracts, shared DTOs, and error codes.
-- [03_EVALUATION_SPEC.md](docs/specs/03_EVALUATION_SPEC.md) — Workload definitions, metric math, and correctness gates.
-- [04_JAINEEL_VORA.md](docs/specs/04_JAINEEL_VORA.md) — Jaineel's brief (M1 & M0 tasks J01–J07).
-- [05_HARSH_CHAUDHARI.md](docs/specs/05_HARSH_CHAUDHARI.md) — Harsh's brief (M2 tasks H01–H07).
-- [06_ADITYA_GAURAV.md](docs/specs/06_ADITYA_GAURAV.md) — Aditya's brief (M3 tasks A01–A07).
-- [07_VICHITR_ARORA.md](docs/specs/07_VICHITR_ARORA.md) — Vichitr's brief (M4 tasks V01–V07).
-- [08_DATASET_PROFILE_AND_RULES.md](docs/specs/08_DATASET_PROFILE_AND_RULES.md) — Flipkart CSV profile and deterministic normalization rules.
-- [09_EVALUATION_RUNBOOK.md](docs/specs/09_EVALUATION_RUNBOOK.md) — CLI surface, operational runbook, and verification commands.
-- [10_JAINEEL_CODEX_PLAYBOOK.md](docs/specs/10_JAINEEL_CODEX_PLAYBOOK.md) — Phased implementation playbook for Codex.
+**Windows (presentation machine)**
 
-### Repository Policies and Governance
-- [AGENTS.md](AGENTS.md) — Shared rules of engagement and constraints for coding agents.
-- [docs/OWNERSHIP.md](docs/OWNERSHIP.md) — Detailed service boundaries, directory allocations, and write authorities.
-- [docs/jaineel/progress.md](docs/jaineel/progress.md) — Jaineel's milestone implementation tracker.
+```powershell
+.\start-prototype.ps1      # starts everything, checks health, then prints the store URL
+.\start-failure-demo.ps1   # optional: enables the dashboard's failure lab
+.\stop-prototype.ps1       # stops containers, keeps all data
+```
 
----
+**Linux**: the same steps as shell commands are in
+[infra/DEPLOYMENT_INFO.md](infra/DEPLOYMENT_INFO.md) (start, verify, demo, stop).
 
-## 3. Repository Structure
+Then open:
+
+| Page | Address |
+|---|---|
+| Store and assistant | http://127.0.0.1:8001/ |
+| Pipeline dashboard | http://127.0.0.1:8001/dashboard |
+| Data journey | http://127.0.0.1:8001/journey |
+
+The guided demonstration is in [PRESENTATION_READY.md](docs/jaineel/PRESENTATION_READY.md) and
+[PROFESSOR_DEMO.md](docs/jaineel/PROFESSOR_DEMO.md). `python -m projectctl demo-check` checks the
+demo searches before presenting. Payments are simulated; no real payment details are ever needed.
+
+## Tests
+
+```bash
+uv sync --locked
+uv run --locked python -m pytest -q
+node --test tests/conversation/storefront.test.cjs
+```
+
+Tests that need a real database run when `CATALOG_TEST_DATABASE_URL`, `ANALYTICS_TEST_DATABASE_URL`,
+`INVENTORY_TEST_DATABASE_URL` and the other `*_TEST_DATABASE_URL` variables point at a PostgreSQL 18
+server with pgvector; otherwise they are skipped. CI ([offline.yml](.github/workflows/offline.yml))
+runs the locked install, the API contract checks, the offline verification suite and the storefront
+tests on Windows. See
+[projectctl/README.md](projectctl/README.md) for the full command surface.
+
+## Team
+
+| Member | Roll number | Module | Brief | Progress |
+|---|---|---|---|---|
+| **Jaineel Vora** | B24CM1080 | **M1 / M0**: assistant workflow, session and cart state, measurement harness, oracle, dashboards, integration | [04](docs/specs/04_JAINEEL_VORA.md) | [progress](docs/jaineel/progress.md) |
+| **Harsh Chaudhari** | B24CM1027 | **M2**: catalogue import and normalization, search and retrieval, stock read model, quotes, compaction and query benchmarks | [05](docs/specs/05_HARSH_CHAUDHARI.md) | [progress](docs/harsh/progress.md) |
+| **Aditya Gaurav** | B24CM1003 | **M3**: orders, inventory, simulated payments, durable saga, shared outbox library | [06](docs/specs/06_ADITYA_GAURAV.md) | [progress](docs/aditya/progress.md) |
+| **Vichitr Arora** | B24CM1067 | **M4**: Kafka, schema registry, Bronze/Silver/Gold pipelines, manifests, replay | [07](docs/specs/07_VICHITR_ARORA.md) | [progress](docs/vichitr/progress.md) |
+
+## Documentation
+
+Specifications in [`docs/specs/`](docs/specs/):
+
+- [00_README.md](docs/specs/00_README.md): navigation and document index.
+- [01_PROJECT_CONTEXT.md](docs/specs/01_PROJECT_CONTEXT.md): architecture decisions, scope and technology stack.
+- [02_COMMON_SPEC.md](docs/specs/02_COMMON_SPEC.md): interface contracts, shared data types and error codes.
+- [03_EVALUATION_SPEC.md](docs/specs/03_EVALUATION_SPEC.md): workloads, metric definitions and correctness gates.
+- [04](docs/specs/04_JAINEEL_VORA.md) to [07](docs/specs/07_VICHITR_ARORA.md): each member's brief.
+- [08_DATASET_PROFILE_AND_RULES.md](docs/specs/08_DATASET_PROFILE_AND_RULES.md): Flipkart CSV profile and normalization rules.
+- [09_EVALUATION_RUNBOOK.md](docs/specs/09_EVALUATION_RUNBOOK.md): command surface, runbook and verification commands.
+- [10_JAINEEL_CODEX_PLAYBOOK.md](docs/specs/10_JAINEEL_CODEX_PLAYBOOK.md): phased implementation playbook.
+- [11_SHOPPING_EXPERIENCE.md](docs/specs/11_SHOPPING_EXPERIENCE.md): store and assistant behaviour.
+
+Useful entry points: [deployment and ports](infra/DEPLOYMENT_INFO.md),
+[catalogue data sheet](docs/harsh/DATA_SHEET.md), [demo searches](docs/harsh/DEMO_SEARCHES.md),
+[dashboard](docs/jaineel/DASHBOARD_2026_11_14.md),
+[Windows measurements](docs/jaineel/WINDOWS_MEASUREMENTS.md),
+[professor questions and results](docs/jaineel/PROFESSOR_QUESTIONS_AND_RESULTS.md),
+[ownership matrix](docs/OWNERSHIP.md) and [rules for contributors and coding agents](AGENTS.md).
+
+## Repository layout
 
 ```
-├── .github/workflows/         # CI pipelines (coordinated by Jaineel)
-├── analytics/
-│   ├── compaction/            # M2: Parquet compaction engine (Harsh)
-│   └── queries/               # M2: Analytical DuckDB/SQL queries (Harsh)
-├── benchmarks/                # M0: Workload generation and runners (Jaineel)
-│   └── manual/                # M0: Manual benchmark scripts and probes (Jaineel)
-├── configs/                   # Runtime and evaluation configurations (Shared)
-├── contracts/
-│   ├── data/catalog/          # M2: Catalog manifest schemas (Harsh)
-│   ├── dictionaries/catalog/  # M2: Category/facet dictionaries (Harsh)
-│   ├── dictionaries/events/   # M4: Event reason codes/dictionaries (Vichitr)
-│   ├── evaluation/            # M0: Evaluation run/summary schemas (Jaineel)
-│   ├── events/                # M4: JSON Schema draft-07 event definitions (Vichitr)
-│   ├── fixtures/              # Small test fixtures & mock responses (Jaineel)
-│   └── http/                  # OpenAPI 3.1 definitions per service domain
-├── dashboards/                # M0: Prometheus/Grafana monitoring dashboards (Jaineel)
-├── data/
-│   └── raw/                   # Untracked raw data (Flipkart sample CSV)
-├── docs/
-│   ├── decisions/             # Architecture Decision Records (ADRs)
-│   ├── jaineel/               # Jaineel's implementation progress and notes
-│   ├── specs/                 # Version 2.0 specifications (00–10)
-│   └── OWNERSHIP.md           # Authoritative team ownership matrix
-├── infra/                     # M4: Docker Compose, Kafka, Schema Registry (Vichitr)
-├── migrations/                # Database migrations partitioned by service
-│   ├── analytics/             # Vichitr
-│   ├── catalog/               # Harsh
-│   ├── conversation/          # Jaineel
-│   ├── inventory/             # Aditya
-│   ├── orders/                # Aditya
-│   └── payments/              # Aditya
-├── pipelines/
-│   ├── catalog/               # M2: CSV import, cleaning, normalization (Harsh)
-│   ├── curation/              # M4: Silver stream processing (Vichitr)
-│   ├── gold/                  # M4: Gold aggregations and manifests (Vichitr)
-│   ├── ingestion/             # M4: Raw Kafka consumer / Bronze landing (Vichitr)
-│   ├── replay/                # M4: Topic replay and recovery utilities (Vichitr)
-│   └── storage/               # M4: Lakehouse file storage & manifest manager (Vichitr)
-├── projectctl/                # M0: Unified team CLI command runner (Jaineel)
 ├── services/
-│   ├── catalog/               # M2: Product catalogue & search service (Harsh)
-│   ├── conversation/          # M1: Shopping assistant & cart service (Jaineel)
-│   ├── inventory/             # M3: Stock reservation service (Aditya)
-│   ├── orders/                # M3: Order management & saga orchestrator (Aditya)
-│   └── payments/              # M3: Simulated payments ledger service (Aditya)
-├── shared/
-│   ├── contracts/             # Shared Pydantic DTOs mapped to contracts
-│   ├── event_transport/       # M4: Kafka transport SDK and serializer (Vichitr)
-│   ├── local_diagnostics/     # M4: Diagnostic logs and quarantine envelopes (Vichitr)
-│   ├── outbox/                # M3: Transactional outbox storage and relay (Aditya)
-│   └── telemetry/             # M0: Metrics, logging, and timer helpers (Jaineel)
-├── tests/                     # Unit, contract, integration, and oracle test suites
-├── .env.example               # Template environment configuration
-├── .gitignore                 # Repository ignore rules
-├── AGENTS.md                  # Neutral instructions for AI coding assistants
-└── README.md                  # This file
+│   ├── conversation/   M1: store, assistant, cart, checkout, dashboard (web/ holds the UI)
+│   ├── catalog/        M2: catalogue, search, quotes
+│   ├── orders/         M3: orders and saga
+│   ├── inventory/      M3: stock reservations
+│   └── payments/       M3: simulated payments ledger
+├── pipelines/
+│   ├── catalog/        M2: CSV import and normalization
+│   ├── ingestion/      M4: Kafka consumer, Bronze landing
+│   ├── curation/       M4: Silver
+│   ├── gold/           M4: Gold facts and publication
+│   ├── replay/         M4: replay and recovery
+│   └── storage/        M4: Parquet files and manifests
+├── analytics/          M2: compaction and analytical queries
+├── shared/             contracts, outbox (M3), event transport (M4), telemetry (M0)
+├── contracts/          OpenAPI, event schemas, dictionaries, fixtures
+├── migrations/         one folder per service database
+├── infra/              Docker Compose, deployment, image pins
+├── benchmarks/         M0: workloads, runners, failure demo, data journey
+├── projectctl/         M0: team command-line tool
+├── tests/              unit, contract, live-database and integration tests
+├── docs/               specifications, per-member notes, images
+├── data/raw/           Flipkart CSV (not committed)
+└── *.ps1               Windows start, stop and measurement scripts
 ```
 
----
-
-## 4. Getting Started
-
-For the professor demonstration on the prepared Windows machine, follow
-[the presentation guide](docs/jaineel/PRESENTATION_READY.md). The new
-`python -m projectctl demo-check` checks the three real searches; add
-`--state PATH_TO_DEMO_STATE` to verify a purchased order in active Gold.
-
-For the connected shopping demonstration, start the
-[prototype deployment](infra/PROTOTYPE.md), then run
-`.venv/Scripts/python.exe -m projectctl demo --namespace dev --query "shirt"`.
-The [demo runbook](docs/jaineel/PROTOTYPE_DEMO.md) covers product selection, cart,
-quote review, explicit confirmation, checkout, final status and safe resume.
-
-For the presentation, [infra/DEPLOYMENT_INFO.md](infra/DEPLOYMENT_INFO.md) has the exact start,
-verify, demo and stop commands, image pins, ports, limits and the rehearsal record. The data is
-described in the [data sheet](docs/harsh/DATA_SHEET.md), the measured optimization in the
-[import comparison](docs/harsh/IMPORT_COMPARISON.md), and the three demo searches in
-[DEMO_SEARCHES.md](docs/harsh/DEMO_SEARCHES.md).
-
-Follow the Python 3.11 [locked install and offline checks](projectctl/README.md).
-Provider-dependent commands require the documented owner bindings and running
-services; unavailable dependencies return exit 4 and save evidence.
-See [Jaineel's progress](docs/jaineel/progress.md) for the actual checkpoint results.
-
-For Windows Desktop baseline/optimization numbers, resource and clock receipts,
-and the 35-second payment-expiry rehearsal, use the
-[Windows measurement guide](docs/jaineel/WINDOWS_MEASUREMENTS.md).
-The PowerShell launchers retain raw evidence and remove disposable containers.
-
-1. **Environment Setup:**
-   Copy the example environment configuration:
-   ```bash
-   cp .env.example .env
-   ```
-2. **Review Working Rules:**
-   All team members and AI coding assistants must review [AGENTS.md](AGENTS.md) and [docs/OWNERSHIP.md](docs/OWNERSHIP.md).
-3. **Branching Model:**
-   After the initial repository scaffold is merged to `main`, work proceeds in small feature branches:
-   - Jaineel: `jaineel/j01-foundation`, etc.
-   - Harsh: `harsh/h01-contracts`, etc.
-   - Aditya: `aditya/a01-contracts`, etc.
-   - Vichitr: `vichitr/v01-infra`, etc.
+Work happens in per-member branches merged to `main` through pull requests; ownership of every
+path is in [docs/OWNERSHIP.md](docs/OWNERSHIP.md).
