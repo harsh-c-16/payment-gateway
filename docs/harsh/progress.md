@@ -3,13 +3,27 @@
 **Author:** Harsh Chaudhari (B24CM1027)
 **Role:** M2: catalogue, retrieval, quotes, stock read model, Parquet compaction and query benchmarks
 **Brief:** [05_HARSH_CHAUDHARI.md](../specs/05_HARSH_CHAUDHARI.md)
-**Status date:** 12 November 2026
+**Status date:** 16 November 2026
 **Branch:** merged to `main` in PRs #3, #4, #8 and #10; later work is on `harsh` until merged
 
 Results: [experiments.md](experiments.md). What teammates need: [handoff.md](handoff.md). How the
 relevance labels were made: [relevance_labels.md](relevance_labels.md).
 
 `Real` means checked against real PostgreSQL, the real source file or the real publisher.
+
+## 16 November: load, stress and failure tests
+
+[LOAD_AND_STRESS_TEST.md](LOAD_AND_STRESS_TEST.md) records a load and stress test of the running
+prototype at `2d467c6`, owner-run on one laptop (not the §8 W-PIPE protocol):
+
+- Checkout: about 2.2 to 2.7 purchases/s at most, no failed purchase at any of 1, 4, 16 and 32
+  concurrent shoppers. Catalogue search p50 106 ms at one client, about 8 searches/s at most.
+- Correctness after the load: 818 orders, stock on 288 products and 416 Gold rows reconcile
+  exactly. Retry storm, double click and 25/50/100 buyers of one product: all correct.
+- Failure and recovery: 8 of 8 scenarios passed, 97 of 97 checks.
+- Limits found: PostgreSQL (0.5 CPU) saturated in every phase; the store search box loses
+  throughput under concurrency; events wait about 47 s in the outbox under sustained load; the
+  conversation container ran out of memory (128 MiB) once. Reported to the owners, not changed.
 
 ## 12 November: prototype deliverables
 
