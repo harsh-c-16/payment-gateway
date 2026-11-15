@@ -36,6 +36,40 @@ IMPLICIT_MODIFIERS = {
         "plastic glass ceramic rubber blend blended pure 100%".split()
     ),
 }
+# Product nouns that bind a hard category filter. Each sits in one root category for
+# at least 93% of active catalogue titles containing it (measured on flipkart-v1);
+# ambiguous nouns such as bag, cover, lamp or charger stay loose query terms.
+PRODUCT_NOUNS = {
+    "clothing": r"shirts?|t-? ?shirts?|tees?|kurtas?|kurtis?|sarees?|saris?|dress(?:es)?|jeans|"
+    r"trousers?|leggings?|bras?|pant(?:y|ies)|lingerie|sweaters?|sweatshirts?|socks",
+    "footwear": r"shoes?|slippers?|sneakers?|boots?|heels",
+    "jewellery": r"necklaces?|earrings?|bracelets?|bangles?|rings?",
+    "watches": r"(?<!smart )(?<!smart)watch(?:es)?",
+    "wearable_smart_devices": r"smart ?watch(?:es)?",
+    "sunglasses": r"sunglass(?:es)?",
+    "kitchen_dining": r"mugs?",
+    "home_furnishing": r"cushions?",
+    "beauty_and_personal_care": r"deodorants?|lipsticks?",
+    "home_decor_festive_needs": r"wall clocks?|clocks?",
+    # Catalogue "wallet" titles are phone cases; a shopper's wallet is this category.
+    "bags_wallets_belts": r"(?<!phone )(?<!mobile )wallets?|purses?|clutch(?:es)?|"
+    r"card ?holders?|(?<!seat )belts?|sling bags?",
+}
+# Product types that sit under exactly one catalogue path. They add a strict path filter
+# inside the category, so "red saree" cannot return red bras.
+TYPE_PREFIXES = (
+    (r"sarees?|saris?", ["Clothing", "Women's Clothing", "Ethnic Wear", "Sarees"]),
+    (r"necklaces?", ["Jewellery", "Necklaces & Chains"]),
+    (r"earrings?", ["Jewellery", "Earrings"]),
+    (r"(?<!nose )rings?", ["Jewellery", "Rings"]),
+    (r"bangles?|bracelets?|armlets?", ["Jewellery", "Bangles, Bracelets & Armlets"]),
+    (
+        r"(?<!phone )(?<!mobile )wallets?|clutch(?:es)?",
+        ["Bags, Wallets & Belts", "Wallets & Clutches"],
+    ),
+)
+# Baby apparel and accessories are a separate root, so these words keep nouns loose.
+NOUN_EXCEPTIONS = r"\b(baby|babies|infants?|newborns?|toddlers?)\b"
 FACET_CUES = {
     "brand": "brand|by",
     "colour": "colou?r",
@@ -80,7 +114,10 @@ def explicit_facets(text, maps):
             ),
             None,
         )
-        if found is None or not re.match(boundary, tail[len(found) :]):
+        rest = tail[len(found) :] if found is not None else ""
+        # "size XL shirt": a whole size token may be followed by the product noun.
+        sized = field == "size" and re.match(r"\s+(?!(?:and|or)\b)[a-z]{2,}", rest)
+        if found is None or not (re.match(boundary, rest) or sized):
             missing.append(field)
             end = cue.end() + len(re.split(r"[,;.!?]|\band\b", tail, maxsplit=1)[0])
         else:
@@ -227,21 +264,47 @@ def extract_intent(text, context, dictionary):
                 if set(canonical_text(value).split()) <= IMPLICIT_MODIFIERS[field]
             }
         found.update(explicit.get(field, ()))
+        if field == "category" and not re.search(NOUN_EXCEPTIONS, normalized):
+            roots = {r["id"] for r in dictionary["roots"]}
+            found.update(
+                root
+                for root, nouns in PRODUCT_NOUNS.items()
+                if root in roots and re.search(r"(?<![\w-])(?:" + nouns + r")(?![\w-])", source)
+            )
         if len(found) == 1:
             intent[field] = found.pop()
         elif found:
             missing.append(field)
+    if intent["category_path_prefix"] is None and not re.search(NOUN_EXCEPTIONS, normalized):
+        prefixes = [
+            prefix
+            for nouns, prefix in TYPE_PREFIXES
+            if re.search(r"(?<![\w-])(?:" + nouns + r")(?![\w-])", source)
+        ]
+        roots = {canonical_text(r["label"]): r["id"] for r in dictionary["roots"]}
+        root = roots.get(canonical_text(prefixes[0][0])) if len(prefixes) == 1 else None
+        if (
+            root is not None
+            and prefixes[0] in dictionary["path_prefixes"]
+            and intent["category"] in (None, root)
+        ):
+            intent["category"], intent["category_path_prefix"] = root, prefixes[0]
     if intent["size"] is not None and intent["category"] != "clothing":
         missing.append("category")
     # Unsupported explicit attributes cannot be silently passed as loose keywords.
     if re.search(r"\b(waterproof|sleeve|dimensions|shoe size|rating|seller)\b", normalized):
         missing.append("unsupported_attribute")
     price = re.findall(
-        r"\b(under|below|at most|within a budget of|up to)\s+(?:inr\s*)?"
+        r"\b(under|below|at most|within a budget of|up to)\s+(?:inr\s*|₹\s*|rs\.?\s*)?"
         r"(\d[\d,]*(?:\.\d+)?)(?![\w.,])\s*(?:rupees|inr|rs\b)?",
         normalized,
     )
     suffix = re.findall(r"\b(\d+(?:\.\d+)?)\s+rupees or less\b", normalized)
+    # Hinglish budgets: "500 ke andar", "₹500 se kam", "1000 rupees tak".
+    suffix += re.findall(
+        r"(?:₹\s*|\brs\.?\s*)?\b(\d[\d,]*)\s*(?:rupees?|rs\.?|₹)?\s*(?:ke andar|se kam|tak)\b",
+        normalized,
+    )
     price.extend(("at most", amount) for amount in suffix)
     # Every monetary clause must be understood. A recognized upper bound does
     # not license dropping a second malformed bound, minimum, or foreign unit.

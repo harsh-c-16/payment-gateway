@@ -8,7 +8,7 @@
     retry: ["Idempotency across an uncertain response", "The local gateway discards a real checkout acknowledgement after commit and returns an injected 504. Explicitly retry the original request ID, key and body; verify one purchase, debit and stock commitment."],
     decline: ["Saga compensation", "A run-scoped deterministic simulated decline must cancel the order, release its reservation and restore stock with zero signed net debit."],
     crash: ["Durable recovery after a committed effect", "Orders exits at saga.after_commit: Inventory has committed, but the saga has not saved its next step. Restart and verify that completed effects occur once."],
-    refund: ["Debit followed by compensation", "A successful simulated payment creates one real debit. The scoped saga delay lets the reservation expire before stock commit; normal compensation must release stock and create exactly one matching reversal."],
+    refund: ["Debit followed by compensation", "A successful simulated payment creates one ledger debit. The scoped saga delay lets the reservation expire before stock commit; normal compensation must release stock and create exactly one matching reversal."],
     purchase: ["End-to-end observation", "One confirmed simulated purchase through the real services and active Gold."],
     late: ["Expiry and a delayed callback", "A persisted 35-second payment delay outlives the 30-second reservation. Current saga rules quiesce and cancel the pending callback, release stock and prevent a late debit. Manual review never passes."]
   };

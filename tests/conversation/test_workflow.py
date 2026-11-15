@@ -437,30 +437,42 @@ def test_retry_under_another_key_resolves_all_pending_aliases(workflow, context,
     )
     result = workflow.checkout_cart(created.cart_id, body, context, "second")
     assert workflow.checkout_cart(created.cart_id, body, context, "first") == result
+    # A third transport key for the accepted quote replays the order after the cart emptied.
+    assert workflow.checkout_cart(created.cart_id, body, context, "third") == result
     assert len(provider.accepted) == 1
+    # Acceptance empties the cart, so the same lines cannot be ordered a second time.
+    emptied = workflow.state.get_cart(created.cart_id, context)
+    assert emptied.lines == [] and emptied.version == 2
     assert (
         workflow.state.update_cart(
             created.cart_id,
             "SYN-M-BLUE",
-            CartUpdateRequest(quantity=1, expected_cart_version=1),
+            CartUpdateRequest(quantity=1, expected_cart_version=2),
             context,
             "edit2",
         ).version
-        == 2
+        == 3
     )
 
 
 def test_confirmation_id_cannot_bind_a_different_quote(workflow, context):
     created, quote, body = quoted(workflow, context)
     workflow.checkout_cart(created.cart_id, body, context, "first")
+    workflow.state.update_cart(
+        created.cart_id,
+        "SYN-M-BLUE",
+        CartUpdateRequest(quantity=1, expected_cart_version=2),
+        context,
+        "re-add",
+    )
     new_quote = workflow.request_quote(
-        created.cart_id, CartQuoteRequest(expected_cart_version=1), context, "new-quote"
+        created.cart_id, CartQuoteRequest(expected_cart_version=3), context, "new-quote"
     )
     assert_code(
         "IDEMPOTENCY_CONFLICT",
         lambda: workflow.checkout_cart(
             created.cart_id,
-            body.model_copy(update={"quote_id": new_quote["quote_id"]}),
+            body.model_copy(update={"quote_id": new_quote["quote_id"], "expected_cart_version": 3}),
             context,
             "second",
         ),

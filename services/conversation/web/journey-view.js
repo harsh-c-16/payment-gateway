@@ -3,7 +3,7 @@
   const $=id=>document.getElementById(id),M=root.JourneyModel;
   const n=(tag,text="",cls="")=>{const e=document.createElement(tag);e.textContent=text;e.className=cls;return e;};
   const fmt=value=>M.finite(value) ? value.toLocaleString("en-IN",{maximumFractionDigits:2}) : "Unavailable";
-  const ms=value=>M.finite(value) ? `${fmt(value)} ms` : "Unavailable";
+  const ms=value=>!M.finite(value) ? "Unavailable" : value>=60000 ? `${(value/60000).toFixed(1)} min` : value>=1000 ? `${(value/1000).toFixed(1)} s` : `${fmt(Math.round(value))} ms`;
   const age=value=>M.finite(value) ? `${fmt(value)} s` : "Unavailable";
   const stamp=value=>M.time(value)!==null ? new Date(value).toISOString().replace("T"," ").replace("Z"," UTC") : "Unavailable";
   const short=value=>value ? String(value).slice(0,8)+"…" : "Unavailable";

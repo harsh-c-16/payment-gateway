@@ -5,12 +5,15 @@ const uid = () => crypto.randomUUID();
 const money = (minor, currency = "INR") => new Intl.NumberFormat("en-IN", {style: "currency", currency}).format(minor / 100);
 const text = (tag, value, className = "") => { const n = document.createElement(tag); n.textContent = value; n.className = className; return n; };
 const cache = new Map();
+const categoryLabels = new Map();
+const plural = (n, one, many) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
 let S;
 try { S = JSON.parse(localStorage.getItem("shoptalk-session")) || {}; } catch { S = {}; }
 let retrievalMode = "hybrid_exact";
 let retrievalReady = false;
 let initialized = false;
 let busy = false, offset = 0, pageTotal = 0, chatView = false, orderTimer, pipelineTimer;
+let browseKey = null, browseSeq = 0;
 const save = () => localStorage.setItem("shoptalk-session", JSON.stringify(S));
 const contextHeaders = (requestId = uid()) => ({
   "Content-Type": "application/json", "Accept": "application/json", "X-Namespace": S.namespace,
@@ -18,7 +21,7 @@ const contextHeaders = (requestId = uid()) => ({
   "X-Request-ID": requestId, ...(S.session_id ? {"X-Session-ID": S.session_id} : {}),
 });
 
-class ApiError extends Error { constructor(message, status) { super(message); this.status = status; } }
+class ApiError extends Error { constructor(message, status, code) { super(message); this.status = status; this.code = code; } }
 async function request(path, {method = "GET", body, headers = contextHeaders()} = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), path.endsWith('/shopping-turns') ? 30000 : 12000);
@@ -28,23 +31,29 @@ async function request(path, {method = "GET", body, headers = contextHeaders()} 
     let data;
     try { data = await response.json(); }
     catch { throw new ApiError("The service returned an unreadable response. Please retry.", response.status); }
-    if (!response.ok) throw new ApiError(data.error?.message || `Service returned ${response.status}.`, response.status);
+    if (!response.ok) throw new ApiError(data.error?.message || `Service returned ${response.status}.`, response.status, data.error?.code);
     return data;
   } finally { clearTimeout(timer); }
 }
-function notice(message, error = false) {
+function notice(message, error = false, chat = false) {
   $("notice").hidden = !message;
   $("notice-text").textContent = message;
   $("notice").classList.toggle("error", error);
   $("retry-pending").hidden = !S.pending;
-  $("retry-load").hidden = !error || !!S.pending;
-  $("retry-chat").hidden = !S.failed_search || !!S.pending;
+  // "Try again" reloads the store, so it is only for a failed page load.
+  $("retry-load").hidden = !error || !!S.pending || chat || initialized;
+  $("retry-chat").hidden = !chat || !S.failed_search || !!S.pending;
+  // The cart dialog covers the page, so its errors are repeated inside it.
+  const inCart = $("cart-dialog").open && error;
+  $("cart-notice").hidden = !inCart;
+  $("cart-notice").textContent = inCart ? message : "";
 }
 function setBusy(value) {
   busy = value;
   document.body.classList.toggle("busy", value);
   $("send-chat").disabled = value || !initialized || !retrievalReady;
   $("new-search").disabled = value;
+  $("more-options").disabled = value || !initialized || !retrievalReady || !S.memory?.intent;
   document.querySelectorAll("[data-prompt]").forEach(button => { button.disabled = value || !initialized || !retrievalReady; });
   $("chat-status").hidden = !value && retrievalReady;
   $("chat-status").classList.toggle("error", !value && !retrievalReady);
@@ -58,9 +67,12 @@ const safe = (action) => async (event) => {
   try { await action(event); } catch (error) {
     const message = S.pending ? "We couldn't confirm the result. Choose Retry saved request to safely check again. " + error.message : error.message;
     notice(message, true);
-    $("chat-status").textContent = message;
-    $("chat-status").hidden = false;
-    $("chat-status").classList.add("error");
+    // Only chat actions report into the assistant panel.
+    if (event?.target?.closest?.(".assistant")) {
+      $("chat-status").textContent = message;
+      $("chat-status").hidden = false;
+      $("chat-status").classList.add("error");
+    }
   }
 };
 
@@ -101,20 +113,25 @@ async function executePending() {
       await restoreConversation();
       if (data.outcome === "dependency_error") {
         S.failed_search = operation.body; save();
-        notice((data.response_text || "Search is temporarily unavailable.") + " Your previous results and preferences are kept. Retry this search.", true);
+        notice((data.response_text || "Search is temporarily unavailable.") + " Your previous results and preferences are kept.", true, true);
       } else {
         delete S.failed_search; save();
         $("chat-input").value = "";
         if (data.outcome === "success") showChatProducts(data.products);
       }
     }
-    if (operation.label === "checkout") pollOrder();
+    if (operation.label === "checkout") { pollOrder(); await loadCart().catch(() => {}); }
     renderCart();
     return data;
   } catch (error) {
     if (error.status >= 400 && error.status < 500 && ![408, 429].includes(error.status)) {
       delete S.pending; save();
-      if (error.status === 409) { S.quote = null; await loadCart(); }
+      if (error.status === 409) { S.quote = null; await loadCart().catch(() => {}); }
+    }
+    if (error.status === 409 && ["cart", "quote", "checkout"].includes(operation.label) && error.code !== "ILLEGAL_STATE") {
+      throw new ApiError(error.code === "QUOTE_EXPIRED" ?
+        "Your order summary expired. Select Review order to check the latest prices." :
+        "Your cart changed in another tab or window, so we've loaded the latest version. Please review it again.", 409, error.code);
     }
     throw error;
   } finally { setBusy(false); renderCart(); }
@@ -147,7 +164,7 @@ function renderProducts(products) {
     cache.set(p.sku, p);
     const card = $("product-card").content.cloneNode(true);
     image(card.querySelector("img"), p.image_urls, p.title);
-    card.querySelector(".product-category").textContent = p.category?.replaceAll("_", " ") || "Our catalogue";
+    card.querySelector(".product-category").textContent = categoryLabels.get(p.category) || "";
     card.querySelector(".product-title").textContent = p.title;
     card.querySelector(".product-price").textContent = money(p.price_minor, p.currency);
     card.querySelector(".product-stock").textContent = p.stock_available > 0 ? "Available · rechecked at checkout" : "Currently unavailable";
@@ -165,7 +182,7 @@ function showChatProducts(products) {
   chatView = true;
   S.view = "chat"; save();
   $("results-title").textContent = "Picked for your preferences";
-  $("result-count").textContent = `${products.length} matching ${products.length === 1 ? "product" : "products"}`;
+  $("result-count").textContent = plural(products.length, "matching product", "matching products");
   $("browse-reset").hidden = false; $("pagination").hidden = true;
   renderProducts(products);
 }
@@ -173,20 +190,39 @@ async function browse(reset = true) {
   if (reset) offset = 0;
   chatView = false;
   S.view = "browse"; save();
-  const params = new URLSearchParams({q: $("search").value.trim(), sort: $("sort").value, offset, limit: 12});
+  const query = $("search").value.trim();
+  const fail = (message) => {
+    $("results-title").textContent = query ? `Results for “${query}”` : "Discover something good";
+    $("result-count").textContent = message;
+    renderProducts([]); $("empty").hidden = true; $("pagination").hidden = true;
+    notice(message, true);
+  };
+  if (query.length > 200) return fail("Search text can be up to 200 characters. Please shorten it.");
+  const params = new URLSearchParams({q: query, sort: $("sort").value, offset, limit: 12});
   if ($("category").value) params.set("category", $("category").value);
   if ($("budget").value !== "") {
     const value = Number($("budget").value);
-    if (!Number.isFinite(value) || value < 0) throw new Error("Enter a valid maximum price in rupees.");
+    if (!Number.isFinite(value) || value < 0) return fail("Enter a valid maximum price in rupees.");
+    if (value > 10000000) return fail("Enter a maximum price up to ₹1,00,00,000.");
     params.set("max_price_minor", Math.round(value * 100));
   }
+  // Apply and the field change event can fire together: send one identical request.
+  const key = params.toString();
+  if (key === browseKey) return;
+  browseKey = key;
+  const seq = ++browseSeq;
   $("result-count").textContent = "Finding products…";
-  const page = await request("/v1/store/products?" + params);
+  let page;
+  try { page = await request("/v1/store/products?" + params); }
+  catch (error) { if (seq === browseSeq) fail("We couldn't load products. " + error.message); return; }
+  finally { if (browseKey === key) browseKey = null; }
+  if (seq !== browseSeq) return;
+  if (!S.pending && $("notice").classList.contains("error")) notice("");
   pageTotal = page.total;
-  $("results-title").textContent = $("search").value.trim() ? `Results for “${$("search").value.trim()}”` : "Discover something good";
-  $("result-count").textContent = $("search").value.trim() ?
-    `${page.total} top matches${$("sort").value !== "relevance" ? " · sorted by price" : ""}` :
-    `${page.total.toLocaleString("en-IN")} products`;
+  $("results-title").textContent = query ? `Results for “${query}”` : "Discover something good";
+  $("result-count").textContent = query ?
+    `${plural(page.total, "top match", "top matches")}${$("sort").value !== "relevance" ? " · sorted by price" : ""}` :
+    plural(page.total, "product", "products");
   $("browse-reset").hidden = true;
   renderProducts(page.items);
   $("pagination").hidden = page.total <= 12;
@@ -204,22 +240,31 @@ async function restoreConversation() {
   }
   const scroll = document.querySelector(".chat-scroll");
   if (scroll) scroll.scrollTop = scroll.scrollHeight;
-  const intent = S.memory.intent;
-  $("preferences-panel").hidden = !intent;
-  if (intent) {
-    const values = [intent.query_text, ...["category", "colour", "material", "brand", "size"].filter(k => intent[k]).map(k => `${k}: ${intent[k]}`)];
-    if (intent.max_price_minor !== null && intent.max_price_minor !== undefined) values.push(`maximum ${money(intent.max_price_minor)}`);
-    $("preferences").textContent = "Remembered preferences: " + values.filter(Boolean).join(" · ");
-  }
+  renderPreferences();
   for (const p of S.memory.products || []) cache.set(p.sku, p);
+  setBusy(busy);
+}
+function renderPreferences() {
+  const intent = S.memory?.intent;
+  const values = intent ? [intent.query_text, ...["category", "colour", "material", "brand", "size"].filter(k => intent[k])
+    .map(k => `${k}: ${k === "category" ? categoryLabels.get(intent[k]) || intent[k] : intent[k]}`)] : [];
+  if (intent && intent.max_price_minor !== null && intent.max_price_minor !== undefined) values.push(`maximum ${money(intent.max_price_minor)}`);
+  const shown = values.filter(Boolean);
+  $("preferences-panel").hidden = !shown.length;
+  $("preferences").textContent = shown.length ? "Remembered preferences: " + shown.join(" · ") : "";
 }
 async function sendChat(value, selectedSku, assistantMode = "assist") {
   if (!value.trim() || busy) return;
   if (!initialized || !S.session_id) throw new Error("The store is still connecting. Please try again in a moment.");
+  if (value.trim().length > 2000) throw new Error("Messages can be up to 2,000 characters. Please shorten yours.");
+  // New search stays requested even if the shopper replaces the "New search:" text.
+  let message = value.trim();
+  if (S.new_search && !/^new search\b/i.test(message)) message = "New search: " + message;
   await mutate("chat", `/v1/sessions/${S.session_id}/shopping-turns`, {
-    text: value.trim(), mode: assistantMode, retrieval_mode: retrievalMode,
+    text: message.slice(0, 2000), mode: assistantMode, retrieval_mode: retrievalMode,
     ...(selectedSku ? {selected_sku: selectedSku} : {}),
   });
+  delete S.new_search; save();
 }
 async function showProduct(sku) {
   const response = await request("/v1/store/products/" + encodeURIComponent(sku));
@@ -230,7 +275,7 @@ async function showProduct(sku) {
   const heading = text("h2", p.title); heading.id = "product-title";
   detail.append(picture, heading, text("p", p.price_minor === null ? "Not currently sellable" : money(p.price_minor), "product-price"));
   const facts = document.createElement("dl");
-  for (const [label, value] of [["Brand", p.brand], ["Category", p.category], ["Colour", p.colour], ["Material", p.material], ["Size", p.size], ["Available", stock?.available], ["SKU", p.sku]]) {
+  for (const [label, value] of [["Brand", p.brand], ["Category", categoryLabels.get(p.category) || p.category], ["Colour", p.colour], ["Material", p.material], ["Size", p.size], ["Available", stock?.available], ["SKU", p.sku]]) {
     facts.append(text("dt", label), text("dd", value === null || value === undefined ? "Not recorded" : String(value)));
   }
   detail.append(facts, text("p", p.description || "No description was provided for this listing.", "muted"));
@@ -245,6 +290,16 @@ async function loadCart() {
   S.cart = await request(`/v1/carts/${S.cart_id}`);
   if (S.quote && S.quote.cart_version !== S.cart.version) S.quote = null;
   save(); renderCart();
+  // After a reload the product cache is empty: look up names instead of showing SKUs.
+  const unnamed = S.cart.lines.map(line => line.sku).filter(sku => !cache.get(sku)?.title);
+  if (!unnamed.length) return;
+  await Promise.all(unnamed.map(async sku => {
+    try {
+      const r = await request("/v1/store/products/" + encodeURIComponent(sku));
+      cache.set(sku, {...r.product, stock_available: r.stock?.available || 0});
+    } catch { /* The SKU stays visible if the catalogue is unreachable. */ }
+  }));
+  renderCart();
 }
 async function addToCart(sku) {
   await loadCart();
@@ -305,8 +360,10 @@ function renderOrder() {
   if (!S.order_id) return;
   const box = text("div", "", "order-box"), status = S.order?.status || "PENDING";
   const titles = {CONFIRMED:"Order confirmed", CANCELLED:"Order cancelled", MANUAL_REVIEW:"Order needs attention"};
-  box.append(text("h3", titles[status] || "Placing your order"), text("p", `Order ${S.order_id}`, "quote-meta"));
-  const explanation = {CONFIRMED: "Your demo order has been placed. You're all set!", CANCELLED: "We couldn't complete this order. You can review your cart and try again.", MANUAL_REVIEW: "We're checking a problem with this order. Please keep this order number and avoid placing it again."};
+  // Once new items are in the cart, the finished order is shown as the previous one.
+  const previous = S.cart?.lines.length && titles[status];
+  box.append(text("h3", previous ? `Previous order · ${titles[status].replace("Order ", "")}` : titles[status] || "Placing your order"), text("p", `Order ${S.order_id}`, "quote-meta"));
+  const explanation = {CONFIRMED: "Your demo order has been placed. You're all set!", CANCELLED: "We couldn't complete this order, and nothing was charged. Add the product to your cart again to place a new order.", MANUAL_REVIEW: "We're checking a problem with this order. Please keep this order number and avoid placing it again."};
   box.append(text("p", explanation[status] || "We're checking stock and processing your demo order. This page updates automatically."));
   if (S.order?.total_amount_minor !== undefined) box.append(text("p", `Order total ${money(S.order.total_amount_minor, S.order.currency)}`));
   const details = document.createElement("details");
@@ -365,6 +422,8 @@ async function boot() {
     await loadCart(); await restoreConversation();
   }
   const facets = await request("/v1/store/facets");
+  for (const root of facets.roots) categoryLabels.set(root.id, root.label);
+  renderPreferences();
   $("category").replaceChildren(new Option("All categories", "")); $("category-chips").replaceChildren();
   for (const root of facets.roots) $("category").append(new Option(root.label, root.id));
   for (const root of facets.roots.slice(0, 6)) {
@@ -420,7 +479,13 @@ $("chat-input").addEventListener("keydown", (event) => {
   }
 });
 document.querySelectorAll("[data-prompt]").forEach(b => b.addEventListener("click", safe(() => sendChat(b.dataset.prompt))));
-$("new-search").addEventListener("click", () => { $("chat-input").value = "New search: "; $("chat-input").focus(); });
+$("new-search").addEventListener("click", () => {
+  // The "New search:" prefix makes the server start from blank preferences.
+  $("chat-input").value = "New search: "; $("chat-input").focus();
+  $("preferences-panel").hidden = true;
+  S.new_search = true; save();
+});
+$("more-options").addEventListener("click", safe(() => sendChat("Show more options")));
 $("cart-open").addEventListener("click", safe(async () => { await loadCart(); $("cart-dialog").showModal(); }));
 document.querySelectorAll("[data-close]").forEach(b => b.addEventListener("click", () => $(b.dataset.close).close()));
 $("request-quote").addEventListener("click", safe(() => mutate("quote", `/v1/carts/${S.cart_id}/quote`, {expected_cart_version: S.cart.version})));
