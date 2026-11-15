@@ -27,6 +27,14 @@
   const make=(tag,text="",cls="")=>{const e=document.createElement(tag);e.textContent=text;e.className=cls;return e;};
   const stamp=value=>new Date(value).toLocaleTimeString("en-IN",{hour12:false});
   const valueText=v=>v===null || v===undefined ? "Unavailable" : typeof v==="object" ? JSON.stringify(v) : String(v);
+  function checkValue(value,name) {
+    if(value===null || value===undefined)return "Unavailable";
+    if(typeof value==="number" && /amount/i.test(name))return `INR ${(value/100).toFixed(2)}`;
+    if(Array.isArray(value))return `${value.length} record${value.length===1 ? "" : "s"}`;
+    if(typeof value==="object")return "Recorded fields (expand below)";
+    if(typeof value==="string" && /^[0-9a-f-]{36}$/i.test(value))return value.slice(0,8)+"…";
+    return valueText(value);
+  }
   const error=text=>{el("error").hidden=!text;el("error").textContent=text || "";};
   async function api(path,body) {
     const response=await fetch(endpoint+path,{method:body===undefined ? "GET" : "POST",headers:body===undefined ? {Accept:"application/json"} : {"Content-Type":"application/json"},
@@ -60,6 +68,7 @@
     el("next").hidden=connected && !busy && !live && !r?.fault_active;
     el("next").textContent=!connected ? "Connecting automatically. Test controls become available when the local helper is ready." : busy ? "Waiting for the controller..." : r?.test_running ? "Test running. Follow the log below." : r?.fault_active && !live ? "The run has ended with a fault still active. Resume processing to clear it before another test." : !live ? (automated ? "Approve one simulated checkout and click Prepare test. Baseline capture, fault injection, checkout and recovery run automatically." : "Click Prepare test to capture the cart baseline and pause analytics. Then place one order in the store.") : !r.triggered ? automated ? "This test has a saved baseline. Approve one simulated checkout and click Prepare test to continue it." : "Click Prepare test to pause analytics, then place one order in the store." : !automated && !r.order_id ? "Place the order in the store, then click Watch order. The saved order ID is used automatically; enter an ID only if needed." : r.fault_active ? "Inspect the order and Gold state, then resume processing." : "Processing is restored. Click Verify recovery to reconcile the order, stock, ledger and active Gold.";
     const workspace=el("run-title").closest(".failure-workspace");workspace.hidden=!selected;
+    workspace.querySelector('a[href="/"]').hidden=automated;
     el("observations").hidden=!selected;
     el("prepared-product").hidden=!selected || !live || !r?.product;
     renderEvidence(selected ? r : null);
@@ -67,42 +76,48 @@
   }
   function fact(label,value,cls="") {const e=make("div","",cls);e.append(make("span",label),make("strong",value));el("facts").append(e);}
   function renderEvidence(run) {
-    const rows=window.FailureEvidence.executionLog(run),signature=JSON.stringify([run?.id,rows]);
-    el("log-scope").textContent=run ? `${run.status==="Pending" ? "Live" : "Saved result"} / run ${run.id} / ${rows.length} entries. Actions and API observations are timestamped in UTC; service-record timestamps are marked. Sampling can miss intermediate states.` : "Prepare a test to capture a baseline, then run it to see fault injection, service observations and recovery here.";
+    const rows=window.FailureEvidence.presentationLog(run),signature=JSON.stringify([run?.id,rows]);
+    el("log-scope").textContent=run ? `${run.status==="Pending" ? "Live test" : "Saved test result"} · ${rows.length} meaningful changes · local time. API states are sampled; intermediate states may be missed. Expand a row for identifiers.` : "Run a test to see the fault, order transitions, compensation and Gold reconciliation.";
     if(signature!==logSignature){
       const log=el("journal"),bottom=log.scrollHeight-log.scrollTop-log.clientHeight<40,top=log.scrollTop;
       const opened=new Set([...log.querySelectorAll("details[open]")].map(d=>d.dataset.entryId));
       log.replaceChildren();
       if(!run)log.append(make("li","Choose a scenario and click Prepare test. No fault or purchase has been submitted.","empty"));
       for(const row of rows){
-        const li=make("li","",`execution-entry ${row.basis}`),time=make("time",Number.isFinite(Date.parse(row.at)) ? new Date(row.at).toISOString().replace("T"," ").replace("Z"," UTC") : "Time unavailable");
-        if(row.at)time.dateTime=row.at;
+        const li=make("li","",`execution-entry ${row.basis}`),time=make("time",Number.isFinite(Date.parse(row.at)) ? stamp(row.at) : "No time");
+        if(row.at){time.dateTime=row.at;time.title=new Date(row.at).toISOString();}
         li.append(time,make("strong",row.source),make("span",row.message));
         const detailKeys=Object.keys(row.details).filter(k=>row.details[k]!==undefined && row.details[k]!==null);
         if(detailKeys.length || row.basis==="service_record"){
           const detail=make("details"),key=`${row.at}/${row.source}/${row.message}`;detail.dataset.entryId=key;detail.open=opened.has(key);
-          detail.append(make("summary",row.basis==="service_record" ? "Service record / IDs and values" : "IDs and observed fields"),make("pre",JSON.stringify(row.details,null,2)));li.append(detail);
+          detail.append(make("summary",row.basis==="service_record" ? "Ledger / checkpoint evidence" : "Technical details"),make("pre",JSON.stringify(row.details,null,2)));li.append(detail);
         }
         log.append(li);
       }
-      if(bottom)log.scrollTop=log.scrollHeight;else log.scrollTop=top;
+      if(bottom && run?.status==="Pending")log.scrollTop=log.scrollHeight;
+      else log.scrollTop=signature!==logSignature && !logSignature ? 0 : top;
       logSignature=signature;
     }
     el("checks").replaceChildren();
     if(!run?.checks?.length)el("checks").append(make("div",run?.status==="Pending" ? "Waiting for observation and recovery. Checks will compare the actual order, stock, ledger and Gold with the expected result." : "Checks appear after the selected test runs.","empty"));
     for(const c of run?.checks || []){
       const row=make("div","",`failure-check ${c.passed===true ? "pass" : c.passed===false ? "fail" : "pending"}`);
-      row.append(make("span",c.passed===true ? "PASS" : c.passed===false ? "FAIL" : "WAIT"),make("strong",c.name),make("small",`Expected ${valueText(c.expected)} / observed ${valueText(c.observed)}`));el("checks").append(row);
+      const expected=checkValue(c.expected,c.name),observed=checkValue(c.observed,c.name);
+      row.append(make("span",c.passed===true ? "PASS" : c.passed===false ? "FAIL" : "WAIT"),make("strong",c.name),make("small",`Expected ${expected} / observed ${observed}`));
+      if(expected!==valueText(c.expected) || observed!==valueText(c.observed)){
+        const detail=make("details");detail.append(make("summary","Exact values"),make("pre",JSON.stringify({expected:c.expected,observed:c.observed},null,2)));row.append(detail);
+      }
+      el("checks").append(row);
     }
   }
   function render(data) {
     current=data;const r=data.run;
     el("connection").textContent=`Local controller connected · namespace ${data.namespace} · observed ${stamp(data.observed_at)} · independent 2-second sampling while active`;
     el("connect").textContent="Refresh controller";
-    if(first && r && (r.status==="Pending" || r.fault_active)){el("scenario").value=r.scenario;el("mode").value=r.mode;selection();}first=false;
+    if(first && r && (!requestedScenario || r.status==="Pending" || r.fault_active)){el("scenario").value=r.scenario;el("mode").value=r.mode;selection();}first=false;
     if(r){
       el("status").textContent=r.status;el("status").className=`badge ${r.status==="Passed" ? "" : "warning"} ${r.status==="Failed" ? "failed" : ""}`;
-      el("run-title").textContent=data.scenarios[r.scenario];el("run-scope").textContent=`${r.mode==="manual" ? "LIVE MANUAL DEMO" : "AUTOMATED TEST · SCRIPTED SIMULATED PURCHASE"} · Run ${r.id} · ${r.completed_at ? "Completed "+stamp(r.completed_at)+" · retained evidence" : "Started "+stamp(r.started_at)}`;
+      el("run-title").textContent=data.scenarios[r.scenario];el("run-scope").textContent=`${r.mode==="manual" ? "Manual store checkout" : "Automated simulated order"} · ${r.completed_at ? "Saved result · "+new Date(r.completed_at).toLocaleString() : "Started "+stamp(r.started_at)}`;el("run-scope").title=`Run ${r.id}`;
       el("message").textContent=r.message;el("message").classList.toggle("failure-success",r.status==="Passed");
       const stages=["Prepare","Trigger","Observe","Recover","Verify"],reached=new Set(r.events.map(e=>e.phase));
       [...el("steps").children].forEach((li,i)=>{li.classList.toggle("reached",reached.has(stages[i]));li.classList.toggle("current",r.phase===stages[i]);});
@@ -111,10 +126,8 @@
       fact("Analytics read API",s?.analytics_api_ready===true ? "Ready" : s?.analytics_api_ready===false ? "Unavailable" : "Not measured");
       fact("Order",r.order ? `${r.order.status} · v${r.order.order_version}` : r.checkpoint ? "Process stopped at checkpoint" : "Awaiting selection");
       fact("Exact Gold",p ? p.status==="visible" ? `Matched · generation ${p.generation}` : p.status : "Not measured");
-      if(r.checkout) fact("Request / idempotency key",`${r.checkout.request_id} / ${r.checkout.key}`,"failure-wide mono");
       if(r.checkpoint) fact("Exercised checkpoint",`${r.checkpoint.checkpoint} · exit ${r.checkpoint.exit_code}`,"failure-wide");
       fact("Fault state",r.fault_active ? "Active · recovery required" : r.recovered ? "Recovered · controls cleared" : "Not armed");
-      fact("Samples / bounds",`${r.samples.length} / ${r.limits.max_samples} · ${r.limits.run_seconds}s limit`);
       if(document.activeElement!==el("order-id") && r.order_id) el("order-id").value=r.order_id;
       el("prepared-product").hidden=!r.product;
       if(r.product) el("prepared-product").replaceChildren(make("strong",r.product.title),make("span",`${r.product.sku} · ${currency(r.product.price_minor)} · quantity 1`));

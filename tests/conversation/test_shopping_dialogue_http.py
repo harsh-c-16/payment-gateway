@@ -85,6 +85,8 @@ def test_llm_conversation_uses_history_tools_and_replay_without_purchase(convers
     )
     vague, _, _ = say(shop, "I need a gift under 1000 rupees", mode="assist")
     assert vague["outcome"] == "clarification" and vague["llm_call_count"] == 1
+    assert "What kind of product would you like:" in vague["response_text"]
+    assert any(root["label"] in vague["response_text"] for root in provider.facets["roots"])
     timing = vague["timings_ms"]
     assert sum(timing[k] or 0 for k in ("parse", "llm", "search", "compose")) <= timing["total"]
     plans.append(("search_catalog", {"query": "shirt", "filters": {"colour": "blue"}}))
@@ -167,3 +169,54 @@ def test_unsupported_features_never_become_unfiltered_product_claims(conversatio
     assert result["outcome"] == "clarification" and result["llm_call_count"] == 1
     assert "not reliably recorded" in result["response_text"]
     assert shop[3].count("/v1/search") == 0 and len(calls) == 1
+
+
+@pytest.mark.parametrize("prefix", ["New search:", "Start over:", "Start again:"])
+def test_new_search_clears_memory_before_model_call_and_preserves_cart(conversation, prefix):
+    shop, calls, plans = conversation
+    client, headers, session, _ = shop
+    before = client.get(f"/v1/sessions/{session}", headers=headers).json()
+    plans.append(("search_catalog", {"query": "watches", "filters": {"max_price_minor": 99999}}))
+    first, _, _ = say(shop, "watches under 1000 rupees", mode="assist")
+    assert first["products"]
+    plans.append(("ask_question", {"question": "What kind of gift would you like?"}))
+    result, replay_headers, body = say(shop, prefix + " I need a gift", mode="assist")
+    prompt = json.loads(calls[-1]["contents"][0]["parts"][0]["text"])
+    assert prompt["history"] == []
+    assert prompt["preferences"] is None
+    assert prompt["pending"] == [] and prompt["displayed_products"] == []
+    assert prompt["selected_sku"] is None
+    assert result["outcome"] == "clarification" and result["llm_call_count"] == 1
+    after = client.get(f"/v1/sessions/{session}", headers=headers).json()
+    assert after["cart_id"] == before["cart_id"]
+    assert len(after["conversation"]["messages"]) == 2
+    assert after["conversation"]["intent"]["max_price_minor"] is None
+    assert after["conversation"]["products"] == []
+    replay = client.post(
+        f"/v1/sessions/{session}/shopping-turns", headers=replay_headers, json=body
+    )
+    assert replay.json() == result
+    assert len(calls) == 2
+
+
+@pytest.mark.parametrize("followup", [
+    "can we have it in black color", "can i get in black color only",
+    "color only black", "only black colour please",
+])
+def test_postfix_black_color_refines_footwear_without_losing_budget(conversation, followup):
+    shop, calls, plans = conversation
+    # Explicit fixture vocabulary supports footwear; synthetic hits remain
+    # clothing-only, so a correctly filtered search returns no products.
+    shop[3].facets["roots"].append({"id": "footwear", "label": "Footwear"})
+    plans.append(("search_catalog", {"filters": {"category": "footwear"}}))
+    first, _, _ = say(shop, "footwear under 1500rs", mode="assist")
+    assert first["outcome"] == "success"
+    assert first["intent"]["max_price_minor"] == 149999
+    plans.append(("search_catalog", {"query": "footwear", "filters": {"colour": "black"}}))
+    result, _, _ = say(shop, followup, mode="assist")
+    assert result["outcome"] == "success"
+    assert result["intent"]["colour"] == "black"
+    assert result["intent"]["category"] == "footwear"
+    assert result["intent"]["max_price_minor"] == first["intent"]["max_price_minor"]
+    assert result["products"] == []
+    assert shop[3].count("/v1/search") == 2 and len(calls) == 2

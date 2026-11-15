@@ -8,6 +8,49 @@ from services.conversation.intent import extract_intent
 from .workflow_doubles import WorkflowProviderDouble
 
 
+@pytest.mark.parametrize("text", [
+    "can we have it in black color", "can we have it in black colour?",
+    "black color please", "color black", "colour: black",
+])
+def test_colour_value_before_or_after_cue_is_not_missing(text):
+    result = extract_intent(text, None, WorkflowProviderDouble().facets)
+    assert result.intent["colour"] == "black"
+    assert "colour" not in result.missing_fields
+
+
+@pytest.mark.parametrize("cue", ["color", "colour"])
+@pytest.mark.parametrize("value", ["black", "blue", "grey"])
+@pytest.mark.parametrize("pattern", [
+    "can i get in {value} {cue} only", "{cue} {value} only",
+    "{cue} only {value}", "only {value} {cue} please",
+])
+def test_facet_focus_words_work_in_both_orders(cue, value, pattern):
+    result = extract_intent(
+        pattern.format(cue=cue, value=value), None, WorkflowProviderDouble().facets
+    )
+    assert result.intent["colour"] == value
+    assert "colour" not in result.missing_fields
+
+
+@pytest.mark.parametrize(
+    "text", [
+        "red black color", "black color ultraviolet", "color ultraviolet",
+        "red black color only", "black color ultraviolet only", "color only ultraviolet",
+    ]
+)
+def test_colour_cue_still_rejects_conflicting_or_unknown_values(text):
+    dictionary = WorkflowProviderDouble().facets
+    dictionary["colours"] = list(dict.fromkeys([*dictionary["colours"], "red", "black"]))
+    result = extract_intent(text, None, dictionary)
+    assert "colour" in result.missing_fields
+
+
+@pytest.mark.parametrize("text", ["not black color only", "black or blue color only"])
+def test_focus_words_do_not_hide_negation_or_alternatives(text):
+    result = extract_intent(text, None, WorkflowProviderDouble().facets)
+    assert "constraints" in result.missing_fields
+
+
 def test_phrase_matching_keeps_compounds_and_boundaries_without_scanning_absent_regexes(
     monkeypatch,
 ):

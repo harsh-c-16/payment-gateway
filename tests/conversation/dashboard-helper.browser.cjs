@@ -37,7 +37,7 @@ fs.mkdirSync(out,{recursive:true});
     await page.waitForFunction(()=>!document.getElementById('failure-consent').disabled);
     assert(await page.locator('#failure-prepare').isDisabled());
     assert(await page.locator('#failure-prepared-product').isHidden(),'A finished unrelated run must not show a prepared product');
-    const infraPanel=page.locator('details').filter({has:page.locator('summary', {hasText:'CPU, memory and Kafka queue details'})}).first();
+    const infraPanel=page.locator('#pipeline-status');
     await infraPanel.evaluate(e=>e.open=true);
     // A later real snapshot supplies a CPU delta instead of a fabricated first value.
     await page.waitForFunction(()=>[...document.querySelectorAll('#infra-resources tr')].every(r=>!r.textContent.includes('warming up')),{timeout:30000});

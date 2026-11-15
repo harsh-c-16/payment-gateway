@@ -29,6 +29,7 @@ def test_vague_request_asks_before_search_and_accepts_subject_later(dictionary):
     assert first.result.outcome == "clarification_required"
     assert "query_text" in first.result.missing_fields
     assert "What kind of product" in first.question
+    assert any(root["label"] in first.question for root in dictionary["roots"])
     pending = ShoppingMemory(intent=first.result.intent, pending=first.result.missing_fields)
     second = resolve("watches", pending, dictionary)
     assert second.result.outcome == "valid"

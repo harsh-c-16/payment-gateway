@@ -5610,3 +5610,193 @@ gating, a single visible select, collapsed manual mode, desktop/mobile widths,
 zero controller mutation requests and zero JS errors. Evidence:
 artifacts/simple-failure-controls/1794749625209. JS syntax and diff checks passed.
 No extra simulated purchases, load tests or commit/push. Services remain running.
+
+## 15 November 2026 - current product image host and category choices
+
+Storefront maps only the exact legacy img5a.flixcart.com/img6a.flixcart.com image
+hosts to HTTPS rukminim2.flixcart.com, preserving the image path/query. Original
+catalogue URLs/data remain as imported. Invalid schemes/credential URLs are still
+rejected. Failed/timed-out photos now try the next distinct product photo (bounded
+to four candidates), then use the local placeholder. Updated store asset version.
+Three real legacy CSV image paths returned HTTP 200 image/jpeg on the new host.
+
+For vague unknown-subject clarification, both fixed and AI dialogue render a
+short plain-text choice question using actual catalogue root labels. Preferred
+choices are Clothing, Footwear, Watches and Jewellery where those roots exist;
+small dictionaries use only their supported labels. Known-category/other-slot
+clarifications remain targeted. Updated the single-call prompt and revision; no
+extra generative call is made to compose the category list.
+
+Checks: shopping/rules/model suite initially 41 passed with five DB checks skipped
+because the test URL was unset. Loaded only the retained Conversation test binding
+without printing it and reran all five dialogue HTTP tests: five passed, real
+PostgreSQL isolated schemas and explicit provider/catalogue doubles. Node storefront
+suite: 14 passed, including host rewrite and next-photo/placeholder fallback. Ruff,
+JS syntax and whitespace checks passed. Existing Starlette warning and a pytest
+cache permission warning were observed; DB checks reran with cache disabled.
+
+Restarted only Conversation to load the new dialogue code. Real Edge verification
+loaded ten product images, no remaining legacy-host img sources, no JS errors.
+Real Gemini vague turn used exactly one LLM call and replied: What kind of product
+would you like: Clothing, Footwear, Watches or Jewellery? Evidence and screenshot:
+artifacts/images-categories/1794750745152. No cart or checkout action, no load test
+or commit/push. Prototype/helper remain running.
+
+## 15 November 2026 - New search clears model and visible context
+
+Inspected recent Conversation access logs and a read-only M1 session snapshot.
+The user's New search message was still in a 14-message conversation and its
+vague sister/gift request returned watches from previous context. The old reset
+only cleared merged filters after provider planning; prompt history/products
+remained available to the model. New search now creates fresh ShoppingMemory
+before model planning (also fixed mode), preserving only retrieval mode. Explicit
+New search / Start over / Start again reset messages, preferences, pending slots,
+displayed products, seen IDs and selected product. Cart/session identity and
+recorded turn/idempotency evidence remain intact. Normal follow-ups retain context.
+
+The New search button clears visible messages/preferences immediately and keeps
+that empty view across reload until the new request completes. An accepted fresh
+response clears the pending reset flag before restoring its new two-message
+history. Existing pending mutation identity is preserved; selected old products
+are ignored during a reset. Store asset version updated; restarted Conversation.
+
+Added PostgreSQL/provider-spy regression cases for all three reset prefixes:
+provider receives empty history/preferences/products, old budget is absent,
+new conversation has two messages, cart unchanged and exact replay adds no call.
+Rules plus dialogue checks: 25 passed. Model plus dialogue checks: 32 passed.
+Storefront Node checks: 14 passed; Ruff/JS/diff checks passed. Existing deprecation
+warning only on the DB-enabled suite.
+
+Initial live attempts exposed another issue: Gemini appended category choices
+after a question and ended with a period, failing the existing question validator.
+Retained a safe plan diagnostic at artifacts/new-search/plan-diagnostic.json.
+Prompt revision v3 tells Gemini to return the single canonical category question;
+the application already renders real catalogue choices. Validation and one-call
+limits were not relaxed. Failed real responses remain in their turn records and
+the second browser attempt's artifacts. Final real Gemini/Edge check passed:
+watch search, immediate clear, reload still empty, fresh sister/gift query returns
+Clothing/Footwear/Watches/Jewellery, one LLM call, no old budget/products and same
+cart/session. Evidence: artifacts/new-search/1794751454666. No purchases or push.
+
+## 15 November 2026 - black color follow-up
+
+The deterministic parser recognized black implicitly but treated the trailing
+color/colour cue as an unanswered prefix constraint. It consequently marked
+colour missing and overrode the correct model refinement with a redundant question.
+Recognize a recorded colour immediately before a trailing color/colour cue, with
+optional question punctuation/please/thanks. Unknown cued values and conflicting
+recorded colours still require clarification. Category and budget remain in memory.
+
+The exact live reproduction also found that a valid category-only model search
+plan could leave query_text empty after a vague category question. Use the chosen
+validated category label as query text in that case. The currency parser now accepts
+the user's compact 1500rs spelling and preserves strict under semantics: 149999
+minor units. No extra model call or relaxation of hard filters.
+
+Tests include both cue orders/spellings, unknown/conflicting colours, and a real
+PostgreSQL dialogue with explicit provider doubles: footwear selection from an
+empty-query plan, compact budget, then black refinement with category/budget intact.
+The footwear fixture root is declared explicitly; its clothing-only synthetic
+hits are correctly excluded. Final rules/shopping/dialogue suite: 75 passed;
+Ruff and diff checks passed. Existing Starlette deprecation warning only.
+
+Restarted Conversation and reran the user's exact three-turn flow with real
+Gemini and real catalogue retrieval in Edge. Final response returned five black
+footwear products, every hit below INR 1500, without asking for colour again.
+Evidence: artifacts/colour-followup/1794751917413. Earlier failed live reproduction
+retained separately and exposed the empty-query issue described above. No checkout,
+load test or commit/push. Prototype/helper remain running.
+
+## 15 November 2026 - filter emphasis grammar
+
+The latest user turn's saved intent already contained colour=black, footwear and
+149999 budget, but the additional deterministic grammar still marked colour missing
+for the suffix 'color only'. The previous postfix correction was too narrow.
+Normalize complete emphasis/politeness tokens only/please/thanks to spaces during
+facet grammar parsing, preserving offsets and leaving the original query and
+negation/disjunction/unknown values intact. This applies across supported facet
+cues and handles both colour cue orders without matching complete user sentences.
+
+Added spelling/value/order combinations and PostgreSQL/provider-spy dialogue
+regressions; also retained checks for unknown colours, conflicts, negation and
+alternatives with emphasis words. Final rules/shopping/dialogue suite: 107 passed,
+one existing Starlette warning. Ruff and diff checks passed. Restarted Conversation.
+Real Gemini + Edge exact user reproduction, including 'footwaer under 1500rs' and
+'can i get in black color only', passed with one LLM call per turn and five actual
+black footwear hits under INR 1500. Evidence: artifacts/colour-focus/1794752565587.
+No purchases, load-test changes or push. Services remain running.
+
+## 15 November 2026 - requested SKU colour correction in CSV
+
+User explicitly requested editing the source colour for FK-SHOEAPCYWEAFSFU5
+(Bonzer Boots). Located one matching row in each identical CSV copy: repository
+root and data/raw/flipkart_com-ecommerce_sample.csv. Changed the Color specification
+from Black to White only. Preserved original bytes/quoting for every other field.
+Compared parsed cells against the retained original: 20000 rows, exactly one
+changed cell per file (CSV record 186, product_specifications). Both edited copies
+have SHA256 ee268fd4222dd68ea8429016b3ee044418aecffc89551a1409a2c4da063df466.
+Original snapshot and change receipt retained at
+artifacts/catalogue-edits/20261115T143323Z. This is an explicit source-data edit;
+no product API/database mutation, reimport, dataset revision/checksum rewrite,
+benchmark evidence change or commit/push was performed. The running website
+continues to use its previously imported catalogue until separately synchronized.
+
+
+## 15 November 2026 - presentation dashboard cleanup
+
+User requested a demo-ready technical dashboard with analytics first, readable graphs,
+and only interpretable execution logs. Updated M1 dashboard.html/dashboard.js,
+dashboard-observability.js/infrastructure.js, failure-demo.js/failure-evidence.js;
+added dashboard-demo.css and dashboard-presentation.js. The store and Journey layout
+are unchanged. No commit or push requested/performed.
+
+Main page now has eight scoped metrics (published events, event-time rate, chat p95,
+retrieval p95, LLM attempts, dependency-error rate, event-to-Gold p95, committed lag)
+and four visible graphs. Resource tables, partition offsets, order summaries,
+retained measurements, scheduled fixtures and data-quality evidence remain accessible
+in disclosures. Existing single Prepare test control, consent, manual mode, recovery,
+verification, downloads and all six scenarios are preserved. Successful saved results
+are identified as saved rather than live tests. IDs and exact check values are expandable;
+log amounts display INR instead of unexplained minor units. Consecutive equivalent Gold
+samples are collapsed without hiding a later regression or unavailable observation.
+
+Measurement corrections: dashboard.py exposes whether a retrieval attempt ran (including
+failed calls with measured duration), its call count and saved failure reason. Main
+pipeline latency uses all observed events created within the last hour, including pending
+IDs in completion counts, and qualified completed timings for nearest-rank quantiles.
+Full retained history remains available in supporting evidence. The older panel mixed
+prior-day stock initialization with current traffic (~25-minute p95); the new fixed time
+window is explicitly labelled, not an outcome-dependent filter. Throughput is labelled
+as unique events per event-time minute in active Gold; the card averages up to five
+completed minutes. It is not processing capacity. Chat and retrieval are separate from
+event creation-to-Gold; uninstrumented pre-event HTTP time is not claimed. Export includes
+these definitions, denominators, source bounds, clock qualification, infrastructure and
+stale-source status. Missing data stays unavailable, and helper outages visibly mark
+stale metrics and break lag history.
+
+Validation (Windows Desktop, existing running services):
+- P6_TEST_DATABASE_URL bound privately to retained M1 PostgreSQL, then
+  .venv/Scripts/python.exe -m pytest tests/conversation/test_dashboard.py -q -p no:cacheprovider
+  -> 8 passed; explicit owner HTTP doubles, real isolated M1 storage. Existing
+  Starlette/httpx deprecation warning only. Includes a timed failed retrieval case.
+- node --test tests/conversation/dashboard-presentation.test.cjs tests/conversation/failure-evidence.test.cjs
+  -> 16 passed. Tests missing vs zero, partial-minute exclusion, retrieval denominators,
+  fixed time-window/pending membership, monetary formatting and Gold regressions.
+- RUN_DASHBOARD_BROWSER_LIVE=1 and DASHBOARD_SESSION_FILE=artifacts/dashboard-demo/session.json;
+  node tests/conversation/dashboard-presentation.browser.cjs -> PASS with real user's
+  retained session, all four graphs, eight metrics, six scenario selections/consent,
+  saved real retry result, JSON download, 1440/1067/760/390px layouts, no overflow or JS
+  errors, and explicit browser-only infrastructure disconnect/reconnect. No mutations.
+  Final evidence: artifacts/dashboard-demo/1794755439526 (screenshots, checks, export).
+- RUN_DASHBOARD_BROWSER_LIVE=1 node tests/conversation/dashboard-helper.browser.cjs -> PASS;
+  two initial browser-only connection failures and one explicit partial-lag UI projection;
+  artifact artifacts/dashboard-helper-browser/1794755338685. Updated selector for the
+  renamed resource disclosure; no service fault or purchase. Existing live failure
+  runner's Gold log expectation updated for the clearer wording; it was not rerun.
+- node --check on changed entry scripts and git diff --check passed.
+
+Restarted Conversation to load the dashboard read projection; all other services and
+helper were kept available. No load test, new purchase or fault injected by this task.
+Manual presentation: Ctrl+F5 /dashboard in the same browser as the store; search in the
+store to update session timings; explain the four graphs; expand Failure & recovery lab,
+choose a test and authorize one simulated order only when ready to demonstrate it.
