@@ -37,6 +37,13 @@ failures, each measured against a baseline.
 - **Observable and testable.** A live pipeline dashboard, a data-journey view that traces one order
   or search through every stage, and a failure lab that injects real faults and verifies recovery.
 
+## Presentation
+
+Final presentation (27 slides): architecture, data model, measured trade-offs, failure handling,
+load results and the live demo plan.
+
+- Slides (Google Drive): [ShopTalk presentation](https://drive.google.com/file/d/1Qyk_5FONmC54aBms02W3y3uigIminpNY/view?usp=sharing)
+
 ## Architecture
 
 ```mermaid
